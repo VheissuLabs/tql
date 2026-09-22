@@ -38,7 +38,7 @@ class HelpIsland extends Island
             'doing' => [
                 '↵' => 'open a table, or edit the selected cell',
                 'e' => 'edit the selected cell',
-                'i' => 'read the selected cell in full',
+                'i' => 'read the selected cell in full, json pretty printed',
                 's' => 'open the SQL editor (ctrl+r runs it)',
                 '< >' => 'narrow or widen the selected column',
                 '=' => 'reset the column width',

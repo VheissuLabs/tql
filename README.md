@@ -47,6 +47,16 @@ Press `s` (or `:sql`) for the SQL editor, which opens above the results.
 the grid and are read-only, since they have no primary key to write back
 through — open a table to edit.
 
+## JSON columns
+
+A cell holding JSON opens in a full-width modal when you press `i`: pretty
+printed, with line numbers and syntax highlighting — keys, strings, numbers and
+literals each coloured. `↑↓` scrolls a line at a time, `n`/`p` a page, `esc`
+closes.
+
+Detection is by parsing, not by column type, so JSON stored in a `text` column
+is recognised too.
+
 ## Reading long values
 
 Columns take the width they need when nothing competes for it, and leftover

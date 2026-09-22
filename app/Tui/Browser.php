@@ -74,6 +74,8 @@ class Browser extends Prompt
 
     public ?array $lastMouse = null;
 
+    public int $inspectOffset = 0;
+
     public ?int $firstBodyRow = null;
 
     public int $sidebarStart = 0;
@@ -156,9 +158,14 @@ class Browser extends Prompt
         }
 
         if ($this->mode === 'inspect') {
-            if (in_array($key, [Key::ESCAPE, 'i', 'q'], true)) {
-                $this->mode = 'browse';
-            }
+            match (true) {
+                in_array($key, [Key::ESCAPE, 'i', 'q'], true) => $this->mode = 'browse',
+                in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->inspectOffset++,
+                in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->inspectOffset = max(0, $this->inspectOffset - 1),
+                $key === 'n' => $this->inspectOffset += 10,
+                $key === 'p' => $this->inspectOffset = max(0, $this->inspectOffset - 10),
+                default => null,
+            };
 
             return;
         }
@@ -305,6 +312,7 @@ class Browser extends Prompt
         }
 
         $this->mode = 'inspect';
+        $this->inspectOffset = 0;
 
         return true;
     }
@@ -312,6 +320,11 @@ class Browser extends Prompt
     public function cellColumn(): string
     {
         return $this->headers[$this->columnIndex] ?? '';
+    }
+
+    public function cellIsJson(): bool
+    {
+        return Json::looksLikeJson($this->cellText());
     }
 
     public function cellText(): string

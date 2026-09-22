@@ -8,6 +8,7 @@ use App\Tui\Islands\CellIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\Island;
+use App\Tui\Islands\JsonIsland;
 use App\Tui\Islands\Screen;
 use App\Tui\Islands\SidebarIsland;
 use App\Tui\Islands\Styler;
@@ -67,7 +68,17 @@ class BrowserRenderer extends Renderer
             $tableHeight = 0;
         }
 
-        if ($prompt->mode === 'inspect') {
+        if ($prompt->mode === 'inspect' && $prompt->cellIsJson()) {
+            $json = new JsonIsland($prompt->cellColumn(), $prompt->cellText(), $style);
+            $json->focused = true;
+            $json->offset = $prompt->inspectOffset;
+            $json->place(1, $top, $width, $frameHeight);
+
+            $screen = (new Screen)->add($json);
+
+            $prompt->inspectOffset = $json->offset;
+            $tableHeight = 0;
+        } elseif ($prompt->mode === 'inspect') {
             $cell = new CellIsland($prompt->cellColumn(), $prompt->cellText(), $style);
             $cell->focused = true;
 
@@ -95,7 +106,7 @@ class BrowserRenderer extends Renderer
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
-        if ($prompt->mode !== 'help') {
+        if ($prompt->mode !== 'help' && ! ($prompt->mode === 'inspect' && $prompt->cellIsJson())) {
             $screen->add($table);
         }
 
@@ -137,6 +148,15 @@ class BrowserRenderer extends Renderer
             fn (string $t) => $this->inverse($t),
             fn (string $t) => $this->underline($t),
             fn (string $t, int $w) => $this->truncate($t, $w),
+            fn (string $name, string $t) => match ($name) {
+                'key' => $this->cyan($t),
+                'string' => $this->green($t),
+                'number' => $this->yellow($t),
+                'literal' => $this->magenta($t),
+                'punctuation' => $this->dim($t),
+                'gutter' => $this->dim($t),
+                default => $t,
+            },
         );
     }
 
@@ -186,8 +206,11 @@ class BrowserRenderer extends Renderer
         }
 
         if ($prompt->mode === 'inspect') {
-            return ' '.$this->bold('inspecting '.$prompt->cellColumn()).
-                $this->dim('   '.mb_strlen($prompt->cellText()).' characters    esc closes');
+            $suffix = $prompt->cellIsJson()
+                ? '   json · ↑↓ scroll · n/p page · esc closes'
+                : '   '.mb_strlen($prompt->cellText()).' characters    esc closes';
+
+            return ' '.$this->bold('inspecting '.$prompt->cellColumn()).$this->dim($suffix);
         }
 
         if ($prompt->mode === 'help') {

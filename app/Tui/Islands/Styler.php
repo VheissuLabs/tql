@@ -12,7 +12,13 @@ class Styler
         private Closure $inverse,
         private Closure $underline,
         private Closure $truncate,
+        private ?Closure $colour = null,
     ) {}
+
+    public function colour(string $name, string $text): string
+    {
+        return $this->colour === null ? $text : ($this->colour)($name, $text);
+    }
 
     public function dim(string $text): string
     {
