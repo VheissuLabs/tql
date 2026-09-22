@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Mcp\Servers\DotsqlServer;
 use App\Support\Paths;
 use Illuminate\Encryption\EncryptionServiceProvider;
 use Illuminate\Support\ServiceProvider;
+use Laravel\Mcp\Facades\Mcp;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -23,5 +25,10 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         $this->app->register(EncryptionServiceProvider::class);
+    }
+
+    public function boot(): void
+    {
+        Mcp::local('dotsql', DotsqlServer::class);
     }
 }

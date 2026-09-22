@@ -8,6 +8,7 @@ class QueryResult
         public readonly array $rows,
         public readonly int $durationMs,
         public readonly ?string $error = null,
+        public readonly ?int $affected = null,
     ) {}
 
     public function failed(): bool
