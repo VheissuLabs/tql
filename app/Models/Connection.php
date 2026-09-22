@@ -26,16 +26,21 @@ class Connection extends Model
 
     public function toLaravelConfig(): array
     {
-        return array_filter([
+        $config = array_filter([
             'driver' => $this->driver,
             'host' => $this->host,
             'port' => $this->port,
-            'database' => $this->database,
             'username' => $this->username,
             'password' => $this->password,
             'charset' => $this->driver === 'mysql' ? 'utf8mb4' : null,
             'prefix' => '',
         ], fn ($value) => $value !== null);
+
+        // The connectors read $config['database'] directly, so the key has to
+        // be there even when the connection string carried no database name.
+        $config['database'] = (string) $this->database;
+
+        return $config;
     }
 
     public function describe(): string

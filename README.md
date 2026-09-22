@@ -20,7 +20,7 @@ the file:
 ```bash
 tql test.sqlite          # same as: tql open test.sqlite
 tql ~/Sites/app/db.sqlite
-tql test.sqlite --save=scratch   # and remember it in the connection list
+tql test.sqlite --tag=scratch    # and call it "scratch" in the list
 ```
 
 A connection string works the same way:
@@ -35,11 +35,17 @@ tql 'postgres://user:pw@host/shop?name=Staging'
 credentials are percent-decoded, and `?name=` sets the label shown in the
 title bar.
 
-**A connection string on the command line goes into your shell history.** For
-anything with a real password, run it once with `--save=name` and use the
-connection list from then on, where the password is encrypted at rest. Prefixing
-the command with a space keeps it out of history in zsh if `HIST_IGNORE_SPACE`
-is set.
+Anything you open is **remembered**, so you only ever paste a connection string
+once. `--tag=` names it in the list; without one it is named after the file, or
+`database on host`. `--no-save` opens without remembering, for a database you are
+only peeking at. Re-opening somewhere you already have saved reuses that
+connection rather than making a second, and `--tag=` on it is a rename. Names
+are unique, so a second `database.sqlite` becomes `database.sqlite (2)`.
+
+**A connection string on the command line goes into your shell history.** Paste
+it once, then use the connection list, where the password is encrypted at rest.
+Prefixing the command with a space keeps it out of history in zsh if
+`HIST_IGNORE_SPACE` is set.
 
 The file is not added to your saved connections unless you pass `--save`, so
 poking at a one-off database does not clutter the list. A first argument that

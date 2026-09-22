@@ -16,9 +16,10 @@ class OpenCommand extends Command
 {
     protected $signature = 'open
         {path : a SQLite file, or a mysql:// pgsql:// sqlsrv:// connection string}
-        {--save= : also remember it under this name}';
+        {--tag= : what to call it in the connection list}
+        {--no-save : open it without remembering it}';
 
-    protected $description = 'Open a database straight away, without saving a connection';
+    protected $description = 'Open a database by path or connection string';
 
     public function __construct(
         private ConnectionManager $connections,
@@ -94,19 +95,50 @@ class OpenCommand extends Command
         $name = $attributes['name'];
         unset($attributes['name']);
 
+        $tag = $this->option('tag');
         $existing = static::matching($attributes);
 
         if ($existing !== null) {
+            // Re-tagging an existing connection renames it rather than making
+            // a second one pointing at the same database.
+            if ($tag !== null && $tag !== $existing->name) {
+                $existing->forceFill(['name' => static::freeName($tag)])->save();
+            }
+
             return $existing;
         }
 
-        $attributes['name'] = $this->option('save') ?: $name;
+        $attributes['name'] = $tag ?: $name;
 
-        // Without --save the model is never persisted, so opening something
-        // once does not quietly fill the connection list with one-off entries.
-        return $this->option('save')
-            ? Connection::create($attributes)
-            : new Connection($attributes);
+        // Remembered by default: the point of opening by connection string is
+        // to not have to find it again.
+        if ($this->option('no-save')) {
+            return new Connection($attributes);
+        }
+
+        $attributes['name'] = static::freeName($attributes['name']);
+
+        return Connection::create($attributes);
+    }
+
+    /**
+     * Connection names are unique, and two projects both called database.sqlite
+     * is the normal case rather than the exception, so number the duplicates
+     * instead of failing on the constraint.
+     */
+    private static function freeName(string $name): string
+    {
+        if (! Connection::where('name', $name)->exists()) {
+            return $name;
+        }
+
+        for ($suffix = 2; $suffix < 1000; $suffix++) {
+            if (! Connection::where('name', "{$name} ({$suffix})")->exists()) {
+                return "{$name} ({$suffix})";
+            }
+        }
+
+        return $name.' ('.uniqid().')';
     }
 
     /**
