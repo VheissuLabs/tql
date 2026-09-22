@@ -3,8 +3,11 @@
 namespace App\Prompts\Renderers;
 
 use App\Tui\Concerns\RendersWithoutPadding;
+use App\Tui\ConnectionForm;
 use App\Tui\ConnectionPicker;
+use App\Tui\Islands\Screen;
 use App\Tui\Layout;
+use App\Tui\Theme;
 use Laravel\Prompts\Themes\Default\Renderer;
 
 class ConnectionPickerRenderer extends Renderer
@@ -29,22 +32,127 @@ class ConnectionPickerRenderer extends Renderer
             }
         }
 
-        $this->line($this->rule($prompt, '┌', '┬', '┐', $widths, $inner));
-        $this->line($this->headerRow($widths, $inner));
-        $this->line($this->rule($prompt, '├', '┼', '┤', $widths, $inner));
+        $lines = [
+            $this->rule($prompt, '┌', '┬', '┐', $widths, $inner),
+            $this->headerRow($widths, $inner),
+            $this->rule($prompt, '├', '┼', '┤', $widths, $inner),
+        ];
 
         $rows = $this->rows($prompt, $widths, $bodyHeight);
         $blank = $this->blank($widths, $inner);
 
         for ($i = 0; $i < $bodyHeight; $i++) {
-            $this->line($this->dim('│').$this->pad($rows[$i] ?? $blank, $inner).$this->dim('│'));
+            $lines[] = $this->dim('│').$this->pad($rows[$i] ?? $blank, $inner).$this->dim('│');
         }
 
-        $this->line($this->rule($prompt, '└', '┴', '┘', $widths, $inner));
-        $this->line($this->status($prompt));
-        $this->line($this->dim(' ↑↓ Move    ↵ Open    e Edit    n New    :q Quit'));
+        $lines[] = $this->rule($prompt, '└', '┴', '┘', $widths, $inner);
+
+        if ($prompt->form !== null) {
+            $lines = $this->overlayForm($lines, $prompt->form, $width);
+        }
+
+        foreach ($lines as $line) {
+            $this->line($line);
+        }
+
+        $this->line($this->fit($this->dim($prompt->form !== null
+            ? ' ↑↓ Field    ↵ Change    ctrl+s Save    esc Cancel'
+            : ' ↑↓ Move    ↵ Open    e Edit    n New    :q Quit'), $width));
+        $this->line($this->fit($this->status($prompt), $width));
 
         return $this;
+    }
+
+    /**
+     * Float the edit form over the list, centred, using the same splice the
+     * help modal uses so the rows behind it keep their styling.
+     *
+     * @param  array<int, string>  $lines
+     * @return array<int, string>
+     */
+    private function overlayForm(array $lines, ConnectionForm $form, int $width): array
+    {
+        $box = $this->formBox($form, $modalWidth);
+
+        $x = max(1, (int) (($width - $modalWidth) / 2) + 1);
+        $y = max(0, (int) ((count($lines) - count($box)) / 2));
+
+        foreach ($box as $i => $row) {
+            if (isset($lines[$y + $i])) {
+                $lines[$y + $i] = Screen::splice($lines[$y + $i], $row, $x, $modalWidth);
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function formBox(ConnectionForm $form, ?int &$modalWidth): array
+    {
+        $labels = $form->fields();
+        $label = max(array_map('mb_strlen', $labels));
+        $value = 34;
+
+        $modalWidth = $label + $value + 7;
+        $inner = $modalWidth - 2;
+
+        $edge = fn (string $text) => $this->paint(Theme::border(true), $text);
+        $title = ' EDIT '.strtoupper($form->connection->driver).' CONNECTION ';
+
+        $rows = [$edge('┌─').$this->bold($this->paint(Theme::title(true), $title))
+            .$edge(str_repeat('─', max(0, $inner - mb_strlen($title) - 1)).'┐')];
+
+        $rows[] = $this->row('', $inner);
+
+        foreach ($labels as $key => $text) {
+            $focused = $key === $form->currentKey();
+            $shown = $this->truncate($form->display($key), $value);
+
+            if ($focused && $form->editing) {
+                $shown .= "\e[7m \e[27m";
+            }
+
+            $rows[] = $this->row(
+                '  '.($focused ? $this->bold($this->pad($text, $label)) : $this->dim($this->pad($text, $label)))
+                .'  '.($focused ? $shown : $this->dim($shown)),
+                $inner,
+            );
+        }
+
+        $rows[] = $this->row('', $inner);
+
+        $rows[] = $this->row('  '.$this->dim($form->error !== null
+            ? $this->paint('red', $form->error)
+            : ($form->editing ? '↵ keeps it    esc drops it' : '↵ change    ctrl+s save    esc cancel')), $inner);
+
+        $rows[] = $edge('└'.str_repeat('─', $inner).'┘');
+
+        return $rows;
+    }
+
+    private function row(string $content, int $inner): string
+    {
+        $edge = fn (string $text) => $this->paint(Theme::border(true), $text);
+
+        return $edge('│').$this->pad($content, $inner).$edge('│');
+    }
+
+    private function paint(string $colour, string $text): string
+    {
+        return match ($colour) {
+            'default' => $text,
+            'red' => $this->red($text),
+            'green' => $this->green($text),
+            'yellow' => $this->yellow($text),
+            'blue' => $this->blue($text),
+            'magenta' => $this->magenta($text),
+            'cyan' => $this->cyan($text),
+            'white' => $this->white($text),
+            'gray' => $this->gray($text),
+            default => $this->dim($text),
+        };
     }
 
     private function widths(ConnectionPicker $prompt, int $inner): array
@@ -137,6 +245,17 @@ class ConnectionPickerRenderer extends Renderer
         }
 
         return $this->dim(' '.($prompt->status ?? $prompt->connections->count().' connections'));
+    }
+
+    /**
+     * Neither of the last two lines is inside the frame, so nothing else stops
+     * them overflowing, and a wrap costs a row the frame does not know about.
+     */
+    private function fit(string $line, int $width): string
+    {
+        $visible = mb_strlen((string) preg_replace('/\e\[[0-9;]*m/', '', $line));
+
+        return $visible <= $width ? $line : $this->truncate($line, $width);
     }
 
     private function pad(string $text, int $width): string

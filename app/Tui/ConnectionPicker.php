@@ -19,6 +19,9 @@ class ConnectionPicker extends Prompt
     use RegistersRenderers;
     use RendersSmoothly;
 
+    /** ctrl+s, matching the value editor in the browser. */
+    public const SAVE = "\x13";
+
     public int $index = 0;
 
     public ?string $command = null;
@@ -28,6 +31,8 @@ class ConnectionPicker extends Prompt
     public int $start = 0;
 
     public ?int $firstBodyRow = null;
+
+    public ?ConnectionForm $form = null;
 
     private ?string $choice = null;
 
@@ -72,6 +77,12 @@ class ConnectionPicker extends Prompt
     {
         if ($event = Mouse::parse($key)) {
             $this->onMouse($event);
+
+            return;
+        }
+
+        if ($this->form !== null) {
+            $this->handleFormKey($key);
 
             return;
         }
@@ -131,7 +142,78 @@ class ConnectionPicker extends Prompt
     {
         $connection = $this->connections->values()->get($this->index);
 
-        return $connection === null ? true : $this->finish('edit:'.$connection->id);
+        if ($connection !== null) {
+            $this->form = new ConnectionForm($connection);
+            $this->status = null;
+        }
+
+        return true;
+    }
+
+    private function handleFormKey(string $key): void
+    {
+        $form = $this->form;
+
+        if ($form->editing) {
+            $this->handleFieldKey($form, $key);
+
+            return;
+        }
+
+        match (true) {
+            $key === Key::ESCAPE, $key === 'q' => $this->closeForm('nothing changed'),
+            $key === self::SAVE => $this->saveForm(),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->move(-1),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->move(1),
+            $key === Key::ENTER, $key === 'i' => $form->start(),
+            default => true,
+        };
+    }
+
+    private function handleFieldKey(ConnectionForm $form, string $key): void
+    {
+        if ($key === Key::ESCAPE) {
+            $form->abandon();
+
+            return;
+        }
+
+        if ($key === Key::ENTER) {
+            $form->commit();
+
+            return;
+        }
+
+        if (in_array($key, [Key::BACKSPACE, Key::CTRL_H, "\x7f"], true)) {
+            $form->backspace();
+
+            return;
+        }
+
+        if (mb_strlen($key) === 1 && ord($key) >= 32) {
+            $form->type($key);
+        }
+    }
+
+    private function saveForm(): void
+    {
+        $error = $this->form->save();
+
+        if ($error !== null) {
+            $this->form->error = $error;
+
+            return;
+        }
+
+        $name = $this->form->connection->name;
+
+        $this->closeForm("saved {$name}");
+    }
+
+    private function closeForm(string $status): void
+    {
+        $this->form = null;
+        $this->status = $status;
     }
 
     private function select(): bool
