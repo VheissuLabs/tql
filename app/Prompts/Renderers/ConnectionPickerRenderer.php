@@ -15,32 +15,110 @@ class ConnectionPickerRenderer extends Renderer
         $width = max(60, $prompt->terminal()->cols());
         $height = max(10, $prompt->terminal()->lines());
 
-        $inner = $width - 4;
-        $bodyHeight = max(3, $height - 7);
+        $inner = $width - 2;
+        $bodyHeight = max(3, $height - 9);
 
-        $body = $this->body($prompt, $inner, $bodyHeight);
+        $widths = $this->widths($prompt, $inner);
 
-        $this->line($this->topBorder($inner));
+        $this->line($this->rule($prompt, '┌', '┬', '┐', $widths, $inner));
+        $this->line($this->headerRow($widths, $inner));
+        $this->line($this->rule($prompt, '├', '┼', '┤', $widths, $inner));
+
+        $rows = $this->rows($prompt, $widths, $bodyHeight);
+        $blank = $this->blank($widths, $inner);
 
         for ($i = 0; $i < $bodyHeight; $i++) {
-            $this->line(
-                $this->dim('│').' '.$this->pad($body[$i] ?? '', $inner).' '.$this->dim('│')
-            );
+            $this->line($this->dim('│').$this->pad($rows[$i] ?? $blank, $inner).$this->dim('│'));
         }
 
-        $this->line($this->dim('└'.str_repeat('─', $inner + 2).'┘'));
+        $this->line($this->rule($prompt, '└', '┴', '┘', $widths, $inner));
         $this->line($this->status($prompt));
         $this->line($this->dim(' ↑↓ Move    ↵ Open    n New connection    :q Quit'));
 
         return $this;
     }
 
-    private function topBorder(int $inner): string
+    private function widths(ConnectionPicker $prompt, int $inner): array
     {
-        $label = $this->bold(' CONNECTIONS ');
-        $used = mb_strlen(preg_replace('/\e\[[0-9;]*m/', '', $label));
+        $rows = $prompt->rows();
 
-        return $this->dim('┌─').$label.$this->dim(str_repeat('─', max(0, $inner + 2 - $used - 2))).$this->dim('┐');
+        $name = 4;
+        $driver = 6;
+        $used = 9;
+
+        foreach ($rows as $row) {
+            $name = max($name, mb_strlen($row['name']));
+            $driver = max($driver, mb_strlen($row['driver']));
+            $used = max($used, mb_strlen($row['used']));
+        }
+
+        $name = min($name, 30);
+        $used = min($used, 20);
+
+        $where = max(10, $inner - $name - $driver - $used - 11);
+
+        return [$name, $driver, $where, $used];
+    }
+
+    private function rule(ConnectionPicker $prompt, string $left, string $join, string $right, array $widths, int $inner): string
+    {
+        $segments = array_map(fn (int $w) => str_repeat('─', $w + 2), $widths);
+
+        $body = implode($join, $segments);
+        $body .= str_repeat('─', max(0, $inner - mb_strlen($body)));
+
+        return $this->dim($left.$body.$right);
+    }
+
+    private function headerRow(array $widths, int $inner): string
+    {
+        $labels = ['NAME', 'DRIVER', 'WHERE', 'LAST USED'];
+        $cells = [];
+
+        foreach ($widths as $i => $width) {
+            $cells[] = $this->dim(' '.$this->pad($this->truncate($labels[$i], $width), $width).' ');
+        }
+
+        return $this->dim('│').$this->pad(implode($this->dim('│'), $cells), $inner).$this->dim('│');
+    }
+
+    private function blank(array $widths, int $inner): string
+    {
+        $cells = array_map(fn (int $w) => str_repeat(' ', $w + 2), $widths);
+
+        return $this->pad(implode($this->dim('│'), $cells), $inner);
+    }
+
+    private function rows(ConnectionPicker $prompt, array $widths, int $height): array
+    {
+        $rows = $prompt->rows();
+
+        if ($rows === []) {
+            return [$this->dim('  No connections yet — press n to add one.')];
+        }
+
+        $start = count($rows) <= $height
+            ? 0
+            : max(0, min($prompt->index - intdiv($height, 2), count($rows) - $height));
+
+        $prompt->start = $start;
+
+        $lines = [];
+
+        foreach (array_slice($rows, $start, $height) as $offset => $row) {
+            $values = [$row['name'], $row['driver'], $row['where'], $row['used']];
+            $cells = [];
+
+            foreach ($widths as $i => $width) {
+                $cells[] = ' '.$this->pad($this->truncate((string) $values[$i], $width), $width).' ';
+            }
+
+            $line = implode($this->dim('│'), $cells);
+
+            $lines[] = ($start + $offset) === $prompt->index ? $this->inverse($line) : $line;
+        }
+
+        return $lines;
     }
 
     private function status(ConnectionPicker $prompt): string
@@ -50,49 +128,6 @@ class ConnectionPickerRenderer extends Renderer
         }
 
         return $this->dim(' '.($prompt->status ?? $prompt->connections->count().' connections'));
-    }
-
-    private function body(ConnectionPicker $prompt, int $inner, int $height): array
-    {
-        $rows = $prompt->rows();
-
-        if ($rows === []) {
-            return ['', $this->dim('  No connections yet — press n to add one.')];
-        }
-
-        $nameWidth = min(28, max(4, max(array_map(fn ($r) => mb_strlen($r['name']), $rows))));
-        $driverWidth = 8;
-        $usedWidth = 18;
-        $whereWidth = max(10, $inner - $nameWidth - $driverWidth - $usedWidth - 8);
-
-        $lines = [
-            $this->dim(
-                '  '.$this->pad('NAME', $nameWidth).'  '.
-                $this->pad('DRIVER', $driverWidth).'  '.
-                $this->pad('WHERE', $whereWidth).'  '.
-                $this->pad('LAST USED', $usedWidth)
-            ),
-            $this->dim('  '.str_repeat('─', min($inner - 2, $nameWidth + $driverWidth + $whereWidth + $usedWidth + 6))),
-        ];
-
-        $room = max(1, $height - count($lines));
-        $start = count($rows) <= $room ? 0 : max(0, min($prompt->index - intdiv($room, 2), count($rows) - $room));
-
-        $prompt->start = $start;
-
-        foreach (array_slice($rows, $start, $room) as $offset => $row) {
-            $text =
-                '  '.$this->pad($this->truncate($row['name'], $nameWidth), $nameWidth).'  '.
-                $this->pad($this->truncate($row['driver'], $driverWidth), $driverWidth).'  '.
-                $this->pad($this->truncate($row['where'], $whereWidth), $whereWidth).'  '.
-                $this->pad($this->truncate($row['used'], $usedWidth), $usedWidth);
-
-            $lines[] = ($start + $offset) === $prompt->index
-                ? $this->inverse($this->pad($text, $inner))
-                : $text;
-        }
-
-        return $lines;
     }
 
     private function pad(string $text, int $width): string

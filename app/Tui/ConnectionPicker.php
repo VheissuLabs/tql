@@ -113,7 +113,7 @@ class ConnectionPicker extends Prompt
             return true;
         }
 
-        $target = $this->start + $index - Layout::GRID_HEADER_ROWS;
+        $target = $this->start + $index;
 
         if ($target < 0 || $target >= $this->connections->count()) {
             return true;

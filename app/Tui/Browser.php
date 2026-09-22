@@ -45,6 +45,8 @@ class Browser extends Prompt
 
     public int $offset = 0;
 
+    public bool $hasMore = false;
+
     public string $focus = 'sidebar';
 
     public ?string $status = null;
@@ -558,7 +560,7 @@ class Browser extends Prompt
     {
         $next = $this->offset + $by;
 
-        if ($next < 0 || ($by > 0 && count($this->rows) < self::PAGE)) {
+        if ($next < 0 || ($by > 0 && ! $this->hasMore)) {
             return true;
         }
 
@@ -589,7 +591,7 @@ class Browser extends Prompt
             return;
         }
 
-        $result = $this->runner->rows($this->connection, $table, self::PAGE, $this->offset);
+        $result = $this->runner->rows($this->connection, $table, self::PAGE + 1, $this->offset);
 
         if ($result->failed()) {
             $this->status = $result->error;
@@ -600,12 +602,24 @@ class Browser extends Prompt
             return;
         }
 
+        $rows = $result->rows;
+
+        $this->hasMore = count($rows) > self::PAGE;
+
+        if ($this->hasMore) {
+            array_pop($rows);
+        }
+
         $this->headers = $result->headers();
-        $this->raw = $result->rows;
-        $this->rows = $this->formatter->rows($result->rows);
+        $this->raw = $rows;
+        $this->rows = $this->formatter->rows($rows);
         $this->rowIndex = 0;
         $this->columnIndex = 0;
         $this->columnOffset = 0;
-        $this->status = "{$result->count()} rows · {$result->durationMs}ms";
+
+        $first = count($rows) === 0 ? 0 : $this->offset + 1;
+        $last = $this->offset + count($rows);
+
+        $this->status = "rows {$first}-{$last}".($this->hasMore ? '+' : '')." · {$result->durationMs}ms";
     }
 }
