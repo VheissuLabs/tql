@@ -63,8 +63,11 @@ are looking at, and updates as you change table or page:
 ```
 
 Press `s` and that statement is handed to you to edit — change the `limit`, add
-a `where`, press `ctrl+r`, and the grid shows your version. Clear the pane and
-the running query comes back.
+a `where`, press `ctrl+r`, and the grid shows your version.
+
+The pane always mirrors what you are looking at: change table, sort, or page and
+it rewrites itself to the query that produced the rows on screen, discarding an
+edit you never ran. While you are typing in it, nothing overwrites you.
 
 ## Running SQL
 

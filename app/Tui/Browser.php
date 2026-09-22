@@ -1073,8 +1073,6 @@ class Browser extends Prompt
             return;
         }
 
-        $previous = $this->lastStatement;
-
         $result = $this->runner->rows(
             $this->connection,
             $table,
@@ -1113,8 +1111,8 @@ class Browser extends Prompt
         $this->columnIndex = 0;
         $this->columnOffset = 0;
 
-        if ($previous !== null && $this->editor->buffer() === $previous) {
-            $this->editor->set((string) $this->lastStatement);
+        if ($this->mode !== 'query' && $this->lastStatement !== null) {
+            $this->editor->set($this->lastStatement);
         }
 
         $first = count($rows) === 0 ? 0 : $this->offset + 1;

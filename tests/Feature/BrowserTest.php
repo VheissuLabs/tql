@@ -1361,7 +1361,7 @@ it('keeps an unedited query in step with the table', function () {
     config(['dotsql.ui.sql_always' => false]);
 });
 
-it('leaves a query you edited alone when the table changes', function () {
+it('resyncs even a query you edited once you browse away', function () {
     $browser = twoTableBrowser();
     $browser->emit('key', 's');
     $browser->editor->set('select * from "events" where id > 2');
@@ -1370,7 +1370,21 @@ it('leaves a query you edited alone when the table changes', function () {
     $browser->focus = 'sidebar';
     $browser->emit('key', 'j');
 
-    expect($browser->editor->buffer())->toBe('select * from "events" where id > 2');
+    expect($browser->currentTable())->toBe('settings')
+        ->and($browser->editor->buffer())->toBe($browser->lastStatement)
+        ->and($browser->editor->buffer())->toContain('settings');
+});
+
+it('does not overwrite what you are typing', function () {
+    $browser = twoTableBrowser();
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from "events" where id > 2');
+
+    expect($browser->mode)->toBe('query');
+
+    $browser->emit('key', 'r');
+
+    expect($browser->editor->buffer())->toContain('where id > 2');
 });
 
 it('keeps the query in step when paging', function () {
