@@ -247,3 +247,43 @@ it('puts the hotkeys above the status line', function () {
     expect(end($lines))->toContain('connections')
         ->and(prev($lines))->toContain('Move');
 });
+
+it('draws the selected row as one unbroken bar', function () {
+    $frame = pickerFrame(picker());
+
+    $selected = collect(explode("\n", $frame))
+        ->first(fn (string $line) => str_contains($line, "\e[7m"));
+
+    // One inverse span for the whole row, not one per cell.
+    expect(substr_count($selected, "\e[7m"))->toBe(1);
+
+    preg_match('/\e\[7m(.*?)\e\[27m/', $selected, $match);
+
+    // Nothing inside the span resets the highlight.
+    expect($match[1])->not->toContain("\e[")
+        ->and($match[1])->toContain('│');
+});
+
+it('shortens home paths so the database name survives', function () {
+    $home = getenv('HOME');
+
+    $connection = Connection::create([
+        'name' => 'home', 'driver' => 'sqlite', 'database' => $home.'/Code/app/database.sqlite',
+    ]);
+
+    expect($connection->describe())->toBe('sqlite:~/Code/app/database.sqlite');
+});
+
+it('leaves a path outside home alone', function () {
+    $connection = Connection::create([
+        'name' => 'away', 'driver' => 'sqlite', 'database' => '/var/db/app.sqlite',
+    ]);
+
+    expect($connection->describe())->toBe('sqlite:/var/db/app.sqlite');
+});
+
+it('marks the current row when the marker style is on', function () {
+    config(['tql.ui.row_style' => 'marker']);
+
+    expect(preg_replace('/\e\[[0-9;]*m/', '', pickerFrame(picker())))->toContain('▸');
+});

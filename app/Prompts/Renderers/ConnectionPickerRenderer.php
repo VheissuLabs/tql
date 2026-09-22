@@ -161,12 +161,12 @@ class ConnectionPickerRenderer extends Renderer
     {
         $rows = $prompt->rows();
 
-        // The name column carries the driver icon and a space in front of it.
-        $name = 6;
+        // The name column carries the row marker and the driver icon.
+        $name = 8;
         $used = 9;
 
         foreach ($rows as $row) {
-            $name = max($name, mb_strlen($row['name']) + 2);
+            $name = max($name, mb_strlen($row['name']) + 4);
             $used = max($used, mb_strlen($row['used']));
         }
 
@@ -253,6 +253,7 @@ class ConnectionPickerRenderer extends Renderer
         $lines = [];
 
         $grid = $this->paint(Theme::grid(true), '│');
+        $inner = array_sum($widths) + 3 * count($widths) - 1;
 
         foreach (array_slice($rows, $start, $height) as $offset => $row) {
             $selected = ($start + $offset) === $prompt->index;
@@ -271,9 +272,12 @@ class ConnectionPickerRenderer extends Renderer
                 $cells[] = $selected ? $text : $this->dim($text);
             }
 
-            $line = implode($grid, $cells);
-
-            $lines[] = $selected ? $this->highlight($line) : $line;
+            // A selected row is built without any colour of its own: an escape
+            // sequence inside the span would reset the highlight partway and
+            // tear it at the column separators.
+            $lines[] = $selected
+                ? $this->highlight($this->pad(implode('│', $cells), $inner))
+                : implode($grid, $cells);
         }
 
         return $lines;
@@ -287,9 +291,12 @@ class ConnectionPickerRenderer extends Renderer
     private function nameCell(string $driver, string $name, int $width, bool $selected): string
     {
         $icon = $this->driverIcon($driver);
-        $label = $this->pad($this->truncate($name, $width - 2), $width - 2);
+        $marker = Layout::rowStyle() === 'marker' && $selected ? '▸' : ' ';
+        $label = $this->pad($this->truncate($name, $width - 4), $width - 4);
 
-        return ' '.($selected ? $icon : $this->paint($this->driverColour($driver), $icon)).' '.$label.' ';
+        return ' '.$marker.' '
+            .($selected ? $icon : $this->paint($this->driverColour($driver), $icon))
+            .' '.$label.' ';
     }
 
     private function driverIcon(string $driver): string

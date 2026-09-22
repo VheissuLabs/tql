@@ -46,9 +46,22 @@ class Connection extends Model
     public function describe(): string
     {
         if ($this->driver === 'sqlite') {
-            return "sqlite:{$this->database}";
+            return 'sqlite:'.static::shorten((string) $this->database);
         }
 
         return "{$this->driver}://{$this->username}@{$this->host}:{$this->port}/{$this->database}";
+    }
+
+    /**
+     * Home-relative paths, so the part that identifies the database is not
+     * pushed off the end by /Users/someone.
+     */
+    private static function shorten(string $path): string
+    {
+        $home = (string) (getenv('HOME') ?: '');
+
+        return $home !== '' && str_starts_with($path, $home.'/')
+            ? '~'.substr($path, strlen($home))
+            : $path;
     }
 }
