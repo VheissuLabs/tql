@@ -5,6 +5,7 @@ use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Support\Paths;
 use App\Tui\Browser;
+use App\Tui\Layout;
 use App\Tui\QueryEditor;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
@@ -890,4 +891,43 @@ it('hides the cursor when the value is read-only', function () {
 
     expect($browser->editable)->toBeFalse()
         ->and($method->invoke($browser))->not->toContain("\e[7m");
+});
+
+it('puts the sql pane where the config says', function (string $position, bool $sqlFirst) {
+    config(['dotsql.ui.sql_position' => $position]);
+
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', 's');
+
+    $lines = explode("\n", frameOf($browser));
+
+    $sqlAt = null;
+    $tableAt = null;
+
+    foreach ($lines as $index => $line) {
+        if ($sqlAt === null && str_contains($line, 'SQL')) {
+            $sqlAt = $index;
+        }
+
+        if ($tableAt === null && str_contains($line, 'widgets')) {
+            $tableAt = $index;
+        }
+    }
+
+    expect($sqlAt)->not->toBeNull()
+        ->and($tableAt)->not->toBeNull()
+        ->and($sqlAt < $tableAt)->toBe($sqlFirst);
+
+    config(['dotsql.ui.sql_position' => 'top']);
+})->with([
+    ['top', true],
+    ['bottom', false],
+]);
+
+it('ignores a nonsense sql position', function () {
+    config(['dotsql.ui.sql_position' => 'sideways']);
+
+    expect(Layout::sqlPosition())->toBe('top');
+
+    config(['dotsql.ui.sql_position' => 'top']);
 });

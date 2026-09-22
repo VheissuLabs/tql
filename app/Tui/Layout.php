@@ -11,6 +11,11 @@ class Layout
         return max(0, (int) config('dotsql.ui.top_margin', 1));
     }
 
+    public static function sqlPosition(): string
+    {
+        return config('dotsql.ui.sql_position') === 'bottom' ? 'bottom' : 'top';
+    }
+
     public static function rowStyle(): string
     {
         return (string) config('dotsql.ui.row_style', 'marker');

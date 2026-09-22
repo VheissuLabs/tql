@@ -177,6 +177,7 @@ Shipped defaults:
 | `ui.top_margin` | 1 | blank rows above the frame |
 | `ui.sidebar_width` | 24 | width of the tables pane |
 | `ui.export_path` | `~/.config/dotsql/exports` | where `:export` writes files |
+| `ui.sql_position` | `top` | `top` or `bottom` — where the SQL editor sits |
 | `ui.row_style` | `marker` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
 | `ui.mouse_row_offset` | 0 | rows to subtract from reported mouse coordinates |
 | `ui.mouse_column_offset` | 0 | columns to subtract from reported mouse coordinates |

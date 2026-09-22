@@ -8,6 +8,8 @@ return [
 
         'row_style' => 'marker',
 
+        'sql_position' => 'top',
+
         'export_path' => null,
 
         'sidebar_width' => 24,

@@ -46,15 +46,20 @@ class BrowserRenderer extends Renderer
 
         if ($prompt->mode === 'query') {
             $editorHeight = min(10, max(5, intdiv($frameHeight, 3)));
+            $tableHeight = $frameHeight - $editorHeight;
 
             $editor = new EditorIsland($prompt->editor);
             $editor->focused = true;
-            $editor->place($rightX, $top, $rightWidth, $editorHeight);
+
+            if (Layout::sqlPosition() === 'bottom') {
+                $tableY = $top;
+                $editor->place($rightX, $top + $tableHeight, $rightWidth, $editorHeight);
+            } else {
+                $tableY = $top + $editorHeight;
+                $editor->place($rightX, $top, $rightWidth, $editorHeight);
+            }
 
             $screen->add($editor);
-
-            $tableY = $top + $editorHeight;
-            $tableHeight = $frameHeight - $editorHeight;
         }
 
         if ($prompt->mode === 'help') {
