@@ -377,6 +377,7 @@ class Browser extends Prompt
             $key === 'L' => $this->followLink(),
             $key === self::BACK => $this->jumpBack(),
             $key === Key::ESCAPE => $this->escape(),
+            $key === 'c' => $this->quit('connections'),
             $key === 'y' => $this->yankCell(),
             $key === 'Y' => $this->yankRow(),
             $key === 'd' => $this->markDelete(),
@@ -1727,7 +1728,7 @@ class Browser extends Prompt
 
     private function quit(string $exit = 'quit'): bool
     {
-        if (($this->pendingDeletes !== [] || $this->pendingEdits !== []) && $exit === 'quit') {
+        if (($this->pendingDeletes !== [] || $this->pendingEdits !== []) && $exit !== 'forced') {
             $count = count($this->pendingDeletes) + count($this->pendingEdits);
 
             $this->pendingDeletes = [];

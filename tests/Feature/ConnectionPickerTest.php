@@ -117,7 +117,7 @@ it('offers only the fields that driver has', function () {
     ]);
 
     expect(array_keys(form($mysql)->fields()))
-        ->toBe(['name', 'host', 'port', 'database', 'username', 'password']);
+        ->toBe(['name', 'host', 'port', 'database', 'username', 'password', 'ssh_host']);
 });
 
 it('never shows the password back', function () {
@@ -327,7 +327,7 @@ it('shows the fields that suit the chosen driver', function () {
     }
 
     expect(array_keys($picker->form->fields()))
-        ->toBe(['driver', 'name', 'host', 'port', 'database', 'username', 'password']);
+        ->toBe(['driver', 'name', 'host', 'port', 'database', 'username', 'password', 'ssh_host']);
 });
 
 it('fills in the default host and port for a server driver', function () {

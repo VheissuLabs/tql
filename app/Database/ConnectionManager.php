@@ -32,7 +32,18 @@ class ConnectionManager
         // An unsaved connection (tql open <file>) has no id yet.
         $handle = 'tql_target_'.($connection->id ?? substr(md5((string) $connection->database), 0, 12));
 
-        Config::set("database.connections.{$handle}", $connection->toLaravelConfig());
+        $config = $connection->toLaravelConfig();
+
+        // An ssh connection reaches the database through a local port that
+        // the tunnel forwards, so the driver still only ever sees localhost.
+        if ($connection->usesSsh()) {
+            $tunnel = Tunnel::for($connection);
+
+            $config['host'] = '127.0.0.1';
+            $config['port'] = $tunnel->port;
+        }
+
+        Config::set("database.connections.{$handle}", $config);
 
         DB::purge($handle);
 

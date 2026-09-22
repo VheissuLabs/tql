@@ -16,12 +16,18 @@ class Connection extends Model
             'read_only' => 'boolean',
             'last_used_at' => 'datetime',
             'port' => 'integer',
+            'ssh_port' => 'integer',
         ];
     }
 
     public function executions(): HasMany
     {
         return $this->hasMany(QueryExecution::class);
+    }
+
+    public function usesSsh(): bool
+    {
+        return $this->driver !== 'sqlite' && trim((string) $this->ssh_host) !== '';
     }
 
     public function toLaravelConfig(): array
@@ -47,6 +53,11 @@ class Connection extends Model
     {
         if ($this->driver === 'sqlite') {
             return 'sqlite:'.static::shorten((string) $this->database);
+        }
+
+        if ($this->usesSsh()) {
+            return "{$this->driver}://{$this->username}@{$this->host}:{$this->port}/{$this->database}"
+                .'  ssh '.($this->ssh_user ? $this->ssh_user.'@' : '').$this->ssh_host;
         }
 
         return "{$this->driver}://{$this->username}@{$this->host}:{$this->port}/{$this->database}";

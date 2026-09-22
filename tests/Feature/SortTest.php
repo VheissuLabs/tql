@@ -869,3 +869,26 @@ it('keeps the tables list showing which table you are in', function () {
 
     expect($line)->not->toBeNull();
 });
+
+it('goes back to the connections with c', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'c');
+
+    expect($browser->state)->toBe('submit')
+        ->and($browser->exit)->toBe('connections');
+});
+
+it('warns about unwritten changes before leaving for the connections', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+    $browser->emit('key', 'c');
+
+    expect($browser->state)->not->toBe('submit')
+        ->and($browser->status)->toContain('dropped');
+
+    $browser->emit('key', 'c');
+
+    expect($browser->exit)->toBe('connections');
+});

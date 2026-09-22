@@ -28,6 +28,31 @@ php -d phar.readonly=0 tql app:build tql --build-version=dev
 
 Tagging `v*` builds and publishes a release from GitHub Actions.
 
+## Databases behind SSH
+
+A connection can reach its database through an SSH tunnel. Set **SSH host** on
+a mysql, postgres or sqlsrv connection and the rest of the fields appear:
+
+| field | what it is |
+| --- | --- |
+| SSH host | the machine you can reach, e.g. `bastion.example.com` |
+| SSH port | 22 unless you say otherwise |
+| SSH user | the user on that machine |
+| SSH key | a key file; empty uses your agent and `~/.ssh/config` |
+
+tql opens `ssh -N -L <free port>:<db host>:<db port>` and points the driver at
+that local port, so the database only ever sees a connection from the machine
+you tunnelled through.
+
+It shells out to your own `ssh` rather than speaking the protocol, which means
+your agent, your keys and your `~/.ssh/config` all apply — including `Host`
+aliases and jump hosts. A connection you can already make by typing `ssh prod`
+works by putting `prod` in the SSH host field.
+
+The tunnel is opened once per destination and reused. tql waits for the
+forwarded port to accept a connection before running anything, so the first
+query cannot race the tunnel coming up, and if ssh fails it says what ssh said.
+
 ## A database to try it on
 
 The sample database used in development is [Chinook](https://github.com/lerocha/chinook-database),

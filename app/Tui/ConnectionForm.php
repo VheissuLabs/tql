@@ -43,6 +43,10 @@ class ConnectionForm
         'port' => 'Port',
         'username' => 'Username',
         'password' => 'Password',
+        'ssh_host' => 'SSH host',
+        'ssh_port' => 'SSH port',
+        'ssh_user' => 'SSH user',
+        'ssh_key' => 'SSH key',
     ];
 
     public const DRIVERS = ['sqlite', 'mysql', 'pgsql', 'sqlsrv'];
@@ -118,7 +122,16 @@ class ConnectionForm
                 'database' => 'Database',
                 'username' => 'Username',
                 'password' => 'Password',
+                'ssh_host' => 'SSH host',
             ];
+
+        // The rest of the ssh fields only matter once there is a host to
+        // tunnel through, so they stay out of the way until then.
+        if ($this->driver() !== 'sqlite' && trim($this->values['ssh_host'] ?? '') !== '') {
+            $fields['ssh_port'] = 'SSH port';
+            $fields['ssh_user'] = 'SSH user';
+            $fields['ssh_key'] = 'SSH key';
+        }
 
         return $this->creating ? ['driver' => 'Driver'] + $fields : $fields;
     }
@@ -179,6 +192,14 @@ class ConnectionForm
      */
     public function display(string $key): string
     {
+        if ($key === 'ssh_key' && ($this->values[$key] ?? '') === '') {
+            return 'agent or ~/.ssh/config';
+        }
+
+        if ($key === 'ssh_port' && ($this->values[$key] ?? '') === '') {
+            return '22';
+        }
+
         if ($this->editing && $key === $this->currentKey()) {
             return $this->buffer();
         }
