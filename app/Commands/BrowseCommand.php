@@ -6,13 +6,13 @@ use App\Database\ConnectionManager;
 use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Tui\Browser;
+use App\Tui\ConnectionPicker;
 use App\Tui\RowFormatter;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
 use function Laravel\Prompts\info;
-use function Laravel\Prompts\note;
 use function Laravel\Prompts\password;
 use function Laravel\Prompts\pause;
 use function Laravel\Prompts\select;
@@ -58,24 +58,10 @@ class BrowseCommand extends Command
     {
         $connections = Connection::orderByDesc('last_used_at')->orderBy('name')->get();
 
-        if ($connections->isEmpty()) {
-            note('No connections yet.');
-
-            return $this->createConnection();
-        }
-
-        $options = $connections
-            ->mapWithKeys(fn (Connection $c) => [(string) $c->id => $c->name])
-            ->all();
-
-        $choice = select(
-            label: 'Connections',
-            options: $options + ['new' => '+ Add a connection', 'quit' => 'Quit'],
-            scroll: 15,
-        );
+        $choice = (new ConnectionPicker($connections))->prompt();
 
         return match ($choice) {
-            'quit' => null,
+            'quit', null => null,
             'new' => $this->createConnection(),
             default => $connections->firstWhere('id', (int) $choice),
         };
