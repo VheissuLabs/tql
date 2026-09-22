@@ -96,3 +96,61 @@ it('names exports after the connection, table and time', function () {
     unlink($result->path);
     unlink($path);
 });
+
+it('exports every table into one file', function () {
+    [$connection, $path, $pdo] = exportFixture();
+
+    $pdo->exec('create table others (id integer primary key, label text)');
+    $pdo->exec("insert into others (label) values ('one'), ('two')");
+
+    $result = app(SqlExporter::class)->tables($connection, ['things', 'others']);
+    $contents = file_get_contents($result->path);
+
+    expect($result->rows)->toBe(6)
+        ->and($contents)->toContain('-- things')
+        ->and($contents)->toContain('-- others')
+        ->and(substr_count($contents, '-- dotsql export'))->toBe(1);
+
+    unlink($result->path);
+    unlink($path);
+});
+
+it('honours a row limit', function () {
+    [$connection, $path] = exportFixture();
+
+    $result = app(SqlExporter::class)->table($connection, 'things', null, 2);
+
+    expect($result->rows)->toBe(2);
+
+    unlink($result->path);
+    unlink($path);
+});
+
+it('exports from the console command', function () {
+    [$connection, $path] = exportFixture();
+
+    $out = sys_get_temp_dir().'/dotsql-cmd-'.uniqid().'.sql';
+
+    $this->artisan('export', ['connection' => $connection->name, 'table' => 'things', '--sql' => $out])
+        ->assertExitCode(0);
+
+    expect(file_exists($out))->toBeTrue()
+        ->and(file_get_contents($out))->toContain('insert into');
+
+    unlink($out);
+    unlink($path);
+});
+
+it('fails clearly for an unknown connection', function () {
+    $this->artisan('export', ['connection' => 'definitely-not-a-connection'])
+        ->assertExitCode(1);
+});
+
+it('fails clearly for an unknown table', function () {
+    [$connection, $path] = exportFixture();
+
+    $this->artisan('export', ['connection' => $connection->name, 'table' => 'nope'])
+        ->assertExitCode(1);
+
+    unlink($path);
+});

@@ -56,7 +56,19 @@ line. `esc` closes it.
 
 ## Exporting
 
-`:export` writes what you are looking at to a `.sql` file of `insert`
+From the command line, which is the scriptable way:
+
+```bash
+dotsql export prod orders --limit=1000 --sql=./orders.sql
+dotsql export prod --sql=./prod.sql     # every table, one file
+dotsql export prod --list               # what tables are there
+```
+
+`--sql` takes a file or a directory; omit it and the file is named
+automatically in the export directory. `--limit` caps rows per table, which is
+how you pull a slice of production rather than all of it.
+
+Inside the interface, `:export` writes what you are looking at to a `.sql` file of `insert`
 statements. On a table that is every row, read in chunks so a large table does
 not go through memory at once; after a query it is the rows you have loaded.
 

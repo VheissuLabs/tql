@@ -33,7 +33,35 @@ class SqlExporter
         return $this->directory().'/'.$slug($connection->name).'-'.$slug($table).'-'.date('Ymd-His').'.sql';
     }
 
-    public function table(Connection $connection, string $table, ?string $path = null): ExportResult
+    public function tables(Connection $connection, array $tables, ?string $path = null, ?int $limit = null): ExportResult
+    {
+        $path ??= $this->filename($connection, count($tables) === 1 ? $tables[0] : 'all');
+
+        $started = microtime(true);
+        $rows = 0;
+
+        $handle = fopen($path, 'w');
+
+        if ($handle === false) {
+            throw new RuntimeException("Could not write to [{$path}].");
+        }
+
+        fwrite($handle, $this->header($connection, implode(', ', $tables)));
+        fclose($handle);
+
+        foreach ($tables as $table) {
+            $rows += $this->appendTable($connection, $table, $path, $limit);
+        }
+
+        return new ExportResult(
+            path: $path,
+            rows: $rows,
+            bytes: filesize($path) ?: 0,
+            durationMs: (int) ((microtime(true) - $started) * 1000),
+        );
+    }
+
+    public function table(Connection $connection, string $table, ?string $path = null, ?int $limit = null): ExportResult
     {
         $path ??= $this->filename($connection, $table);
 
@@ -66,8 +94,14 @@ class SqlExporter
         $buffer = [];
 
         while (true) {
+            $take = $limit === null ? self::CHUNK : min(self::CHUNK, $limit - $written);
+
+            if ($take <= 0) {
+                break;
+            }
+
             $order = $key === null ? '' : ' order by '.$grammar->wrap($key);
-            $sql = "select * from {$wrappedTable}{$order} limit ".self::CHUNK." offset {$offset}";
+            $sql = "select * from {$wrappedTable}{$order} limit {$take} offset {$offset}";
 
             $rows = $db->select($sql);
 
@@ -88,7 +122,7 @@ class SqlExporter
                 }
             }
 
-            $offset += self::CHUNK;
+            $offset += count($rows);
         }
 
         $this->flush($handle, $wrappedTable, $wrappedColumns, $buffer);
@@ -147,6 +181,22 @@ class SqlExporter
             bytes: filesize($path) ?: 0,
             durationMs: (int) ((microtime(true) - $started) * 1000),
         );
+    }
+
+    private function appendTable(Connection $connection, string $table, string $path, ?int $limit): int
+    {
+        $temporary = $path.'.part';
+
+        $result = $this->table($connection, $table, $temporary, $limit);
+
+        $body = file_get_contents($temporary) ?: '';
+        $body = preg_replace('/\A(--[^\n]*\n)+\n?/', '', $body) ?? $body;
+
+        file_put_contents($path, "-- {$table}\n".$body, FILE_APPEND);
+
+        unlink($temporary);
+
+        return $result->rows;
     }
 
     private function flush($handle, string $table, string $columns, array &$buffer): void
