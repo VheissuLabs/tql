@@ -192,13 +192,29 @@ it('does not follow an empty foreign key', function () {
         ->and($browser->status)->toContain('is empty on this row');
 });
 
-it('marks a foreign key column in the header', function () {
+it('says what L would do while the cursor is on a link', function () {
     $browser = linked();
+
+    // On id, which is not a foreign key.
+    expect(structureFrame($browser))->not->toContain('L → artists');
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+
+    expect($browser->headers[$browser->columnIndex])->toBe('artist_id')
+        ->and(structureFrame($browser))->toContain('L → artists');
+});
+
+it('keeps the hint out of the header', function () {
+    $browser = linked();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
 
     $frame = structureFrame($browser);
 
-    expect($frame)->toContain('artist_id →')
-        ->and($frame)->not->toContain('title →');
+    expect($frame)->not->toContain('artist_id →')
+        ->and($frame)->not->toContain('artist_id  →');
 });
 
 it('finds the tables that reference this one', function () {

@@ -133,7 +133,8 @@ STRUCTURE  ·  albums
 
 ## Following a link
 
-Columns you can follow are marked with `→` in the header.
+While the cursor is on a foreign key, the status line says where it goes:
+`L → artists`.
 
 With the cursor on a foreign key, `L` opens the table it points at, filtered to
 the row it points to. From anywhere else on the row, `L` goes the other way:

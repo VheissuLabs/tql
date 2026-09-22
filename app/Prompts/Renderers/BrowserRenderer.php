@@ -224,7 +224,6 @@ class BrowserRenderer extends Renderer
             $prompt->sortDirection,
             $prompt->markedRows(),
             $prompt->editedRows(),
-            array_keys($prompt->links()),
         );
         $table->columnOffset = $prompt->columnOffset;
         $table->scrollLocked = $prompt->isDragging();
@@ -367,6 +366,26 @@ class BrowserRenderer extends Renderer
             : $this->paint($colour, $this->inverse($text));
     }
 
+    /**
+     * Say what L would do, but only while the cursor is on a column where it
+     * would do something. A marker in the header is noise on every row.
+     */
+    private function link(Browser $prompt): string
+    {
+        if ($prompt->mode !== 'browse') {
+            return '';
+        }
+
+        $column = $prompt->headers[$prompt->columnIndex] ?? null;
+        $link = $column === null ? null : ($prompt->links()[$column] ?? null);
+
+        if ($link === null) {
+            return '';
+        }
+
+        return '  '.$this->bold('L').$this->dim(' → '.$link['table']);
+    }
+
     private function paint(string $colour, string $text): string
     {
         return match ($colour) {
@@ -487,6 +506,7 @@ class BrowserRenderer extends Renderer
         $columns = count($prompt->headers);
         $position = $columns === 0 ? '' : ' · col '.($prompt->columnIndex + 1)."/{$columns}";
 
-        return $this->dim(' '.$prompt->connection->name.' · '.($prompt->status ?? '').$position);
+        return $this->dim(' '.$prompt->connection->name.' · '.($prompt->status ?? '').$position)
+            .$this->link($prompt);
     }
 }
