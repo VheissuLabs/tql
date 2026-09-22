@@ -39,6 +39,14 @@ return [
 
         'grid' => 'dim',
 
+        'modal_border' => 'gray',
+
+        'modal_focus_border' => 'cyan',
+
+        'modal_title' => 'white',
+
+        'modal_focus_title' => 'cyan',
+
         'cursor' => 'default',
 
         'selection' => 'default',

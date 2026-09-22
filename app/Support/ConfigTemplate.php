@@ -68,6 +68,30 @@ class ConfigTemplate
             ],
             [
                 'section' => 'theme',
+                'key' => 'modal_border',
+                'default' => '"gray"',
+                'comment' => ['Colours for modals: the inspector, help, filters'],
+            ],
+            [
+                'section' => 'theme',
+                'key' => 'modal_focus_border',
+                'default' => '"cyan"',
+                'comment' => [],
+            ],
+            [
+                'section' => 'theme',
+                'key' => 'modal_title',
+                'default' => '"white"',
+                'comment' => [],
+            ],
+            [
+                'section' => 'theme',
+                'key' => 'modal_focus_title',
+                'default' => '"cyan"',
+                'comment' => [],
+            ],
+            [
+                'section' => 'theme',
                 'key' => 'edited',
                 'default' => '"yellow"',
                 'comment' => ['Colour of a row you have edited, before :w writes it'],

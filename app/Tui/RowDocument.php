@@ -21,7 +21,7 @@ class RowDocument
     /**
      * @param  array<string, mixed>  $row
      * @param  array<string, string>  $types  column => type name
-     * @param  array<string, array{rows: array<int, array<string, mixed>>, total: ?int}>  $related
+     * @param  array<string, array{rows: array<int, array<string, mixed>>, total: ?int, hide: array<int, string>}>  $related
      */
     public function __construct(
         private array $row,
@@ -93,7 +93,7 @@ class RowDocument
 
             // Related rows read as a collection: one header, then the rows,
             // rather than the same keys repeated for every record.
-            foreach ($this->collection($relation['rows']) as $line) {
+            foreach ($this->collection($relation['rows'], $relation['hide'] ?? []) as $line) {
                 $lines[] = [
                     'text' => '      '.$line,
                     'fold' => null,
@@ -149,11 +149,17 @@ class RowDocument
 
     /**
      * @param  array<int, array<string, mixed>>  $rows
+     * @param  array<int, string>  $hide
      * @return array<int, string>
      */
-    private function collection(array $rows): array
+    private function collection(array $rows, array $hide = []): array
     {
-        $columns = array_keys($rows[0] ?? []);
+        // The id joining back to this row, and the ids pointing at other
+        // tables, are the noise the inspector exists to get rid of.
+        $columns = array_values(array_filter(
+            array_keys($rows[0] ?? []),
+            fn (string $column) => ! in_array($column, $hide, true),
+        ));
 
         if ($columns === []) {
             return [];

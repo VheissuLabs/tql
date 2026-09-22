@@ -161,7 +161,12 @@ it('cycles the column and the operator with the arrows', function () {
 
     $form = $browser->filterForm;
 
-    expect($form->current()->column)->toBe('id');
+    // It opens on the value, ready to type; step back to the column.
+    $browser->emit('key', "\e[Z");
+    $browser->emit('key', "\e[Z");
+
+    expect($form->cell)->toBe(FilterForm::COLUMN)
+        ->and($form->current()->column)->toBe('id');
 
     $browser->emit('key', "\e[C");
 
@@ -173,7 +178,7 @@ it('cycles the column and the operator with the arrows', function () {
 
     $browser->emit('key', "\e[C");
 
-    expect($form->current()->operator)->toBe('is not');
+    expect($form->current()->operator)->toBe('starts with');
 });
 
 it('adds and removes conditions', function () {
@@ -247,6 +252,8 @@ it('opens a type-to-filter list on the column cell', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e[Z");
+    $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
 
     $picker = $browser->filterForm->picker;
@@ -260,6 +267,8 @@ it('filters the list as you type and picks on enter', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e[Z");
+    $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
     $browser->emit('key', 'cit');
 
@@ -275,7 +284,7 @@ it('opens the operator list on the operator cell', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
-    $browser->emit('key', "\t");
+    $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
 
     expect($browser->filterForm->picker->title)->toBe('OPERATOR');
@@ -307,6 +316,8 @@ it('wraps around the ends of the list', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e[Z");
+    $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
 
     $picker = $browser->filterForm->picker;
@@ -326,6 +337,8 @@ it('goes back to the top when the list changes under you', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e[Z");
+    $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
 
     $browser->emit('key', "\e[B");
@@ -343,6 +356,8 @@ it('says when nothing matches', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e[Z");
+    $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
     $browser->emit('key', 'zzz');
 
@@ -361,11 +376,6 @@ it('moves back through the cells with shift+tab', function () {
     $browser->emit('key', 'f');
 
     $form = $browser->filterForm;
-
-    expect($form->cell)->toBe(FilterForm::COLUMN);
-
-    $browser->emit('key', "\t");
-    $browser->emit('key', "\t");
 
     expect($form->cell)->toBe(FilterForm::VALUE);
 
@@ -400,4 +410,42 @@ it('can get back to the column after typing a value', function () {
 
     expect($browser->filterForm->current()->column)->toBe('name')
         ->and($browser->filterForm->current()->value)->toBe('Karl');
+});
+
+it('clears the filter with escape from the table', function () {
+    $browser = filtered();
+
+    apply($browser, new Filter('name', 'contains', 'Karl'));
+
+    expect(names($browser))->toHaveCount(2);
+
+    $browser->emit('key', "\e");
+
+    expect($browser->filters)->toBeNull()
+        ->and(names($browser))->toHaveCount(4)
+        ->and($browser->status)->toBe('filter cleared');
+});
+
+it('does nothing on escape when nothing is filtered', function () {
+    $browser = filtered();
+
+    $browser->emit('key', "\e");
+
+    expect($browser->filters)->toBeNull()
+        ->and($browser->status)->not->toBe('filter cleared');
+});
+
+it('goes back before clearing a filter it arrived with', function () {
+    $browser = filtered();
+
+    apply($browser, new Filter('city', 'is', 'Toronto'));
+
+    expect(names($browser))->toBe(['Karl', 'Bo']);
+
+    // A jump replaces the filter; escaping restores the one you had.
+    $browser->filterForm = null;
+
+    $browser->emit('key', "\e");
+
+    expect($browser->filters)->toBeNull();
 });

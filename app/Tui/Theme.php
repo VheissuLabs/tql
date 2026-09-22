@@ -9,13 +9,21 @@ class Theme
         'blue', 'magenta', 'cyan', 'white', 'gray',
     ];
 
-    public static function border(bool $focused): string
+    public static function border(bool $focused, bool $modal = false): string
     {
+        if ($modal) {
+            return static::colour($focused ? 'modal_focus_border' : 'modal_border', 'gray');
+        }
+
         return static::colour($focused ? 'focus_border' : 'border');
     }
 
-    public static function title(bool $focused): string
+    public static function title(bool $focused, bool $modal = false): string
     {
+        if ($modal) {
+            return static::colour($focused ? 'modal_focus_title' : 'modal_title', 'white');
+        }
+
         return $focused ? static::colour('focus_title') : static::colour('border');
     }
 

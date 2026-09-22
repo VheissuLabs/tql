@@ -43,9 +43,31 @@ trait RendersSmoothly
         }
     }
 
+    private ?string $lastShape = null;
+
+    /**
+     * Anything that changes the shape of the screen — opening a modal, folding
+     * a box — is a chance for a frame to be left behind, because Prompts
+     * erases using the previous frame's line count. Repaint on the change.
+     */
+    private function shapeChanged(): bool
+    {
+        $shape = method_exists($this, 'shape') ? (string) $this->shape() : '';
+
+        $changed = $this->lastShape !== null && $this->lastShape !== $shape;
+
+        $this->lastShape = $shape;
+
+        return $changed;
+    }
+
     protected function render(): void
     {
         $this->allowCtrlS();
+
+        if ($this->shapeChanged()) {
+            $this->repaint = true;
+        }
 
         $this->terminal()->initDimensions();
 

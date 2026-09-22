@@ -35,19 +35,30 @@ class FilterForm
     /**
      * @param  array<int, string>  $columns
      */
-    public function __construct(public array $columns, ?Filters $existing = null)
-    {
+    public function __construct(
+        public array $columns,
+        ?Filters $existing = null,
+        private ?string $startOn = null,
+    ) {
         $this->conditions = $existing?->filters ?? [];
         $this->joiner = $existing?->joiner ?? 'and';
 
         if ($this->conditions === []) {
             $this->add();
+
+            // Start on the column you were looking at, ready to type a value:
+            // that is the filter you meant nine times out of ten.
+            $this->cell = self::VALUE;
         }
     }
 
     public function add(): void
     {
-        $this->conditions[] = new Filter($this->columns[0] ?? '', 'is', '');
+        $column = $this->startOn !== null && in_array($this->startOn, $this->columns, true)
+            ? $this->startOn
+            : ($this->columns[0] ?? '');
+
+        $this->conditions[] = new Filter($column, 'contains', '');
         $this->row = count($this->conditions) - 1;
         $this->cell = self::COLUMN;
     }
@@ -55,8 +66,8 @@ class FilterForm
     public function remove(): void
     {
         if (count($this->conditions) <= 1) {
-            $this->conditions = [new Filter($this->columns[0] ?? '', 'is', '')];
-            $this->row = 0;
+            $this->conditions = [];
+            $this->add();
 
             return;
         }

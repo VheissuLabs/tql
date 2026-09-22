@@ -5,6 +5,7 @@ namespace App\Prompts\Renderers;
 use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\Islands\AskIsland;
+use App\Tui\Islands\BackdropIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\FilterIsland;
 use App\Tui\Islands\HelpIsland;
@@ -95,6 +96,9 @@ class BrowserRenderer extends Renderer
                 $barHeight,
             );
 
+            $bar->modal = true;
+
+            $screen->overlay($this->backdrop($bar, $width));
             $screen->overlay($bar);
 
             if ($prompt->filterForm->picker !== null) {
@@ -111,6 +115,9 @@ class BrowserRenderer extends Renderer
                     $listHeight,
                 );
 
+                $list->modal = true;
+
+                $screen->overlay($this->backdrop($list, $width));
                 $screen->overlay($list);
             }
         }
@@ -129,6 +136,9 @@ class BrowserRenderer extends Renderer
                 $askHeight,
             );
 
+            $ask->modal = true;
+
+            $screen->overlay($this->backdrop($ask, $width));
             $screen->overlay($ask);
         }
 
@@ -189,14 +199,23 @@ class BrowserRenderer extends Renderer
             }
 
             $y = $top + max(0, (int) (($frameHeight - $total) / 2));
+            $x = max(1, (int) (($width - $boxWidth) / 2) + 1);
+
+            // An opaque backdrop first, with a margin, so the panes do not
+            // show through the gap between the boxes.
+            $backdrop = new BackdropIsland;
+            $backdrop->place(
+                max(1, $x - 2),
+                max($top, $y - 1),
+                min($width, $boxWidth + 4),
+                $total + 2,
+            );
+
+            $screen->overlay($backdrop);
 
             foreach ($boxes as [$box, $height]) {
-                $box->place(
-                    max(1, (int) (($width - $boxWidth) / 2) + 1),
-                    $y,
-                    $boxWidth,
-                    $height,
-                );
+                $box->modal = true;
+                $box->place($x, $y, $boxWidth, $height);
 
                 $screen->overlay($box);
 
@@ -228,6 +247,9 @@ class BrowserRenderer extends Renderer
                 $structureHeight,
             );
 
+            $structure->modal = true;
+
+            $screen->overlay($this->backdrop($structure, $width));
             $screen->overlay($structure);
 
             $prompt->structureHidden = $structure->hidden;
@@ -247,6 +269,9 @@ class BrowserRenderer extends Renderer
                 $modalHeight,
             );
 
+            $help->modal = true;
+
+            $screen->overlay($this->backdrop($help, $width));
             $screen->overlay($help);
 
             $prompt->helpIsland = $help;
@@ -295,7 +320,9 @@ class BrowserRenderer extends Renderer
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
-        $modal = in_array($prompt->mode, ['help', 'edit'], true);
+        // Only the value editor takes the screen. Everything else floats over
+        // the panes, so they stay where they were.
+        $modal = $prompt->mode === 'edit';
 
         if (! $modal) {
             $screen->add($table);
@@ -355,6 +382,24 @@ class BrowserRenderer extends Renderer
     private function visible(string $line): int
     {
         return mb_strlen((string) preg_replace('/\e\[[0-9;]*m/', '', $line));
+    }
+
+    /**
+     * An opaque margin around a modal, so the panes do not show through at
+     * its edges and it reads as something on top rather than part of the grid.
+     */
+    private function backdrop(Island $island, int $width): BackdropIsland
+    {
+        $backdrop = new BackdropIsland;
+
+        $backdrop->place(
+            max(1, $island->x - 2),
+            max(1, $island->y - 1),
+            min($width, $island->width + 4),
+            $island->height + 2,
+        );
+
+        return $backdrop;
     }
 
     /**
@@ -422,6 +467,13 @@ class BrowserRenderer extends Renderer
         // A collapsed section is its title bar and nothing else, so folding
         // changes the shape of the screen rather than hiding text inside a
         // box that stays the same size.
+        if ($island->bare) {
+            return array_map(
+                fn (string $line) => $style->pad($line, $island->width),
+                $island->content($island->width, $island->height),
+            );
+        }
+
         if ($island->collapsed) {
             return [$this->topBorder($island, $style, $inner, [])];
         }
@@ -429,7 +481,7 @@ class BrowserRenderer extends Renderer
         $content = $island->content($inner, $island->innerHeight());
         $joins = $island->joins();
 
-        $edge = fn (string $text) => $this->paint(Theme::border($island->focused), $text);
+        $edge = fn (string $text) => $this->paint(Theme::border($island->focused, $island->modal), $text);
 
         $lines = [$this->topBorder($island, $style, $inner, $joins)];
 
@@ -441,7 +493,7 @@ class BrowserRenderer extends Renderer
             $lines[] = $edge($edges[0]).$style->pad($content[$i] ?? '', $inner).$edge($edges[1]);
         }
 
-        $colour = Theme::border($island->focused);
+        $colour = Theme::border($island->focused, $island->modal);
 
         $lines[] = $edge('└').$this->border($inner, $joins, '┴', $colour).$edge('┘');
 
@@ -502,12 +554,12 @@ class BrowserRenderer extends Renderer
         $plain = $style->visible($label);
 
         $label = $island->focused
-            ? $this->bold($this->paint(Theme::title(true), $label))
-            : $this->paint(Theme::title(false), $label);
+            ? $this->bold($this->paint(Theme::title(true, $island->modal), $label))
+            : $this->paint(Theme::title(false, $island->modal), $label);
 
-        $edge = fn (string $text) => $this->paint(Theme::border($island->focused), $text);
+        $edge = fn (string $text) => $this->paint(Theme::border($island->focused, $island->modal), $text);
 
-        $colour = Theme::border($island->focused);
+        $colour = Theme::border($island->focused, $island->modal);
 
         $tail = array_slice(
             $this->borderChars($inner, $joins, '┬'),

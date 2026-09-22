@@ -69,6 +69,11 @@ class ConnectionPicker extends Prompt
         return $this->choice;
     }
 
+    public function shape(): string
+    {
+        return ($this->form === null ? 'list' : 'form').'|'.count($this->connections);
+    }
+
     public function rows(): array
     {
         return $this->connections

@@ -206,6 +206,22 @@ class Browser extends Prompt
         return $this->exit;
     }
 
+    /**
+     * What the screen is made of right now. When this changes, the frame is
+     * repainted from scratch rather than erased by line count.
+     */
+    public function shape(): string
+    {
+        return implode('|', [
+            $this->mode,
+            $this->question === null ? '' : 'ask',
+            $this->filterForm === null ? '' : 'filter',
+            $this->filterForm?->picker === null ? '' : 'picker',
+            $this->linkPicker === null ? '' : 'links',
+            $this->document === null ? '' : count($this->document->lines()),
+        ]);
+    }
+
     public function currentTable(): ?string
     {
         return $this->visibleTables()[$this->tableIndex] ?? null;
@@ -698,7 +714,11 @@ class Browser extends Prompt
             $parent = $this->runner->related($this->connection, $link['table'], $link['column'], $value, 1);
 
             if ($parent !== []) {
-                $related[$link['table']] = ['rows' => [$this->readable($parent[0])], 'total' => 1];
+                $related[$link['table']] = [
+                    'rows' => [$this->readable($parent[0])],
+                    'total' => 1,
+                    'hide' => $this->idsToHide($link['table'], $link['column']),
+                ];
             }
         }
 
@@ -720,10 +740,26 @@ class Browser extends Prompt
             $related[$link['table']] = [
                 'rows' => array_map(fn (array $r) => $this->readable($r), array_slice($rows, 0, $limit)),
                 'total' => $more ? $this->countRelated($link, $value) : count($rows),
+                'hide' => $this->idsToHide($link['table'], $link['column']),
             ];
         }
 
         return $related;
+    }
+
+    /**
+     * Columns of a related table that are only ids: the one joining back to
+     * this row, and any foreign key pointing somewhere else. Showing them is
+     * the opposite of what the inspector is for.
+     *
+     * @return array<int, string>
+     */
+    private function idsToHide(string $table, string $joinedOn): array
+    {
+        return array_values(array_unique(array_merge(
+            [$joinedOn],
+            array_keys($this->runner->foreignKeys($this->connection, $table)),
+        )));
     }
 
     /**
@@ -1864,7 +1900,16 @@ class Browser extends Prompt
      */
     private function escape(): bool
     {
-        return $this->jumps === [] ? true : $this->jumpBack();
+        // A jump carries its own filter, so going back comes first.
+        if ($this->jumps !== []) {
+            return $this->jumpBack();
+        }
+
+        if ($this->filters !== null) {
+            return $this->clearFilters();
+        }
+
+        return true;
     }
 
     private function jumpBack(): bool
@@ -1929,7 +1974,11 @@ class Browser extends Prompt
             return true;
         }
 
-        $this->filterForm = new FilterForm($this->headers, $this->filters);
+        $this->filterForm = new FilterForm(
+            $this->headers,
+            $this->filters,
+            $this->headers[$this->columnIndex] ?? null,
+        );
         $this->status = null;
 
         return true;

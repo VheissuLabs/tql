@@ -422,3 +422,66 @@ it('keeps the help modal inside the terminal at any width', function () {
 
     expect($over)->toBe([]);
 });
+
+it('draws an opaque backdrop behind a modal', function () {
+    putenv('COLUMNS=140');
+    putenv('LINES=40');
+
+    $browser = aligned();
+
+    widths($browser);
+    $browser->emit('key', "\n");
+    $browser->emit('key', '?');
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    $lines = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser)));
+
+    // Find the modal's own rows, then check the row just above its top border
+    // has been blanked where the modal sits rather than showing the panes.
+    $top = null;
+
+    foreach ($lines as $index => $line) {
+        if (str_contains($line, '┌─ HELP')) {
+            $top = $index;
+            break;
+        }
+    }
+
+    expect($top)->not->toBeNull();
+
+    $at = mb_strpos($lines[$top], '┌');
+    $above = mb_substr($lines[$top - 1], $at, 10);
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    expect(trim($above))->toBe('');
+});
+
+it('repaints when a modal opens or closes', function () {
+    $browser = aligned();
+
+    $render = new ReflectionMethod($browser, 'render');
+    $render->setAccessible(true);
+
+    $output = captureAligned();
+
+    $render->invoke($browser);
+    $output->fetch();
+
+    $browser->emit('key', '?');
+    $render->invoke($browser);
+
+    expect($output->fetch())->toContain("\e[2J\e[H");
+});
+
+function captureAligned(): BufferedConsoleOutput
+{
+    $output = new BufferedConsoleOutput;
+
+    Prompt::setOutput($output);
+
+    return $output;
+}

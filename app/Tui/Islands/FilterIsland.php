@@ -45,8 +45,10 @@ class FilterIsland extends Island
             ? str_pad('where', 6)
             : str_pad($this->form->joiner, 6);
 
+        $editing = $this->form->editor !== null && $here && $this->form->cell === FilterForm::VALUE;
+
         $value = $filter->needsValue()
-            ? ($this->form->editor !== null && $here && $this->form->cell === FilterForm::VALUE
+            ? ($editing
                 ? $this->withCursor($this->form->editor->buffer(), $this->form->editor->cursor())
                 : ($filter->value === '' ? '…' : $filter->value))
             : '';
@@ -56,7 +58,9 @@ class FilterIsland extends Island
             .' '
             .$this->cell($filter->operator, $here && $this->form->cell === FilterForm::OPERATOR, 16)
             .' '
-            .$this->cell($value, $here && $this->form->cell === FilterForm::VALUE, max(4, $width - 44));
+            // While typing, the cursor marks the spot; highlighting the cell
+            // as well would wrap the cursor's own inverse in another one.
+            .$this->cell($value, $here && $this->form->cell === FilterForm::VALUE && ! $editing, max(4, $width - 44));
     }
 
     private function cell(string $text, bool $focused, int $width): string
