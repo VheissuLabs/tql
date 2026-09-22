@@ -507,3 +507,37 @@ it('aligns the status and hotkey lines with the island content', function () {
     expect($indent($status))->toBe($contentColumn)
         ->and($indent($hotkeys))->toBe($contentColumn);
 });
+
+it('marks the selected row without underlining it', function () {
+    config(['dotsql.ui.row_style' => 'marker']);
+
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', 'j');
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $raw = $method->invoke($browser);
+
+    expect($raw)->toContain('▸')
+        ->and($raw)->not->toContain("\e[4m");
+
+    config(['dotsql.ui.row_style' => 'marker']);
+});
+
+it('supports the other selected row styles', function (string $style, string $expected) {
+    config(['dotsql.ui.row_style' => $style]);
+
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', 'j');
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    expect($method->invoke($browser))->toContain($expected);
+
+    config(['dotsql.ui.row_style' => 'marker']);
+})->with([
+    ['underline', "\e[4m"],
+    ['bold', "\e[1m"],
+    ['inverse', "\e[7m"],
+]);

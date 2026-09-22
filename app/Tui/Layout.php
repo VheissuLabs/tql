@@ -11,6 +11,11 @@ class Layout
         return max(0, (int) config('dotsql.ui.top_margin', 1));
     }
 
+    public static function rowStyle(): string
+    {
+        return (string) config('dotsql.ui.row_style', 'marker');
+    }
+
     public static function mouseRowOffset(): int
     {
         return (int) config('dotsql.ui.mouse_row_offset', 0);

@@ -6,6 +6,8 @@ return [
 
         'top_margin' => 1,
 
+        'row_style' => 'marker',
+
         'sidebar_width' => 24,
 
         'mouse_row_offset' => env('DOTSQL_MOUSE_ROW_OFFSET', 0),

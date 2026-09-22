@@ -2,6 +2,8 @@
 
 namespace App\Tui\Islands;
 
+use App\Tui\Layout;
+
 class TableIsland extends Island
 {
     public string $title = 'ROWS';
@@ -133,6 +135,7 @@ class TableIsland extends Island
         $selected = $absolute === $this->rowIndex;
         $values = array_values($row);
         $cells = [];
+        $style = Layout::rowStyle();
 
         foreach ($this->widths as $i => $width) {
             $column = $this->columnOffset + $i;
@@ -142,7 +145,9 @@ class TableIsland extends Island
                 ? $this->editBuffer($this->editing, $width)
                 : $this->style->truncate($value, $width);
 
-            $padded = ' '.$this->style->pad($text, $width).' ';
+            $lead = $selected && $i === 0 && $style === 'marker' ? '▸' : ' ';
+
+            $padded = $lead.$this->style->pad($text, $width).' ';
 
             $cells[] = $selected && $column === $this->columnIndex
                 ? $this->style->inverse($padded)
@@ -151,9 +156,20 @@ class TableIsland extends Island
 
         $line = implode($this->style->dim('│'), $cells);
 
-        return $selected && $this->editing === null
-            ? $this->style->underline($this->style->pad($line, $innerWidth))
-            : $line;
+        if (! $selected) {
+            return $style === 'dim-others' ? $this->style->dim($line) : $line;
+        }
+
+        if ($this->editing !== null) {
+            return $line;
+        }
+
+        return match ($style) {
+            'underline' => $this->style->underline($this->style->pad($line, $innerWidth)),
+            'inverse' => $this->style->inverse($this->style->pad($line, $innerWidth)),
+            'bold' => $this->style->bold($line),
+            default => $line,
+        };
     }
 
     private function editBuffer(string $buffer, int $width): string
