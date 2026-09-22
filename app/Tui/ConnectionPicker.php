@@ -25,6 +25,8 @@ class ConnectionPicker extends Prompt
 
     public int $start = 0;
 
+    public ?int $firstBodyRow = null;
+
     private ?string $choice = null;
 
     public function __construct(public Collection $connections)
@@ -105,7 +107,7 @@ class ConnectionPicker extends Prompt
 
     private function clickRow(int $row): bool
     {
-        $index = Layout::bodyIndex($row);
+        $index = Layout::bodyIndex($row, $this->firstBodyRow ?? Layout::firstBodyRow(2));
 
         if ($index === null) {
             return true;

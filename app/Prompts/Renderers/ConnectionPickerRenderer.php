@@ -3,12 +3,15 @@
 namespace App\Prompts\Renderers;
 
 use App\Tui\ConnectionPicker;
+use App\Tui\Layout;
 use Laravel\Prompts\Themes\Default\Renderer;
 
 class ConnectionPickerRenderer extends Renderer
 {
     public function __invoke(ConnectionPicker $prompt): string
     {
+        $prompt->firstBodyRow ??= Layout::firstBodyRow(max(2 - $prompt->newLinesWritten(), 0));
+
         $width = max(60, $prompt->terminal()->cols());
         $height = max(10, $prompt->terminal()->lines());
 

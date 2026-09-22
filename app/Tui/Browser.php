@@ -39,6 +39,8 @@ class Browser extends Prompt
 
     public ?string $command = null;
 
+    public ?int $firstBodyRow = null;
+
     public int $sidebarStart = 0;
 
     public int $gridStart = 0;
@@ -137,7 +139,7 @@ class Browser extends Prompt
 
     private function click(int $column, int $row): bool
     {
-        $index = Layout::bodyIndex($row);
+        $index = Layout::bodyIndex($row, $this->firstBodyRow ?? Layout::firstBodyRow(2));
 
         if ($index === null) {
             return true;

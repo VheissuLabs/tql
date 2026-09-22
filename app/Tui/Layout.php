@@ -8,7 +8,7 @@ class Layout
 
     public const CHROME = 7;
 
-    public const FIRST_BODY_ROW = 3;
+    public const TOP_BORDER_ROWS = 1;
 
     public const SIDEBAR_FIRST_COLUMN = 3;
 
@@ -36,9 +36,14 @@ class Layout
         return $column >= self::gridFirstColumn();
     }
 
-    public static function bodyIndex(int $row): ?int
+    public static function firstBodyRow(int $leadingNewlines): int
     {
-        $index = $row - self::FIRST_BODY_ROW;
+        return $leadingNewlines + self::TOP_BORDER_ROWS + 1;
+    }
+
+    public static function bodyIndex(int $row, int $firstBodyRow): ?int
+    {
+        $index = $row - $firstBodyRow;
 
         return $index < 0 ? null : $index;
     }
