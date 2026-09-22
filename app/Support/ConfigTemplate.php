@@ -73,6 +73,28 @@ class ConfigTemplate
                 'comment' => ['Colour of a row you have edited, before :w writes it'],
             ],
             [
+                'section' => 'ai',
+                'key' => 'provider',
+                'default' => '"anthropic"',
+                'comment' => [
+                    'Which provider answers when you press "a". The key comes',
+                    'from that provider\'s own environment variable, such as',
+                    'ANTHROPIC_API_KEY. Only table and column names are sent.',
+                ],
+            ],
+            [
+                'section' => 'ai',
+                'key' => 'model',
+                'default' => '"claude-sonnet-5"',
+                'comment' => [],
+            ],
+            [
+                'section' => 'ai',
+                'key' => 'timeout',
+                'default' => '60',
+                'comment' => ['Seconds to wait for an answer'],
+            ],
+            [
                 'section' => 'icons',
                 'key' => 'mysql',
                 'default' => '""',

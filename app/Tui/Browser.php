@@ -2,6 +2,7 @@
 
 namespace App\Tui;
 
+use App\Ai\Ask;
 use App\Database\OrderBy;
 use App\Database\QueryRunner;
 use App\Database\SqlExporter;
@@ -34,6 +35,9 @@ class Browser extends Prompt
 
     /** Live filter on the tables list, or null when not filtering. */
     public ?string $filter = null;
+
+    /** The question being typed for the model, or null. */
+    public ?string $question = null;
 
     public bool $filtering = false;
 
@@ -251,6 +255,12 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->question !== null) {
+            $this->handleQuestionKey($key);
+
+            return;
+        }
+
         if ($this->filtering) {
             $this->handleFilterKey($key);
 
@@ -287,6 +297,7 @@ class Browser extends Prompt
             $key === 'r' => $this->reload(),
             $key === 'o' => $this->sortBy($this->headers[$this->columnIndex] ?? null),
             $key === '/' => $this->openFilter(),
+            $key === 'a' => $this->openQuestion(),
             $key === 'd' => $this->markDelete(),
             $key === 'u' => $this->unmarkAll(),
             default => true,
@@ -1254,6 +1265,97 @@ class Browser extends Prompt
         $this->state = 'submit';
 
         return false;
+    }
+
+    private function openQuestion(): bool
+    {
+        $this->question = '';
+        $this->status = 'ask for a query in plain english · ↵ asks · esc cancels';
+
+        return true;
+    }
+
+    private function handleQuestionKey(string $key): void
+    {
+        if ($key === Key::ESCAPE) {
+            $this->question = null;
+            $this->status = null;
+
+            return;
+        }
+
+        if ($key === Key::ENTER) {
+            $question = trim((string) $this->question);
+            $this->question = null;
+
+            if ($question !== '') {
+                $this->askFor($question);
+            }
+
+            return;
+        }
+
+        if (in_array($key, [Key::BACKSPACE, Key::CTRL_H], true)) {
+            $this->question = mb_substr((string) $this->question, 0, -1);
+
+            return;
+        }
+
+        $this->question .= Input::text($key);
+    }
+
+    /**
+     * Put the answer in the editor rather than running it, with the
+     * explanation as comments above it so it reads in place and still runs.
+     */
+    private function askFor(string $question): bool
+    {
+        $this->status = 'asking…';
+        $this->render();
+
+        $answer = app(Ask::class)->for($this->connection, $question, $this->currentTable());
+
+        if (is_string($answer)) {
+            $this->status = $answer;
+
+            return true;
+        }
+
+        if ($answer['query'] === '') {
+            $this->status = $answer['notes'] !== '' ? $answer['notes'] : 'no query for that';
+
+            return true;
+        }
+
+        $this->editor->set($this->annotate($answer));
+        $this->editor->toStart();
+
+        $this->mode = 'query';
+        $this->status = 'ctrl+r runs it · read it first · esc returns';
+
+        return true;
+    }
+
+    /**
+     * @param  array{query: string, explanation: string, notes: string}  $answer
+     */
+    private function annotate(array $answer): string
+    {
+        $lines = [];
+
+        foreach ([$answer['explanation'], $answer['notes']] as $text) {
+            if ($text === '') {
+                continue;
+            }
+
+            foreach (explode("\n", wordwrap($text, 76)) as $line) {
+                $lines[] = '-- '.$line;
+            }
+
+            $lines[] = '--';
+        }
+
+        return implode("\n", $lines).($lines === [] ? '' : "\n").$answer['query'];
     }
 
     private function openFilter(): bool

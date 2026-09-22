@@ -158,6 +158,7 @@ class BrowserRenderer extends Renderer
         $this->hotkey('e', 'Edit');
         $this->hotkey('o', 'Sort');
         $this->hotkey('d', 'Mark');
+        $this->hotkey('a', 'Ask');
         $this->hotkey('s', 'SQL');
 
         // Paging is only worth a slot when there is somewhere to page to.
@@ -352,6 +353,10 @@ class BrowserRenderer extends Renderer
 
         if ($prompt->filtering) {
             return ' /'.$prompt->filter.$this->paint(Theme::cursor(), '█');
+        }
+
+        if ($prompt->question !== null) {
+            return ' '.$this->bold('ask').' '.$prompt->question.$this->paint(Theme::cursor(), '█');
         }
 
         if ($prompt->mode === 'edit') {

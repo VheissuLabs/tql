@@ -2,6 +2,27 @@
 
 return [
 
+    /*
+    |--------------------------------------------------------------------------
+    | Asking for SQL
+    |--------------------------------------------------------------------------
+    |
+    | Which provider and model answer when you press "a". Only the table and
+    | column names are sent, never row data. The key comes from the provider's
+    | own environment variable, for example ANTHROPIC_API_KEY.
+    |
+    */
+
+    'ai' => [
+
+        'provider' => env('TQL_AI_PROVIDER', 'anthropic'),
+
+        'model' => env('TQL_AI_MODEL', 'claude-sonnet-5'),
+
+        'timeout' => env('TQL_AI_TIMEOUT', 60),
+
+    ],
+
     'theme' => [
 
         'border' => 'dim',

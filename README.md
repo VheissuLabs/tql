@@ -107,6 +107,45 @@ The pane always mirrors what you are looking at: change table, sort, or page and
 it rewrites itself to the query that produced the rows on screen, discarding an
 edit you never ran. While you are typing in it, nothing overwrites you.
 
+## Asking for SQL
+
+Press `a` and ask in plain english. The answer lands **in the editor**, with the
+explanation as `--` comments above it, and nothing runs until you press
+`ctrl+r`.
+
+```
+-- Counts how many invoices each customer has. The join matches each invoice to
+-- its customer on customer_id, group by makes count() run per customer, and
+-- order by puts the busiest first.
+--
+select c.name, count(i.id) as invoices
+from customers c
+join invoices i on i.customer_id = c.id
+group by c.id, c.name
+order by invoices desc
+limit 50
+```
+
+The model writes queries; it never runs them. It is asked for exactly one
+statement, reads only, and is told to use nothing outside the schema — and it
+still lands in front of you for review rather than in front of your database.
+
+**Only table and column names are sent.** No row data ever leaves the machine,
+so asking about a production table does not send its contents anywhere. The
+table you are looking at is sent first so it survives the size limit.
+
+Configure it in `[ai]`:
+
+```toml
+[ai]
+provider = "anthropic"
+model = "claude-sonnet-5"
+timeout = 60
+```
+
+The key comes from the provider's own environment variable, for example
+`ANTHROPIC_API_KEY`. Without one, `a` says so instead of failing at the network.
+
 ## Running SQL
 
 The SQL pane is syntax highlighted — keywords, quoted identifiers, strings,

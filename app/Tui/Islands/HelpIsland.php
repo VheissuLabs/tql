@@ -83,6 +83,8 @@ class HelpIsland extends Island
                 'i' => 'view the value, read only',
                 'e' => 'edit the value, ctrl+s saves',
                 's' => 'SQL editor, ctrl+r runs it',
+                'a' => 'ask for a query in plain english',
+                '/' => 'filter the tables list',
                 ', .' => 'narrow or widen the column',
                 '=' => 'reset the column width',
             ],
