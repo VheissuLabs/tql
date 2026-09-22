@@ -263,3 +263,41 @@ it('does not scroll earlier columns away when moving right', function () {
 
     expect(headerRowOf($browser))->toContain('id');
 });
+
+it('clicks the table the user actually sees in the sidebar', function () {
+    $browser = browserFor(sqliteFixture());
+    $frame = frameOf($browser);
+
+    $lines = explode("\n", $frame);
+    $expected = [];
+
+    foreach ($lines as $index => $line) {
+        foreach ($browser->tables as $table) {
+            if (str_contains($line, $table) && str_starts_with(ltrim($line, '│ '), $table)) {
+                $expected[$index + 1] ??= $table;
+            }
+        }
+    }
+
+    expect($expected)->not->toBeEmpty();
+
+    foreach ($expected as $terminalRow => $table) {
+        $fresh = browserFor(sqliteFixture());
+        frameOf($fresh);
+
+        $fresh->emit('key', "\e[<0;10;{$terminalRow}M");
+
+        expect($fresh->tables[$fresh->tableIndex])->toBe($table);
+    }
+});
+
+it('ignores sidebar clicks on the chrome above the first row', function () {
+    $browser = browserFor(sqliteFixture());
+    frameOf($browser);
+
+    $before = $browser->tableIndex;
+
+    $browser->emit('key', "\e[<0;10;".($browser->firstBodyRow - 1).'M');
+
+    expect($browser->tableIndex)->toBe($before);
+});

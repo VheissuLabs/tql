@@ -8,7 +8,7 @@ class Layout
 
     public const CHROME = 7;
 
-    public const TOP_BORDER_ROWS = 1;
+    public const TOP_BORDER_ROWS = 3;
 
     public const SIDEBAR_FIRST_COLUMN = 2;
 

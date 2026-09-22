@@ -48,6 +48,6 @@ it('returns null for rows above the body', function () {
 });
 
 it('shifts the body row with the frame padding', function () {
-    expect(Layout::firstBodyRow(0))->toBe(2)
-        ->and(Layout::firstBodyRow(2))->toBe(4);
+    expect(Layout::firstBodyRow(2) - Layout::firstBodyRow(0))->toBe(2)
+        ->and(Layout::firstBodyRow(0))->toBe(Layout::TOP_BORDER_ROWS + 1);
 });
