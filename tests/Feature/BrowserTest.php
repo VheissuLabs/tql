@@ -479,3 +479,31 @@ it('merges a user config file over the shipped defaults', function () {
 
     unlink($file);
 });
+
+it('aligns the status and hotkey lines with the island content', function () {
+    $browser = browserFor(sqliteFixture());
+    $lines = array_values(array_filter(explode("\n", frameOf($browser)), fn ($l) => trim($l) !== ''));
+
+    $contentColumn = $browser->sidebar->x + 1;
+
+    $status = null;
+    $hotkeys = null;
+
+    foreach ($lines as $line) {
+        if (str_contains($line, '·') && ! str_contains($line, '┌')) {
+            $status ??= $line;
+        }
+
+        if (str_contains($line, 'Quit')) {
+            $hotkeys ??= $line;
+        }
+    }
+
+    expect($status)->not->toBeNull()
+        ->and($hotkeys)->not->toBeNull();
+
+    $indent = fn (string $l) => strlen($l) - strlen(ltrim($l)) + 1;
+
+    expect($indent($status))->toBe($contentColumn)
+        ->and($indent($hotkeys))->toBe($contentColumn);
+});

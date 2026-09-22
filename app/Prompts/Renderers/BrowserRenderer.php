@@ -105,7 +105,10 @@ class BrowserRenderer extends Renderer
         $this->hotkey('n/p', 'Page');
         $this->hotkey(':q', 'Quit');
 
-        collect($this->hotkeys())->each($this->line(...));
+        collect($this->hotkeys())
+            ->map(fn (string $line) => rtrim($line))
+            ->filter()
+            ->each(fn (string $line) => $this->line(' '.$line));
 
         return $this;
     }
