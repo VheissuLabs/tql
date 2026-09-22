@@ -75,24 +75,40 @@ class ConfigTemplate
             [
                 'section' => 'ai',
                 'key' => 'provider',
-                'default' => '"anthropic"',
+                'default' => '"auto"',
                 'comment' => [
-                    'Which provider answers when you press "a". The key comes',
-                    'from that provider\'s own environment variable, such as',
-                    'ANTHROPIC_API_KEY. Only table and column names are sent.',
+                    'Which provider answers when you press "a". "auto" uses',
+                    'whichever api key you have set, such as ANTHROPIC_API_KEY',
+                    'or OPENAI_API_KEY. Only table and column names are sent.',
                 ],
             ],
             [
                 'section' => 'ai',
                 'key' => 'model',
-                'default' => '"claude-sonnet-5"',
-                'comment' => [],
+                'default' => '""',
+                'comment' => ['Empty uses a sensible default for the provider'],
             ],
             [
                 'section' => 'ai',
                 'key' => 'timeout',
                 'default' => '60',
                 'comment' => ['Seconds to wait for an answer'],
+            ],
+            [
+                'section' => 'ai',
+                'key' => 'url',
+                'default' => '""',
+                'comment' => [
+                    'An OpenAI-compatible endpoint to use instead of a hosted',
+                    'provider, such as LM Studio on http://localhost:1234/v1.',
+                    'Set "model" to the model you loaded there.',
+                ],
+            ],
+            [
+                'section' => 'ai',
+                'key' => 'key',
+                'default' => '""',
+                'comment' => ['Bearer token for that endpoint, if it wants one'],
             ],
             [
                 'section' => 'icons',

@@ -27,6 +27,9 @@ class Browser extends Prompt
     use RegistersRenderers;
     use RendersSmoothly;
 
+    /** ctrl+s, which sends the question. */
+    public const ASK = "\x13";
+
     public const PAGE = 100;
 
     public array $tables = [];
@@ -36,8 +39,10 @@ class Browser extends Prompt
     /** Live filter on the tables list, or null when not filtering. */
     public ?string $filter = null;
 
-    /** The question being typed for the model, or null. */
-    public ?string $question = null;
+    /** The question being written for the model, or null when not asking. */
+    public ?QueryEditor $question = null;
+
+    public ?string $asking = null;
 
     public bool $filtering = false;
 
@@ -1269,8 +1274,8 @@ class Browser extends Prompt
 
     private function openQuestion(): bool
     {
-        $this->question = '';
-        $this->status = 'ask for a query in plain english · ↵ asks · esc cancels';
+        $this->question = new QueryEditor;
+        $this->status = null;
 
         return true;
     }
@@ -1284,24 +1289,21 @@ class Browser extends Prompt
             return;
         }
 
-        if ($key === Key::ENTER) {
-            $question = trim((string) $this->question);
-            $this->question = null;
+        // Enter is a new line, so the question can be a paragraph. ctrl+s
+        // sends it, the same key that commits everywhere else.
+        if ($key === self::ASK) {
+            $question = trim($this->question?->buffer() ?? '');
 
-            if ($question !== '') {
-                $this->askFor($question);
+            if ($question === '') {
+                return;
             }
 
-            return;
-        }
-
-        if (in_array($key, [Key::BACKSPACE, Key::CTRL_H], true)) {
-            $this->question = mb_substr((string) $this->question, 0, -1);
+            $this->askFor($question);
 
             return;
         }
 
-        $this->question .= Input::text($key);
+        $this->question?->handle($key);
     }
 
     /**
@@ -1310,10 +1312,13 @@ class Browser extends Prompt
      */
     private function askFor(string $question): bool
     {
-        $this->status = 'asking…';
+        // Paint the waiting state before the call blocks the loop.
+        $this->asking = 'asking…';
         $this->render();
 
         $answer = app(Ask::class)->for($this->connection, $question, $this->currentTable());
+
+        $this->asking = null;
 
         if (is_string($answer)) {
             $this->status = $answer;
@@ -1326,6 +1331,8 @@ class Browser extends Prompt
 
             return true;
         }
+
+        $this->question = null;
 
         $this->editor->set($this->annotate($answer));
         $this->editor->toStart();

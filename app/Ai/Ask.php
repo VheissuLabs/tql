@@ -18,9 +18,10 @@ class Ask
      */
     public function for(Connection $connection, string $question, ?string $table = null): array|string
     {
-        if (! $this->configured()) {
-            return 'no AI provider configured — set '.strtoupper((string) config('tql.ai.provider')).
-                '_API_KEY, or change [ai] provider in config.toml';
+        $provider = Providers::chosen();
+
+        if ($provider === null) {
+            return $this->missing();
         }
 
         $agent = new SqlWriter(
@@ -31,8 +32,8 @@ class Ask
         try {
             $response = $agent->prompt(
                 $question,
-                provider: (string) config('tql.ai.provider'),
-                model: (string) config('tql.ai.model'),
+                provider: $provider,
+                model: Providers::model($provider),
                 timeout: (int) config('tql.ai.timeout'),
             );
         } catch (Throwable $e) {
@@ -68,8 +69,22 @@ class Ask
 
     public function configured(): bool
     {
-        $provider = (string) config('tql.ai.provider');
+        return Providers::chosen() !== null;
+    }
 
-        return (string) config("ai.providers.{$provider}.key") !== '';
+    /**
+     * Name the variable to set. "No provider configured" tells a user nothing
+     * about what to do next.
+     */
+    private function missing(): string
+    {
+        $configured = trim((string) config('tql.ai.provider', 'auto'));
+
+        if ($configured !== '' && $configured !== 'auto') {
+            return "no key for {$configured} — set ".Providers::keyVariable($configured);
+        }
+
+        return 'no model to ask — set an api key such as ANTHROPIC_API_KEY or '.
+            'OPENAI_API_KEY, or point [ai] url at a local endpoint like LM Studio';
     }
 }

@@ -134,17 +134,40 @@ still lands in front of you for review rather than in front of your database.
 so asking about a production table does not send its contents anywhere. The
 table you are looking at is sent first so it survives the size limit.
 
-Configure it in `[ai]`:
+Press `a` and a modal opens with a text area. Write the question over as many
+lines as you like, `ctrl+s` asks, `esc` cancels.
+
+## Which model answers
+
+Whatever you have a key for. `provider = "auto"` picks the first provider the
+AI SDK finds a key for, so setting `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is
+all it takes:
 
 ```toml
 [ai]
-provider = "anthropic"
-model = "claude-sonnet-5"
+provider = "auto"   # or anthropic, openai, gemini, groq, mistral, deepseek, xai, openrouter, ollama
+model = ""          # empty uses a sensible default for that provider
 timeout = 60
 ```
 
-The key comes from the provider's own environment variable, for example
-`ANTHROPIC_API_KEY`. Without one, `a` says so instead of failing at the network.
+### A local model
+
+Anything with an OpenAI-compatible API works, which includes **LM Studio**,
+vLLM and local gateways. Point `url` at it and name the model you loaded:
+
+```toml
+[ai]
+url = "http://localhost:1234/v1"
+model = "qwen2.5-coder-7b"
+key = ""            # only if your endpoint wants a bearer token
+```
+
+A `url` wins over any provider key, so a local endpoint is used even when you
+have hosted keys in the environment. Nothing leaves your machine at all in that
+setup — and only table and column names were ever being sent anyway.
+
+With nothing configured, `a` says what to set rather than failing at the
+network.
 
 ## Running SQL
 

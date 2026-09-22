@@ -15,11 +15,17 @@ return [
 
     'ai' => [
 
-        'provider' => env('TQL_AI_PROVIDER', 'anthropic'),
+        'provider' => env('TQL_AI_PROVIDER', 'auto'),
 
-        'model' => env('TQL_AI_MODEL', 'claude-sonnet-5'),
+        'model' => env('TQL_AI_MODEL', ''),
 
         'timeout' => env('TQL_AI_TIMEOUT', 60),
+
+        // An OpenAI-compatible endpoint: LM Studio, Ollama's OpenAI API,
+        // vLLM, a local gateway. Setting this wins over any provider key.
+        'url' => env('TQL_AI_URL', ''),
+
+        'key' => env('TQL_AI_KEY', ''),
 
     ],
 

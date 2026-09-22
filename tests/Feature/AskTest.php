@@ -1,6 +1,7 @@
 <?php
 
 use App\Ai\Ask;
+use App\Ai\Providers;
 use App\Ai\SchemaSummary;
 use App\Database\QueryRunner;
 use App\Models\Connection;
@@ -72,11 +73,11 @@ it('types a question without running anything', function () {
 
     $browser->emit('key', 'a');
 
-    expect($browser->question)->toBe('');
+    expect($browser->question?->buffer())->toBe('');
 
     $browser->emit('key', 'how many customers');
 
-    expect($browser->question)->toBe('how many customers')
+    expect($browser->question?->buffer())->toBe('how many customers')
         ->and($browser->mode)->toBe('browse');
 
     $browser->emit('key', "\e");
@@ -93,7 +94,11 @@ it('shows the question as you type it', function () {
     $method = new ReflectionMethod($browser, 'renderTheme');
     $method->setAccessible(true);
 
-    expect(preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser)))->toContain('ask count them');
+    $plain = preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser));
+
+    expect($plain)->toContain('ASK')
+        ->and($plain)->toContain('count them')
+        ->and($plain)->toContain('ctrl+s asks');
 });
 
 it('puts the answer in the editor as comments above the query', function () {
@@ -130,4 +135,75 @@ it('wraps a long explanation so it fits the editor', function () {
     }
 
     expect($sql)->toContain('-- and a note');
+});
+
+it('picks whichever provider has a key', function () {
+    config(['ai.providers' => [
+        'anthropic' => ['key' => ''],
+        'openai' => ['key' => 'sk-test'],
+        'gemini' => ['key' => ''],
+    ]]);
+    config(['tql.ai.provider' => 'auto', 'tql.ai.url' => '']);
+
+    expect(Providers::available())->toBe(['openai'])
+        ->and(Providers::chosen())->toBe('openai')
+        ->and(Providers::model('openai'))->toBe('gpt-5');
+});
+
+it('honours a provider you name', function () {
+    config(['ai.providers' => [
+        'anthropic' => ['key' => 'sk-ant'],
+        'openai' => ['key' => 'sk-openai'],
+    ]]);
+    config(['tql.ai.provider' => 'anthropic', 'tql.ai.url' => '']);
+
+    expect(Providers::chosen())->toBe('anthropic')
+        ->and(Providers::model('anthropic'))->toBe('claude-sonnet-5');
+});
+
+it('lets you name the model yourself', function () {
+    config(['tql.ai.model' => 'claude-opus-5']);
+
+    expect(Providers::model('anthropic'))->toBe('claude-opus-5');
+});
+
+it('says which key is missing for the provider you named', function () {
+    config(['ai.providers' => ['groq' => ['key' => '']]]);
+    config(['tql.ai.provider' => 'groq', 'tql.ai.url' => '']);
+
+    expect(app(Ask::class)->for(asked()->connection, 'count them'))
+        ->toContain('GROQ_API_KEY');
+});
+
+it('uses a local endpoint when one is configured', function () {
+    config(['ai.providers' => ['anthropic' => ['key' => 'sk-ant']]]);
+    config([
+        'tql.ai.provider' => 'auto',
+        'tql.ai.url' => 'http://localhost:1234/v1',
+        'tql.ai.model' => 'qwen2.5-coder-7b',
+    ]);
+
+    expect(Providers::chosen())->toBe(Providers::LOCAL);
+
+    $local = config('ai.providers.'.Providers::LOCAL);
+
+    expect($local['driver'])->toBe('openai-compatible')
+        ->and($local['url'])->toBe('http://localhost:1234/v1')
+        ->and($local['models']['text']['default'])->toBe('qwen2.5-coder-7b');
+});
+
+it('does not need a key for a local endpoint', function () {
+    config(['ai.providers' => []]);
+    config(['tql.ai.provider' => 'auto', 'tql.ai.url' => 'http://localhost:1234/v1', 'tql.ai.key' => '']);
+
+    expect(Providers::chosen())->toBe(Providers::LOCAL)
+        ->and(config('ai.providers.'.Providers::LOCAL))->not->toHaveKey('key');
+});
+
+it('tells you what to do when nothing is configured at all', function () {
+    config(['ai.providers' => ['anthropic' => ['key' => '']]]);
+    config(['tql.ai.provider' => 'auto', 'tql.ai.url' => '']);
+
+    expect(app(Ask::class)->for(asked()->connection, 'count them'))
+        ->toContain('LM Studio');
 });

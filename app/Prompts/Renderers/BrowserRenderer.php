@@ -4,6 +4,7 @@ namespace App\Prompts\Renderers;
 
 use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
+use App\Tui\Islands\AskIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\Island;
@@ -72,6 +73,23 @@ class BrowserRenderer extends Renderer
             $screen->add($editor);
 
             $prompt->editorIsland = $editor;
+        }
+
+        if ($prompt->question !== null) {
+            $ask = new AskIsland($prompt->question, $style, $prompt->asking);
+            $ask->focused = true;
+
+            $askWidth = min($width - 4, AskIsland::WIDTH);
+            $askHeight = AskIsland::ROWS + 5;
+
+            $ask->place(
+                (int) (($width - $askWidth) / 2) + 1,
+                $top + (int) (($frameHeight - $askHeight) / 2),
+                $askWidth,
+                $askHeight,
+            );
+
+            $screen->overlay($ask);
         }
 
         if ($prompt->mode === 'help') {
@@ -353,10 +371,6 @@ class BrowserRenderer extends Renderer
 
         if ($prompt->filtering) {
             return ' /'.$prompt->filter.$this->paint(Theme::cursor(), '█');
-        }
-
-        if ($prompt->question !== null) {
-            return ' '.$this->bold('ask').' '.$prompt->question.$this->paint(Theme::cursor(), '█');
         }
 
         if ($prompt->mode === 'edit') {
