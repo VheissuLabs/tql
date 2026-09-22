@@ -738,3 +738,94 @@ it('yanks the row as an object with Y', function () {
 
     expect($browser->status)->toContain('yanked row');
 });
+
+it('runs the query on enter and adds a line on shift+enter', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from fruit');
+    $browser->editor->toEnd();
+
+    $browser->emit('key', "\e[13;2u");
+    $browser->emit('key', 'where qty > 1');
+
+    expect($browser->editor->buffer())->toBe("select * from fruit\nwhere qty > 1")
+        ->and($browser->resultsFromQuery)->toBeFalse();
+
+    $browser->emit('key', "\n");
+
+    expect($browser->resultsFromQuery)->toBeTrue()
+        ->and(array_column($browser->raw, 'name'))->toBe(['cherry', 'apple']);
+});
+
+it('still runs the query on ctrl+r', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from fruit where qty > 8');
+    $browser->emit('key', QueryEditor::RUN);
+
+    expect($browser->raw)->toHaveCount(1);
+});
+
+it('keeps a value edit on enter', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+    $browser->emit('key', '!');
+    $browser->emit('key', "\n");
+
+    expect($browser->mode)->toBe('browse')
+        ->and($browser->pendingEdits)->toHaveCount(1);
+});
+
+it('adds a line to a value on shift+enter', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+    $browser->emit('key', "\e[13;2u");
+    $browser->emit('key', 'second');
+
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->cellEditor->buffer())->toContain("\nsecond");
+});
+
+it('applies the filter on a second enter', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'f');
+    $browser->emit('key', 'an');
+
+    // First enter leaves the input.
+    $browser->emit('key', "\n");
+
+    expect($browser->filterForm)->not->toBeNull()
+        ->and($browser->filterForm->editor)->toBeNull()
+        ->and($browser->filters)->toBeNull();
+
+    // Second enter runs it.
+    $browser->emit('key', "\n");
+
+    expect($browser->filterForm)->toBeNull()
+        ->and(array_column($browser->raw, 'name'))->toBe(['banana']);
+});
+
+it('types straight back into the filter value', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'f');
+    $browser->emit('key', 'an');
+    $browser->emit('key', "\n");
+
+    expect($browser->filterForm->editor)->toBeNull();
+
+    $browser->emit('key', 'x');
+
+    // Typing carries on from the value rather than replacing it.
+    expect($browser->filterForm->editor)->not->toBeNull()
+        ->and($browser->filterForm->editor->buffer())->toBe('anx');
+});

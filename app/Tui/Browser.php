@@ -497,7 +497,7 @@ class Browser extends Prompt
             $this->editor->set($this->lastStatement);
         }
 
-        $this->status = 'ctrl+r runs it · esc returns · edit it and run it again';
+        $this->status = '↵ runs it · ⇧↵ adds a line · esc returns';
 
         return true;
     }
@@ -517,7 +517,14 @@ class Browser extends Prompt
             return;
         }
 
-        if ($key === QueryEditor::RUN) {
+        // Enter runs it, shift+enter adds a line. ctrl+r still runs it too.
+        if (in_array($key, self::NEWLINE, true)) {
+            $this->editor->handle(Key::ENTER);
+
+            return;
+        }
+
+        if ($key === Key::ENTER || $key === QueryEditor::RUN) {
             $this->runQueryBuffer();
 
             return;
@@ -949,7 +956,14 @@ class Browser extends Prompt
             return;
         }
 
-        if (in_array($key, [self::SAVE, Key::CTRL_D], true)) {
+        if (in_array($key, self::NEWLINE, true)) {
+            $this->cellEditor?->handle(Key::ENTER);
+
+            return;
+        }
+
+        // Enter keeps the edit, shift+enter adds a line. ctrl+s still works.
+        if (in_array($key, [Key::ENTER, self::SAVE, Key::CTRL_D], true)) {
             $this->commitEdit();
 
             return;
@@ -1559,7 +1573,7 @@ class Browser extends Prompt
         $entering = $this->mode !== 'query';
 
         $this->mode = 'query';
-        $this->status = 'ctrl+r runs it · esc returns · edit it and run it again';
+        $this->status = '↵ runs it · ⇧↵ adds a line · esc returns';
 
         if (! $entering || $localRow >= 0) {
             $this->editor->toLineColumn(
@@ -2063,6 +2077,26 @@ class Browser extends Prompt
             return;
         }
 
+        // On the value, enter applies: the first enter left the input, so the
+        // second is the one that runs it.
+        if ($form->cell === FilterForm::VALUE) {
+            if ($key === Key::ENTER) {
+                $this->applyFilters();
+
+                return;
+            }
+
+            // Typing goes straight back into the input, with the key you hit.
+            $text = Input::text($key);
+
+            if ($text !== '' && $key !== ' ' && $key !== '+' && $key !== '-') {
+                $form->startEditing();
+                $form->editor?->handle($key);
+
+                return;
+            }
+        }
+
         match (true) {
             $key === Key::ESCAPE => $this->clearFilters(),
             $key === self::SAVE => $this->applyFilters(),
@@ -2075,7 +2109,7 @@ class Browser extends Prompt
             $key === '+', $key === 'n' => $form->add(),
             $key === '-', $key === 'd' => $form->remove(),
             $key === 'o' => $form->toggleJoiner(),
-            $key === Key::ENTER => $form->cell === FilterForm::VALUE
+            $key === Key::ENTER, $key === 'i' => $form->cell === FilterForm::VALUE
                 ? $form->startEditing()
                 : $form->openPicker(),
             default => true,
@@ -2208,7 +2242,7 @@ class Browser extends Prompt
         $this->editor->toStart();
 
         $this->mode = 'query';
-        $this->status = 'ctrl+r runs it · read it first · esc returns';
+        $this->status = '↵ runs it · read it first · esc returns';
 
         return true;
     }

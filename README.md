@@ -161,6 +161,10 @@ made it — following a link teaches you the query you would have written.
 └────────────────────────────────────────────────────────────────────┘
 ```
 
+`f` opens on the column you are on, with `contains`, already typing — the
+column and operator are guesses, the value never is. `↵` keeps the value and
+`↵` again applies it; `esc` steps back into the form to move around.
+
 `tab` and `shift+tab` move between the three cells. On the column or operator,
 `↵` opens a type-to-filter list — start typing to narrow it, arrows to move, `↵` to pick —
 and `← →` step through the options without opening it. On the value, `↵` types.
@@ -282,6 +286,20 @@ setup — and only table and column names were ever being sent anyway.
 
 With nothing configured, `a` says what to set rather than failing at the
 network.
+
+## Enter runs things
+
+Everywhere you type something that then has to happen — a query, a value, a
+filter, a question — `↵` does it and `⇧↵` adds a line. `ctrl+r` and `ctrl+s`
+still work if they are in your fingers.
+
+Shift+enter needs a terminal that sends something distinct for it. In Ghostty:
+
+```
+keybind = shift+enter=csi:13;2u
+```
+
+Alt+enter works without any configuration.
 
 ## Running SQL
 

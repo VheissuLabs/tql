@@ -641,7 +641,8 @@ class BrowserRenderer extends Renderer
             }
 
             return ' '.$this->bold("editing {$column}").
-                $this->dim('   ctrl+s saves    esc cancels'.($prompt->editingJson ? '    json is validated' : ''));
+                $this->dim('   ↵ keeps it    ⇧↵ adds a line    esc cancels'.
+                    ($prompt->editingJson ? '    json is validated' : ''));
         }
 
         if ($prompt->mode === 'help') {

@@ -111,11 +111,11 @@ class FilterIsland extends Island
     private function hint(): string
     {
         if ($this->form->editor !== null) {
-            return 'ctrl+s applies    esc goes back to the form';
+            return '↵ keeps it    ↵↵ applies    esc goes back to the form';
         }
 
         return match ($this->form->cell) {
-            FilterForm::VALUE => '↵ types    ⇥ ⇧⇥ moves    + adds    - removes    ctrl+s applies',
+            FilterForm::VALUE => '↵ applies    type to edit    ⇥ ⇧⇥ moves    + adds    - removes',
             default => '← → changes it    ⇥ ⇧⇥ moves    ↵ opens a list    ctrl+s applies',
         };
     }
