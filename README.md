@@ -6,6 +6,28 @@ The same engine drives two faces: a full-screen terminal interface for you, and 
 MCP server for an AI agent. Both call the same `QueryRunner`, and every statement
 either of them runs is recorded in one shared history.
 
+## Installing
+
+Download the binary from the [latest release](https://github.com/VheissuLabs/tql/releases/latest):
+
+```bash
+curl -L -o tql https://github.com/VheissuLabs/tql/releases/latest/download/tql
+chmod +x tql
+mv tql /usr/local/bin/
+```
+
+It needs PHP 8.3 or newer on the machine. On first run it creates
+`~/.config/tql/` and migrates its own store, so there is nothing to set up.
+
+Building it yourself:
+
+```bash
+php -d phar.readonly=0 tql app:build tql --build-version=dev
+./builds/tql --version
+```
+
+Tagging `v*` builds and publishes a release from GitHub Actions.
+
 ## A database to try it on
 
 The sample database used in development is [Chinook](https://github.com/lerocha/chinook-database),
