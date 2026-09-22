@@ -4,6 +4,7 @@ namespace App\Tui;
 
 use App\Models\Connection;
 use App\Prompts\Renderers\ConnectionPickerRenderer;
+use App\Tui\Concerns\HandlesMouse;
 use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Illuminate\Support\Collection;
@@ -13,6 +14,7 @@ use Laravel\Prompts\Prompt;
 class ConnectionPicker extends Prompt
 {
     use CreatesAnAltScreen;
+    use HandlesMouse;
     use RegistersRenderers;
 
     public int $index = 0;
@@ -31,14 +33,14 @@ class ConnectionPicker extends Prompt
 
         $this->createAltScreen();
 
-        Mouse::enable();
+        $this->enableMouse();
 
         $this->on('key', fn (string $key) => $this->onKey($key));
     }
 
     public function __destruct()
     {
-        Mouse::disable();
+        $this->disableMouse();
 
         $this->exitAltScreen();
 

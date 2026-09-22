@@ -5,6 +5,7 @@ namespace App\Tui;
 use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
+use App\Tui\Concerns\HandlesMouse;
 use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Laravel\Prompts\Key;
@@ -13,6 +14,7 @@ use Laravel\Prompts\Prompt;
 class Browser extends Prompt
 {
     use CreatesAnAltScreen;
+    use HandlesMouse;
     use RegistersRenderers;
 
     public const PAGE = 100;
@@ -56,14 +58,14 @@ class Browser extends Prompt
             $this->load();
         }
 
-        Mouse::enable();
+        $this->enableMouse();
 
         $this->on('key', fn (string $key) => $this->onKey($key));
     }
 
     public function __destruct()
     {
-        Mouse::disable();
+        $this->disableMouse();
 
         $this->exitAltScreen();
 

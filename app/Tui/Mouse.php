@@ -2,8 +2,6 @@
 
 namespace App\Tui;
 
-use Laravel\Prompts\Prompt;
-
 class Mouse
 {
     public const LEFT = 0;
@@ -11,24 +9,6 @@ class Mouse
     public const WHEEL_UP = 64;
 
     public const WHEEL_DOWN = 65;
-
-    public static function enable(): void
-    {
-        if (getenv('NO_MOUSE')) {
-            return;
-        }
-
-        Prompt::output()->write("\e[?1000h\e[?1006h");
-    }
-
-    public static function disable(): void
-    {
-        if (getenv('NO_MOUSE')) {
-            return;
-        }
-
-        Prompt::output()->write("\e[?1006l\e[?1000l");
-    }
 
     public static function parse(string $sequence): ?array
     {
