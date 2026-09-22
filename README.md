@@ -361,6 +361,12 @@ The MCP server is registered as a local (stdio) server named `tql`:
 php tql mcp:start tql
 ```
 
+To use it from Claude Code:
+
+```bash
+claude mcp add tql -- php /absolute/path/to/tql mcp:start tql
+```
+
 Tools: list connections, list tables, describe a table, and run a query.
 Queries through MCP are **read-only** — only `select`, `show`, `explain`,
 `describe`, `pragma` and `with` are accepted, and statements containing a
