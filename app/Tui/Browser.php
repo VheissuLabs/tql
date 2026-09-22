@@ -1799,8 +1799,8 @@ class Browser extends Prompt
 
         match (true) {
             $key === Key::ESCAPE, $key === 'q' => $this->databasePicker = null,
-            in_array($key, [Key::UP, Key::UP_ARROW], true) => $picker->move(-1),
-            in_array($key, [Key::DOWN, Key::DOWN_ARROW], true) => $picker->move(1),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $picker->move(-1),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $picker->move(1),
             $key === Key::ENTER => $this->useDatabase(),
             default => $picker->type($key),
         };
@@ -2038,8 +2038,8 @@ class Browser extends Prompt
 
         match (true) {
             $key === Key::ESCAPE, $key === 'q' => $this->linkPicker = null,
-            in_array($key, [Key::UP, Key::UP_ARROW], true) => $picker->move(-1),
-            in_array($key, [Key::DOWN, Key::DOWN_ARROW], true) => $picker->move(1),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $picker->move(-1),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $picker->move(1),
             $key === Key::ENTER => $this->chooseBackLink(),
             default => $picker->type($key),
         };
@@ -2148,6 +2148,11 @@ class Browser extends Prompt
         return true;
     }
 
+    /**
+     * The letters that drive the filter form rather than typing into it.
+     */
+    private const FILTER_KEYS = ['h', 'j', 'k', 'l', 'n', 'd', 'o', 'i', ' ', '+', '-'];
+
     private function handleFilterFormKey(string $key): void
     {
         $form = $this->filterForm;
@@ -2156,8 +2161,8 @@ class Browser extends Prompt
             match (true) {
                 $key === Key::ESCAPE => $form->closePicker(),
                 $key === Key::ENTER => $form->choose(),
-                in_array($key, [Key::UP, Key::UP_ARROW], true) => $form->picker->move(-1),
-                in_array($key, [Key::DOWN, Key::DOWN_ARROW], true) => $form->picker->move(1),
+                in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->picker->move(-1),
+                in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->picker->move(1),
                 default => $form->picker->type($key),
             };
 
@@ -2187,10 +2192,13 @@ class Browser extends Prompt
                 return;
             }
 
-            // Typing goes straight back into the input, with the key you hit.
+            // Typing goes straight back into the input, with the key you hit
+            // — except the keys that move around the form, which would
+            // otherwise be impossible to use once escape had stepped out of
+            // the value. i or enter starts typing one of those.
             $text = Input::text($key);
 
-            if ($text !== '' && $key !== ' ' && $key !== '+' && $key !== '-') {
+            if ($text !== '' && ! in_array($key, self::FILTER_KEYS, true)) {
                 $form->startEditing();
                 $form->editor?->handle($key);
 

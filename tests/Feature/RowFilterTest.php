@@ -527,3 +527,40 @@ it('never cuts through an escape sequence while typing', function () {
     // And the cursor is still on screen with the text scrolled to it.
     expect($frame)->toContain("\e[7m");
 });
+
+it('moves around the form with h and l once escape has left the value', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
+
+    $form = $browser->filterForm;
+
+    expect($form->cell)->toBe(FilterForm::VALUE)
+        ->and($form->editor)->toBeNull();
+
+    // h steps back through the cells rather than typing an h into the value.
+    $browser->emit('key', 'h');
+
+    expect($form->cell)->toBe(FilterForm::OPERATOR)
+        ->and($form->current()->value)->toBe('')
+        ->and($form->editor)->toBeNull();
+
+    // On the operator, l cycles it — the arrows and h/l agree there.
+    $browser->emit('key', 'l');
+
+    expect($form->current()->operator)->toBe('starts with');
+});
+
+it('still types a value that starts with a letter it uses', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
+
+    // Anything that is not one of the form's own keys goes straight in.
+    $browser->emit('key', 'K');
+
+    expect($browser->filterForm->editor)->not->toBeNull()
+        ->and($browser->filterForm->editor->buffer())->toBe('K');
+});

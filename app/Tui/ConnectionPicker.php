@@ -249,8 +249,8 @@ class ConnectionPicker extends Prompt
             match (true) {
                 $key === Key::ESCAPE, $key === 'q' => $form->closePicker(),
                 $key === Key::ENTER => $form->chooseFile(),
-                in_array($key, [Key::UP, Key::UP_ARROW], true) => $form->picker->move(-1),
-                in_array($key, [Key::DOWN, Key::DOWN_ARROW], true) => $form->picker->move(1),
+                in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->picker->move(-1),
+                in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->picker->move(1),
                 default => $form->picker->type($key),
             };
 
