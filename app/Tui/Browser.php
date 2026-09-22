@@ -319,7 +319,8 @@ class Browser extends Prompt
             $key === '.', $key === '>' => $this->resize(4),
             $key === '=' => $this->resetWidth(),
             $key === 's' => $this->openQuery(),
-            $key === 'i' => $this->startEditing(readOnly: true),
+            $key === 'i' => $this->inspectRow(),
+            $key === 'I' => $this->startEditing(readOnly: true),
             $key === '?' => $this->toggleHelp(),
             $key === 'e' => $this->startEditing(),
             $key === Key::ENTER => $this->activate(),
@@ -532,7 +533,8 @@ class Browser extends Prompt
         }
 
         $this->focus = 'grid';
-        $this->readOnlyReason = $readOnly ? 'opened with i — press e to edit' : $this->whyReadOnly();
+        $this->inspectingRow = false;
+        $this->readOnlyReason = $readOnly ? 'opened with I — press e to edit' : $this->whyReadOnly();
         $this->editable = $this->readOnlyReason === null;
 
         $value = $this->cellValue();
@@ -552,9 +554,74 @@ class Browser extends Prompt
         return true;
     }
 
+    /** Set while inspecting a whole row, for the modal's title. */
+    public bool $inspectingRow = false;
+
     public function cellColumn(): string
     {
+        if ($this->inspectingRow) {
+            $key = $this->keyColumn();
+            $value = $key === null ? null : ($this->raw[$this->rowIndex][$key] ?? null);
+
+            return 'row'.($value === null ? '' : ' '.$key.' '.$value);
+        }
+
         return $this->headers[$this->columnIndex] ?? '';
+    }
+
+    /**
+     * The whole row as one object, which is usually what you want when a row
+     * is wider than the screen: every column on its own line, with the values
+     * laid out rather than truncated into a cell.
+     */
+    private function inspectRow(): bool
+    {
+        if ($this->raw === []) {
+            $this->status = 'nothing to open — this table has no rows';
+
+            return true;
+        }
+
+        $row = $this->raw[$this->rowIndex] ?? null;
+
+        if ($row === null) {
+            return true;
+        }
+
+        $this->focus = 'grid';
+        $this->inspectingRow = true;
+        $this->readOnlyReason = 'the whole row — press e to edit a value';
+        $this->editable = false;
+        $this->editingJson = true;
+
+        $this->cellEditor = new QueryEditor;
+        $this->cellEditor->set(Json::pretty((string) json_encode(
+            $this->readable($row),
+            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+        )));
+        $this->cellEditor->toStart();
+
+        $this->mode = 'edit';
+
+        return true;
+    }
+
+    /**
+     * A json column holds a string of json; decode it so the row reads as one
+     * object rather than an object with json hiding inside it.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function readable(array $row): array
+    {
+        foreach ($row as $column => $value) {
+            if (is_string($value) && Json::looksLikeJson($value)) {
+                $row[$column] = json_decode($value);
+            }
+        }
+
+        return $row;
     }
 
     private function whyReadOnly(): ?string
@@ -569,6 +636,17 @@ class Browser extends Prompt
 
     private function handleEditKey(string $key): void
     {
+        // e leaves the viewer and opens the editor on the cell you were on,
+        // which is what the read-only hint promises.
+        if (! $this->editable && $key === 'e') {
+            $this->cellEditor = null;
+            $this->inspectingRow = false;
+
+            $this->startEditing();
+
+            return;
+        }
+
         if (! $this->editable && ! in_array($key, [Key::ESCAPE, 'q'], true)) {
             $this->scrollOrIgnore($key);
 
@@ -583,9 +661,12 @@ class Browser extends Prompt
         }
 
         if ($key === Key::ESCAPE || (! $this->editable && $key === 'q')) {
+            $wasRow = $this->inspectingRow;
+
             $this->cellEditor = null;
+            $this->inspectingRow = false;
             $this->mode = 'browse';
-            $this->status = 'edit cancelled';
+            $this->status = $wasRow ? null : 'edit cancelled';
 
             return;
         }

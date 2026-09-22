@@ -238,31 +238,33 @@ closes.
 Detection is by parsing, not by column type, so JSON stored in a `text` column
 is recognised too.
 
-## Opening a value
+## Inspecting a row
 
-`i` views the value under the cursor full screen and never writes. `e` opens
-the same view for editing. JSON is pretty printed with line numbers and syntax
-highlighting; anything else is shown as it is.
+`i` opens the row you are on as one object: every column on its own line,
+pretty printed, read only. It is the answer to a row being wider than the
+screen — nothing is truncated into a cell.
 
-Where the value can be written back — a real table row with a single-column
-primary key, on a connection that is not read-only — it is editable in place:
-`ctrl+s` saves, `esc` closes. JSON is validated before it is written.
+```json
+{
+    "id": 1,
+    "name": "user.signed_up",
+    "payload": {
+        "user": {
+            "id": 42,
+            "email": "karl@example.com"
+        }
+    },
+    "created_at": "2026-09-22T15:11:32+00:00"
+}
+```
 
-Where it cannot, the same view opens read-only and the title and status say
-why, rather than the key doing nothing.
+A json column is decoded on the way in, so it reads as part of the object
+rather than as a string of json hiding inside it.
 
-In the read-only view the usual vim motions work: `j`/`k` move a line and take
-a count (`3j`), `g` and `G` jump to the top and bottom, `12G` jumps to line 12,
-`V` starts a line selection that `j`/`k` extend, and `y` yanks the selected
-lines to the clipboard. `esc` clears a selection, and closes the view when
-there is none.
+`I` opens just the value under the cursor, which is what `i` used to do. Both
+scroll with `j`/`k`, select with `V` and yank with `y`. From either, `e` leaves
+the viewer and opens the editor on the cell you were on.
 
-The mouse works too: click a line to put the cursor on it, and drag to select a
-range.
-
-Yanking uses `pbcopy`, `wl-copy`, `xclip` or `xsel` when one is present, and
-falls back to the OSC 52 terminal escape — which means it also works over
-SSH.
 
 ## Exporting
 
