@@ -28,11 +28,15 @@ it('ignores anything that is not a mouse sequence', function () {
 });
 
 it('maps columns to the correct pane', function () {
-    expect(Layout::inSidebar(3))->toBeTrue()
-        ->and(Layout::inSidebar(26))->toBeTrue()
-        ->and(Layout::inSidebar(30))->toBeFalse()
-        ->and(Layout::inGrid(30))->toBeTrue()
-        ->and(Layout::inGrid(10))->toBeFalse();
+    [$from, $to] = Layout::sidebarColumns();
+    $grid = Layout::gridFirstColumn();
+
+    expect(Layout::inSidebar($from))->toBeTrue()
+        ->and(Layout::inSidebar($to))->toBeTrue()
+        ->and(Layout::inSidebar($to + 1))->toBeFalse()
+        ->and(Layout::inGrid($grid))->toBeTrue()
+        ->and(Layout::inGrid($from))->toBeFalse()
+        ->and($grid)->toBeGreaterThan($to);
 });
 
 it('returns null for rows above the body', function () {

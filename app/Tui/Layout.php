@@ -10,9 +10,9 @@ class Layout
 
     public const TOP_BORDER_ROWS = 1;
 
-    public const SIDEBAR_FIRST_COLUMN = 3;
+    public const SIDEBAR_FIRST_COLUMN = 2;
 
-    public const GRID_HEADER_ROWS = 2;
+    public const GRID_HEADER_ROWS = 0;
 
     public static function sidebarColumns(): array
     {
@@ -21,7 +21,7 @@ class Layout
 
     public static function gridFirstColumn(): int
     {
-        return self::SIDEBAR_FIRST_COLUMN + self::SIDEBAR + 3;
+        return self::SIDEBAR_FIRST_COLUMN + self::SIDEBAR + 1;
     }
 
     public static function inSidebar(int $column): bool
