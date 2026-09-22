@@ -78,6 +78,14 @@ class OpenCommand extends Command
             return self::FAILURE;
         }
 
+        // The interface reads keys straight from the terminal, so there has to
+        // be one. Piping into it is a mistake worth naming.
+        if (! static::interactive()) {
+            error('tql needs a terminal. Run it directly rather than piping into it.');
+
+            return self::FAILURE;
+        }
+
         if ($connection->exists) {
             $this->connections->touch($connection);
         }
@@ -161,6 +169,11 @@ class OpenCommand extends Command
         );
 
         return Connection::where($identity)->first();
+    }
+
+    public static function interactive(): bool
+    {
+        return ! function_exists('stream_isatty') || @stream_isatty(STDIN);
     }
 
     /**

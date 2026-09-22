@@ -29,6 +29,12 @@ class BrowseCommand extends Command
 
     public function handle(): int
     {
+        if (! OpenCommand::interactive()) {
+            error('tql needs a terminal. Run it directly rather than piping into it.');
+
+            return self::FAILURE;
+        }
+
         while (true) {
             $connection = $this->chooseConnection();
 
