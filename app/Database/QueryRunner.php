@@ -39,6 +39,25 @@ class QueryRunner
         return null;
     }
 
+    /**
+     * The statement as the SQL pane should show it: placeholders filled in, so
+     * what you read is what ran. It is never sent to the database this way.
+     *
+     * @param  array<int, mixed>  $bindings
+     */
+    private function readable(string $statement, array $bindings): string
+    {
+        foreach ($bindings as $binding) {
+            $value = is_numeric($binding)
+                ? (string) $binding
+                : "'".str_replace("'", "''", (string) $binding)."'";
+
+            $statement = preg_replace('/\?/', $value, $statement, 1) ?? $statement;
+        }
+
+        return $statement;
+    }
+
     public function isReadOnly(string $statement): bool
     {
         $normalised = ltrim($statement);
@@ -85,6 +104,7 @@ class QueryRunner
         int $offset = 0,
         ?string $sort = null,
         string $direction = 'asc',
+        ?Filters $filters = null,
     ): QueryResult {
         $grammar = $this->connections->resolve($connection)->getQueryGrammar();
         $wrapped = $grammar->wrapTable($table);
@@ -93,7 +113,15 @@ class QueryRunner
             ? ''
             : ' order by '.$grammar->wrap($sort).' '.($direction === 'desc' ? 'desc' : 'asc');
 
-        return $this->run($connection, "select * from {$wrapped}{$order} limit {$limit} offset {$offset}", 'tui');
+        $built = $filters?->toSql($grammar);
+        $where = $built === null ? '' : ' where '.$built[0];
+
+        return $this->run(
+            $connection,
+            "select * from {$wrapped}{$where}{$order} limit {$limit} offset {$offset}",
+            'tui',
+            $built[1] ?? [],
+        );
     }
 
     public function grammarFor(Connection $connection): Grammar
@@ -136,12 +164,15 @@ class QueryRunner
         }
     }
 
-    public function run(Connection $connection, string $statement, string $source): QueryResult
+    /**
+     * @param  array<int, mixed>  $bindings
+     */
+    public function run(Connection $connection, string $statement, string $source, array $bindings = []): QueryResult
     {
         $started = microtime(true);
 
         try {
-            $rows = $this->connections->resolve($connection)->select($statement);
+            $rows = $this->connections->resolve($connection)->select($statement, $bindings);
             $duration = (int) ((microtime(true) - $started) * 1000);
 
             $this->record($connection, $statement, $source, true, null, count($rows), $duration);
@@ -149,7 +180,7 @@ class QueryRunner
             return new QueryResult(
                 rows: array_map(fn ($row) => (array) $row, $rows),
                 durationMs: $duration,
-                statement: $statement,
+                statement: $this->readable($statement, $bindings),
             );
         } catch (Throwable $e) {
             $duration = (int) ((microtime(true) - $started) * 1000);
@@ -169,14 +200,26 @@ class QueryRunner
         ?int $rowCount,
         int $durationMs,
     ): void {
-        QueryExecution::create([
-            'connection_id' => $connection->id,
-            'statement' => $statement,
-            'source' => $source,
-            'succeeded' => $succeeded,
-            'error' => $error,
-            'row_count' => $rowCount,
-            'duration_ms' => $durationMs,
-        ]);
+        // A connection opened with --peek was never saved, so there is no id
+        // to hang history off. History is a convenience; never let it be the
+        // thing that fails a query the user actually asked for.
+        if ($connection->id === null) {
+            return;
+        }
+
+        try {
+            QueryExecution::create([
+                'connection_id' => $connection->id,
+                'statement' => $statement,
+                'source' => $source,
+                'succeeded' => $succeeded,
+                'error' => $error,
+                'row_count' => $rowCount,
+                'duration_ms' => $durationMs,
+            ]);
+        } catch (Throwable) {
+            // Not worth surfacing: the query itself already succeeded or
+            // failed on its own terms.
+        }
     }
 }

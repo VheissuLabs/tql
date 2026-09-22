@@ -85,6 +85,7 @@ class HelpIsland extends Island
                 's' => 'SQL editor, ctrl+r runs it',
                 'a' => 'ask for a query in plain english',
                 '/' => 'filter the tables list',
+                'f' => 'filter the rows: column, operator, value',
                 ', .' => 'narrow or widen the column',
                 '=' => 'reset the column width',
             ],

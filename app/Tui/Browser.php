@@ -3,6 +3,7 @@
 namespace App\Tui;
 
 use App\Ai\Ask;
+use App\Database\Filters;
 use App\Database\OrderBy;
 use App\Database\QueryRunner;
 use App\Database\SqlExporter;
@@ -27,8 +28,10 @@ class Browser extends Prompt
     use RegistersRenderers;
     use RendersSmoothly;
 
-    /** ctrl+s, which sends the question. */
-    public const ASK = "\x13";
+    /** ctrl+s: commits an edit, sends a question, applies a filter. */
+    public const SAVE = "\x13";
+
+    public const ASK = self::SAVE;
 
     public const PAGE = 100;
 
@@ -43,6 +46,12 @@ class Browser extends Prompt
     public ?QueryEditor $question = null;
 
     public ?string $asking = null;
+
+    /** The filter bar while it is open, or null. */
+    public ?FilterForm $filterForm = null;
+
+    /** The filter the grid is actually showing. */
+    public ?Filters $filters = null;
 
     /** @var array{row: int, column: int, at: float}|null */
     private ?array $lastClick = null;
@@ -263,6 +272,12 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->filterForm !== null) {
+            $this->handleFilterFormKey($key);
+
+            return;
+        }
+
         if ($this->question !== null) {
             $this->handleQuestionKey($key);
 
@@ -306,6 +321,7 @@ class Browser extends Prompt
             $key === 'o' => $this->sortBy($this->headers[$this->columnIndex] ?? null),
             $key === '/' => $this->openFilter(),
             $key === 'a' => $this->openQuestion(),
+            $key === 'f' => $this->openFilters(),
             $key === 'd' => $this->markDelete(),
             $key === 'u' => $this->unmarkAll(),
             default => true,
@@ -566,7 +582,7 @@ class Browser extends Prompt
             return;
         }
 
-        if (in_array($key, ["\x13", Key::CTRL_D], true)) {
+        if (in_array($key, [self::SAVE, Key::CTRL_D], true)) {
             $this->commitEdit();
 
             return;
@@ -1304,6 +1320,109 @@ class Browser extends Prompt
         return false;
     }
 
+    private function openFilters(): bool
+    {
+        if ($this->headers === []) {
+            $this->status = 'open a table first';
+
+            return true;
+        }
+
+        $this->filterForm = new FilterForm($this->headers, $this->filters);
+        $this->status = null;
+
+        return true;
+    }
+
+    private function handleFilterFormKey(string $key): void
+    {
+        $form = $this->filterForm;
+
+        if ($form->editor !== null) {
+            match (true) {
+                $key === Key::ESCAPE => $form->abandon(),
+                $key === Key::ENTER, $key === self::SAVE => $form->commit(),
+                default => $form->editor->handle($key),
+            };
+
+            if ($key === self::SAVE) {
+                $this->applyFilters();
+            }
+
+            return;
+        }
+
+        match (true) {
+            $key === Key::ESCAPE => $this->clearFilters(),
+            $key === self::SAVE => $this->applyFilters(),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->moveRow(-1),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->moveRow(1),
+            in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $this->moveOrCycle($form, -1),
+            in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l'], true) => $this->moveOrCycle($form, 1),
+            $key === Key::TAB => $form->moveCell(1),
+            $key === '+', $key === 'n' => $form->add(),
+            $key === '-', $key === 'd' => $form->remove(),
+            $key === 'o' => $form->toggleJoiner(),
+            $key === Key::ENTER => $form->startEditing(),
+            default => true,
+        };
+    }
+
+    /**
+     * On the column and operator cells the arrows change the value, which is
+     * what you want there; tab is how you move between cells.
+     */
+    private function moveOrCycle(FilterForm $form, int $by): void
+    {
+        if ($form->cell === FilterForm::VALUE) {
+            $form->moveCell($by);
+
+            return;
+        }
+
+        $form->cycle($by);
+    }
+
+    private function applyFilters(): bool
+    {
+        $form = $this->filterForm;
+
+        $form?->commit();
+
+        $filters = $form?->toFilters();
+
+        $this->filters = $filters !== null && $filters->usable() ? $filters : null;
+        $this->filterForm = null;
+
+        $this->offset = 0;
+        $this->pendingDeletes = [];
+        $this->pendingEdits = [];
+
+        $this->load();
+
+        return true;
+    }
+
+    private function clearFilters(): bool
+    {
+        $this->filterForm = null;
+
+        if ($this->filters === null) {
+            $this->status = null;
+
+            return true;
+        }
+
+        $this->filters = null;
+        $this->offset = 0;
+
+        $this->load();
+
+        $this->status = 'filter cleared';
+
+        return true;
+    }
+
     private function openQuestion(): bool
     {
         $this->question = new QueryEditor;
@@ -1578,6 +1697,7 @@ class Browser extends Prompt
         // table — and writing them there would delete the wrong rows.
         $this->pendingDeletes = [];
         $this->pendingEdits = [];
+        $this->filters = null;
 
         $this->sortColumn = null;
         $this->sortDirection = 'asc';
@@ -1657,6 +1777,7 @@ class Browser extends Prompt
             $this->offset,
             $this->sortColumn,
             $this->sortDirection,
+            $this->filters,
         );
 
         if ($result->failed()) {

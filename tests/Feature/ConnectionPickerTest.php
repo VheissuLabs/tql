@@ -523,3 +523,20 @@ it('drops unwritten connection marks before quitting', function () {
 
     expect($picker->value())->toBe('quit');
 });
+
+it('draws a marked connection as one unbroken bar', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'd');
+
+    $marked = collect(explode("\n", pickerFrame($picker)))
+        ->first(fn (string $line) => str_contains($line, "\e[31m\e[7m"));
+
+    expect($marked)->not->toBeNull();
+
+    preg_match('/\e\[7m(.*?)\e\[27m/', $marked, $match);
+
+    // The driver icon must not carry its own colour inside the highlight.
+    expect($match[1] ?? '')->not->toContain("\e[")
+        ->and($match[1] ?? '')->toContain('│');
+});

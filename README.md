@@ -79,6 +79,38 @@ column border in the header row to resize it**, as you would in a spreadsheet.
 Column widths you set are remembered per column name, so several columns keep
 their sizes at once and survive paging and switching tables.
 
+## Filtering rows
+
+`f` opens a filter bar, TablePlus style: a column, an operator and a value.
+
+```
+┌─ FILTER ───────────────────────────────────────────────────────────┐
+│                                                                    │
+│  where  city              is               Toronto                 │
+│  and    age               is at least      18                      │
+│                                                                    │
+│  ← → changes it    ↑↓ moves    + adds    - removes    ctrl+s applies│
+└────────────────────────────────────────────────────────────────────┘
+```
+
+`← →` change the column or operator under the cursor, `tab` moves between the
+three cells, `↵` types a value, `+` and `-` add and remove conditions, `o`
+switches the whole bar between `and` and `or`, `ctrl+s` applies and `esc`
+clears.
+
+Operators: is, is not, contains, starts with, ends with, is greater than, is at
+least, is less than, is at most, is empty, is not empty, is one of (a
+comma-separated list).
+
+The filter becomes a `where` clause on the query, so the SQL pane shows exactly
+what ran — which is the point. **Values are bound, never interpolated**, so a
+value containing a quote is a value rather than SQL. The pane shows the
+statement with the values filled in for reading; that form is never sent to the
+database.
+
+Filters are dropped when you change table, since a column that exists in one
+table usually does not in another.
+
 ## Sorting
 
 Click a column header, or press `o` on a column, to sort by it: first click

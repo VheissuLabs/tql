@@ -297,7 +297,7 @@ class ConnectionPickerRenderer extends Renderer
 
                 $text = ' '.$this->pad($this->truncate((string) $values[$i], $width), $width).' ';
 
-                $cells[] = $selected ? $text : $this->dim($text);
+                $cells[] = $selected || $marked ? $text : $this->dim($text);
             }
 
             // A selected row is built without any colour of its own: an escape
@@ -328,8 +328,12 @@ class ConnectionPickerRenderer extends Renderer
         $marker = Layout::rowStyle() === 'marker' && $selected ? '▸' : ' ';
         $label = $this->pad($this->truncate($name, $width - 4), $width - 4);
 
+        // A highlighted row carries no colour of its own, marked or selected:
+        // the icon's escape code would end the highlight right after it.
+        $plain = $selected || $marked;
+
         return ' '.$marker.' '
-            .($selected ? $icon : $this->paint($this->driverColour($driver), $icon))
+            .($plain ? $icon : $this->paint($this->driverColour($driver), $icon))
             .' '.$label.' ';
     }
 

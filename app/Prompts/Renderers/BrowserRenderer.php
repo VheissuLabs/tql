@@ -6,6 +6,7 @@ use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\Islands\AskIsland;
 use App\Tui\Islands\EditorIsland;
+use App\Tui\Islands\FilterIsland;
 use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\Island;
 use App\Tui\Islands\Screen;
@@ -73,6 +74,23 @@ class BrowserRenderer extends Renderer
             $screen->add($editor);
 
             $prompt->editorIsland = $editor;
+        }
+
+        if ($prompt->filterForm !== null) {
+            $bar = new FilterIsland($prompt->filterForm, $style);
+            $bar->focused = true;
+
+            $barWidth = min($width - 4, FilterIsland::WIDTH);
+            $barHeight = $bar->rows();
+
+            $bar->place(
+                (int) (($width - $barWidth) / 2) + 1,
+                $top + (int) (($frameHeight - $barHeight) / 2),
+                $barWidth,
+                $barHeight,
+            );
+
+            $screen->overlay($bar);
         }
 
         if ($prompt->question !== null) {
@@ -144,10 +162,12 @@ class BrowserRenderer extends Renderer
         );
         $table->columnOffset = $prompt->columnOffset;
         $table->scrollLocked = $prompt->isDragging();
+        $filtered = $prompt->filters !== null ? ' ·  filtered' : '';
+
         $table->title = match (true) {
             $prompt->resultsFromQuery && $prompt->queryTable !== null => $prompt->queryTable,
             $prompt->resultsFromQuery => 'RESULTS',
-            default => $prompt->currentTable() ?? 'ROWS',
+            default => ($prompt->currentTable() ?? 'ROWS').$filtered,
         };
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
@@ -177,6 +197,7 @@ class BrowserRenderer extends Renderer
         $this->hotkey('o', 'Sort');
         $this->hotkey('d', 'Mark');
         $this->hotkey('a', 'Ask');
+        $this->hotkey('f', 'Filter');
         $this->hotkey('s', 'SQL');
 
         // Paging is only worth a slot when there is somewhere to page to.
