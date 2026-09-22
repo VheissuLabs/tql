@@ -1163,3 +1163,39 @@ it('leaves the sidebar alone for a query with no known table', function () {
 
     expect($browser->currentTable())->toBe($before);
 });
+
+it('titles the pane with the table a query selects from', function () {
+    $browser = twoTableBrowser();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from "settings"');
+    $browser->emit('key', QueryEditor::RUN);
+
+    $frame = frameOf($browser);
+
+    expect($frame)->toContain('─ settings ')
+        ->and($frame)->not->toContain('RESULTS');
+});
+
+it('falls back to RESULTS when the query has no known table', function () {
+    $browser = twoTableBrowser();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select 1 as one');
+    $browser->emit('key', QueryEditor::RUN);
+
+    expect(frameOf($browser))->toContain('RESULTS');
+});
+
+it('goes back to the table name when you leave the results', function () {
+    $browser = twoTableBrowser();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select 1 as one');
+    $browser->emit('key', QueryEditor::RUN);
+    $browser->emit('key', "\e");
+    $browser->emit('key', 'r');
+
+    expect($browser->queryTable)->toBeNull()
+        ->and(frameOf($browser))->toContain('─ events ');
+});

@@ -61,6 +61,8 @@ class Browser extends Prompt
 
     public ?string $lastStatement = null;
 
+    public ?string $queryTable = null;
+
     public string $mode = 'browse';
 
     public QueryEditor $editor;
@@ -340,6 +342,8 @@ class Browser extends Prompt
 
     private function followQueryTable(string $statement): void
     {
+        $this->queryTable = null;
+
         if (preg_match('/\bfrom\s+[`"\[]?([A-Za-z0-9_]+)/i', $statement, $match) !== 1) {
             return;
         }
@@ -348,6 +352,7 @@ class Browser extends Prompt
 
         if ($index !== false) {
             $this->tableIndex = $index;
+            $this->queryTable = $match[1];
         }
     }
 
@@ -1016,6 +1021,7 @@ class Browser extends Prompt
         }
 
         $this->resultsFromQuery = false;
+        $this->queryTable = null;
         $this->lastStatement = $result->statement === null
             ? null
             : preg_replace('/\blimit \d+/i', 'limit '.self::PAGE, $result->statement);

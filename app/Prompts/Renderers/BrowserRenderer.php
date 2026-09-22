@@ -106,7 +106,11 @@ class BrowserRenderer extends Renderer
         );
         $table->columnOffset = $prompt->columnOffset;
         $table->scrollLocked = $prompt->isDragging();
-        $table->title = $prompt->resultsFromQuery ? 'RESULTS' : ($prompt->currentTable() ?? 'ROWS');
+        $table->title = match (true) {
+            $prompt->resultsFromQuery && $prompt->queryTable !== null => $prompt->queryTable,
+            $prompt->resultsFromQuery => 'RESULTS',
+            default => $prompt->currentTable() ?? 'ROWS',
+        };
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
