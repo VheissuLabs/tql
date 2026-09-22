@@ -9,6 +9,9 @@ class EditorIsland extends Island
 {
     public string $title = 'SQL';
 
+    /** First buffer line drawn, so a click can be mapped back through scroll. */
+    public int $firstLine = 0;
+
     public function __construct(
         private QueryEditor $editor,
         private bool $showCursor = true,
@@ -28,6 +31,8 @@ class EditorIsland extends Island
 
         $start = max(0, $cursorLine - $innerHeight + 1);
 
+        $this->firstLine = $start;
+
         $out = [];
 
         foreach (array_slice($lines, $start, $innerHeight) as $index => $line) {
@@ -43,7 +48,7 @@ class EditorIsland extends Island
 
     private function highlight(string $line, int $width, ?int $cursor): string
     {
-        $inverse = fn (string $t) => $this->style?->inverse($t) ?? $t;
+        $inverse = fn (string $t) => $this->style?->colour('cursor', $t) ?? $t;
         $paint = fn (string $type, string $t) => $this->style?->colour($type, $t) ?? $t;
 
         $rendered = '';

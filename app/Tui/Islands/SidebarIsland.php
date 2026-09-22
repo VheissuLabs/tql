@@ -24,7 +24,7 @@ class SidebarIsland extends Island
             $label = ' '.$this->style->truncate($table, $innerWidth - 2);
 
             $lines[] = ($this->start + $index) === $this->selected
-                ? $this->style->inverse($this->style->pad($label, $innerWidth))
+                ? $this->style->colour('selection', $this->style->pad($label, $innerWidth))
                 : $this->style->dim($label);
         }
 

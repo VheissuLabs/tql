@@ -55,7 +55,7 @@ class ValueEditorIsland extends Island
                 && $number <= $this->selection[1];
 
             if ($selected) {
-                $out[] = $here.$label.' '.$this->style->inverse(
+                $out[] = $here.$label.' '.$this->style->colour('selection',
                     $this->style->pad(mb_substr($line, 0, $room), $room)
                 );
 
@@ -76,7 +76,7 @@ class ValueEditorIsland extends Island
     {
         $tokens = $this->json ? Json::tokenise($line) : [['plain', $line]];
 
-        $inverse = fn (string $t) => $this->style->inverse($t);
+        $inverse = fn (string $t) => $this->style->colour('cursor', $t);
         $paint = fn (string $type, string $t) => $this->style->colour($type, $t);
 
         $rendered = '';
@@ -119,7 +119,7 @@ class ValueEditorIsland extends Island
         }
 
         if ($cursor !== null && $cursor >= $used && $used < $width) {
-            $rendered .= $this->style->inverse(' ');
+            $rendered .= $this->style->colour('cursor', ' ');
         }
 
         return $rendered;

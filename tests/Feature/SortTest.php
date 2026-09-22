@@ -160,14 +160,91 @@ it('forgets the sort when you change table', function () {
     expect($browser->sortColumn)->toBeNull();
 });
 
-it('does not sort query results', function () {
+it('sorts query results by rewriting the statement it shows', function () {
     $browser = sortable();
 
     $browser->emit('key', 's');
-    $browser->editor->set('select 1 as one');
+    $browser->editor->set('select * from fruit');
     $browser->emit('key', QueryEditor::RUN);
 
-    $browser->sortBy('one');
+    $browser->sortBy('name');
 
-    expect($browser->sortColumn)->toBeNull();
+    expect($browser->sortColumn)->toBe('name')
+        ->and($browser->sortDirection)->toBe('asc')
+        ->and($browser->editor->buffer())->toBe('select * from fruit order by "name" asc')
+        ->and(array_column($browser->raw, 'name'))->toBe(['apple', 'banana', 'cherry']);
+
+    $browser->sortBy('name');
+
+    expect($browser->sortDirection)->toBe('desc')
+        ->and($browser->editor->buffer())->toBe('select * from fruit order by "name" desc')
+        ->and(array_column($browser->raw, 'name'))->toBe(['cherry', 'banana', 'apple']);
+
+    $browser->sortBy('name');
+
+    expect($browser->sortColumn)->toBeNull()
+        ->and($browser->editor->buffer())->toBe('select * from fruit');
+});
+
+it('keeps a where clause when it sorts a query', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from fruit where qty > 1');
+    $browser->emit('key', QueryEditor::RUN);
+
+    $browser->sortBy('qty');
+
+    expect($browser->editor->buffer())
+        ->toBe('select * from fruit where qty > 1 order by "qty" asc')
+        ->and(array_column($browser->raw, 'name'))->toBe(['cherry', 'apple']);
+});
+
+it('says so rather than mangling a query it cannot sort', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select name from fruit union select name from veg');
+    $browser->emit('key', QueryEditor::RUN);
+
+    $browser->sortBy('name');
+
+    expect($browser->sortColumn)->toBeNull()
+        ->and($browser->editor->buffer())->toBe('select name from fruit union select name from veg')
+        ->and($browser->status)->toContain('too complex to sort');
+});
+
+it('focuses the sql pane when it is clicked', function () {
+    config(['dotsql.ui.sql_always' => true, 'dotsql.ui.sql_position' => 'bottom']);
+
+    $browser = sortable();
+    $browser->editor->set("select *\nfrom fruit");
+
+    rerender($browser);
+
+    expect($browser->mode)->toBe('browse');
+
+    $island = $browser->editorIsland;
+
+    expect($island)->not->toBeNull();
+
+    $browser->emit('key', sprintf("\e[<0;%d;%dM", $island->x + 4, $island->y + 2));
+
+    expect($browser->mode)->toBe('query')
+        ->and($browser->editor->cursorLine())->toBe(1)
+        ->and($browser->editor->cursorColumn())->toBe(3);
+});
+
+it('focuses the sql pane from a click on its border', function () {
+    config(['dotsql.ui.sql_always' => true, 'dotsql.ui.sql_position' => 'bottom']);
+
+    $browser = sortable();
+
+    rerender($browser);
+
+    $island = $browser->editorIsland;
+
+    $browser->emit('key', sprintf("\e[<0;%d;%dM", $island->x, $island->y));
+
+    expect($browser->mode)->toBe('query');
 });

@@ -207,7 +207,7 @@ class TableIsland extends Island
             $padded = ' '.$this->style->pad($text, $width).' ';
 
             $cells[] = $selected && $column === $this->columnIndex
-                ? $this->style->inverse($padded)
+                ? $this->style->colour('cursor', $padded)
                 : $padded;
         }
 
@@ -225,7 +225,7 @@ class TableIsland extends Island
 
         return match ($style) {
             'underline' => $this->style->underline($this->style->pad($line, $innerWidth)),
-            'inverse' => $this->style->inverse($this->style->pad($line, $innerWidth)),
+            'inverse' => $this->style->colour('selection', $this->style->pad($line, $innerWidth)),
             'bold' => $this->style->bold($line),
             default => $line,
         };

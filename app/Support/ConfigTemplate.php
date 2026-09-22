@@ -41,6 +41,26 @@ class ConfigTemplate
                 ],
             ],
             [
+                'section' => 'theme',
+                'key' => 'cursor',
+                'default' => '"default"',
+                'comment' => [
+                    'Colour of the block you are on: the selected cell, and the',
+                    'caret in the SQL and value editors. "default" swaps the',
+                    'terminal\'s own colours, which is what it has always done.',
+                ],
+            ],
+            [
+                'section' => 'theme',
+                'key' => 'selection',
+                'default' => '"default"',
+                'comment' => [
+                    'Colour of what is highlighted but is not where you are: the',
+                    'selected table, a highlighted row, and lines picked out with',
+                    'V in the value inspector.',
+                ],
+            ],
+            [
                 'section' => 'ui',
                 'key' => 'sql_position',
                 'default' => '"top"',

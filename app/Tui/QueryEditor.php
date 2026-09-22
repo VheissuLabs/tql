@@ -52,6 +52,16 @@ class QueryEditor
         $this->cursor = $offset;
     }
 
+    public function toLineColumn(int $line, int $column): void
+    {
+        $this->toLine($line);
+
+        $lines = $this->lines();
+        $line = max(0, min($line, count($lines) - 1));
+
+        $this->cursor += max(0, min($column, mb_strlen($lines[$line])));
+    }
+
     public function toEnd(): void
     {
         $this->cursor = mb_strlen($this->buffer);

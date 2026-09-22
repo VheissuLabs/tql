@@ -4,6 +4,7 @@ namespace App\Database;
 
 use App\Models\Connection;
 use App\Models\QueryExecution;
+use Illuminate\Database\Query\Grammars\Grammar;
 use Throwable;
 
 class QueryRunner
@@ -93,6 +94,11 @@ class QueryRunner
             : ' order by '.$grammar->wrap($sort).' '.($direction === 'desc' ? 'desc' : 'asc');
 
         return $this->run($connection, "select * from {$wrapped}{$order} limit {$limit} offset {$offset}", 'tui');
+    }
+
+    public function grammarFor(Connection $connection): Grammar
+    {
+        return $this->connections->resolve($connection)->getQueryGrammar();
     }
 
     public function run(Connection $connection, string $statement, string $source): QueryResult

@@ -2,12 +2,14 @@
 
 namespace App\Tui;
 
+use App\Database\OrderBy;
 use App\Database\QueryRunner;
 use App\Database\SqlExporter;
 use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Tui\Concerns\HandlesMouse;
 use App\Tui\Concerns\RendersSmoothly;
+use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\SidebarIsland;
 use App\Tui\Islands\TableIsland;
 use App\Tui\Islands\ValueEditorIsland;
@@ -52,6 +54,8 @@ class Browser extends Prompt
     public ?TableIsland $table = null;
 
     public ?ValueEditorIsland $valueIsland = null;
+
+    public ?EditorIsland $editorIsland = null;
 
     private ?array $drag = null;
 
@@ -810,6 +814,34 @@ class Browser extends Prompt
             return $this->clickTable($this->table->localRow($row), $this->table->localColumn($column));
         }
 
+        if ($this->editorIsland !== null && $this->editorIsland->contains($column, $row)) {
+            return $this->clickEditor(
+                $this->editorIsland->localRow($row),
+                $this->editorIsland->localColumn($column),
+            );
+        }
+
+        return true;
+    }
+
+    /**
+     * The border and the title count as the pane, so a click near its edge
+     * focuses it rather than doing nothing.
+     */
+    private function clickEditor(int $localRow, int $localColumn): bool
+    {
+        $entering = $this->mode !== 'query';
+
+        $this->mode = 'query';
+        $this->status = 'ctrl+r runs it · esc returns · edit it and run it again';
+
+        if (! $entering || $localRow >= 0) {
+            $this->editor->toLineColumn(
+                $this->editorIsland->firstLine + max(0, $localRow),
+                max(0, $localColumn),
+            );
+        }
+
         return true;
     }
 
@@ -850,8 +882,12 @@ class Browser extends Prompt
 
     public function sortBy(?string $column): bool
     {
-        if ($column === null || $this->resultsFromQuery) {
+        if ($column === null) {
             return true;
+        }
+
+        if ($this->resultsFromQuery) {
+            return $this->sortQueryResults($column);
         }
 
         if ($this->sortColumn === $column) {
@@ -872,6 +908,43 @@ class Browser extends Prompt
         $this->status = $this->sortColumn === null
             ? 'sort cleared'
             : "sorted by {$this->sortColumn} {$this->sortDirection}";
+
+        return true;
+    }
+
+    /**
+     * Results the user ran themselves are sorted by rewriting their own
+     * statement, so the SQL pane keeps showing the query that produced what
+     * is on screen rather than quietly diverging from it.
+     */
+    private function sortQueryResults(string $column): bool
+    {
+        $direction = match (true) {
+            $this->sortColumn !== $column => 'asc',
+            $this->sortDirection === 'asc' => 'desc',
+            default => null,
+        };
+
+        $grammar = $this->runner->grammarFor($this->connection);
+
+        $rewritten = OrderBy::apply(
+            $this->editor->buffer(),
+            $direction === null ? null : $column,
+            $direction ?? 'asc',
+            $grammar->wrap($column),
+        );
+
+        if ($rewritten === null) {
+            $this->status = 'this query is too complex to sort — add an order by yourself';
+
+            return true;
+        }
+
+        $this->sortColumn = $direction === null ? null : $column;
+        $this->sortDirection = $direction ?? 'asc';
+
+        $this->editor->set($rewritten);
+        $this->runQueryBuffer();
 
         return true;
     }

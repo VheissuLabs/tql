@@ -69,6 +69,8 @@ class BrowserRenderer extends Renderer
             }
 
             $screen->add($editor);
+
+            $prompt->editorIsland = $editor;
         }
 
         if ($prompt->mode === 'help') {
@@ -129,12 +131,14 @@ class BrowserRenderer extends Renderer
         collect($screen->compose($top + $frameHeight - 1, fn (Island $island) => $this->box($island, $style)))
             ->each($this->line(...));
 
+        if ($prompt->mode !== 'query' && ! Layout::sqlAlways()) {
+            $prompt->editorIsland = null;
+        }
+
         $prompt->sidebar = $sidebar;
         $prompt->table = $table;
         $prompt->columnOffset = $table->columnOffset;
         $prompt->columnHandles = $table->handles();
-
-        $this->line($this->status($prompt));
 
         $this->clearHotkeys();
         $this->hotkey('tab', 'Pane');
@@ -153,6 +157,8 @@ class BrowserRenderer extends Renderer
             ->map(fn (string $line) => rtrim($line))
             ->filter()
             ->each(fn (string $line) => $this->line(' '.$line));
+
+        $this->line($this->status($prompt));
 
         return $this;
     }
@@ -177,6 +183,8 @@ class BrowserRenderer extends Renderer
                 'punctuation' => $this->dim($t),
                 'gutter' => $this->dim($t),
                 'grid' => $this->paint(Theme::grid($this->painting), $t),
+                'cursor' => $this->highlight(Theme::cursor(), $t),
+                'selection' => $this->highlight(Theme::selection(), $t),
                 default => $t,
             },
         );
@@ -207,6 +215,17 @@ class BrowserRenderer extends Renderer
         $lines[] = $edge('└').$this->border($inner, $joins, '┴', $colour).$edge('┘');
 
         return $lines;
+    }
+
+    /**
+     * Inverse video swaps the foreground into the background, so setting a
+     * colour first is what tints the block rather than the text inside it.
+     */
+    private function highlight(string $colour, string $text): string
+    {
+        return $colour === 'default'
+            ? $this->inverse($text)
+            : $this->paint($colour, $this->inverse($text));
     }
 
     private function paint(string $colour, string $text): string
@@ -296,7 +315,7 @@ class BrowserRenderer extends Renderer
     private function status(Browser $prompt): string
     {
         if ($prompt->command !== null) {
-            return ' :'.$prompt->command.'█';
+            return ' :'.$prompt->command.$this->paint(Theme::cursor(), '█');
         }
 
         if ($prompt->debugMouse && $prompt->lastMouse !== null) {

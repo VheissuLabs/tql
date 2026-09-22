@@ -30,10 +30,27 @@ class Theme
             : static::colour('grid');
     }
 
-    public static function colour(string $key): string
+    /**
+     * The block you are on: the selected cell, and the caret in an editor.
+     */
+    public static function cursor(): string
     {
-        $value = (string) config('dotsql.theme.'.$key, 'dim');
+        return static::colour('cursor', 'default');
+    }
 
-        return in_array($value, self::COLOURS, true) ? $value : 'dim';
+    /**
+     * Everything else that is highlighted but not where you are: the selected
+     * table, the selected row, and lines picked out in visual mode.
+     */
+    public static function selection(): string
+    {
+        return static::colour('selection', 'default');
+    }
+
+    public static function colour(string $key, string $fallback = 'dim'): string
+    {
+        $value = (string) config('dotsql.theme.'.$key, $fallback);
+
+        return in_array($value, self::COLOURS, true) ? $value : $fallback;
     }
 }

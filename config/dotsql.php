@@ -12,6 +12,10 @@ return [
 
         'grid' => 'dim',
 
+        'cursor' => 'default',
+
+        'selection' => 'default',
+
     ],
 
     'ui' => [

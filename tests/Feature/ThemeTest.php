@@ -206,3 +206,35 @@ it('tints the whole table with the pane colour when the grid inherits', function
 
     expect($sidebar)->toStartWith("\e[90m");
 });
+
+it('tints the cursor block with the configured colour', function () {
+    config(['dotsql.theme.cursor' => 'magenta']);
+
+    $browser = themed();
+    $browser->emit('key', "\n");
+
+    // The colour has to come before the inverse, or it tints the glyph
+    // instead of the block behind it.
+    expect(frameFor($browser))->toContain("\e[35m\e[7m");
+});
+
+it('tints the selection apart from the cursor', function () {
+    config(['dotsql.theme.cursor' => 'magenta', 'dotsql.theme.selection' => 'green']);
+
+    $frame = frameFor(themed());
+
+    $sidebar = collect(explode("\n", $frame))
+        ->first(fn (string $line) => str_contains(preg_replace('/\e\[[0-9;]*m/', '', $line), 't  '));
+
+    expect($sidebar)->toContain("\e[32m\e[7m")
+        ->and($sidebar)->not->toContain("\e[35m");
+});
+
+it('leaves the highlight on the terminal colours by default', function () {
+    config(['dotsql.theme.cursor' => 'default', 'dotsql.theme.selection' => 'default']);
+
+    $frame = frameFor(themed());
+
+    expect($frame)->toContain("\e[7m")
+        ->and($frame)->not->toMatch('/\e\[3[0-8]m\e\[7m/');
+});
