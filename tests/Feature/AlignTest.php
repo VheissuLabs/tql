@@ -266,3 +266,32 @@ it('redraws on ctrl+l', function () {
     expect($output->fetch())->toContain("\e[2J\e[H")
         ->and($browser->status)->toBe('redrawn');
 });
+
+it('clamps the hotkey bar and status line to the terminal width', function () {
+    $over = [];
+
+    foreach (range(60, 220, 2) as $cols) {
+        putenv("COLUMNS={$cols}");
+        putenv('LINES=40');
+
+        $browser = aligned();
+
+        $method = new ReflectionMethod($browser, 'renderTheme');
+        $method->setAccessible(true);
+        $method->invoke($browser);
+        $browser->emit('key', "\n");
+
+        $browser->status = str_repeat('a status line that goes on and on ', 20);
+
+        foreach (explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser))) as $line) {
+            if (mb_strlen($line) > $cols) {
+                $over[] = $cols.': '.mb_strlen($line);
+            }
+        }
+    }
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    expect($over)->toBe([]);
+});

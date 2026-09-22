@@ -99,10 +99,6 @@ class Browser extends Prompt
 
     public string $countPrefix = '';
 
-    public bool $debugMouse = false;
-
-    public ?array $lastMouse = null;
-
     public ?int $firstBodyRow = null;
 
     public int $sidebarStart = 0;
@@ -311,14 +307,6 @@ class Browser extends Prompt
             $result->size(),
             $result->path,
         );
-
-        return true;
-    }
-
-    private function toggleMouseDebug(): bool
-    {
-        $this->debugMouse = ! $this->debugMouse;
-        $this->status = $this->debugMouse ? 'mouse debug on — click anything' : 'mouse debug off';
 
         return true;
     }
@@ -682,19 +670,6 @@ class Browser extends Prompt
             return;
         }
 
-        $debug = $this->debugMouse && $event['pressed'] && $event['button'] === Mouse::LEFT;
-
-        if ($debug) {
-            $this->lastMouse = $event + [
-                'sidebar' => $this->sidebar?->containsContent($event['column'], $event['row']) ?? false,
-                'table' => $this->table?->containsContent($event['column'], $event['row']) ?? false,
-                'sidebarY' => $this->sidebar?->y,
-                'tableY' => $this->table?->y,
-                'localRow' => $this->sidebar?->localRow($event['row']),
-                'before' => $this->currentTable(),
-            ];
-        }
-
         if ($this->editing !== null) {
             return;
         }
@@ -717,11 +692,6 @@ class Browser extends Prompt
             Mouse::LEFT => $this->press($event['column'], $event['row']),
             default => true,
         };
-
-        if ($debug) {
-            $this->lastMouse['selected'] = $this->currentTable();
-            $this->lastMouse['rowIndex'] = $this->rowIndex;
-        }
     }
 
     private function mouseInViewer(array $event): void
@@ -1026,7 +996,6 @@ class Browser extends Prompt
             'r', 'reload' => $this->reload(),
             'sql' => $this->openQuery(),
             'export', 'export sql' => $this->export(),
-            'mouse' => $this->toggleMouseDebug(),
             default => $this->unknownCommand($command),
         };
     }

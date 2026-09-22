@@ -156,11 +156,26 @@ class BrowserRenderer extends Renderer
         collect($this->hotkeys())
             ->map(fn (string $line) => rtrim($line))
             ->filter()
-            ->each(fn (string $line) => $this->line(' '.$line));
+            ->each(fn (string $line) => $this->line($this->fit(' '.$line, $width)));
 
-        $this->line($this->status($prompt));
+        $this->line($this->fit($this->status($prompt), $width));
 
         return $this;
+    }
+
+    /**
+     * Neither the hotkey bar nor the status line lives inside an island, so
+     * nothing else stops them overflowing. A wrap there costs a terminal row
+     * the frame does not know about, and the frame never recovers from it.
+     */
+    private function fit(string $line, int $width): string
+    {
+        return $this->visible($line) <= $width ? $line : $this->truncate($line, $width);
+    }
+
+    private function visible(string $line): int
+    {
+        return mb_strlen((string) preg_replace('/\e\[[0-9;]*m/', '', $line));
     }
 
     private function styler(): Styler
@@ -316,17 +331,6 @@ class BrowserRenderer extends Renderer
     {
         if ($prompt->command !== null) {
             return ' :'.$prompt->command.$this->paint(Theme::cursor(), '█');
-        }
-
-        if ($prompt->debugMouse && $prompt->lastMouse !== null) {
-            $m = $prompt->lastMouse;
-
-            return ' '.$this->bold('mouse').$this->dim(sprintf(
-                '  raw row=%d → row=%d (offset %d)  col=%d  hit=%s  SELECTED=%s  (was %s)  rowIndex=%s',
-                $m['raw_row'] ?? $m['row'], $m['row'], Layout::mouseRowOffset(), $m['column'],
-                $m['sidebar'] ? 'sidebar' : ($m['table'] ? 'table' : 'nothing'),
-                $m['selected'] ?? '?', $m['before'] ?? '?', $m['rowIndex'] ?? '?'
-            ));
         }
 
         if ($prompt->mode === 'edit') {

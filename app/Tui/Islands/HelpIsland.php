@@ -68,7 +68,6 @@ class HelpIsland extends Island
                 ':tables' => 'focus the tables list',
                 ':rows' => 'focus the rows',
                 ':reload' => 'reload the current table',
-                ':mouse' => 'show raw click coordinates for debugging',
                 ':c' => 'back to the connection list',
                 ':q' => 'quit dotsql',
             ],
