@@ -365,3 +365,52 @@ it('honours the configured top margin and keeps coordinates honest', function (i
 
     config(['dotsql.ui.top_margin' => 1]);
 })->with([0, 1, 3]);
+
+it('lets a column use the space when nothing competes for it', function () {
+    putenv('COLUMNS=160');
+    putenv('LINES=24');
+
+    $path = sys_get_temp_dir().'/dotsql-wide-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table notes (id integer primary key, body text)');
+    $pdo->exec("insert into notes (body) values ('".str_repeat('x', 60)."')");
+
+    $connection = Connection::create([
+        'name' => 'wide'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+    $browser->tableIndex = array_search('notes', $browser->tables, true);
+    frameOf($browser);
+    $browser->emit('key', "\n");
+
+    $frame = frameOf($browser);
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    expect($frame)->toContain(str_repeat('x', 60));
+});
+
+it('still truncates when columns compete for width', function () {
+    $path = sys_get_temp_dir().'/dotsql-narrow-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table wide (id integer primary key, a text, b text, c text, d text, e text)');
+    $long = str_repeat('y', 60);
+    $pdo->exec("insert into wide (a,b,c,d,e) values ('{$long}','{$long}','{$long}','{$long}','{$long}')");
+
+    $connection = Connection::create([
+        'name' => 'narrow'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+    $browser->tableIndex = array_search('wide', $browser->tables, true);
+    frameOf($browser);
+    $browser->emit('key', "\n");
+
+    expect(frameOf($browser))->toContain('…');
+});

@@ -84,6 +84,8 @@ class TableIsland extends Island
         return null;
     }
 
+    public const COMFORTABLE = 28;
+
     public function naturalWidth(string $column): int
     {
         $width = mb_strlen($column);
@@ -92,7 +94,7 @@ class TableIsland extends Island
             $width = max($width, mb_strlen((string) ($row[$column] ?? '')));
         }
 
-        return min($width, 28);
+        return $width;
     }
 
     private function headerLine(): string
@@ -163,16 +165,10 @@ class TableIsland extends Island
 
     private function fit(int $available): array
     {
-        $all = [];
+        $all = $this->desiredWidths($available, false);
 
-        foreach ($this->headers as $index => $name) {
-            $width = $this->overrides[$name] ?? $this->naturalWidth($name);
-
-            if ($this->editing !== null && $index === $this->columnIndex) {
-                $width = max($width, min(24, $available - 3));
-            }
-
-            $all[] = max(3, min($width, $available - 3));
+        if ($this->total($all) > $available) {
+            $all = $this->desiredWidths($available, true);
         }
 
         $this->columnOffset = $this->scroll($all, $available);
@@ -192,6 +188,36 @@ class TableIsland extends Island
         }
 
         return $widths;
+    }
+
+    private function desiredWidths(int $available, bool $capped): array
+    {
+        $widths = [];
+
+        foreach ($this->headers as $index => $name) {
+            $width = $this->overrides[$name] ?? $this->naturalWidth($name);
+
+            if ($capped && ! isset($this->overrides[$name])) {
+                $width = min($width, self::COMFORTABLE);
+            }
+
+            if ($this->editing !== null && $index === $this->columnIndex) {
+                $width = max($width, min(24, $available - 3));
+            }
+
+            $widths[] = max(3, min($width, $available - 3));
+        }
+
+        return $widths;
+    }
+
+    private function total(array $widths): int
+    {
+        if ($widths === []) {
+            return 0;
+        }
+
+        return array_sum(array_map(fn (int $w) => $w + 2, $widths)) + count($widths) - 1;
     }
 
     private function scroll(array $all, int $available): int

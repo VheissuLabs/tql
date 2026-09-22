@@ -4,7 +4,7 @@ namespace App\Tui;
 
 class RowFormatter
 {
-    public function __construct(private int $maxWidth = 28) {}
+    public function __construct(private int $maxWidth = 500) {}
 
     public function rows(array $rows): array
     {
