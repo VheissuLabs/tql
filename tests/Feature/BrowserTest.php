@@ -1341,3 +1341,65 @@ it('does not redistribute width while a column is being dragged', function () {
     putenv('COLUMNS');
     putenv('LINES');
 });
+
+it('keeps an unedited query in step with the table', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = twoTableBrowser();
+    $browser->emit('key', 's');
+
+    expect($browser->editor->buffer())->toContain('events');
+
+    $browser->emit('key', "\e");
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+
+    expect($browser->currentTable())->toBe('settings')
+        ->and($browser->editor->buffer())->toContain('settings')
+        ->and($browser->editor->buffer())->toBe($browser->lastStatement);
+
+    config(['dotsql.ui.sql_always' => false]);
+});
+
+it('leaves a query you edited alone when the table changes', function () {
+    $browser = twoTableBrowser();
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from "events" where id > 2');
+    $browser->emit('key', "\e");
+
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+
+    expect($browser->editor->buffer())->toBe('select * from "events" where id > 2');
+});
+
+it('keeps the query in step when paging', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $path = sys_get_temp_dir().'/dotsql-sync-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table many (id integer primary key)');
+
+    foreach (range(1, Browser::PAGE + 10) as $ignored) {
+        $pdo->exec('insert into many default values');
+    }
+
+    $connection = Connection::create([
+        'name' => 'sync'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+    frameOf($browser);
+    $browser->emit('key', "\n");
+    $browser->emit('key', 's');
+    $browser->emit('key', "\e");
+
+    $browser->emit('key', 'n');
+
+    expect($browser->editor->buffer())->toContain('offset '.Browser::PAGE);
+
+    unlink($path);
+    config(['dotsql.ui.sql_always' => false]);
+});
