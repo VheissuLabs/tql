@@ -26,7 +26,12 @@ class SqlExporter
         return $path;
     }
 
-    public function filename(Connection $connection, string $table): string
+    /**
+     * Where an unnamed export lands: the database, what was taken out of it,
+     * and when. A whole-database export leaves the middle part off, since the
+     * database is the answer to what is in it.
+     */
+    public function filename(Connection $connection, ?string $table = null): string
     {
         $slug = fn (string $v) => strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $v) ?: 'export');
 
@@ -39,12 +44,14 @@ class SqlExporter
 
         $subject = $slug($subject ?: $connection->name);
 
-        return $this->directory().'/'.$subject.'-'.$slug($table).'-'.date('Ymd-His').'.sql';
+        $part = $table === null ? '' : $slug($table).'-';
+
+        return $this->directory().'/'.$subject.'-'.$part.date('Ymd-His').'.sql';
     }
 
     public function tables(Connection $connection, array $tables, ?string $path = null, ?int $limit = null): ExportResult
     {
-        $path ??= $this->filename($connection, count($tables) === 1 ? $tables[0] : 'all');
+        $path ??= $this->filename($connection, count($tables) === 1 ? $tables[0] : null);
 
         $started = microtime(true);
         $rows = 0;

@@ -277,7 +277,7 @@ class ExportCommand extends Command
     private function askWhere(Connection $connection, array $tables): ?string
     {
         $suggested = $this->exporter->filename(
-            $connection, count($tables) === 1 ? $tables[0] : 'all',
+            $connection, count($tables) === 1 ? $tables[0] : null,
         );
 
         $answer = trim(text(
@@ -336,7 +336,7 @@ class ExportCommand extends Command
         $sql = Paths::expand($sql);
 
         if (is_dir($sql)) {
-            $label = count($tables) === 1 ? $tables[0] : 'all';
+            $label = count($tables) === 1 ? $tables[0] : null;
 
             return rtrim($sql, '/').'/'.basename($this->exporter->filename($connection, $label));
         }

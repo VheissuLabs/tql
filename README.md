@@ -461,8 +461,9 @@ never asks — it says what it needed and stops with a non-zero exit.
 
 `--sql` takes a file or a directory; omit it and the file is named
 automatically in the export directory, after the database, the table and the
-time — `karlm_v2-users-20260922-231302.sql` — since the connection's own name
-says nothing about what is in the file. `--limit` caps rows per table, which is
+time — `karlm_v2-users-20260922-231302.sql`, or `karlm_v2-20260922-231302.sql`
+for the whole thing — since the connection's own name says nothing about what is
+in the file. `--limit` caps rows per table, which is
 how you pull a slice of production rather than all of it.
 
 Inside the interface, `:export` writes what you are looking at to a `.sql` file of `insert`

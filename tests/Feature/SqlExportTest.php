@@ -105,8 +105,9 @@ it('names exports after the database in use on a server', function () {
         'port' => 3306, 'database' => 'karlm_v2',
     ]);
 
-    expect(basename(app(SqlExporter::class)->filename($connection, 'all')))
-        ->toStartWith('karlm-v2-all-');
+    // The whole database is just the database.
+    expect(basename(app(SqlExporter::class)->filename($connection)))
+        ->toStartWith('karlm-v2-'.date('Ymd'));
 
     $connection->sessionDatabase = 'other_db';
 
