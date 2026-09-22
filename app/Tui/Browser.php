@@ -628,9 +628,7 @@ class Browser extends Prompt
         }
 
         $this->focus = 'sidebar';
-        $this->tableIndex = $target;
-        $this->offset = 0;
-        $this->load();
+        $this->selectTable($target);
         $this->focus = 'grid';
 
         return true;
@@ -735,10 +733,10 @@ class Browser extends Prompt
     private function moveUp(): bool
     {
         if ($this->focus === 'sidebar') {
-            $this->tableIndex = max(0, $this->tableIndex - 1);
-        } else {
-            $this->rowIndex = max(0, $this->rowIndex - 1);
+            return $this->selectTable(max(0, $this->tableIndex - 1));
         }
+
+        $this->rowIndex = max(0, $this->rowIndex - 1);
 
         return true;
     }
@@ -746,10 +744,23 @@ class Browser extends Prompt
     private function moveDown(): bool
     {
         if ($this->focus === 'sidebar') {
-            $this->tableIndex = min(count($this->tables) - 1, $this->tableIndex + 1);
-        } else {
-            $this->rowIndex = min(max(0, count($this->rows) - 1), $this->rowIndex + 1);
+            return $this->selectTable(min(count($this->tables) - 1, $this->tableIndex + 1));
         }
+
+        $this->rowIndex = min(max(0, count($this->rows) - 1), $this->rowIndex + 1);
+
+        return true;
+    }
+
+    private function selectTable(int $index): bool
+    {
+        if ($index === $this->tableIndex) {
+            return true;
+        }
+
+        $this->tableIndex = $index;
+        $this->offset = 0;
+        $this->load();
 
         return true;
     }

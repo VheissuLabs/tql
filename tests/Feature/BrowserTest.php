@@ -722,3 +722,36 @@ it('uses the plain inspector for non-json values', function () {
     expect($frame)->toContain('just a string')
         ->and($frame)->toContain('TABLES');
 });
+
+it('loads the table as the sidebar cursor moves', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'k');
+    $browser->emit('key', 'k');
+
+    $first = $browser->currentTable();
+    $firstHeaders = $browser->headers;
+
+    $browser->emit('key', 'j');
+
+    expect($browser->currentTable())->not->toBe($first)
+        ->and($browser->headers)->not->toBe($firstHeaders);
+});
+
+it('never shows one table under another table name', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->focus = 'sidebar';
+
+    foreach (range(1, count($browser->tables)) as $ignored) {
+        $browser->emit('key', 'j');
+
+        $frame = frameOf($browser);
+        $expected = $browser->currentTable();
+
+        expect($frame)->toContain($expected);
+
+        foreach ($browser->headers as $header) {
+            expect($frame)->toContain($header);
+        }
+    }
+});
