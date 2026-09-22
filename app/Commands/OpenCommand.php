@@ -94,10 +94,7 @@ class OpenCommand extends Command
         $name = $attributes['name'];
         unset($attributes['name']);
 
-        $existing = Connection::where(array_filter(
-            $attributes,
-            fn ($value) => $value !== null,
-        ))->first();
+        $existing = static::matching($attributes);
 
         if ($existing !== null) {
             return $existing;
@@ -110,6 +107,28 @@ class OpenCommand extends Command
         return $this->option('save')
             ? Connection::create($attributes)
             : new Connection($attributes);
+    }
+
+    /**
+     * Find a saved connection pointing at the same place.
+     *
+     * Matched on where it points, never on the password: that column has an
+     * encrypted cast, and the ciphertext differs every time it is written, so
+     * comparing against it would never match and --save would pile up a
+     * duplicate on every run.
+     *
+     * @param  array<string, mixed>  $attributes
+     */
+    private static function matching(array $attributes): ?Connection
+    {
+        $identity = array_filter(
+            array_intersect_key($attributes, array_flip([
+                'driver', 'host', 'port', 'database', 'username',
+            ])),
+            fn ($value) => $value !== null,
+        );
+
+        return Connection::where($identity)->first();
     }
 
     /**
