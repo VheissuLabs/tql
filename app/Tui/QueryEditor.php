@@ -38,6 +38,11 @@ class QueryEditor
         $this->cursor = 0;
     }
 
+    public function toEnd(): void
+    {
+        $this->cursor = mb_strlen($this->buffer);
+    }
+
     public function lines(): array
     {
         return explode("\n", $this->buffer);

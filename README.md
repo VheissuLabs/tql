@@ -70,6 +70,15 @@ primary key, on a connection that is not read-only — it is editable in place:
 Where it cannot, the same view opens read-only and the title and status say
 why, rather than the key doing nothing.
 
+In the read-only view the usual vim motions work: `j`/`k` move, `g`/`G` jump to
+the top or bottom, `V` starts a line selection that `j`/`k` extend, and `y`
+yanks the selected lines to the clipboard. `esc` clears a selection, and closes
+the view when there is none.
+
+Yanking uses `pbcopy`, `wl-copy`, `xclip` or `xsel` when one is present, and
+falls back to the OSC 52 terminal escape — which means it also works over
+SSH.
+
 ## Exporting
 
 From the command line, which is the scriptable way:

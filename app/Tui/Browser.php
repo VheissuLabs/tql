@@ -80,6 +80,8 @@ class Browser extends Prompt
 
     public ?string $readOnlyReason = null;
 
+    public ?int $visualAnchor = null;
+
     public bool $debugMouse = false;
 
     public ?array $lastMouse = null;
@@ -400,6 +402,13 @@ class Browser extends Prompt
             return;
         }
 
+        if ($key === Key::ESCAPE && $this->visualAnchor !== null) {
+            $this->visualAnchor = null;
+            $this->status = 'selection cleared';
+
+            return;
+        }
+
         if ($key === Key::ESCAPE || (! $this->editable && $key === 'q')) {
             $this->cellEditor = null;
             $this->mode = 'browse';
@@ -422,8 +431,57 @@ class Browser extends Prompt
         match (true) {
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->cellEditor?->handle(Key::DOWN),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->cellEditor?->handle(Key::UP),
+            $key === 'g' => $this->cellEditor?->toStart(),
+            $key === 'G' => $this->cellEditor?->toEnd(),
+            $key === 'V' => $this->toggleVisual(),
+            $key === 'y' => $this->yank(),
             default => null,
         };
+    }
+
+    private function toggleVisual(): void
+    {
+        $this->visualAnchor = $this->visualAnchor === null
+            ? $this->cellEditor?->cursorLine()
+            : null;
+
+        $this->status = $this->visualAnchor === null
+            ? 'selection cleared'
+            : 'visual — move with j/k, y yanks, esc clears';
+    }
+
+    public function selectedLines(): array
+    {
+        if ($this->cellEditor === null) {
+            return [];
+        }
+
+        $cursor = $this->cellEditor->cursorLine();
+
+        if ($this->visualAnchor === null) {
+            return [$cursor, $cursor];
+        }
+
+        return [min($this->visualAnchor, $cursor), max($this->visualAnchor, $cursor)];
+    }
+
+    private function yank(): void
+    {
+        if ($this->cellEditor === null) {
+            return;
+        }
+
+        [$from, $to] = $this->selectedLines();
+
+        $lines = array_slice($this->cellEditor->lines(), $from, $to - $from + 1);
+        $text = implode("\n", $lines);
+
+        $where = Clipboard::copy($text);
+
+        $count = count($lines);
+
+        $this->visualAnchor = null;
+        $this->status = "yanked {$count} line".($count === 1 ? '' : 's')." to the {$where} clipboard";
     }
 
     private function commitEdit(): void

@@ -43,6 +43,13 @@ class HelpIsland extends Island
                 '< >' => 'narrow or widen the selected column',
                 '=' => 'reset the column width',
             ],
+            'viewing a value (i)' => [
+                'j / k' => 'move a line at a time',
+                'g / G' => 'jump to the top or bottom',
+                'V' => 'start a line selection',
+                'y' => 'yank the selection to the clipboard',
+                'esc' => 'clear the selection, then close',
+            ],
             'mouse' => [
                 'click' => 'select a table, row or cell',
                 'drag' => 'a column border in the header resizes it',

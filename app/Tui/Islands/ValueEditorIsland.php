@@ -13,6 +13,7 @@ class ValueEditorIsland extends Island
         private bool $json,
         private Styler $style,
         private bool $showCursor = true,
+        private array $selection = [],
     ) {
         $this->title = $column.($json ? '  ·  json' : '');
     }
@@ -33,11 +34,17 @@ class ValueEditorIsland extends Island
         foreach (array_slice($lines, $start, $innerHeight, true) as $number => $line) {
             $label = $this->style->colour('gutter', str_pad((string) ($number + 1), $gutter, ' ', STR_PAD_LEFT));
 
-            $out[] = ' '.$label.' '.$this->render(
+            $body = $this->render(
                 $line,
                 $room,
                 $this->showCursor && $number === $cursorLine ? $cursorColumn : null,
             );
+
+            $selected = $this->selection !== []
+                && $number >= $this->selection[0]
+                && $number <= $this->selection[1];
+
+            $out[] = ' '.$label.' '.($selected ? $this->style->inverse($this->style->pad($body, $room)) : $body);
         }
 
         return $out;

@@ -74,6 +74,7 @@ class BrowserRenderer extends Renderer
                 $prompt->editingJson,
                 $style,
                 $prompt->editable,
+                $prompt->visualAnchor === null ? [] : $prompt->selectedLines(),
             );
             $editor->focused = true;
             $editor->place(1, $top, $width, $frameHeight);
@@ -221,8 +222,15 @@ class BrowserRenderer extends Renderer
             $column = $prompt->headers[$prompt->columnIndex] ?? '?';
 
             if (! $prompt->editable) {
+                if ($prompt->visualAnchor !== null) {
+                    [$from, $to] = $prompt->selectedLines();
+
+                    return ' '.$this->bold('visual').
+                        $this->dim('   lines '.($from + 1).'-'.($to + 1).'    y yanks    esc clears');
+                }
+
                 return ' '.$this->bold("viewing {$column}").
-                    $this->dim('   read-only: '.$prompt->readOnlyReason.'    ↑↓ scrolls    esc closes');
+                    $this->dim('   j/k moves    V selects    y yanks    g/G top/bottom    esc closes');
             }
 
             return ' '.$this->bold("editing {$column}").
