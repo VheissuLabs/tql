@@ -1,6 +1,7 @@
 <?php
 
 use App\Tui\Json;
+use App\Tui\RowFormatter;
 
 it('recognises json objects and arrays', function (string $value) {
     expect(Json::looksLikeJson($value))->toBeTrue();
@@ -74,4 +75,34 @@ it('does not treat a string containing a colon as a key', function () {
 
     expect($types)->toContain('string')
         ->and($types)->not->toContain('key');
+});
+
+it('unescapes slashes and unicode in grid previews', function () {
+    $rows = (new RowFormatter)->rows([
+        ['payload' => '{"url":"https:\/\/example.com\/hooks","name":"caf\u00e9"}'],
+    ]);
+
+    expect($rows[0]['payload'])->toContain('https://example.com/hooks')
+        ->and($rows[0]['payload'])->toContain('café')
+        ->and($rows[0]['payload'])->not->toContain('\\/')
+        ->and($rows[0]['payload'])->not->toContain('\\u00e9');
+});
+
+it('leaves non-json strings untouched', function (string $value) {
+    $rows = (new RowFormatter)->rows([['v' => $value]]);
+
+    expect($rows[0]['v'])->toBe($value);
+})->with([
+    'a plain string',
+    'C:\\Users\\karl',
+    'https://example.com/a\/b',
+    '42',
+]);
+
+it('keeps json previews on one line', function () {
+    $rows = (new RowFormatter)->rows([
+        ['payload' => "{\n  \"a\": 1,\n  \"b\": 2\n}"],
+    ]);
+
+    expect($rows[0]['payload'])->not->toContain("\n");
 });

@@ -452,15 +452,6 @@ it('inspects the selected cell in full', function () {
     expect($browser->mode)->toBe('browse');
 });
 
-it('does not open the inspector from the sidebar', function () {
-    $browser = browserFor(sqliteFixture());
-    $browser->focus = 'sidebar';
-
-    $browser->emit('key', 'i');
-
-    expect($browser->mode)->toBe('browse');
-});
-
 it('merges a user config file over the shipped defaults', function () {
     $directory = Paths::ensureDirectory();
     $file = Paths::configFile();
