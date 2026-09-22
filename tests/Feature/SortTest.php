@@ -218,7 +218,8 @@ it('says so rather than mangling a query it cannot sort', function () {
 
     $browser->sortBy('name');
 
-    expect($browser->sortColumn)->toBe('id')
+    // The query has no order by, so nothing is marked as sorted.
+    expect($browser->sortColumn)->toBeNull()
         ->and($browser->editor->buffer())->toBe('select name from fruit union select name from veg')
         ->and($browser->status)->toContain('too complex to sort');
 });
@@ -687,4 +688,36 @@ it('counts edits and deletions together', function () {
 
     expect($browser->status)->toContain('1 row edited')
         ->and($browser->status)->toContain('1 marked for deletion');
+});
+
+it('marks the column the query you ran orders by', function () {
+    $browser = sortable();
+
+    expect($browser->sortColumn)->toBe('id');
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from fruit order by "qty" desc');
+    $browser->emit('key', QueryEditor::RUN);
+
+    expect($browser->sortColumn)->toBe('qty')
+        ->and($browser->sortDirection)->toBe('desc');
+
+    $browser->emit('key', "\e");
+
+    expect(rerender($browser))->toContain('qty ▼')
+        ->and(rerender($browser))->not->toContain('id ▲');
+});
+
+it('marks nothing when the query you ran has no order by', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from fruit');
+    $browser->emit('key', QueryEditor::RUN);
+
+    expect($browser->sortColumn)->toBeNull();
+
+    $browser->emit('key', "\e");
+
+    expect(rerender($browser))->not->toContain('▲');
 });

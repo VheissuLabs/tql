@@ -24,6 +24,55 @@ class QueryRunner
         return $this->connections->resolve($connection)->getSchemaBuilder()->getColumns($table);
     }
 
+    /**
+     * Foreign keys keyed by the local column, for following a link.
+     *
+     * Only single-column keys: a composite key has no single value to follow
+     * from the cell you are standing on.
+     *
+     * @return array<string, array{table: string, column: string}>
+     */
+    public function foreignKeys(Connection $connection, string $table): array
+    {
+        try {
+            $keys = $this->connections->resolve($connection)->getSchemaBuilder()->getForeignKeys($table);
+        } catch (Throwable) {
+            return [];
+        }
+
+        $links = [];
+
+        foreach ($keys as $key) {
+            $key = (array) $key;
+
+            $columns = $key['columns'] ?? [];
+            $foreign = $key['foreign_columns'] ?? [];
+
+            if (count($columns) !== 1 || count($foreign) !== 1) {
+                continue;
+            }
+
+            $links[$columns[0]] = [
+                'table' => (string) ($key['foreign_table'] ?? ''),
+                'column' => (string) $foreign[0],
+            ];
+        }
+
+        return $links;
+    }
+
+    public function indexes(Connection $connection, string $table): array
+    {
+        try {
+            return array_map(
+                fn ($index) => (array) $index,
+                $this->connections->resolve($connection)->getSchemaBuilder()->getIndexes($table),
+            );
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
     public function primaryKey(Connection $connection, string $table): ?string
     {
         $indexes = $this->connections->resolve($connection)->getSchemaBuilder()->getIndexes($table);

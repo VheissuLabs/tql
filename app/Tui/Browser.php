@@ -3,6 +3,7 @@
 namespace App\Tui;
 
 use App\Ai\Ask;
+use App\Database\Filter;
 use App\Database\Filters;
 use App\Database\OrderBy;
 use App\Database\QueryRunner;
@@ -38,6 +39,9 @@ class Browser extends Prompt
      * Alt+enter is accepted too, since it is distinct out of the box.
      */
     public const NEWLINE = ["\e[13;2u", "\e\r", "\e\n"];
+
+    /** ctrl+o, vim's jump-back. */
+    public const BACK = "\x0f";
 
     public const ASK = self::SAVE;
 
@@ -268,6 +272,12 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->mode === 'structure') {
+            $this->handleStructureKey($key);
+
+            return;
+        }
+
         if ($this->mode === 'query') {
             $this->handleQueryKey($key);
 
@@ -331,6 +341,9 @@ class Browser extends Prompt
             $key === '/' => $this->openFilter(),
             $key === 'a' => $this->openQuestion(),
             $key === 'f' => $this->openFilters(),
+            $key === 't' => $this->toggleStructure(),
+            $key === 'L' => $this->followLink(),
+            $key === self::BACK => $this->jumpBack(),
             $key === 'd' => $this->markDelete(),
             $key === 'u' => $this->unmarkAll(),
             default => true,
@@ -519,6 +532,11 @@ class Browser extends Prompt
         $this->hasMore = false;
         $this->resultsFromQuery = true;
         $this->lastStatement = $result->statement;
+
+        // The marker follows the query. A statement you ran yourself decides
+        // what is sorted, not whichever header was clicked before it.
+        [$this->sortColumn, $this->sortDirection] = OrderBy::of($this->editor->buffer()) ?? [null, 'asc'];
+
         $this->followQueryTable($this->editor->buffer());
 
         $this->status = "{$result->count()} rows · {$result->durationMs}ms";
@@ -556,6 +574,14 @@ class Browser extends Prompt
 
     /** Set while inspecting a whole row, for the modal's title. */
     public bool $inspectingRow = false;
+
+    public int $structureOffset = 0;
+
+    /** Set by the renderer, so scrolling knows where the list ends. */
+    public int $structureHidden = 0;
+
+    /** @var array<int, array{table: string, filters: Filters|null, row: int}> */
+    private array $jumps = [];
 
     public function cellColumn(): string
     {
@@ -1407,6 +1433,158 @@ class Browser extends Prompt
         $this->state = 'submit';
 
         return false;
+    }
+
+    private function toggleStructure(): bool
+    {
+        if ($this->currentTable() === null) {
+            return true;
+        }
+
+        $this->structureOffset = 0;
+        $this->mode = $this->mode === 'structure' ? 'browse' : 'structure';
+
+        return true;
+    }
+
+    private function handleStructureKey(string $key): void
+    {
+        if (in_array($key, [Key::ESCAPE, 'q', 't'], true)) {
+            $this->mode = 'browse';
+            $this->structureOffset = 0;
+
+            return;
+        }
+
+        $hidden = $this->structureHidden;
+
+        match (true) {
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->structureOffset = min($hidden, $this->structureOffset + 1),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->structureOffset = max(0, $this->structureOffset - 1),
+            $key === 'g' => $this->structureOffset = 0,
+            $key === 'G' => $this->structureOffset = $hidden,
+            default => null,
+        };
+    }
+
+    /**
+     * @return array<string, array{table: string, column: string}>
+     */
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function columnsOf(string $table): array
+    {
+        return array_map(fn ($column) => (array) $column, $this->runner->columns($this->connection, $table));
+    }
+
+    /**
+     * @return array<int, array<string, mixed>>
+     */
+    public function indexesOf(string $table): array
+    {
+        return $this->runner->indexes($this->connection, $table);
+    }
+
+    public function primaryKeyOf(string $table): ?string
+    {
+        return $this->runner->primaryKey($this->connection, $table);
+    }
+
+    public function links(): array
+    {
+        $table = $this->currentTable();
+
+        if ($table === null || $this->resultsFromQuery) {
+            return [];
+        }
+
+        return $this->runner->foreignKeys($this->connection, $table);
+    }
+
+    /**
+     * Follow the foreign key under the cursor: open the table it points at,
+     * filtered to the row it points to. The filter is a real where clause, so
+     * the SQL pane shows how the jump was made.
+     */
+    private function followLink(): bool
+    {
+        $column = $this->headers[$this->columnIndex] ?? null;
+        $link = $this->links()[$column] ?? null;
+
+        if ($link === null) {
+            $this->status = $column === null
+                ? 'nothing to follow'
+                : $column.' is not a foreign key';
+
+            return true;
+        }
+
+        $value = $this->raw[$this->rowIndex][$column] ?? null;
+
+        if ($value === null) {
+            $this->status = $column.' is empty on this row';
+
+            return true;
+        }
+
+        $target = array_search($link['table'], $this->tables, true);
+
+        if ($target === false) {
+            $this->status = $link['table'].' is not in this database';
+
+            return true;
+        }
+
+        $this->jumps[] = [
+            'table' => (string) $this->currentTable(),
+            'filters' => $this->filters,
+            'row' => $this->rowIndex,
+        ];
+
+        $this->openLinked($target, new Filters([new Filter($link['column'], 'is', (string) $value)]));
+
+        $this->status = 'followed '.$column.' → '.$link['table'].'  ·  ctrl+o goes back';
+
+        return true;
+    }
+
+    private function jumpBack(): bool
+    {
+        $jump = array_pop($this->jumps);
+
+        if ($jump === null) {
+            $this->status = 'nowhere to go back to';
+
+            return true;
+        }
+
+        $target = array_search($jump['table'], $this->tables, true);
+
+        if ($target === false) {
+            return true;
+        }
+
+        $this->openLinked($target, $jump['filters']);
+
+        $this->rowIndex = min($jump['row'], max(0, count($this->rows) - 1));
+        $this->status = 'back in '.$jump['table'];
+
+        return true;
+    }
+
+    private function openLinked(int $tableIndex, ?Filters $filters): void
+    {
+        $this->tableIndex = $tableIndex;
+        $this->filters = $filters;
+        $this->offset = 0;
+        $this->sortColumn = null;
+        $this->sortDirection = 'asc';
+        $this->pendingDeletes = [];
+        $this->pendingEdits = [];
+        $this->focus = 'grid';
+
+        $this->load();
     }
 
     private function openFilters(): bool

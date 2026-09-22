@@ -35,3 +35,10 @@ it('refuses anything it cannot rewrite safely', function (string $statement) {
     'update events set name = 1',
     'with t as (select 1) select * from t',
 ]);
+
+it('reads the column a statement orders by', function () {
+    expect(OrderBy::of('select * from events order by "id" asc limit 10'))->toBe(['id', 'asc'])
+        ->and(OrderBy::of('select * from events order by ArtistId desc'))->toBe(['ArtistId', 'desc'])
+        ->and(OrderBy::of('select * from `events` order by `name`'))->toBe(['name', 'asc'])
+        ->and(OrderBy::of('select * from events'))->toBeNull();
+});

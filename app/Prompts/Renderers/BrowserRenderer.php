@@ -12,6 +12,7 @@ use App\Tui\Islands\Island;
 use App\Tui\Islands\PickerIsland;
 use App\Tui\Islands\Screen;
 use App\Tui\Islands\SidebarIsland;
+use App\Tui\Islands\StructureIsland;
 use App\Tui\Islands\Styler;
 use App\Tui\Islands\TableIsland;
 use App\Tui\Islands\ValueEditorIsland;
@@ -128,6 +129,35 @@ class BrowserRenderer extends Renderer
             $screen->overlay($ask);
         }
 
+        if ($prompt->mode === 'structure') {
+            $table = (string) $prompt->currentTable();
+
+            $structure = new StructureIsland(
+                $prompt->columnsOf($table),
+                $prompt->links(),
+                $prompt->indexesOf($table),
+                $prompt->primaryKeyOf($table),
+                $style,
+                $prompt->structureOffset,
+            );
+            $structure->focused = true;
+            $structure->title = 'STRUCTURE  ·  '.$table;
+
+            $structureWidth = min($width - 4, StructureIsland::WIDTH);
+            $structureHeight = min($frameHeight - 2, count($prompt->columnsOf($table)) + 9);
+
+            $structure->place(
+                (int) (($width - $structureWidth) / 2) + 1,
+                $top + (int) (($frameHeight - $structureHeight) / 2),
+                $structureWidth,
+                $structureHeight,
+            );
+
+            $screen->overlay($structure);
+
+            $prompt->structureHidden = $structure->hidden;
+        }
+
         if ($prompt->mode === 'help') {
             $help = new HelpIsland($style, $prompt->helpOffset);
             $help->focused = true;
@@ -216,6 +246,7 @@ class BrowserRenderer extends Renderer
         $this->hotkey('d', 'Mark');
         $this->hotkey('a', 'Ask');
         $this->hotkey('f', 'Filter');
+        $this->hotkey('t', 'Structure');
         $this->hotkey('s', 'SQL');
 
         // Paging is only worth a slot when there is somewhere to page to.

@@ -31,6 +31,27 @@ class OrderBy
     }
 
     /**
+     * The column and direction a statement orders by, so the header can show
+     * what the query is really doing rather than what was last clicked.
+     *
+     * @return array{0: string, 1: string}|null
+     */
+    public static function of(string $statement): ?array
+    {
+        $matched = preg_match(
+            '/\border\s+by\s+[`"\[]?([A-Za-z0-9_]+)[`"\]]?(?:\s+(asc|desc))?/i',
+            $statement,
+            $match,
+        );
+
+        if ($matched !== 1) {
+            return null;
+        }
+
+        return [$match[1], strtolower($match[2] ?? 'asc')];
+    }
+
+    /**
      * Only a single plain select. A union or a second statement would need us
      * to work out which select the clause belongs to, and guessing wrong
      * rewrites the user's query into something they did not ask for.

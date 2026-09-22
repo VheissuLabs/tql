@@ -79,6 +79,33 @@ column border in the header row to resize it**, as you would in a spreadsheet.
 Column widths you set are remembered per column name, so several columns keep
 their sizes at once and survive paging and switching tables.
 
+## Structure
+
+`t` shows the table's structure: every column with its type, which one is the
+primary key, which are foreign keys and where they point, what is not null,
+what auto-increments, and the defaults — then the indexes.
+
+```
+STRUCTURE  ·  albums
+
+  AlbumId    integer    primary key  ·  not null  ·  auto
+  Title      text       not null
+  ArtistId   integer    → artists.ArtistId  ·  not null
+
+  indexes
+    IFK_AlbumArtistId  (ArtistId)
+```
+
+`j`/`k` scroll it, `t`, `q` or `esc` close it.
+
+## Following a link
+
+With the cursor on a foreign key, `L` opens the table it points at, filtered to
+the row it points to. `ctrl+o` goes back where you came from, vim style.
+
+The jump is an ordinary filter, so the SQL pane shows the `where` clause that
+made it — following a link teaches you the query you would have written.
+
 ## Filtering rows
 
 `f` opens a filter bar, TablePlus style: a column, an operator and a value.
