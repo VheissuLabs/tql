@@ -373,3 +373,23 @@ it('still resizes with the shifted keys', function () {
 
     expect($browser->widthOverrides[$name])->toBeLessThan($wider);
 });
+
+it('accepts a pasted query in the sql editor', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('');
+
+    $browser->emit('key', "select *\nfrom fruit\nwhere qty > 1");
+
+    expect($browser->editor->buffer())->toBe("select *\nfrom fruit\nwhere qty > 1");
+});
+
+it('accepts a pasted path on the command line', function () {
+    $browser = sortable();
+
+    $browser->emit('key', ':');
+    $browser->emit('key', 'export ~/Code/tql/out.sql');
+
+    expect($browser->command)->toBe('export ~/Code/tql/out.sql');
+});

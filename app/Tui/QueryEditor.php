@@ -115,8 +115,10 @@ class QueryEditor
 
     private function type(string $key): void
     {
-        if (mb_strlen($key) === 1 && ! ctype_cntrl($key)) {
-            $this->insert($key);
+        $text = Input::text($key, newlines: true);
+
+        if ($text !== '') {
+            $this->insert($text);
         }
     }
 

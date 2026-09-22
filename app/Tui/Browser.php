@@ -1006,9 +1006,7 @@ class Browser extends Prompt
             return true;
         }
 
-        if (mb_strlen($key) === 1 && ! ctype_cntrl($key)) {
-            $this->command .= $key;
-        }
+        $this->command .= Input::text($key);
 
         return true;
     }

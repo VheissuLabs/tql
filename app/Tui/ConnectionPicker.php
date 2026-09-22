@@ -213,8 +213,10 @@ class ConnectionPicker extends Prompt
             return;
         }
 
-        if (mb_strlen($key) === 1 && ord($key) >= 32) {
-            $form->type($key);
+        $text = Input::text($key);
+
+        if ($text !== '') {
+            $form->type($text);
         }
     }
 

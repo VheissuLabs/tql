@@ -391,3 +391,32 @@ it('keeps a port you typed when the driver changes', function () {
 
     expect($picker->form->values['port'])->toBe('3307');
 });
+
+it('accepts a pasted value in a form field', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+    $picker->form->move(1);
+
+    expect($picker->form->currentKey())->toBe('name');
+
+    $picker->emit('key', "\n");
+    $picker->emit('key', 'Cloud - lunar');
+
+    expect($picker->form->buffer)->toBe('Cloud - lunar');
+
+    $picker->emit('key', "\n");
+
+    expect($picker->form->values['name'])->toBe('Cloud - lunar');
+});
+
+it('flattens a multi-line paste into a single line field', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+    $picker->form->move(1);
+    $picker->emit('key', "\n");
+    $picker->emit('key', "first\nsecond");
+
+    expect($picker->form->buffer)->toBe('first second');
+});
