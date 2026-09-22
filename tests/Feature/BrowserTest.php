@@ -853,3 +853,27 @@ it('ignores typing in a read-only value but still scrolls', function () {
 
     expect($browser->mode)->toBe('browse');
 });
+
+it('opens read-only with i even where editing is possible', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'i');
+
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->editable)->toBeFalse();
+
+    $before = $browser->cellEditor->buffer();
+    $browser->emit('key', 'z');
+
+    expect($browser->cellEditor->buffer())->toBe($before);
+});
+
+it('opens editable with e where editing is possible', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->editable)->toBeTrue()
+        ->and($browser->readOnlyReason)->toBeNull();
+});

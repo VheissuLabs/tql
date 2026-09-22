@@ -24,7 +24,8 @@ encryption key), both `0600`.
 | `↑ ↓` / `j k` | move the cursor |
 | `← →` / `h l` | move between columns |
 | `↵` | open a table, or edit the selected cell |
-| `e` | open the selected value full screen |
+| `i` | view the selected value full screen, read-only |
+| `e` | edit the selected value, `ctrl+s` saves |
 | `< >` | narrow or widen the selected column |
 | `=` | reset the column width |
 | `n` / `p` | next or previous page (100 rows) |
@@ -58,8 +59,9 @@ is recognised too.
 
 ## Opening a value
 
-`e` opens the value under the cursor full screen. JSON is pretty printed with
-line numbers and syntax highlighting; anything else is shown as it is.
+`i` views the value under the cursor full screen and never writes. `e` opens
+the same view for editing. JSON is pretty printed with line numbers and syntax
+highlighting; anything else is shown as it is.
 
 Where the value can be written back — a real table row with a single-column
 primary key, on a connection that is not read-only — it is editable in place:

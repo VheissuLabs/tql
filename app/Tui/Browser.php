@@ -195,7 +195,7 @@ class Browser extends Prompt
             $key === '>' => $this->resize(4),
             $key === '=' => $this->resetWidth(),
             $key === 's' => $this->openQuery(),
-            $key === 'i' => $this->startEditing(),
+            $key === 'i' => $this->startEditing(readOnly: true),
             $key === '?' => $this->toggleHelp(),
             $key === 'e' => $this->startEditing(),
             $key === Key::ENTER => $this->activate(),
@@ -348,7 +348,7 @@ class Browser extends Prompt
         $this->status = "{$result->count()} rows · {$result->durationMs}ms";
     }
 
-    private function startEditing(): bool
+    private function startEditing(bool $readOnly = false): bool
     {
         if ($this->raw === []) {
             $this->status = 'nothing to open — this table has no rows';
@@ -357,7 +357,7 @@ class Browser extends Prompt
         }
 
         $this->focus = 'grid';
-        $this->readOnlyReason = $this->whyReadOnly();
+        $this->readOnlyReason = $readOnly ? 'opened with i — press e to edit' : $this->whyReadOnly();
         $this->editable = $this->readOnlyReason === null;
 
         $value = $this->cellValue();
