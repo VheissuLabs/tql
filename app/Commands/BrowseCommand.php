@@ -10,13 +10,8 @@ use App\Tui\ConnectionPicker;
 use App\Tui\RowFormatter;
 use LaravelZero\Framework\Commands\Command;
 
-use function Laravel\Prompts\confirm;
 use function Laravel\Prompts\error;
-use function Laravel\Prompts\info;
-use function Laravel\Prompts\password;
 use function Laravel\Prompts\pause;
-use function Laravel\Prompts\select;
-use function Laravel\Prompts\text;
 
 class BrowseCommand extends Command
 {
@@ -71,54 +66,7 @@ class BrowseCommand extends Command
 
         return match ($choice) {
             'quit', null => null,
-            'new' => $this->createConnection(),
-            default => $connections->firstWhere('id', (int) $choice),
+            default => Connection::find((int) $choice),
         };
-    }
-
-    private function createConnection(): ?Connection
-    {
-        $driver = select(
-            label: 'Driver',
-            options: array_combine($this->connections->drivers(), $this->connections->drivers()),
-        );
-
-        $name = text(label: 'Name', required: true);
-
-        $connection = $driver === 'sqlite'
-            ? Connection::create([
-                'name' => $name,
-                'driver' => $driver,
-                'database' => text(label: 'Path to the .sqlite file', required: true),
-            ])
-            : Connection::create([
-                'name' => $name,
-                'driver' => $driver,
-                'host' => text(label: 'Host', default: '127.0.0.1', required: true),
-                'port' => (int) text(
-                    label: 'Port',
-                    default: (string) ($driver === 'pgsql' ? 5432 : 3306),
-                    required: true,
-                ),
-                'database' => text(label: 'Database', required: true),
-                'username' => text(label: 'Username', required: true),
-                'password' => password(label: 'Password'),
-            ]);
-
-        if ($failure = $this->connections->test($connection)) {
-            error($failure);
-
-            if (! confirm('Save it anyway?', default: false)) {
-                $connection->delete();
-
-                return null;
-            }
-
-            return $connection;
-        }
-
-        info('Connected.');
-
-        return $connection;
     }
 }

@@ -174,7 +174,7 @@ it('draws the form centred over the list', function () {
     putenv('COLUMNS');
     putenv('LINES');
 
-    $modal = array_values(array_filter($lines, fn (string $l) => str_contains($l, 'EDIT SQLITE CONNECTION')));
+    $modal = array_values(array_filter($lines, fn (string $l) => str_contains($l, 'EDIT CONNECTION')));
 
     expect($modal)->toHaveCount(1);
 
@@ -287,4 +287,107 @@ it('marks the current row when the marker style is on', function () {
     config(['tql.ui.row_style' => 'marker']);
 
     expect(preg_replace('/\e\[[0-9;]*m/', '', pickerFrame(picker())))->toContain('▸');
+});
+
+it('creates a connection in the modal rather than dropping out of the tui', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    expect($picker->form)->not->toBeNull()
+        ->and($picker->form->creating)->toBeTrue()
+        ->and($picker->value())->toBeNull();
+
+    expect(preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker)))->toContain('NEW CONNECTION');
+});
+
+it('cycles the driver instead of typing it', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    expect($picker->form->currentKey())->toBe('driver')
+        ->and($picker->form->driver())->toBe('sqlite');
+
+    $picker->emit('key', "\n");
+
+    expect($picker->form->driver())->not->toBe('sqlite')
+        ->and($picker->form->editing)->toBeFalse();
+});
+
+it('shows the fields that suit the chosen driver', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    expect(array_keys($picker->form->fields()))->toBe(['driver', 'name', 'database']);
+
+    while ($picker->form->driver() !== 'mysql') {
+        $picker->form->cycleDriver();
+    }
+
+    expect(array_keys($picker->form->fields()))
+        ->toBe(['driver', 'name', 'host', 'port', 'database', 'username', 'password']);
+});
+
+it('fills in the default host and port for a server driver', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    while ($picker->form->driver() !== 'pgsql') {
+        $picker->form->cycleDriver();
+    }
+
+    expect($picker->form->values['host'])->toBe('127.0.0.1')
+        ->and($picker->form->values['port'])->toBe('5432');
+});
+
+it('saves a new connection and selects it', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+    $picker->form->values['name'] = 'brand new';
+    $picker->form->values['database'] = '/tmp/brand-new.sqlite';
+
+    $picker->emit('key', ConnectionPicker::SAVE);
+
+    $created = Connection::where('name', 'brand new')->first();
+
+    expect($created)->not->toBeNull()
+        ->and($created->driver)->toBe('sqlite')
+        ->and($picker->form)->toBeNull()
+        ->and($picker->status)->toContain('added brand new')
+        ->and($picker->connections->pluck('name'))->toContain('brand new');
+});
+
+it('will not save a sqlite connection with no path', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+    $picker->form->values['name'] = 'pathless';
+
+    $picker->emit('key', ConnectionPicker::SAVE);
+
+    expect($picker->form)->not->toBeNull()
+        ->and($picker->form->error)->toContain('path')
+        ->and(Connection::where('name', 'pathless')->exists())->toBeFalse();
+});
+
+it('keeps a port you typed when the driver changes', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    while ($picker->form->driver() !== 'mysql') {
+        $picker->form->cycleDriver();
+    }
+
+    $picker->form->values['port'] = '3307';
+
+    while ($picker->form->driver() !== 'pgsql') {
+        $picker->form->cycleDriver();
+    }
+
+    expect($picker->form->values['port'])->toBe('3307');
 });

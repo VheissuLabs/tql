@@ -101,7 +101,7 @@ class ConnectionPickerRenderer extends Renderer
         $inner = $modalWidth - 2;
 
         $edge = fn (string $text) => $this->paint(Theme::border(true), $text);
-        $title = ' EDIT '.strtoupper($form->connection->driver).' CONNECTION ';
+        $title = $form->creating ? ' NEW CONNECTION ' : ' EDIT CONNECTION ';
 
         $rows = [$edge('┌─').$this->bold($this->paint(Theme::title(true), $title))
             .$edge(str_repeat('─', max(0, $inner - mb_strlen($title) - 1)).'┐')];
@@ -116,6 +116,10 @@ class ConnectionPickerRenderer extends Renderer
                 $shown .= "\e[7m \e[27m";
             }
 
+            if ($key === 'driver' && $focused) {
+                $shown = '← '.$shown.' →';
+            }
+
             $rows[] = $this->row(
                 '  '.($focused ? $this->bold($this->pad($text, $label)) : $this->dim($this->pad($text, $label)))
                 .'  '.($focused ? $shown : $this->dim($shown)),
@@ -127,7 +131,11 @@ class ConnectionPickerRenderer extends Renderer
 
         $rows[] = $this->row('  '.$this->dim($form->error !== null
             ? $this->paint('red', $form->error)
-            : ($form->editing ? '↵ keeps it    esc drops it' : '↵ change    ctrl+s save    esc cancel')), $inner);
+            : match (true) {
+                $form->editing => '↵ keeps it    esc drops it',
+                $form->currentKey() === 'driver' => '← → driver    ctrl+s save    esc cancel',
+                default => '↵ change    ctrl+s save    esc cancel',
+            }), $inner);
 
         $rows[] = $edge('└'.str_repeat('─', $inner).'┘');
 

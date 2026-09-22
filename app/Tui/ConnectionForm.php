@@ -21,11 +21,86 @@ class ConnectionForm
 
     public ?string $error = null;
 
-    public function __construct(public Connection $connection)
+    public function __construct(public Connection $connection, public bool $creating = false)
     {
-        foreach ($this->fields() as $key => $label) {
+        foreach (self::ALL as $key => $label) {
             $this->values[$key] = (string) ($connection->{$key} ?? '');
         }
+
+        $this->values['driver'] = (string) ($connection->driver ?: 'sqlite');
+
+        if ($creating) {
+            $this->applyDriverDefaults();
+        }
+    }
+
+    private const ALL = [
+        'driver' => 'Driver',
+        'name' => 'Name',
+        'database' => 'Database',
+        'host' => 'Host',
+        'port' => 'Port',
+        'username' => 'Username',
+        'password' => 'Password',
+    ];
+
+    public const DRIVERS = ['sqlite', 'mysql', 'pgsql', 'sqlsrv'];
+
+    public function driver(): string
+    {
+        return $this->values['driver'] ?: 'sqlite';
+    }
+
+    /**
+     * Changing the driver changes which fields exist, so keep the cursor in
+     * range and fill in the defaults for the new one.
+     */
+    public function cycleDriver(int $by = 1): void
+    {
+        $drivers = array_values(array_filter(
+            self::DRIVERS,
+            fn (string $driver) => in_array($driver, \PDO::getAvailableDrivers(), true),
+        )) ?: self::DRIVERS;
+
+        $at = array_search($this->driver(), $drivers, true);
+        $at = $at === false ? 0 : $at;
+
+        $was = $this->defaultPort();
+
+        $this->values['driver'] = $drivers[($at + $by + count($drivers)) % count($drivers)];
+
+        // Move the port with the driver unless it was typed by hand.
+        if (($this->values['port'] ?? '') === (string) $was) {
+            $this->values['port'] = '';
+        }
+
+        $this->applyDriverDefaults();
+
+        $this->index = min($this->index, count($this->keys()) - 1);
+    }
+
+    private function applyDriverDefaults(): void
+    {
+        if ($this->driver() === 'sqlite') {
+            return;
+        }
+
+        if (($this->values['host'] ?? '') === '') {
+            $this->values['host'] = '127.0.0.1';
+        }
+
+        if (($this->values['port'] ?? '') === '') {
+            $this->values['port'] = (string) $this->defaultPort();
+        }
+    }
+
+    private function defaultPort(): int
+    {
+        return match ($this->driver()) {
+            'pgsql' => 5432,
+            'sqlsrv' => 1433,
+            default => 3306,
+        };
     }
 
     /**
@@ -33,7 +108,7 @@ class ConnectionForm
      */
     public function fields(): array
     {
-        return $this->connection->driver === 'sqlite'
+        $fields = $this->driver() === 'sqlite'
             ? ['name' => 'Name', 'database' => 'Path']
             : [
                 'name' => 'Name',
@@ -43,6 +118,8 @@ class ConnectionForm
                 'username' => 'Username',
                 'password' => 'Password',
             ];
+
+        return $this->creating ? ['driver' => 'Driver'] + $fields : $fields;
     }
 
     public function keys(): array
@@ -113,6 +190,10 @@ class ConnectionForm
             return 'A name is required.';
         }
 
+        if ($this->driver() === 'sqlite' && trim($this->values['database'] ?? '') === '') {
+            return 'A path to the .sqlite file is required.';
+        }
+
         $taken = Connection::where('name', $this->values['name'])
             ->where('id', '!=', $this->connection->id)
             ->exists();
@@ -121,13 +202,16 @@ class ConnectionForm
             return 'Another connection is already called that.';
         }
 
-        $values = $this->values;
-        $values['port'] = isset($values['port']) ? (int) $values['port'] : null;
+        $values = array_intersect_key(
+            $this->values,
+            array_flip(array_merge(['driver'], array_keys($this->fields()))),
+        );
 
-        $this->connection->forceFill(array_filter(
-            $values,
-            fn ($value) => $value !== null,
-        ))->save();
+        if (isset($values['port'])) {
+            $values['port'] = (int) $values['port'];
+        }
+
+        $this->connection->forceFill($values)->save();
 
         return null;
     }

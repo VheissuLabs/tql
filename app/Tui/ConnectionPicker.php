@@ -96,7 +96,7 @@ class ConnectionPicker extends Prompt
         match (true) {
             $key === ':' => $this->openCommandLine(),
             $key === 'q', $key === Key::ESCAPE => $this->finish('quit'),
-            $key === 'n' => $this->finish('new'),
+            $key === 'n' => $this->create(),
             $key === 'e' => $this->edit(),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->move(-1),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->move(1),
@@ -138,6 +138,14 @@ class ConnectionPicker extends Prompt
         return $this->select();
     }
 
+    private function create(): bool
+    {
+        $this->form = new ConnectionForm(new Connection(['driver' => 'sqlite']), creating: true);
+        $this->status = null;
+
+        return true;
+    }
+
     private function edit(): bool
     {
         $connection = $this->connections->values()->get($this->index);
@@ -156,6 +164,21 @@ class ConnectionPicker extends Prompt
 
         if ($form->editing) {
             $this->handleFieldKey($form, $key);
+
+            return;
+        }
+
+        // The driver is a fixed set, so it cycles rather than being typed.
+        if ($form->currentKey() === 'driver') {
+            match (true) {
+                $key === Key::ESCAPE, $key === 'q' => $this->closeForm('nothing changed'),
+                $key === self::SAVE => $this->saveForm(),
+                in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->move(-1),
+                in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->move(1),
+                in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $form->cycleDriver(-1),
+                in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l', ' '], true), $key === Key::ENTER => $form->cycleDriver(),
+                default => true,
+            };
 
             return;
         }
@@ -205,9 +228,18 @@ class ConnectionPicker extends Prompt
             return;
         }
 
-        $name = $this->form->connection->name;
+        $connection = $this->form->connection;
+        $creating = $this->form->creating;
 
-        $this->closeForm("saved {$name}");
+        $this->connections = Connection::orderByDesc('last_used_at')->orderBy('name')->get();
+
+        if ($creating) {
+            $this->index = max(0, $this->connections->search(
+                fn (Connection $c) => $c->id === $connection->id,
+            ) ?: 0);
+        }
+
+        $this->closeForm(($creating ? 'added ' : 'saved ').$connection->name);
     }
 
     private function closeForm(string $status): void
