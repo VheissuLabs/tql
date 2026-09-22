@@ -1,5 +1,9 @@
 <?php
 
+putenv('XDG_CONFIG_HOME='.__DIR__.'/.scratch');
+putenv('NO_ALT_SCREEN=1');
+putenv('NO_MOUSE=1');
+
 use Tests\TestCase;
 
 /*
@@ -14,6 +18,7 @@ use Tests\TestCase;
 */
 
 uses(TestCase::class)->in('Feature');
+uses(TestCase::class)->in('Unit');
 
 /*
 |--------------------------------------------------------------------------

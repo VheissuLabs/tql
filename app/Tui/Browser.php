@@ -159,7 +159,7 @@ class Browser extends Prompt
 
     private function resize(int $by): bool
     {
-        if ($this->focus !== 'grid' || $this->headers === []) {
+        if ($this->headers === []) {
             return true;
         }
 

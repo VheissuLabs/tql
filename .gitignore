@@ -4,3 +4,4 @@
 /.vagrant
 .phpunit.result.cache
 /database/database.sqlite
+/tests/.scratch
