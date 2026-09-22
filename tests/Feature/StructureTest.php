@@ -460,3 +460,68 @@ it('still goes back with ctrl+o', function () {
 
     expect($browser->currentTable())->toBe('albums');
 });
+
+it('follows a link to a table the sidebar filter is hiding', function () {
+    $browser = linked();
+
+    // Hunt for a table the way you would, then follow a link out of it.
+    $browser->emit('key', '/');
+
+    foreach (str_split('album') as $char) {
+        $browser->emit('key', $char);
+    }
+
+    $browser->emit('key', "\n");
+
+    expect($browser->visibleTables())->toBe(['albums'])
+        ->and($browser->currentTable())->toBe('albums');
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'L');
+
+    expect($browser->currentTable())->toBe('artists')
+        ->and($browser->filter)->toBeNull()
+        ->and($browser->raw)->toHaveCount(1)
+        ->and($browser->raw[0]['name'])->toBe('AC/DC');
+});
+
+it('keeps a sidebar filter that still shows the table it jumped to', function () {
+    $browser = linked();
+
+    $browser->emit('key', '/');
+
+    foreach (str_split('a') as $char) {
+        $browser->emit('key', $char);
+    }
+
+    $browser->emit('key', "\n");
+
+    // Both albums and artists match "a", so the filter can stay.
+    expect($browser->visibleTables())->toBe(['albums', 'artists']);
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'L');
+
+    expect($browser->currentTable())->toBe('artists')
+        ->and($browser->filter)->toBe('a');
+});
+
+it('goes back to the right table with a filter active', function () {
+    $browser = linked();
+
+    $browser->emit('key', '/');
+    $browser->emit('key', 'a');
+    $browser->emit('key', "\n");
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'L');
+
+    expect($browser->currentTable())->toBe('artists');
+
+    $browser->emit('key', "\e");
+
+    expect($browser->currentTable())->toBe('albums');
+});

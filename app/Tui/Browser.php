@@ -1609,9 +1609,7 @@ class Browser extends Prompt
             return true;
         }
 
-        $target = array_search($link['table'], $this->tables, true);
-
-        if ($target === false) {
+        if (! in_array($link['table'], $this->tables, true)) {
             $this->status = $link['table'].' is not in this database';
 
             return true;
@@ -1623,7 +1621,7 @@ class Browser extends Prompt
             'row' => $this->rowIndex,
         ];
 
-        $this->openLinked($target, new Filters([new Filter($link['column'], 'is', (string) $value)]));
+        $this->openLinked($link['table'], new Filters([new Filter($link['column'], 'is', (string) $value)]));
 
         $this->status = 'followed '.$column.' → '.$link['table'].'  ·  esc goes back';
 
@@ -1676,9 +1674,7 @@ class Browser extends Prompt
             return true;
         }
 
-        $target = array_search($link['table'], $this->tables, true);
-
-        if ($target === false) {
+        if (! in_array($link['table'], $this->tables, true)) {
             return true;
         }
 
@@ -1688,7 +1684,7 @@ class Browser extends Prompt
             'row' => $this->rowIndex,
         ];
 
-        $this->openLinked($target, new Filters([new Filter($link['column'], 'is', (string) $value)]));
+        $this->openLinked($link['table'], new Filters([new Filter($link['column'], 'is', (string) $value)]));
 
         $this->status = 'followed → '.$link['table'].' where '.$link['column'].' is '.$value.
             '  ·  esc goes back';
@@ -1741,13 +1737,11 @@ class Browser extends Prompt
             return true;
         }
 
-        $target = array_search($jump['table'], $this->tables, true);
-
-        if ($target === false) {
+        if (! in_array($jump['table'], $this->tables, true)) {
             return true;
         }
 
-        $this->openLinked($target, $jump['filters']);
+        $this->openLinked($jump['table'], $jump['filters']);
 
         $this->rowIndex = min($jump['row'], max(0, count($this->rows) - 1));
         $this->status = 'back in '.$jump['table'];
@@ -1755,9 +1749,27 @@ class Browser extends Prompt
         return true;
     }
 
-    private function openLinked(int $tableIndex, ?Filters $filters): void
+    /**
+     * Open a table by name.
+     *
+     * The sidebar filter decides which tables are visible, and every index in
+     * the app is an index into that visible list — so a jump to a table the
+     * filter is hiding has to clear the filter, or it lands on nothing.
+     */
+    private function openLinked(string $table, ?Filters $filters): void
     {
-        $this->tableIndex = $tableIndex;
+        if (! in_array($table, $this->visibleTables(), true)) {
+            $this->filter = null;
+            $this->filtering = false;
+        }
+
+        $at = array_search($table, $this->visibleTables(), true);
+
+        if ($at === false) {
+            return;
+        }
+
+        $this->tableIndex = $at;
         $this->filters = $filters;
         $this->offset = 0;
         $this->sortColumn = null;
