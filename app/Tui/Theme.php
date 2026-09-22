@@ -19,9 +19,15 @@ class Theme
         return $focused ? static::colour('focus_title') : static::colour('border');
     }
 
-    public static function grid(): string
+    /**
+     * "inherit" ties the interior grid to the pane's border, so a focused
+     * table tints as a whole rather than growing a coloured outline.
+     */
+    public static function grid(bool $focused): string
     {
-        return static::colour('grid');
+        return config('dotsql.theme.grid') === 'inherit'
+            ? static::border($focused)
+            : static::colour('grid');
     }
 
     public static function colour(string $key): string

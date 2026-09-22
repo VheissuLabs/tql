@@ -22,6 +22,9 @@ class BrowserRenderer extends Renderer
     use DrawsHotkeys;
     use RendersWithoutPadding;
 
+    /** Whether the island currently being drawn has focus. */
+    private bool $painting = false;
+
     public function __invoke(Browser $prompt): string
     {
         $width = max(60, $prompt->terminal()->cols());
@@ -173,7 +176,7 @@ class BrowserRenderer extends Renderer
                 'literal' => $this->magenta($t),
                 'punctuation' => $this->dim($t),
                 'gutter' => $this->dim($t),
-                'grid' => $this->paint(Theme::grid(), $t),
+                'grid' => $this->paint(Theme::grid($this->painting), $t),
                 default => $t,
             },
         );
@@ -181,6 +184,8 @@ class BrowserRenderer extends Renderer
 
     private function box(Island $island, Styler $style): array
     {
+        $this->painting = $island->focused;
+
         $inner = $island->innerWidth();
         $content = $island->content($inner, $island->innerHeight());
         $joins = $island->joins();
@@ -272,7 +277,7 @@ class BrowserRenderer extends Renderer
     {
         $out = '';
         $buffer = '';
-        $grid = Theme::grid();
+        $grid = Theme::grid($this->painting);
 
         foreach ($chars as $char) {
             if ($char === $join) {

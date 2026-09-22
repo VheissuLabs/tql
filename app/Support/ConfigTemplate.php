@@ -33,9 +33,11 @@ class ConfigTemplate
                 'key' => 'grid',
                 'default' => '"dim"',
                 'comment' => [
-                    'Colour of the grid inside a table: the column separators',
-                    'and the rule under the header. Kept apart from the border',
-                    'so a bright focus colour does not bleed into the rows.',
+                    'Colour of the grid inside a table: the column separators,',
+                    'the rule under the header, and the ticks where they meet',
+                    'the frame. Set it to "inherit" and the whole table takes',
+                    'the pane colour, so a focused table tints all the way',
+                    'through instead of just gaining a coloured outline.',
                 ],
             ],
             [

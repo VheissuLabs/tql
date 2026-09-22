@@ -182,3 +182,27 @@ it('paints the interior grid separately from the border', function () {
     expect($rule)->not->toBeNull()
         ->and($rule)->toMatch('/\e\[31m[─┼]*┼/');
 });
+
+it('tints the whole table with the pane colour when the grid inherits', function () {
+    config([
+        'dotsql.theme.grid' => 'inherit',
+        'dotsql.theme.focus_border' => 'blue',
+        'dotsql.theme.border' => 'gray',
+    ]);
+
+    $browser = themed();
+    $browser->emit('key', "\n");
+
+    expect($browser->focus)->toBe('grid');
+
+    $frame = frameFor($browser);
+
+    // The focused table draws its separators in the focus colour...
+    expect($frame)->toContain("\e[34m│");
+
+    // ...and the unfocused sidebar keeps the resting colour.
+    $sidebar = collect(explode("\n", $frame))
+        ->first(fn (string $line) => str_contains(preg_replace('/\e\[[0-9;]*m/', '', $line), 'TABLES'));
+
+    expect($sidebar)->toStartWith("\e[90m");
+});
