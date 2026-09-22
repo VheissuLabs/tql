@@ -17,7 +17,7 @@ return new class extends Migration
             $table->string('database')->nullable();
             $table->string('username')->nullable();
             $table->text('password')->nullable();
-            $table->string('colour')->nullable();
+            $table->string('color')->nullable();
             $table->boolean('read_only')->default(false);
             $table->timestamp('last_used_at')->nullable();
             $table->timestamps();

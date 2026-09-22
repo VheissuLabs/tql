@@ -163,7 +163,10 @@ class BrowserRenderer extends Renderer
             $document = $prompt->document;
             $selection = $prompt->documentAnchor === null ? null : $prompt->documentSelection();
 
-            $boxWidth = min($width - 6, InspectorWidth::COLUMNS);
+            $boxWidth = max(
+                InspectorWidth::MINIMUM,
+                min($width - 6, $document->naturalWidth()),
+            );
             $room = $frameHeight - 2;
 
             $boxes = [];
@@ -450,8 +453,8 @@ class BrowserRenderer extends Renderer
                 'gutter' => $this->dim($t),
                 'grid' => $this->paint(Theme::grid($this->painting), $t),
                 'cursor' => $this->highlight(Theme::cursor(), $t),
-                'marked' => $this->highlight(Theme::colour('deleted', 'red'), $t),
-                'edited' => $this->highlight(Theme::colour('edited', 'yellow'), $t),
+                'marked' => $this->highlight(Theme::color('deleted', 'red'), $t),
+                'edited' => $this->highlight(Theme::color('edited', 'yellow'), $t),
                 'selection' => $this->highlight(Theme::selection(), $t),
                 default => $t,
             },
@@ -493,22 +496,22 @@ class BrowserRenderer extends Renderer
             $lines[] = $edge($edges[0]).$style->pad($content[$i] ?? '', $inner).$edge($edges[1]);
         }
 
-        $colour = Theme::border($island->focused, $island->modal);
+        $color = Theme::border($island->focused, $island->modal);
 
-        $lines[] = $edge('└').$this->border($inner, $joins, '┴', $colour).$edge('┘');
+        $lines[] = $edge('└').$this->border($inner, $joins, '┴', $color).$edge('┘');
 
         return $lines;
     }
 
     /**
      * Inverse video swaps the foreground into the background, so setting a
-     * colour first is what tints the block rather than the text inside it.
+     * color first is what tints the block rather than the text inside it.
      */
-    private function highlight(string $colour, string $text): string
+    private function highlight(string $color, string $text): string
     {
-        return $colour === 'default'
+        return $color === 'default'
             ? $this->inverse($text)
-            : $this->paint($colour, $this->inverse($text));
+            : $this->paint($color, $this->inverse($text));
     }
 
     /**
@@ -531,9 +534,9 @@ class BrowserRenderer extends Renderer
         return '  '.$this->bold('L').$this->dim(' → '.$link['table']);
     }
 
-    private function paint(string $colour, string $text): string
+    private function paint(string $color, string $text): string
     {
-        return match ($colour) {
+        return match ($color) {
             'default' => $text,
             'black' => $this->black($text),
             'red' => $this->red($text),
@@ -559,19 +562,19 @@ class BrowserRenderer extends Renderer
 
         $edge = fn (string $text) => $this->paint(Theme::border($island->focused, $island->modal), $text);
 
-        $colour = Theme::border($island->focused, $island->modal);
+        $color = Theme::border($island->focused, $island->modal);
 
         $tail = array_slice(
             $this->borderChars($inner, $joins, '┬'),
             min($inner, $plain + 1),
         );
 
-        return $edge('┌─').$label.$this->run($tail, '┬', $colour).$edge('┐');
+        return $edge('┌─').$label.$this->run($tail, '┬', $color).$edge('┐');
     }
 
-    private function border(int $inner, array $joins, string $join, string $colour): string
+    private function border(int $inner, array $joins, string $join, string $color): string
     {
-        return $this->run($this->borderChars($inner, $joins, $join), $join, $colour);
+        return $this->run($this->borderChars($inner, $joins, $join), $join, $color);
     }
 
     /**
@@ -591,11 +594,11 @@ class BrowserRenderer extends Renderer
     }
 
     /**
-     * Paint a border row so the column ticks carry the grid colour and the
-     * rule between them carries the frame colour, without a colour code on
+     * Paint a border row so the column ticks carry the grid color and the
+     * rule between them carries the frame color, without a color code on
      * every single character.
      */
-    private function run(array $chars, string $join, string $colour): string
+    private function run(array $chars, string $join, string $color): string
     {
         $out = '';
         $buffer = '';
@@ -603,7 +606,7 @@ class BrowserRenderer extends Renderer
 
         foreach ($chars as $char) {
             if ($char === $join) {
-                $out .= ($buffer === '' ? '' : $this->paint($colour, $buffer)).$this->paint($grid, $join);
+                $out .= ($buffer === '' ? '' : $this->paint($color, $buffer)).$this->paint($grid, $join);
                 $buffer = '';
 
                 continue;
@@ -612,7 +615,7 @@ class BrowserRenderer extends Renderer
             $buffer .= $char;
         }
 
-        return $out.($buffer === '' ? '' : $this->paint($colour, $buffer));
+        return $out.($buffer === '' ? '' : $this->paint($color, $buffer));
     }
 
     private function status(Browser $prompt): string

@@ -80,7 +80,7 @@ class ConnectionPicker extends Prompt
             ->map(fn (Connection $c) => [
                 'id' => $c->id,
                 'name' => $c->name,
-                'colour' => (string) $c->colour,
+                'color' => (string) $c->color,
                 'tag' => (string) $c->tag,
                 'read_only' => (bool) $c->read_only,
                 'driver' => $c->driver,

@@ -174,7 +174,7 @@ class TableIsland extends Island
                 : $this->style->dim($text);
         }
 
-        return implode($this->style->colour('grid', '│'), $cells);
+        return implode($this->style->color('grid', '│'), $cells);
     }
 
     private function rule(int $innerWidth): string
@@ -183,14 +183,14 @@ class TableIsland extends Island
 
         $body = str_repeat('─', self::GUTTER).implode('┼', $segments);
 
-        return $this->style->colour('grid', $body.str_repeat('─', max(0, $innerWidth - mb_strlen($body))));
+        return $this->style->color('grid', $body.str_repeat('─', max(0, $innerWidth - mb_strlen($body))));
     }
 
     private function blankLine(): string
     {
         $cells = array_map(fn (int $w) => str_repeat(' ', $w + 2), $this->widths);
 
-        return implode($this->style->colour('grid', '│'), $cells);
+        return implode($this->style->color('grid', '│'), $cells);
     }
 
     private function rowLine(array $row, int $absolute, int $innerWidth): string
@@ -221,13 +221,13 @@ class TableIsland extends Island
 
         $changed = in_array($absolute, $this->edited, true);
 
-        // A pending row is drawn as one bar, so it is built without colour of
+        // A pending row is drawn as one bar, so it is built without color of
         // its own: an escape sequence inside the span would tear the
         // highlight at the first column separator.
         if ($pending || $changed) {
             $marker = $selected && $style === 'marker' ? ' ▸' : '  ';
 
-            return $this->style->colour(
+            return $this->style->color(
                 $pending ? 'marked' : 'edited',
                 $this->style->pad($marker.implode('│', $cells), $innerWidth),
             );
@@ -235,7 +235,7 @@ class TableIsland extends Island
 
         $marker = $selected && $style === 'marker' ? ' ▸' : '  ';
 
-        $line = $marker.implode($this->style->colour('grid', '│'), $cells);
+        $line = $marker.implode($this->style->color('grid', '│'), $cells);
 
         if (! $selected) {
             return $style === 'dim-others' ? $this->style->dim($line) : $line;
@@ -247,7 +247,7 @@ class TableIsland extends Island
 
         return match ($style) {
             'underline' => $this->style->underline($this->style->pad($line, $innerWidth)),
-            'inverse' => $this->style->colour('selection', $this->style->pad($line, $innerWidth)),
+            'inverse' => $this->style->color('selection', $this->style->pad($line, $innerWidth)),
             'bold' => $this->style->bold($line),
             default => $line,
         };
@@ -263,7 +263,7 @@ class TableIsland extends Island
 
         // A column of padding either side, so the block frames the value
         // rather than sitting tight against it.
-        return $this->style->colour('cursor', ' '.($text === '' ? ' ' : $text).' ')
+        return $this->style->color('cursor', ' '.($text === '' ? ' ' : $text).' ')
             .str_repeat(' ', max(0, $width - $visible));
     }
 

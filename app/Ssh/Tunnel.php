@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Database;
+namespace App\Ssh;
 
 use App\Models\Connection;
 use Symfony\Component\Process\Process;
@@ -110,7 +110,7 @@ class Tunnel
             $command[] = static::expand((string) $this->connection->ssh_key);
         }
 
-        if ($this->connection->ssh_port) {
+        if ($this->connection->ssh_port && (int) $this->connection->ssh_port !== Settings::DEFAULT_PORT) {
             $command[] = '-p';
             $command[] = (string) $this->connection->ssh_port;
         }

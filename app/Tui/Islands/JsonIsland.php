@@ -34,7 +34,7 @@ class JsonIsland extends Island
         $out = [];
 
         foreach (array_slice($this->lines, $this->offset, $innerHeight, true) as $number => $line) {
-            $label = $this->style->colour('gutter', str_pad((string) ($number + 1), $gutter, ' ', STR_PAD_LEFT));
+            $label = $this->style->color('gutter', str_pad((string) ($number + 1), $gutter, ' ', STR_PAD_LEFT));
 
             $out[] = ' '.$label.' '.$this->highlight($line, $room);
         }
@@ -59,7 +59,7 @@ class JsonIsland extends Island
                 continue;
             }
 
-            $rendered .= $type === 'plain' ? $text : $this->style->colour($type, $text);
+            $rendered .= $type === 'plain' ? $text : $this->style->color($type, $text);
             $used += $length;
 
             if ($used >= $width) {

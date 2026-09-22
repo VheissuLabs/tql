@@ -3,6 +3,7 @@
 namespace App\Tui;
 
 use App\Models\Connection;
+use App\Ssh\Settings as SshSettings;
 use App\Support\KeyFiles;
 
 /**
@@ -30,6 +31,7 @@ class ConnectionForm
         }
 
         $this->values['driver'] = (string) ($connection->driver ?: 'sqlite');
+        $this->values[SshSettings::TOGGLE] = SshSettings::used($connection) ? 'yes' : 'no';
 
         if ($creating) {
             $this->applyDriverDefaults();
@@ -44,26 +46,21 @@ class ConnectionForm
         'port' => 'Port',
         'username' => 'Username',
         'password' => 'Password',
-        'ssh_host' => 'SSH host',
-        'ssh_port' => 'SSH port',
-        'ssh_user' => 'SSH user',
-        'ssh_key' => 'SSH key',
-        'ssh_password' => 'SSH password',
         'ssl_mode' => 'SSL mode',
         'ssl_ca' => 'SSL CA cert',
         'ssl_cert' => 'SSL cert',
         'ssl_key' => 'SSL key',
-        'colour' => 'Colour',
+        'color' => 'Color',
         'tag' => 'Tag',
         'read_only' => 'Read only',
-    ];
+    ] + SshSettings::FIELDS;
 
-    public const COLOURS = ['', 'red', 'yellow', 'green', 'blue', 'magenta', 'cyan'];
+    public const COLORS = ['', 'red', 'yellow', 'green', 'blue', 'magenta', 'cyan'];
 
     public const YES_NO = ['no', 'yes'];
 
     /** Fields that hold a path to a file on this machine. */
-    public const FILES = ['ssh_key', 'ssl_ca', 'ssl_cert', 'ssl_key'];
+    public const FILES = [SshSettings::FILE, 'ssl_ca', 'ssl_cert', 'ssl_key'];
 
     public const TYPE_IT = 'type a path…';
 
@@ -136,6 +133,57 @@ class ConnectionForm
      *
      * @return array<int, string>|null
      */
+    /**
+     * Which group a field belongs to, so the form reads as sections rather
+     * than seventeen rows in a column.
+     */
+    public function group(string $key): string
+    {
+        return match (true) {
+            in_array($key, ['driver', 'name'], true) => '',
+            str_starts_with($key, 'ssl_') => 'tls',
+            $key === 'ssl_mode' => 'tls',
+            $key === SshSettings::TOGGLE, str_starts_with($key, 'ssh_') => 'ssh',
+            in_array($key, ['color', 'tag', 'read_only'], true) => 'labels',
+            default => 'where',
+        };
+    }
+
+    /**
+     * True when this field starts a new group, for the divider.
+     */
+    public function startsGroup(string $key): bool
+    {
+        $group = $this->group($key);
+        $previous = null;
+
+        foreach (array_keys($this->fields()) as $field) {
+            if ($field === $key) {
+                return $previous !== $group;
+            }
+
+            $previous = $this->group($field);
+        }
+
+        return false;
+    }
+
+    /**
+     * Whether what is shown is a real value or a note about what happens when
+     * it is left empty, so the two can look different.
+     */
+    public function isPlaceholder(string $key): bool
+    {
+        return ($this->values[$key] ?? '') === ''
+            && ! in_array($key, [SshSettings::TOGGLE, 'read_only', 'color'], true)
+            && $this->display($key) !== '';
+    }
+
+    public function overSsh(): bool
+    {
+        return ($this->values[SshSettings::TOGGLE] ?? 'no') === 'yes';
+    }
+
     public function choices(string $key): ?array
     {
         return match ($key) {
@@ -144,8 +192,8 @@ class ConnectionForm
                 fn (string $driver) => in_array($driver, \PDO::getAvailableDrivers(), true),
             )) ?: self::DRIVERS,
             'ssl_mode' => Connection::SSL_MODES,
-            'colour' => self::COLOURS,
-            'read_only' => self::YES_NO,
+            'color' => self::COLORS,
+            'read_only', SshSettings::TOGGLE => self::YES_NO,
             default => null,
         };
     }
@@ -158,7 +206,7 @@ class ConnectionForm
      */
     public function files(string $key): array
     {
-        $found = $key === 'ssh_key' ? KeyFiles::sshKeys() : KeyFiles::certificates();
+        $found = $key === SshSettings::FILE ? SshSettings::keys() : KeyFiles::certificates();
 
         return array_merge($found, [self::TYPE_IT]);
     }
@@ -235,7 +283,6 @@ class ConnectionForm
                 'username' => 'Username',
                 'password' => 'Password',
                 'ssl_mode' => 'SSL mode',
-                'ssh_host' => 'SSH host',
             ];
 
         // The detail fields only matter once the thing they belong to is set,
@@ -248,14 +295,15 @@ class ConnectionForm
             ]);
         }
 
-        if ($this->driver() !== 'sqlite' && trim($this->values['ssh_host'] ?? '') !== '') {
-            $fields['ssh_port'] = 'SSH port';
-            $fields['ssh_user'] = 'SSH user';
-            $fields['ssh_key'] = 'SSH key';
-            $fields['ssh_password'] = 'SSH password';
+        if ($this->driver() !== 'sqlite') {
+            $fields[SshSettings::TOGGLE] = 'Over SSH';
+
+            if ($this->overSsh()) {
+                $fields += SshSettings::details();
+            }
         }
 
-        $fields['colour'] = 'Colour';
+        $fields['color'] = 'Color';
         $fields['tag'] = 'Tag';
         $fields['read_only'] = 'Read only';
 
@@ -338,20 +386,20 @@ class ConnectionForm
      */
     public function display(string $key): string
     {
-        if ($key === 'ssh_key' && ($this->values[$key] ?? '') === '') {
-            return 'agent or ~/.ssh/config';
-        }
-
-        if ($key === 'ssh_port' && ($this->values[$key] ?? '') === '') {
-            return '22';
+        if (($this->values[$key] ?? '') === '' && ($hint = SshSettings::placeholder($key)) !== null) {
+            return $hint;
         }
 
         if ($key === 'ssl_mode' && ($this->values[$key] ?? '') === '') {
             return 'driver default';
         }
 
-        if ($key === 'colour' && ($this->values[$key] ?? '') === '') {
+        if ($key === 'color' && ($this->values[$key] ?? '') === '') {
             return 'none';
+        }
+
+        if ($key === SshSettings::TOGGLE) {
+            return $this->overSsh() ? 'yes' : 'no';
         }
 
         if ($key === 'read_only') {
@@ -366,7 +414,7 @@ class ConnectionForm
 
         $value = $this->values[$key] ?? '';
 
-        if ($key === 'password' || $key === 'ssh_password') {
+        if ($key === 'password' || $key === SshSettings::SECRET) {
             return $value === '' ? '' : str_repeat('•', min(8, mb_strlen($value)));
         }
 
@@ -395,6 +443,15 @@ class ConnectionForm
             $this->values,
             array_flip(array_merge(['driver'], array_keys($this->fields()))),
         );
+
+        // The switch is not a column, and turning it off clears what it hid.
+        $over = $this->overSsh();
+
+        unset($values[SshSettings::TOGGLE]);
+
+        if (! $over) {
+            $values = array_merge($values, SshSettings::cleared());
+        }
 
         if (isset($values['port'])) {
             $values['port'] = (int) $values['port'];

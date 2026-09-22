@@ -65,41 +65,50 @@ trait RendersSmoothly
     {
         $this->allowCtrlS();
 
-        if ($this->shapeChanged()) {
-            $this->repaint = true;
-        }
-
         $this->terminal()->initDimensions();
 
         $size = [$this->terminal()->cols(), $this->terminal()->lines()];
 
-        if ($this->lastSize !== null && $this->lastSize !== $size) {
+        if (($this->lastSize !== null && $this->lastSize !== $size) || $this->shapeChanged()) {
             $this->repaint = true;
         }
 
         $this->lastSize = $size;
 
-        if ($this->repaint) {
-            $this->repaint = false;
-
-            static::output()->write("\e[2J\e[H");
-
-            $this->prevFrame = '';
-            $this->state = $this->state === 'initial' ? 'initial' : 'active';
-        }
-
         if (getenv('NO_SYNC_OUTPUT')) {
+            $this->clearIfAsked();
+
             parent::render();
 
             return;
         }
 
+        // The clear and the redraw go inside the same synchronized block, so
+        // the terminal presents them together. Clearing outside it shows the
+        // blank screen for a frame, which reads as a jump.
         static::output()->write("\e[?2026h");
 
         try {
+            $this->clearIfAsked();
+
             parent::render();
         } finally {
             static::output()->write("\e[?2026l");
         }
+    }
+
+    private function clearIfAsked(): void
+    {
+        if (! $this->repaint) {
+            return;
+        }
+
+        $this->repaint = false;
+
+        // Home, then erase down: the same shape of redraw Prompts does, but
+        // from the top rather than from a line count that may be stale.
+        static::output()->write("\e[H\e[J");
+
+        $this->prevFrame = '';
     }
 }

@@ -71,7 +71,7 @@ abstract class Island
     /** Drawn with no border at all: a backdrop behind a modal. */
     public bool $bare = false;
 
-    /** Floating over the panes, so it takes the modal colours. */
+    /** Floating over the panes, so it takes the modal colors. */
     public bool $modal = false;
 
     public function joins(): array

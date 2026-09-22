@@ -4,7 +4,7 @@ namespace App\Tui;
 
 class Theme
 {
-    public const COLOURS = [
+    public const COLORS = [
         'dim', 'default', 'black', 'red', 'green', 'yellow',
         'blue', 'magenta', 'cyan', 'white', 'gray',
     ];
@@ -12,30 +12,30 @@ class Theme
     public static function border(bool $focused, bool $modal = false): string
     {
         if ($modal) {
-            return static::colour($focused ? 'modal_focus_border' : 'modal_border', 'gray');
+            return static::color($focused ? 'modal_focus_border' : 'modal_border', 'gray');
         }
 
-        return static::colour($focused ? 'focus_border' : 'border');
+        return static::color($focused ? 'focus_border' : 'border');
     }
 
     public static function title(bool $focused, bool $modal = false): string
     {
         if ($modal) {
-            return static::colour($focused ? 'modal_focus_title' : 'modal_title', 'white');
+            return static::color($focused ? 'modal_focus_title' : 'modal_title', 'white');
         }
 
-        return $focused ? static::colour('focus_title') : static::colour('border');
+        return $focused ? static::color('focus_title') : static::color('border');
     }
 
     /**
      * "inherit" ties the interior grid to the pane's border, so a focused
-     * table tints as a whole rather than growing a coloured outline.
+     * table tints as a whole rather than growing a colored outline.
      */
     public static function grid(bool $focused): string
     {
         return config('tql.theme.grid') === 'inherit'
             ? static::border($focused)
-            : static::colour('grid');
+            : static::color('grid');
     }
 
     /**
@@ -43,7 +43,7 @@ class Theme
      */
     public static function cursor(): string
     {
-        return static::colour('cursor', 'default');
+        return static::color('cursor', 'default');
     }
 
     /**
@@ -52,7 +52,7 @@ class Theme
      */
     public static function selection(): string
     {
-        return static::colour('selection', 'default');
+        return static::color('selection', 'default');
     }
 
     /**
@@ -66,10 +66,10 @@ class Theme
         return (string) ($icons[$driver] ?? $icons['default'] ?? '•');
     }
 
-    public static function colour(string $key, string $fallback = 'dim'): string
+    public static function color(string $key, string $fallback = 'dim'): string
     {
         $value = (string) config('tql.theme.'.$key, $fallback);
 
-        return in_array($value, self::COLOURS, true) ? $value : $fallback;
+        return in_array($value, self::COLORS, true) ? $value : $fallback;
     }
 }

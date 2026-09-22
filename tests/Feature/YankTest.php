@@ -271,7 +271,7 @@ it('drags to select lines in the viewer', function () {
         ->and($browser->visualAnchor)->not->toBeNull();
 });
 
-it('drops syntax colours on selected lines', function () {
+it('drops syntax colors on selected lines', function () {
     $browser = viewer();
 
     $browser->emit('key', 'j');
@@ -304,7 +304,7 @@ it('drops syntax colours on selected lines', function () {
         expect($inverse[1] ?? '')->not->toMatch('/\e\[3[0-9]m/');
     }
 
-    $coloured = array_filter($unselected, fn ($l) => preg_match('/\e\[3[0-9]m/', $l));
+    $colored = array_filter($unselected, fn ($l) => preg_match('/\e\[3[0-9]m/', $l));
 
-    expect($coloured)->not->toBeEmpty();
+    expect($colored)->not->toBeEmpty();
 });

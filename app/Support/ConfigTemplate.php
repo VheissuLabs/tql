@@ -12,7 +12,7 @@ class ConfigTemplate
                 'key' => 'border',
                 'default' => '"dim"',
                 'comment' => [
-                    'Colour of a pane border when it is not focused.',
+                    'Color of a pane border when it is not focused.',
                     'dim, default, black, red, green, yellow, blue, magenta, cyan, white, gray',
                 ],
             ],
@@ -20,24 +20,24 @@ class ConfigTemplate
                 'section' => 'theme',
                 'key' => 'focus_border',
                 'default' => '"cyan"',
-                'comment' => ['Colour of the border of the pane you are in'],
+                'comment' => ['Color of the border of the pane you are in'],
             ],
             [
                 'section' => 'theme',
                 'key' => 'focus_title',
                 'default' => '"cyan"',
-                'comment' => ['Colour of the title of the pane you are in'],
+                'comment' => ['Color of the title of the pane you are in'],
             ],
             [
                 'section' => 'theme',
                 'key' => 'grid',
                 'default' => '"dim"',
                 'comment' => [
-                    'Colour of the grid inside a table: the column separators,',
+                    'Color of the grid inside a table: the column separators,',
                     'the rule under the header, and the ticks where they meet',
                     'the frame. Set it to "inherit" and the whole table takes',
-                    'the pane colour, so a focused table tints all the way',
-                    'through instead of just gaining a coloured outline.',
+                    'the pane color, so a focused table tints all the way',
+                    'through instead of just gaining a colored outline.',
                 ],
             ],
             [
@@ -45,9 +45,9 @@ class ConfigTemplate
                 'key' => 'cursor',
                 'default' => '"default"',
                 'comment' => [
-                    'Colour of the block you are on: the selected cell, and the',
+                    'Color of the block you are on: the selected cell, and the',
                     'caret in the SQL and value editors. "default" swaps the',
-                    'terminal\'s own colours, which is what it has always done.',
+                    'terminal\'s own colors, which is what it has always done.',
                 ],
             ],
             [
@@ -55,7 +55,7 @@ class ConfigTemplate
                 'key' => 'selection',
                 'default' => '"default"',
                 'comment' => [
-                    'Colour of what is highlighted but is not where you are: the',
+                    'Color of what is highlighted but is not where you are: the',
                     'selected table, a highlighted row, and lines picked out with',
                     'V in the value inspector.',
                 ],
@@ -64,13 +64,13 @@ class ConfigTemplate
                 'section' => 'theme',
                 'key' => 'deleted',
                 'default' => '"red"',
-                'comment' => ['Colour of a row marked for deletion, before :w writes it'],
+                'comment' => ['Color of a row marked for deletion, before :w writes it'],
             ],
             [
                 'section' => 'theme',
                 'key' => 'modal_border',
                 'default' => '"gray"',
-                'comment' => ['Colours for modals: the inspector, help, filters'],
+                'comment' => ['Colors for modals: the inspector, help, filters'],
             ],
             [
                 'section' => 'theme',
@@ -94,7 +94,7 @@ class ConfigTemplate
                 'section' => 'theme',
                 'key' => 'edited',
                 'default' => '"yellow"',
-                'comment' => ['Colour of a row you have edited, before :w writes it'],
+                'comment' => ['Color of a row you have edited, before :w writes it'],
             ],
             [
                 'section' => 'ai',

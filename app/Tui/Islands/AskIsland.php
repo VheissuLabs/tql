@@ -69,7 +69,7 @@ class AskIsland extends Island
             }
         }
 
-        return $out === [] ? [$this->style->colour('cursor', ' ')] : $out;
+        return $out === [] ? [$this->style->color('cursor', ' ')] : $out;
     }
 
     private function withCursor(string $text, int $at): string
@@ -77,10 +77,10 @@ class AskIsland extends Island
         $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         if ($at >= count($chars)) {
-            return $text.$this->style->colour('cursor', ' ');
+            return $text.$this->style->color('cursor', ' ');
         }
 
-        $chars[$at] = $this->style->colour('cursor', $chars[$at]);
+        $chars[$at] = $this->style->color('cursor', $chars[$at]);
 
         return implode('', $chars);
     }

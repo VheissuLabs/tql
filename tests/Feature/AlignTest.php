@@ -246,8 +246,8 @@ it('repaints the whole screen when the terminal is resized', function () {
     putenv('COLUMNS');
     putenv('LINES');
 
-    // The clear-and-home that stops the old frame's top row being orphaned.
-    expect($written)->toContain("\e[2J\e[H");
+    // Home then erase down, inside the synchronized block so it is not seen.
+    expect($written)->toContain("\e[?2026h\e[H\e[J");
 });
 
 it('redraws on ctrl+l', function () {
@@ -263,7 +263,7 @@ it('redraws on ctrl+l', function () {
     $browser->emit('key', "\x0c");
     $render->invoke($browser);
 
-    expect($output->fetch())->toContain("\e[2J\e[H")
+    expect($output->fetch())->toContain("\e[H\e[J")
         ->and($browser->status)->toBe('redrawn');
 });
 
@@ -474,7 +474,7 @@ it('repaints when a modal opens or closes', function () {
     $browser->emit('key', '?');
     $render->invoke($browser);
 
-    expect($output->fetch())->toContain("\e[2J\e[H");
+    expect($output->fetch())->toContain("\e[H\e[J");
 });
 
 function captureAligned(): BufferedConsoleOutput

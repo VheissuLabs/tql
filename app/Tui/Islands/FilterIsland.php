@@ -92,7 +92,7 @@ class FilterIsland extends Island
     {
         $shown = $this->style->pad($text, $width);
 
-        return $focused ? $this->style->colour('selection', $shown) : $this->style->dim($shown);
+        return $focused ? $this->style->color('selection', $shown) : $this->style->dim($shown);
     }
 
     private function withCursor(string $text, int $at): string
@@ -100,10 +100,10 @@ class FilterIsland extends Island
         $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         if ($at >= count($chars)) {
-            return $text.$this->style->colour('cursor', ' ');
+            return $text.$this->style->color('cursor', ' ');
         }
 
-        $chars[$at] = $this->style->colour('cursor', $chars[$at]);
+        $chars[$at] = $this->style->color('cursor', $chars[$at]);
 
         return implode('', $chars);
     }

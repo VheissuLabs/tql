@@ -4,6 +4,6 @@ namespace App\Tui\Islands;
 
 class InspectorWidth
 {
-    /** How wide the inspector's boxes are, when the terminal allows. */
-    public const COLUMNS = 84;
+    /** Narrow enough to read, wide enough that a record is not cramped. */
+    public const MINIMUM = 60;
 }

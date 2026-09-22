@@ -101,7 +101,7 @@ class Screen
 
     /**
      * Take $length visible columns from $offset, carrying every escape
-     * sequence along so colours set earlier in the line still apply.
+     * sequence along so colors set earlier in the line still apply.
      */
     private static function cut(string $line, int $offset, int $length): string
     {

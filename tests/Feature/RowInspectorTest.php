@@ -292,3 +292,45 @@ it('says so when there is no row to inspect', function () {
     expect($browser->mode)->toBe('browse')
         ->and($browser->status)->toContain('no rows');
 });
+
+it('does not dim the values you opened it to read', function () {
+    $browser = inspectable();
+
+    $browser->emit('key', 'i');
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+
+    $line = collect(explode("\n", $render->invoke($browser)))
+        ->first(fn (string $l) => str_contains($l, 'user.signed_up'));
+
+    expect($line)->not->toBeNull()
+        // The value carries no dim of its own; the pane chrome may.
+        ->and($line)->not->toContain("\e[2muser.signed_up");
+});
+
+it('widens to fit a related collection instead of truncating it', function () {
+    putenv('COLUMNS=160');
+    putenv('LINES=40');
+
+    $browser = inspectable();
+
+    $browser->emit('key', 'i');
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+
+    $lines = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)));
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    // Nothing inside the modal is cut short.
+    foreach ($lines as $line) {
+        if (str_contains($line, 'user.signed_up')) {
+            expect($line)->not->toContain('…');
+        }
+    }
+
+    expect(max(array_map('mb_strlen', $lines)))->toBeLessThanOrEqual(160);
+});

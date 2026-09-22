@@ -44,7 +44,7 @@ class ValueEditorIsland extends Island
         $out = [];
 
         foreach (array_slice($lines, $start, $innerHeight, true) as $number => $line) {
-            $label = $this->style->colour('gutter', str_pad((string) ($number + 1), $gutter, ' ', STR_PAD_LEFT));
+            $label = $this->style->color('gutter', str_pad((string) ($number + 1), $gutter, ' ', STR_PAD_LEFT));
 
             $here = $number === $cursorLine
                 ? ($this->showCursor ? ' ' : $this->style->bold('▸'))
@@ -55,7 +55,7 @@ class ValueEditorIsland extends Island
                 && $number <= $this->selection[1];
 
             if ($selected) {
-                $out[] = $here.$label.' '.$this->style->colour('selection',
+                $out[] = $here.$label.' '.$this->style->color('selection',
                     $this->style->pad(mb_substr($line, 0, $room), $room)
                 );
 
@@ -76,8 +76,8 @@ class ValueEditorIsland extends Island
     {
         $tokens = $this->json ? Json::tokenise($line) : [['plain', $line]];
 
-        $inverse = fn (string $t) => $this->style->colour('cursor', $t);
-        $paint = fn (string $type, string $t) => $this->style->colour($type, $t);
+        $inverse = fn (string $t) => $this->style->color('cursor', $t);
+        $paint = fn (string $type, string $t) => $this->style->color($type, $t);
 
         $rendered = '';
         $used = 0;
@@ -119,7 +119,7 @@ class ValueEditorIsland extends Island
         }
 
         if ($cursor !== null && $cursor >= $used && $used < $width) {
-            $rendered .= $this->style->colour('cursor', ' ');
+            $rendered .= $this->style->color('cursor', ' ');
         }
 
         return $rendered;

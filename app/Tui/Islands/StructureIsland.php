@@ -99,7 +99,7 @@ class StructureIsland extends Island
         }
 
         return $this->style->pad($this->style->truncate($label, $name), $name)
-            .'  '.$this->style->colour('keyword', $this->style->pad((string) ($column['type_name'] ?? '?'), 12))
+            .'  '.$this->style->color('keyword', $this->style->pad((string) ($column['type_name'] ?? '?'), 12))
             .'  '.$this->style->dim($this->style->truncate(implode('  ·  ', $notes), max(4, $width)));
     }
 

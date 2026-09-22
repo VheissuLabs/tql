@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Ssh\Settings as SshSettings;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use PDO;
@@ -14,7 +15,7 @@ class Connection extends Model
     {
         return [
             'password' => 'encrypted',
-            'ssh_password' => 'encrypted',
+            SshSettings::SECRET => 'encrypted',
             'read_only' => 'boolean',
             'last_used_at' => 'datetime',
             'port' => 'integer',
@@ -29,7 +30,7 @@ class Connection extends Model
 
     public function usesSsh(): bool
     {
-        return $this->driver !== 'sqlite' && trim((string) $this->ssh_host) !== '';
+        return SshSettings::used($this);
     }
 
     /**
@@ -95,7 +96,7 @@ class Connection extends Model
 
         if ($this->usesSsh()) {
             return "{$this->driver}://{$this->username}@{$this->host}:{$this->port}/{$this->database}"
-                .'  ssh '.($this->ssh_user ? $this->ssh_user.'@' : '').$this->ssh_host;
+                .'  '.SshSettings::describe($this);
         }
 
         return "{$this->driver}://{$this->username}@{$this->host}:{$this->port}/{$this->database}";

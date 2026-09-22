@@ -53,11 +53,11 @@ class ConnectionPickerRenderer extends Renderer
         $lines[] = $this->rule($prompt, '└', '┴', '┘', $widths, $inner);
 
         if ($prompt->form !== null) {
-            $lines = $this->overlayForm($lines, $prompt->form, $width);
-
-            if ($prompt->form->picker !== null) {
-                $lines = $this->overlayPicker($lines, $prompt->form->picker, $width);
-            }
+            // A list of files takes over while it is open. Drawing it on top
+            // of the form splits the form in half and reads as one box.
+            $lines = $prompt->form->picker !== null
+                ? $this->overlayPicker($lines, $prompt->form->picker, $width)
+                : $this->overlayForm($lines, $prompt->form, $width);
         }
 
         foreach ($lines as $line) {
@@ -116,9 +116,24 @@ class ConnectionPickerRenderer extends Renderer
             $boxHeight,
         );
 
-        $rows = $this->pickerBox($box, $boxWidth);
+        // Blank the area first, with a margin: otherwise the form's own
+        // borders run through the list and the two boxes read as one.
+        $margin = 2;
 
-        foreach ($rows as $i => $row) {
+        for ($i = -1; $i <= $boxHeight; $i++) {
+            $at = $box->y + $i;
+
+            if (isset($lines[$at])) {
+                $lines[$at] = Screen::splice(
+                    $lines[$at],
+                    str_repeat(' ', $boxWidth + ($margin * 2)),
+                    max(1, $box->x - $margin),
+                    $boxWidth + ($margin * 2),
+                );
+            }
+        }
+
+        foreach ($this->pickerBox($box, $boxWidth) as $i => $row) {
             $at = $box->y + $i;
 
             if (isset($lines[$at])) {
@@ -194,6 +209,10 @@ class ConnectionPickerRenderer extends Renderer
         $rows[] = $this->row('', $inner);
 
         foreach ($labels as $key => $text) {
+            if ($form->startsGroup($key) && $form->group($key) !== '') {
+                $rows[] = $this->row('', $inner);
+            }
+
             $focused = $key === $form->currentKey();
             $shown = $this->truncate($form->display($key), $value);
 
@@ -201,13 +220,19 @@ class ConnectionPickerRenderer extends Renderer
                 $shown = $this->withCursor($shown, $form->cursor());
             }
 
-            if ($key === 'driver' && $focused) {
+            if ($focused && $form->choices($key) !== null) {
                 $shown = '← '.$shown.' →';
             }
 
+            if ($key === 'color' && ($form->values['color'] ?? '') !== '') {
+                $shown = $this->paint((string) $form->values['color'], '●').' '.$shown;
+            }
+
+            // The label is chrome; the value is the thing. A placeholder is
+            // neither, so it stays dim to say it is not really set.
             $rows[] = $this->row(
                 '  '.($focused ? $this->bold($this->pad($text, $label)) : $this->dim($this->pad($text, $label)))
-                .'  '.($focused ? $shown : $this->dim($shown)),
+                .'  '.($form->isPlaceholder($key) && ! $focused ? $this->dim($shown) : $shown),
                 $inner,
             );
         }
@@ -220,7 +245,7 @@ class ConnectionPickerRenderer extends Renderer
                 // Say what the row under the cursor does. Save and Cancel are
                 // rows of their own, so repeating them here is noise.
                 $form->editing => '↵ keeps it    esc drops it',
-                $form->currentKey() === 'driver' => '← → driver    ctrl+s save    esc cancel',
+                $form->choices($form->currentKey()) !== null => '← → changes it    ctrl+s save    esc cancel',
                 default => '↵ change    ctrl+s save    esc cancel',
             }), $inner);
 
@@ -253,9 +278,9 @@ class ConnectionPickerRenderer extends Renderer
         return $edge('│').$this->pad($content, $inner).$edge('│');
     }
 
-    private function paint(string $colour, string $text): string
+    private function paint(string $color, string $text): string
     {
-        return match ($colour) {
+        return match ($color) {
             'default' => $text,
             'red' => $this->red($text),
             'green' => $this->green($text),
@@ -388,13 +413,13 @@ class ConnectionPickerRenderer extends Renderer
                 $cells[] = $selected || $marked ? $text : $this->dim($text);
             }
 
-            // A selected row is built without any colour of its own: an escape
+            // A selected row is built without any color of its own: an escape
             // sequence inside the span would reset the highlight partway and
             // tear it at the column separators.
             $lines[] = match (true) {
                 $marked => $this->highlight(
                     $this->pad(implode('│', $cells), $inner),
-                    Theme::colour('deleted', 'red'),
+                    Theme::color('deleted', 'red'),
                 ),
                 $selected => $this->highlight($this->pad(implode('│', $cells), $inner)),
                 default => implode($grid, $cells),
@@ -406,8 +431,8 @@ class ConnectionPickerRenderer extends Renderer
 
     /**
      * The driver rides in front of the name as a glyph rather than taking a
-     * column of its own. Shape carries the meaning as well as colour, so it
-     * still reads without colour.
+     * column of its own. Shape carries the meaning as well as color, so it
+     * still reads without color.
      */
     private function nameCell(string $driver, string $name, int $width, bool $selected, bool $marked = false): string
     {
@@ -416,12 +441,12 @@ class ConnectionPickerRenderer extends Renderer
         $marker = Layout::rowStyle() === 'marker' && $selected ? '▸' : ' ';
         $label = $this->pad($this->truncate($name, $width - 4), $width - 4);
 
-        // A highlighted row carries no colour of its own, marked or selected:
+        // A highlighted row carries no color of its own, marked or selected:
         // the icon's escape code would end the highlight right after it.
         $plain = $selected || $marked;
 
         return ' '.$marker.' '
-            .($plain ? $icon : $this->paint($this->driverColour($driver), $icon))
+            .($plain ? $icon : $this->paint($this->driverColor($driver), $icon))
             .' '.$label.' ';
     }
 
@@ -442,7 +467,7 @@ class ConnectionPickerRenderer extends Renderer
         return Theme::icon($driver);
     }
 
-    private function driverColour(string $driver): string
+    private function driverColor(string $driver): string
     {
         return match ($driver) {
             'mysql' => 'yellow',
@@ -453,13 +478,13 @@ class ConnectionPickerRenderer extends Renderer
         };
     }
 
-    private function highlight(string $line, ?string $colour = null): string
+    private function highlight(string $line, ?string $color = null): string
     {
-        $colour ??= Theme::selection();
+        $color ??= Theme::selection();
 
-        return $colour === 'default'
+        return $color === 'default'
             ? $this->inverse($line)
-            : $this->paint($colour, $this->inverse($line));
+            : $this->paint($color, $this->inverse($line));
     }
 
     private function status(ConnectionPicker $prompt): string

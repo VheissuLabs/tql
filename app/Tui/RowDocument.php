@@ -265,6 +265,21 @@ class RowDocument
         return $this->lines()[$line]['column'] ?? null;
     }
 
+    /**
+     * The width the content wants, so the modal is sized to what it holds
+     * rather than truncating a collection to a number picked in advance.
+     */
+    public function naturalWidth(): int
+    {
+        $width = 0;
+
+        foreach ($this->lines() as $line) {
+            $width = max($width, mb_strlen($line['text']));
+        }
+
+        return $width + 4;
+    }
+
     public function text(): string
     {
         return implode("\n", array_column($this->lines(), 'text'));

@@ -1,7 +1,7 @@
 <?php
 
-use App\Database\Tunnel;
 use App\Models\Connection;
+use App\Ssh\Tunnel;
 use App\Support\KeyFiles;
 use App\Tui\ConnectionForm;
 use App\Tui\ConnectionPicker;
@@ -110,20 +110,45 @@ it('reuses one tunnel per destination', function () {
     expect(Tunnel::keyFor($other))->not->toBe(Tunnel::keyFor($one));
 });
 
-it('offers the ssh host on a server connection and hides the rest until it is set', function () {
+it('hides the ssh block behind a switch', function () {
     $connection = tunnelled(['ssh_host' => null, 'ssh_user' => null]);
 
     $form = new ConnectionForm($connection);
 
-    expect(array_keys($form->fields()))->toContain('ssh_host')
-        ->and(array_keys($form->fields()))->not->toContain('ssh_user');
+    expect($form->overSsh())->toBeFalse()
+        ->and(array_keys($form->fields()))->toContain('over_ssh')
+        ->and(array_keys($form->fields()))->not->toContain('ssh_host');
 
-    $form->values['ssh_host'] = 'bastion.example.com';
+    $form->values['over_ssh'] = 'yes';
 
     expect(array_keys($form->fields()))
+        ->toContain('ssh_host')
         ->toContain('ssh_user')
         ->toContain('ssh_port')
-        ->toContain('ssh_key');
+        ->toContain('ssh_key')
+        ->toContain('ssh_password');
+});
+
+it('opens the switch already on for a connection that tunnels', function () {
+    expect((new ConnectionForm(tunnelled()))->overSsh())->toBeTrue();
+});
+
+it('clears the ssh settings when the switch is turned off', function () {
+    $connection = tunnelled();
+
+    $form = new ConnectionForm($connection);
+
+    expect($form->overSsh())->toBeTrue();
+
+    $form->values['over_ssh'] = 'no';
+
+    expect($form->save())->toBeNull();
+
+    $saved = $connection->fresh();
+
+    expect($saved->ssh_host)->toBeNull()
+        ->and($saved->ssh_user)->toBeNull()
+        ->and($saved->usesSsh())->toBeFalse();
 });
 
 it('says where the key comes from when none is set', function () {
@@ -137,6 +162,7 @@ it('saves the ssh settings', function () {
     $connection = tunnelled(['ssh_host' => null, 'ssh_user' => null]);
 
     $form = new ConnectionForm($connection);
+    $form->values['over_ssh'] = 'yes';
     $form->values['ssh_host'] = 'bastion.example.com';
     $form->values['ssh_user'] = 'karl';
     $form->values['ssh_port'] = '2222';
@@ -179,6 +205,7 @@ it('picks a key from the list instead of typing it', function () {
     $form = new ConnectionForm($connection);
 
     // Stand on the ssh key field.
+    $form->values['over_ssh'] = 'yes';
     $form->values['ssh_host'] = 'bastion.example.com';
 
     while ($form->currentKey() !== 'ssh_key') {
@@ -201,6 +228,7 @@ it('picks a key from the list instead of typing it', function () {
 it('falls back to typing a path', function () {
     $form = new ConnectionForm(tunnelled());
 
+    $form->values['over_ssh'] = 'yes';
     $form->values['ssh_host'] = 'bastion.example.com';
 
     while ($form->currentKey() !== 'ssh_key') {
@@ -273,6 +301,7 @@ it('keeps the form open when the key list is closed', function () {
         $picker->form->cycleDriver();
     }
 
+    $picker->form->values['over_ssh'] = 'yes';
     $picker->form->values['ssh_host'] = 'bastion.example.com';
     $picker->form->index = array_search('ssh_key', $picker->form->keys(), true);
 
@@ -300,6 +329,7 @@ it('renders the key list without blowing up', function () {
         $picker->form->cycleDriver();
     }
 
+    $picker->form->values['over_ssh'] = 'yes';
     $picker->form->values['ssh_host'] = 'bastion.example.com';
     $picker->form->index = array_search('ssh_key', $picker->form->keys(), true);
 
@@ -323,6 +353,7 @@ it('walks every field of every driver without closing the form', function (strin
     }
 
     $picker->form->values['ssl_mode'] = 'require';
+    $picker->form->values['over_ssh'] = 'yes';
     $picker->form->values['ssh_host'] = 'bastion.example.com';
 
     $render = new ReflectionMethod($picker, 'renderTheme');

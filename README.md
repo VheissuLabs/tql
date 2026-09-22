@@ -35,9 +35,9 @@ Tagging `v*` builds and publishes a release from GitHub Actions.
 databases usually want `require` and a CA certificate. Only `verify-full`
 checks the hostname.
 
-## Colour, tag and read only
+## Color, tag and read only
 
-A connection can carry a **colour** and a **tag**, both shown in the connection
+A connection can carry a **color** and a **tag**, both shown in the connection
 list, and a **read only** switch that refuses every write — no edits, no marks,
 no `:w`. Red and `production` on the connection you should be careful with is
 worth the ten seconds it takes.
@@ -349,7 +349,7 @@ Alt+enter works without any configuration.
 ## Running SQL
 
 The SQL pane is syntax highlighted — keywords, quoted identifiers, strings,
-numbers and comments each coloured, the same tokeniser approach as the JSON
+numbers and comments each colored, the same tokeniser approach as the JSON
 viewer and equally careful never to drop a character while you type.
 
 
@@ -363,7 +363,7 @@ through — open a table to edit.
 
 A cell holding JSON opens in a full-width modal when you press `i`: pretty
 printed, with line numbers and syntax highlighting — keys, strings, numbers and
-literals each coloured. `↑↓` scrolls a line at a time, `n`/`p` a page, `esc`
+literals each colored. `↑↓` scrolls a line at a time, `n`/`p` a page, `esc`
 closes.
 
 Detection is by parsing, not by column type, so JSON stored in a `text` column

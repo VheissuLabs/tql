@@ -53,7 +53,7 @@ class PickerIsland extends Island
             $label = '  '.$this->style->pad($this->style->truncate($option, $width), $width);
 
             $lines[] = ($start + $offset) === $this->picker->index
-                ? $this->style->colour('selection', $label)
+                ? $this->style->color('selection', $label)
                 : $this->style->dim($label);
         }
 
@@ -65,10 +65,10 @@ class PickerIsland extends Island
         $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         if ($at >= count($chars)) {
-            return $text.$this->style->colour('cursor', ' ');
+            return $text.$this->style->color('cursor', ' ');
         }
 
-        $chars[$at] = $this->style->colour('cursor', $chars[$at]);
+        $chars[$at] = $this->style->color('cursor', $chars[$at]);
 
         return implode('', $chars);
     }

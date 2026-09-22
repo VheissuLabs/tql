@@ -3,6 +3,7 @@
 namespace App\Database;
 
 use App\Models\Connection;
+use App\Ssh\Tunnel;
 use Illuminate\Database\Connection as IlluminateConnection;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;

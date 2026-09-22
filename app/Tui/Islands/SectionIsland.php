@@ -46,19 +46,22 @@ class SectionIsland extends Island
      */
     private function line(array $line, int $index, int $width): string
     {
-        $text = $this->style->pad($this->style->truncate($line['text'], $width), $width);
+        $fitted = $this->style->truncate($line['text'], $width);
+        $text = $this->style->pad($fitted, $width);
 
         if ($this->selection !== null && $index >= $this->selection[0] && $index <= $this->selection[1]) {
-            return $this->style->colour('selection', $text);
+            return $this->style->color('selection', $text);
         }
 
         if ($index === $this->cursor) {
-            return $this->style->colour('cursor', $text);
+            return $this->style->color('cursor', $text);
         }
 
-        // A relation's heading is what folds, so it carries the weight.
+        // A relation's heading is what folds, so it carries the weight. The
+        // rest is the data you opened the inspector to read, so it is left
+        // alone rather than dimmed into the background.
         return $line['fold'] !== null
-            ? $this->style->bold($line['text'])
-            : $this->style->dim($line['text']);
+            ? $this->style->bold($fitted)
+            : $fitted;
     }
 }

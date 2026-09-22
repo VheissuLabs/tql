@@ -48,8 +48,8 @@ class EditorIsland extends Island
 
     private function highlight(string $line, int $width, ?int $cursor): string
     {
-        $inverse = fn (string $t) => $this->style?->colour('cursor', $t) ?? $t;
-        $paint = fn (string $type, string $t) => $this->style?->colour($type, $t) ?? $t;
+        $inverse = fn (string $t) => $this->style?->color('cursor', $t) ?? $t;
+        $paint = fn (string $type, string $t) => $this->style?->color($type, $t) ?? $t;
 
         $chars = $this->characters($line);
 

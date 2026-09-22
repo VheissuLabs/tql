@@ -110,7 +110,7 @@ it('offers only the fields that driver has', function () {
     $sqlite = Connection::create(['name' => 'lite', 'driver' => 'sqlite', 'database' => '/tmp/a.sqlite']);
 
     expect(array_keys(form($sqlite)->fields()))
-        ->toBe(['name', 'database', 'colour', 'tag', 'read_only']);
+        ->toBe(['name', 'database', 'color', 'tag', 'read_only']);
 
     $mysql = Connection::create([
         'name' => 'my', 'driver' => 'mysql', 'host' => 'h', 'port' => 3306,
@@ -119,7 +119,7 @@ it('offers only the fields that driver has', function () {
 
     expect(array_keys(form($mysql)->fields()))->toBe([
         'name', 'host', 'port', 'database', 'username', 'password',
-        'ssl_mode', 'ssh_host', 'colour', 'tag', 'read_only',
+        'ssl_mode', 'over_ssh', 'color', 'tag', 'read_only',
     ]);
 });
 
@@ -324,7 +324,7 @@ it('shows the fields that suit the chosen driver', function () {
     $picker->emit('key', 'n');
 
     expect(array_keys($picker->form->fields()))
-        ->toBe(['driver', 'name', 'database', 'colour', 'tag', 'read_only']);
+        ->toBe(['driver', 'name', 'database', 'color', 'tag', 'read_only']);
 
     while ($picker->form->driver() !== 'mysql') {
         $picker->form->cycleDriver();
@@ -332,7 +332,7 @@ it('shows the fields that suit the chosen driver', function () {
 
     expect(array_keys($picker->form->fields()))->toBe([
         'driver', 'name', 'host', 'port', 'database', 'username', 'password',
-        'ssl_mode', 'ssh_host', 'colour', 'tag', 'read_only',
+        'ssl_mode', 'over_ssh', 'color', 'tag', 'read_only',
     ]);
 });
 
@@ -542,7 +542,80 @@ it('draws a marked connection as one unbroken bar', function () {
 
     preg_match('/\e\[7m(.*?)\e\[27m/', $marked, $match);
 
-    // The driver icon must not carry its own colour inside the highlight.
+    // The driver icon must not carry its own color inside the highlight.
     expect($match[1] ?? '')->not->toContain("\e[")
         ->and($match[1] ?? '')->toContain('│');
+});
+
+it('groups the form into sections', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    while ($picker->form->driver() !== 'mysql') {
+        $picker->form->cycleDriver();
+    }
+
+    $picker->form->values['over_ssh'] = 'yes';
+
+    $plain = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker, 140, 44));
+
+    $inside = collect(explode("\n", $plain))
+        ->filter(fn (string $l) => str_contains($l, 'Driver') || str_contains($l, 'SSL mode')
+            || str_contains($l, 'Over SSH') || str_contains($l, 'Color'))
+        ->values();
+
+    expect($inside)->toHaveCount(4);
+
+    // A blank row separates the groups, so the rows are not adjacent.
+    $rows = explode("\n", $plain);
+
+    $lineOf = function (string $needle) use ($rows) {
+        foreach ($rows as $index => $row) {
+            if (str_contains($row, $needle)) {
+                return $index;
+            }
+        }
+
+        return -1;
+    };
+
+    expect($lineOf('SSL mode') - $lineOf('Password'))->toBeGreaterThan(1)
+        ->and($lineOf('Over SSH') - $lineOf('SSL mode'))->toBeGreaterThan(1);
+});
+
+it('shows a swatch beside the chosen color', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+    $picker->form->values['color'] = 'red';
+
+    expect(pickerFrame($picker))->toContain("\e[31m●");
+});
+
+it('dims a placeholder but not a real value', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    while ($picker->form->driver() !== 'mysql') {
+        $picker->form->cycleDriver();
+    }
+
+    expect($picker->form->isPlaceholder('ssl_mode'))->toBeTrue()
+        ->and($picker->form->isPlaceholder('host'))->toBeFalse()
+        ->and($picker->form->isPlaceholder('name'))->toBeFalse();
+});
+
+it('offers arrows on every field with a fixed set of answers', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    foreach (['driver', 'color', 'read_only', 'over_ssh'] as $key) {
+        expect($picker->form->choices($key))->not->toBeNull();
+    }
+
+    expect($picker->form->choices('name'))->toBeNull()
+        ->and($picker->form->choices('host'))->toBeNull();
 });
