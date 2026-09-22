@@ -17,7 +17,7 @@ class OpenCommand extends Command
     protected $signature = 'open
         {path : a SQLite file, or a mysql:// pgsql:// sqlsrv:// connection string}
         {--tag= : what to call it in the connection list}
-        {--no-save : open it without remembering it}';
+        {--peek : open it without remembering it}';
 
     protected $description = 'Open a database by path or connection string';
 
@@ -112,7 +112,7 @@ class OpenCommand extends Command
 
         // Remembered by default: the point of opening by connection string is
         // to not have to find it again.
-        if ($this->option('no-save')) {
+        if ($this->option('peek')) {
             return new Connection($attributes);
         }
 

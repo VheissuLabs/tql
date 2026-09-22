@@ -37,8 +37,8 @@ title bar.
 
 Anything you open is **remembered**, so you only ever paste a connection string
 once. `--tag=` names it in the list; without one it is named after the file, or
-`database on host`. `--no-save` opens without remembering, for a database you are
-only peeking at. Re-opening somewhere you already have saved reuses that
+`database on host`. `--peek` opens without remembering, for a database you are
+only glancing at. Re-opening somewhere you already have saved reuses that
 connection rather than making a second, and `--tag=` on it is a rename. Names
 are unique, so a second `database.sqlite` becomes `database.sqlite (2)`.
 

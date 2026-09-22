@@ -86,6 +86,7 @@ class ConnectionPicker extends Prompt
             $key === ':' => $this->openCommandLine(),
             $key === 'q', $key === Key::ESCAPE => $this->finish('quit'),
             $key === 'n' => $this->finish('new'),
+            $key === 'e' => $this->edit(),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->move(-1),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->move(1),
             $key === Key::ENTER => $this->select(),
@@ -124,6 +125,13 @@ class ConnectionPicker extends Prompt
         $this->index = $target;
 
         return $this->select();
+    }
+
+    private function edit(): bool
+    {
+        $connection = $this->connections->values()->get($this->index);
+
+        return $connection === null ? true : $this->finish('edit:'.$connection->id);
     }
 
     private function select(): bool

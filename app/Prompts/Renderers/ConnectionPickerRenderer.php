@@ -42,7 +42,7 @@ class ConnectionPickerRenderer extends Renderer
 
         $this->line($this->rule($prompt, '└', '┴', '┘', $widths, $inner));
         $this->line($this->status($prompt));
-        $this->line($this->dim(' ↑↓ Move    ↵ Open    n New connection    :q Quit'));
+        $this->line($this->dim(' ↑↓ Move    ↵ Open    e Edit    n New    :q Quit'));
 
         return $this;
     }

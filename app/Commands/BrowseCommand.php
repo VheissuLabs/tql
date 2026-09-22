@@ -64,11 +64,62 @@ class BrowseCommand extends Command
 
         $choice = (new ConnectionPicker($connections))->prompt();
 
+        if (is_string($choice) && str_starts_with($choice, 'edit:')) {
+            $this->editConnection($connections->firstWhere('id', (int) substr($choice, 5)));
+
+            return $this->chooseConnection();
+        }
+
         return match ($choice) {
             'quit', null => null,
             'new' => $this->createConnection(),
             default => $connections->firstWhere('id', (int) $choice),
         };
+    }
+
+    /**
+     * Editing reuses the fields from creating, pre-filled. Leaving the
+     * password blank keeps the stored one, so you can fix a typo in a host
+     * without having to know the password again.
+     */
+    private function editConnection(?Connection $connection): void
+    {
+        if ($connection === null) {
+            return;
+        }
+
+        $connection->name = text(label: 'Name', default: $connection->name, required: true);
+
+        if ($connection->driver === 'sqlite') {
+            $connection->database = text(
+                label: 'Path to the .sqlite file',
+                default: (string) $connection->database,
+                required: true,
+            );
+        } else {
+            $connection->host = text(label: 'Host', default: (string) $connection->host, required: true);
+            $connection->port = (int) text(label: 'Port', default: (string) $connection->port, required: true);
+            $connection->database = text(label: 'Database', default: (string) $connection->database);
+            $connection->username = text(label: 'Username', default: (string) $connection->username);
+
+            $password = password(label: 'Password (blank keeps the saved one)');
+
+            if ($password !== '') {
+                $connection->password = $password;
+            }
+        }
+
+        if ($failure = $this->connections->test($connection)) {
+            error($failure);
+
+            if (! confirm('Save it anyway?', default: false)) {
+                return;
+            }
+        }
+
+        $connection->save();
+
+        info('Saved.');
     }
 
     private function createConnection(): ?Connection
