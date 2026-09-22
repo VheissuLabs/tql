@@ -209,18 +209,19 @@ it('marks the driver with an icon instead of a column', function () {
 
     $plain = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker));
 
-    expect($plain)->toContain('◆ shop')
+    expect($plain)->toContain(config('tql.icons.mysql').' shop')
         ->and($plain)->not->toContain('DRIVER');
 });
 
 it('gives each driver its own icon', function () {
-    foreach (['mysql' => '◆', 'pgsql' => '●', 'sqlite' => '▪'] as $driver => $icon) {
+    foreach (['mysql', 'pgsql', 'sqlite', 'sqlsrv'] as $driver) {
         Connection::query()->delete();
         Connection::create(['name' => 'one', 'driver' => $driver, 'database' => '/tmp/x', 'host' => 'h', 'port' => 1]);
 
         $picker = new ConnectionPicker(Connection::get());
 
-        expect(preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker)))->toContain($icon.' one');
+        expect(preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker)))
+            ->toContain(config("tql.icons.{$driver}").' one');
     }
 });
 

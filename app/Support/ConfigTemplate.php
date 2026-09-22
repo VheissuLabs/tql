@@ -61,6 +61,39 @@ class ConfigTemplate
                 ],
             ],
             [
+                'section' => 'icons',
+                'key' => 'mysql',
+                'default' => '""',
+                'comment' => [
+                    'Glyph shown beside a connection name, by driver.',
+                    'These are Nerd Font devicons. Change them if you like.',
+                ],
+            ],
+            [
+                'section' => 'icons',
+                'key' => 'pgsql',
+                'default' => '""',
+                'comment' => [],
+            ],
+            [
+                'section' => 'icons',
+                'key' => 'sqlite',
+                'default' => '""',
+                'comment' => [],
+            ],
+            [
+                'section' => 'icons',
+                'key' => 'sqlsrv',
+                'default' => '""',
+                'comment' => [],
+            ],
+            [
+                'section' => 'icons',
+                'key' => 'default',
+                'default' => '""',
+                'comment' => ['Anything else'],
+            ],
+            [
                 'section' => 'ui',
                 'key' => 'sql_position',
                 'default' => '"top"',

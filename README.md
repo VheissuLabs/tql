@@ -276,6 +276,20 @@ and reports the problem in the status line.
 | `ui.mouse_row_offset` | 0 | rows to subtract from reported mouse coordinates |
 | `ui.mouse_column_offset` | 0 | columns to subtract from reported mouse coordinates |
 
+### Driver icons
+
+Connections show a Nerd Font devicon beside the name, one per driver.
+Change them in `[icons]` if you want different glyphs:
+
+```toml
+[icons]
+mysql = ""
+pgsql = ""
+sqlite = ""
+sqlsrv = ""
+default = ""
+```
+
 ## Islands
 
 The interface is composed of islands: independent bordered panes that each own

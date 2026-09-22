@@ -18,6 +18,30 @@ return [
 
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Driver icons
+    |--------------------------------------------------------------------------
+    |
+    | Shown beside a connection name. The defaults are Nerd Font devicons; set
+    | them to plain characters if your terminal font has no glyph for them.
+    |
+    */
+
+    'icons' => [
+
+        'mysql' => "\u{e704}",
+
+        'pgsql' => "\u{e76e}",
+
+        'sqlite' => "\u{e7c4}",
+
+        'sqlsrv' => "\u{f1c0}",
+
+        'default' => "\u{f1c0}",
+
+    ],
+
     'ui' => [
 
         'top_margin' => 1,

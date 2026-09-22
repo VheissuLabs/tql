@@ -47,6 +47,17 @@ class Theme
         return static::colour('selection', 'default');
     }
 
+    /**
+     * The glyph shown beside a connection name. Configurable because it
+     * depends on the terminal font having the codepoint.
+     */
+    public static function icon(string $driver): string
+    {
+        $icons = config('tql.icons', []);
+
+        return (string) ($icons[$driver] ?? $icons['default'] ?? '•');
+    }
+
     public static function colour(string $key, string $fallback = 'dim'): string
     {
         $value = (string) config('tql.theme.'.$key, $fallback);

@@ -301,13 +301,7 @@ class ConnectionPickerRenderer extends Renderer
 
     private function driverIcon(string $driver): string
     {
-        return match ($driver) {
-            'mysql' => '◆',
-            'pgsql' => '●',
-            'sqlite' => '▪',
-            'sqlsrv' => '★',
-            default => '·',
-        };
+        return Theme::icon($driver);
     }
 
     private function driverColour(string $driver): string
