@@ -330,3 +330,65 @@ it('keeps the hotkey bar to a single line at a usable width', function () {
     // The hotkey bar is the second to last line; a wrap would push the frame.
     expect(array_filter($lines, fn (string $l) => str_contains($l, 'Pane')))->toHaveCount(1);
 });
+
+it('floats the help over the panes instead of interleaving with them', function () {
+    config(['dotsql.ui.sql_always' => true]);
+    putenv('COLUMNS=140');
+    putenv('LINES=40');
+
+    $browser = aligned();
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $method->invoke($browser);
+    $browser->emit('key', "\n");
+    $browser->emit('key', '?');
+
+    $lines = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser)));
+
+    putenv('COLUMNS');
+    putenv('LINES');
+    config(['dotsql.ui.sql_always' => false]);
+
+    $plain = implode("\n", $lines);
+
+    // The modal is there, and so is what it is floating over.
+    expect($plain)->toContain('HELP')
+        ->and($plain)->toContain('TABLES')
+        ->and($plain)->toContain('SQL');
+
+    // Every row is still exactly one terminal width, so nothing is doubled up.
+    $framed = array_values(array_filter(
+        array_map(fn (string $l) => mb_strlen(rtrim($l)), $lines),
+        fn (int $w) => $w > 0,
+    ));
+
+    expect(max($framed))->toBeLessThanOrEqual(140);
+});
+
+it('scrolls the help when it is longer than the modal', function () {
+    putenv('COLUMNS=140');
+    putenv('LINES=24');
+
+    $browser = aligned();
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $method->invoke($browser);
+    $browser->emit('key', '?');
+
+    $first = $method->invoke($browser);
+
+    expect($browser->helpIsland->hidden)->toBeGreaterThan(0);
+
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'j');
+
+    $scrolled = $method->invoke($browser);
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    expect($scrolled)->not->toBe($first)
+        ->and($browser->helpOffset)->toBe(2);
+});

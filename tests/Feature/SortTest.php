@@ -338,3 +338,38 @@ it('still jumps to the first cell when you change table', function () {
     expect($browser->rowIndex)->toBe(0)
         ->and($browser->columnIndex)->toBe(0);
 });
+
+it('resizes a column with the unshifted keys', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+
+    $name = $browser->headers[$browser->columnIndex];
+
+    $browser->emit('key', '.');
+    $browser->emit('key', '.');
+
+    $wider = $browser->widthOverrides[$name];
+
+    $browser->emit('key', ',');
+
+    expect($wider)->toBeGreaterThan($browser->widthOverrides[$name]);
+});
+
+it('still resizes with the shifted keys', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+
+    $name = $browser->headers[$browser->columnIndex];
+
+    $browser->emit('key', '>');
+
+    expect($browser->widthOverrides)->toHaveKey($name);
+
+    $wider = $browser->widthOverrides[$name];
+
+    $browser->emit('key', '<');
+
+    expect($browser->widthOverrides[$name])->toBeLessThan($wider);
+});

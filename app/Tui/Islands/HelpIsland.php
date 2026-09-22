@@ -4,11 +4,43 @@ namespace App\Tui\Islands;
 
 class HelpIsland extends Island
 {
+    public const WIDTH = 72;
+
     public string $title = 'HELP';
 
-    public function __construct(private Styler $style) {}
+    public function naturalHeight(): int
+    {
+        return count($this->lines());
+    }
+
+    /** Lines scrolled past, so the help can be longer than the screen. */
+    public int $hidden = 0;
+
+    public function __construct(private Styler $style, private int $offset = 0) {}
 
     public function content(int $innerWidth, int $innerHeight): array
+    {
+        $lines = $this->lines();
+
+        $this->hidden = max(0, count($lines) - $innerHeight);
+
+        $offset = min($this->offset, $this->hidden);
+
+        $visible = array_slice($lines, $offset, $innerHeight);
+
+        if ($this->hidden > 0) {
+            $visible[$innerHeight - 1] = '   '.$this->style->dim(
+                $offset < $this->hidden ? 'j / ↓ for more' : 'g returns to the top'
+            );
+        }
+
+        return $visible;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function lines(): array
     {
         $lines = [];
 
@@ -22,7 +54,7 @@ class HelpIsland extends Island
             $lines[] = '';
         }
 
-        return array_slice($lines, 0, $innerHeight);
+        return $lines;
     }
 
     private function sections(): array
@@ -43,7 +75,7 @@ class HelpIsland extends Island
                 'i' => 'view the value full screen, never writes',
                 'e' => 'edit the value, ctrl+s saves',
                 's' => 'open the SQL editor (ctrl+r runs it)',
-                '< >' => 'narrow or widen the selected column',
+                ', .' => 'narrow or widen the selected column (< > work too)',
                 '=' => 'reset the column width',
             ],
             'viewing a value (i)' => [

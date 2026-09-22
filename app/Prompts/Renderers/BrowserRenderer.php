@@ -74,13 +74,22 @@ class BrowserRenderer extends Renderer
         }
 
         if ($prompt->mode === 'help') {
-            $help = new HelpIsland($style);
+            $help = new HelpIsland($style, $prompt->helpOffset);
             $help->focused = true;
-            $help->place($rightX, $top, $rightWidth, $frameHeight);
 
-            $screen->add($help);
+            $modalWidth = min($width - 4, HelpIsland::WIDTH);
+            $modalHeight = min($frameHeight - 2, $help->naturalHeight() + 2);
 
-            $tableHeight = 0;
+            $help->place(
+                (int) (($width - $modalWidth) / 2) + 1,
+                $top + (int) (($frameHeight - $modalHeight) / 2),
+                $modalWidth,
+                $modalHeight,
+            );
+
+            $screen->overlay($help);
+
+            $prompt->helpIsland = $help;
         }
 
         if ($prompt->mode === 'edit' && $prompt->cellEditor !== null) {

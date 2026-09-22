@@ -10,6 +10,7 @@ use App\Prompts\Renderers\BrowserRenderer;
 use App\Tui\Concerns\HandlesMouse;
 use App\Tui\Concerns\RendersSmoothly;
 use App\Tui\Islands\EditorIsland;
+use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\SidebarIsland;
 use App\Tui\Islands\TableIsland;
 use App\Tui\Islands\ValueEditorIsland;
@@ -56,6 +57,10 @@ class Browser extends Prompt
     public ?ValueEditorIsland $valueIsland = null;
 
     public ?EditorIsland $editorIsland = null;
+
+    public ?HelpIsland $helpIsland = null;
+
+    public int $helpOffset = 0;
 
     private ?array $drag = null;
 
@@ -188,9 +193,7 @@ class Browser extends Prompt
         }
 
         if ($this->mode === 'help') {
-            if (in_array($key, [Key::ESCAPE, '?', 'q'], true)) {
-                $this->mode = 'browse';
-            }
+            $this->handleHelpKey($key);
 
             return;
         }
@@ -222,8 +225,10 @@ class Browser extends Prompt
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->moveDown(),
             in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $this->moveColumn(-1),
             in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l'], true) => $this->moveColumn(1),
-            $key === '<' => $this->resize(-4),
-            $key === '>' => $this->resize(4),
+            // , and . are the unshifted < and >, so the pair is the same two
+            // keys without the reach. Both spellings work.
+            $key === ',', $key === '<' => $this->resize(-4),
+            $key === '.', $key === '>' => $this->resize(4),
             $key === '=' => $this->resetWidth(),
             $key === 's' => $this->openQuery(),
             $key === 'i' => $this->startEditing(readOnly: true),
@@ -313,9 +318,33 @@ class Browser extends Prompt
 
     private function toggleHelp(): bool
     {
+        $this->helpOffset = 0;
+
         $this->mode = $this->mode === 'help' ? 'browse' : 'help';
 
         return true;
+    }
+
+    private function handleHelpKey(string $key): void
+    {
+        if (in_array($key, [Key::ESCAPE, '?', 'q'], true)) {
+            $this->mode = 'browse';
+            $this->helpOffset = 0;
+
+            return;
+        }
+
+        $hidden = $this->helpIsland?->hidden ?? 0;
+
+        match (true) {
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->helpOffset = min($hidden, $this->helpOffset + 1),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->helpOffset = max(0, $this->helpOffset - 1),
+            $key === 'g' => $this->helpOffset = 0,
+            $key === 'G' => $this->helpOffset = $hidden,
+            $key === 'n' => $this->helpOffset = min($hidden, $this->helpOffset + 10),
+            $key === 'p' => $this->helpOffset = max(0, $this->helpOffset - 10),
+            default => null,
+        };
     }
 
     private function openQuery(): bool

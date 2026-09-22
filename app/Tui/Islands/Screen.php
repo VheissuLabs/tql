@@ -6,11 +6,25 @@ class Screen
 {
     private array $islands = [];
 
+    /** Islands drawn on top of the composed screen rather than beside it. */
+    private array $overlays = [];
+
     public function add(Island ...$islands): static
     {
         foreach ($islands as $island) {
             $this->islands[] = $island;
         }
+
+        return $this;
+    }
+
+    /**
+     * A modal: drawn over the panes instead of taking a share of the row, so
+     * what it is covering stays visible around it.
+     */
+    public function overlay(Island $island): static
+    {
+        $this->overlays[] = $island;
 
         return $this;
     }
@@ -51,7 +65,66 @@ class Screen
             $lines[] = $line;
         }
 
+        foreach ($this->overlays as $island) {
+            $box = $box($island);
+
+            for ($i = 0; $i < $island->height; $i++) {
+                $row = $island->y + $i - 1;
+
+                if (! isset($lines[$row]) || ! isset($box[$i])) {
+                    continue;
+                }
+
+                $lines[$row] = static::splice($lines[$row], $box[$i], $island->x, $island->width);
+            }
+        }
+
         return $lines;
+    }
+
+    /**
+     * Drop $width visible columns from $line starting at column $x and put
+     * $patch there, keeping the styling on either side intact.
+     */
+    public static function splice(string $line, string $patch, int $x, int $width): string
+    {
+        return static::cut($line, 0, $x - 1).$patch."\e[0m".static::cut($line, $x - 1 + $width, PHP_INT_MAX);
+    }
+
+    /**
+     * Take $length visible columns from $offset, carrying every escape
+     * sequence along so colours set earlier in the line still apply.
+     */
+    private static function cut(string $line, int $offset, int $length): string
+    {
+        $out = '';
+        $visible = 0;
+
+        foreach (static::tokens($line) as $token) {
+            if ($token[0] === "\e") {
+                $out .= $token;
+
+                continue;
+            }
+
+            if ($visible >= $offset && $visible < $offset + $length) {
+                $out .= $token;
+            }
+
+            $visible++;
+        }
+
+        return $out;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function tokens(string $line): array
+    {
+        preg_match_all('/\e\[[0-9;]*m|./u', $line, $matches);
+
+        return $matches[0];
     }
 
     private function sortedByColumn(): array
