@@ -31,7 +31,7 @@ class AskIsland extends Island
         }
 
         $lines[] = '';
-        $lines[] = '  '.$this->style->dim($this->waiting ?? 'ctrl+s asks    esc cancels    ↵ for a new line');
+        $lines[] = '  '.$this->style->dim($this->waiting ?? '↵ asks    ⇧↵ new line    esc cancels');
 
         return array_slice($lines, 0, $innerHeight);
     }

@@ -98,7 +98,7 @@ it('shows the question as you type it', function () {
 
     expect($plain)->toContain('ASK')
         ->and($plain)->toContain('count them')
-        ->and($plain)->toContain('ctrl+s asks');
+        ->and($plain)->toContain('↵ asks');
 });
 
 it('puts the answer in the editor as comments above the query', function () {
@@ -206,4 +206,54 @@ it('tells you what to do when nothing is configured at all', function () {
 
     expect(app(Ask::class)->for(asked()->connection, 'count them'))
         ->toContain('LM Studio');
+});
+
+it('sends the question on enter', function () {
+    config(['ai.providers' => ['anthropic' => ['key' => '']]]);
+    config(['tql.ai.provider' => 'auto', 'tql.ai.url' => '']);
+
+    $browser = asked();
+
+    $browser->emit('key', 'a');
+    $browser->emit('key', 'how many customers');
+    $browser->emit('key', "\n");
+
+    // No provider, so it reports that rather than asking — but it did send.
+    expect($browser->status)->toContain('no model to ask');
+});
+
+it('adds a line on shift+enter instead of sending', function () {
+    $browser = asked();
+
+    $browser->emit('key', 'a');
+    $browser->emit('key', 'first line');
+    $browser->emit('key', "\e[13;2u");
+    $browser->emit('key', 'second line');
+
+    expect($browser->question?->buffer())->toBe("first line\nsecond line")
+        ->and($browser->status)->toBeNull();
+});
+
+it('accepts alt+enter for a new line too', function (string $key) {
+    $browser = asked();
+
+    $browser->emit('key', 'a');
+    $browser->emit('key', 'one');
+    $browser->emit('key', $key);
+    $browser->emit('key', 'two');
+
+    expect($browser->question?->buffer())->toBe("one\ntwo");
+})->with(["\e\r", "\e\n"]);
+
+it('still sends on ctrl+s', function () {
+    config(['ai.providers' => ['anthropic' => ['key' => '']]]);
+    config(['tql.ai.provider' => 'auto', 'tql.ai.url' => '']);
+
+    $browser = asked();
+
+    $browser->emit('key', 'a');
+    $browser->emit('key', 'count them');
+    $browser->emit('key', Browser::SAVE);
+
+    expect($browser->status)->toContain('no model to ask');
 });

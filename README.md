@@ -171,8 +171,17 @@ still lands in front of you for review rather than in front of your database.
 so asking about a production table does not send its contents anywhere. The
 table you are looking at is sent first so it survives the size limit.
 
-Press `a` and a modal opens with a text area. Write the question over as many
-lines as you like, `ctrl+s` asks, `esc` cancels.
+Press `a` and a modal opens with a text area. `↵` asks, `⇧↵` starts a new line,
+`esc` cancels. `ctrl+s` sends it too.
+
+Terminals send the same byte for enter and shift+enter, so shift+enter only
+arrives as its own key when the terminal is told to send one. In Ghostty:
+
+```
+keybind = shift+enter=csi:13;2u
+```
+
+Alt+enter works without any configuration, if you would rather not set that.
 
 ## Which model answers
 

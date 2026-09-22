@@ -31,6 +31,14 @@ class Browser extends Prompt
     /** ctrl+s: commits an edit, sends a question, applies a filter. */
     public const SAVE = "\x13";
 
+    /**
+     * Shift+enter. A plain terminal sends the same byte for enter and
+     * shift+enter, so it only arrives when the terminal is told to send
+     * something distinct — in Ghostty, keybind = shift+enter=csi:13;2u.
+     * Alt+enter is accepted too, since it is distinct out of the box.
+     */
+    public const NEWLINE = ["\e[13;2u", "\e\r", "\e\n"];
+
     public const ASK = self::SAVE;
 
     public const PAGE = 100;
@@ -1454,9 +1462,14 @@ class Browser extends Prompt
             return;
         }
 
-        // Enter is a new line, so the question can be a paragraph. ctrl+s
-        // sends it, the same key that commits everywhere else.
-        if ($key === self::ASK) {
+        if (in_array($key, self::NEWLINE, true)) {
+            $this->question?->handle(Key::ENTER);
+
+            return;
+        }
+
+        // Enter sends it; shift+enter above is how you get a second line.
+        if ($key === Key::ENTER || $key === self::ASK) {
             $question = trim($this->question?->buffer() ?? '');
 
             if ($question === '') {
