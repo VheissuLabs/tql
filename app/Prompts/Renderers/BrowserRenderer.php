@@ -13,6 +13,7 @@ use App\Tui\Islands\Styler;
 use App\Tui\Islands\TableIsland;
 use App\Tui\Islands\ValueEditorIsland;
 use App\Tui\Layout;
+use App\Tui\Theme;
 use Chewie\Concerns\DrawsHotkeys;
 use Laravel\Prompts\Themes\Default\Renderer;
 
@@ -182,6 +183,8 @@ class BrowserRenderer extends Renderer
         $content = $island->content($inner, $island->innerHeight());
         $joins = $island->joins();
 
+        $edge = fn (string $text) => $this->paint(Theme::border($island->focused), $text);
+
         $lines = [$this->topBorder($island, $style, $inner, $joins)];
 
         $rules = $island->ruleRows();
@@ -189,24 +192,46 @@ class BrowserRenderer extends Renderer
         for ($i = 0; $i < $island->innerHeight(); $i++) {
             $edges = in_array($i, $rules, true) ? ['├', '┤'] : ['│', '│'];
 
-            $lines[] = $this->dim($edges[0]).$style->pad($content[$i] ?? '', $inner).$this->dim($edges[1]);
+            $lines[] = $edge($edges[0]).$style->pad($content[$i] ?? '', $inner).$edge($edges[1]);
         }
 
-        $lines[] = $this->dim('└'.$this->border($inner, $joins, '┴').'┘');
+        $lines[] = $edge('└'.$this->border($inner, $joins, '┴').'┘');
 
         return $lines;
+    }
+
+    private function paint(string $colour, string $text): string
+    {
+        return match ($colour) {
+            'default' => $text,
+            'black' => $this->black($text),
+            'red' => $this->red($text),
+            'green' => $this->green($text),
+            'yellow' => $this->yellow($text),
+            'blue' => $this->blue($text),
+            'magenta' => $this->magenta($text),
+            'cyan' => $this->cyan($text),
+            'white' => $this->white($text),
+            'gray' => $this->gray($text),
+            default => $this->dim($text),
+        };
     }
 
     private function topBorder(Island $island, Styler $style, int $inner, array $joins): string
     {
         $label = ' '.$island->title.' ';
         $plain = $style->visible($label);
-        $label = $island->focused ? $this->bold($label) : $this->dim($label);
+
+        $label = $island->focused
+            ? $this->bold($this->paint(Theme::title(true), $label))
+            : $this->paint(Theme::title(false), $label);
+
+        $edge = fn (string $text) => $this->paint(Theme::border($island->focused), $text);
 
         $rule = $this->border($inner, $joins, '┬');
         $tail = mb_substr($rule, min($inner, $plain + 1));
 
-        return $this->dim('┌─').$label.$this->dim($tail.'┐');
+        return $edge('┌─').$label.$edge($tail.'┐');
     }
 
     private function border(int $inner, array $joins, string $join): string

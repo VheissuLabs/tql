@@ -130,7 +130,9 @@ it('covers every shipped default', function () {
     $shipped = require base_path('config/dotsql.php');
     $template = array_column(ConfigTemplate::settings(), 'key');
 
-    foreach (array_keys($shipped['ui']) as $key) {
-        expect(in_array($key, $template, true))->toBeTrue("[{$key}] is missing from the config template");
+    foreach (['ui', 'theme'] as $section) {
+        foreach (array_keys($shipped[$section]) as $key) {
+            expect(in_array($key, $template, true))->toBeTrue("[{$section}.{$key}] is missing from the config template");
+        }
     }
 });

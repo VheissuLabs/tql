@@ -2,6 +2,16 @@
 
 return [
 
+    'theme' => [
+
+        'border' => 'dim',
+
+        'focus_border' => 'cyan',
+
+        'focus_title' => 'cyan',
+
+    ],
+
     'ui' => [
 
         'top_margin' => 1,

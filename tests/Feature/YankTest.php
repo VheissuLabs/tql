@@ -299,7 +299,9 @@ it('drops syntax colours on selected lines', function () {
     expect($selected)->not->toBeEmpty();
 
     foreach ($selected as $line) {
-        expect($line)->not->toMatch('/\e\[3[0-9]m/');
+        preg_match('/\e\[7m(.*?)\e\[27m/s', $line, $inverse);
+
+        expect($inverse[1] ?? '')->not->toMatch('/\e\[3[0-9]m/');
     }
 
     $coloured = array_filter($unselected, fn ($l) => preg_match('/\e\[3[0-9]m/', $l));

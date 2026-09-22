@@ -8,6 +8,27 @@ class ConfigTemplate
     {
         return [
             [
+                'section' => 'theme',
+                'key' => 'border',
+                'default' => '"dim"',
+                'comment' => [
+                    'Colour of a pane border when it is not focused.',
+                    'dim, default, black, red, green, yellow, blue, magenta, cyan, white, gray',
+                ],
+            ],
+            [
+                'section' => 'theme',
+                'key' => 'focus_border',
+                'default' => '"cyan"',
+                'comment' => ['Colour of the border of the pane you are in'],
+            ],
+            [
+                'section' => 'theme',
+                'key' => 'focus_title',
+                'default' => '"cyan"',
+                'comment' => ['Colour of the title of the pane you are in'],
+            ],
+            [
                 'section' => 'ui',
                 'key' => 'sql_position',
                 'default' => '"top"',

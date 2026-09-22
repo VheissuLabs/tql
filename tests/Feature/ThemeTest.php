@@ -1,0 +1,100 @@
+<?php
+
+use App\Database\QueryRunner;
+use App\Models\Connection;
+use App\Tui\Browser;
+use App\Tui\RowFormatter;
+use App\Tui\Theme;
+use Illuminate\Support\Facades\Artisan;
+
+beforeEach(function () {
+    Artisan::call('migrate', ['--force' => true]);
+    config(['dotsql.theme' => ['border' => 'dim', 'focus_border' => 'cyan', 'focus_title' => 'cyan']]);
+    config(['dotsql.ui.mouse_row_offset' => 0]);
+});
+
+function themed(): Browser
+{
+    $path = sys_get_temp_dir().'/dotsql-theme-'.uniqid().'.sqlite';
+    touch($path);
+
+    (new PDO('sqlite:'.$path))->exec('create table t (id integer primary key)');
+
+    $connection = Connection::create([
+        'name' => 'theme'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+    $render->invoke($browser);
+
+    return $browser;
+}
+
+function frameFor(Browser $browser): string
+{
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    return $method->invoke($browser);
+}
+
+it('paints the focused border with the configured colour', function (string $colour, string $code) {
+    config(['dotsql.theme.focus_border' => $colour, 'dotsql.theme.focus_title' => $colour]);
+
+    expect(frameFor(themed()))->toContain("\e[{$code}m");
+})->with([
+    ['cyan', '36'],
+    ['magenta', '35'],
+    ['green', '32'],
+    ['yellow', '33'],
+]);
+
+it('falls back to dim for a colour it does not know', function () {
+    config(['dotsql.theme.focus_border' => 'ultraviolet']);
+
+    expect(Theme::border(true))->toBe('dim');
+});
+
+it('uses a different colour for focused and unfocused panes', function () {
+    config(['dotsql.theme.focus_border' => 'green', 'dotsql.theme.border' => 'red']);
+
+    $frame = frameFor(themed());
+
+    expect($frame)->toContain("\e[32m")
+        ->and($frame)->toContain("\e[31m");
+});
+
+it('moves the focus colour when the focus moves', function () {
+    config(['dotsql.theme.focus_border' => 'green', 'dotsql.theme.border' => 'dim']);
+
+    $browser = themed();
+
+    $sidebarEdge = function (Browser $browser) {
+        foreach (explode("\n", frameFor($browser)) as $line) {
+            if (str_contains(preg_replace('/\e\[[0-9;]*m/', '', $line), 'TABLES')) {
+                return str_starts_with($line, "\e[32m");
+            }
+        }
+
+        return false;
+    };
+
+    expect($browser->focus)->toBe('sidebar')
+        ->and($sidebarEdge($browser))->toBeTrue();
+
+    $browser->emit('key', "\t");
+
+    expect($browser->focus)->toBe('grid')
+        ->and($sidebarEdge($browser))->toBeFalse();
+});
+
+it('does not quit the browser on escape', function () {
+    $browser = themed();
+
+    $browser->emit('key', "\e");
+
+    expect($browser->state)->not->toBe('submit');
+});

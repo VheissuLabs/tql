@@ -206,7 +206,7 @@ class Browser extends Prompt
 
         match (true) {
             $key === ':' => $this->openCommandLine(),
-            $key === 'q', $key === Key::ESCAPE => $this->quit(),
+            $key === 'q' => $this->quit(),
             $key === Key::TAB => $this->toggleFocus(),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->moveUp(),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->moveDown(),
