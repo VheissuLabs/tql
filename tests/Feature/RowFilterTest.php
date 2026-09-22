@@ -354,3 +354,50 @@ it('says when nothing matches', function () {
 
     expect(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)))->toContain('nothing matches');
 });
+
+it('moves back through the cells with shift+tab', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+
+    $form = $browser->filterForm;
+
+    expect($form->cell)->toBe(FilterForm::COLUMN);
+
+    $browser->emit('key', "\t");
+    $browser->emit('key', "\t");
+
+    expect($form->cell)->toBe(FilterForm::VALUE);
+
+    $browser->emit('key', "\e[Z");
+
+    expect($form->cell)->toBe(FilterForm::OPERATOR);
+
+    $browser->emit('key', "\e[Z");
+
+    expect($form->cell)->toBe(FilterForm::COLUMN);
+});
+
+it('can get back to the column after typing a value', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', "\t");
+    $browser->emit('key', "\t");
+    $browser->emit('key', "\n");
+    $browser->emit('key', 'Karl');
+    $browser->emit('key', "\n");
+
+    expect($browser->filterForm->current()->value)->toBe('Karl');
+
+    $browser->emit('key', "\e[Z");
+    $browser->emit('key', "\e[Z");
+
+    expect($browser->filterForm->cell)->toBe(FilterForm::COLUMN);
+
+    // And the column is still changeable from there.
+    $browser->emit('key', "\e[C");
+
+    expect($browser->filterForm->current()->column)->toBe('name')
+        ->and($browser->filterForm->current()->value)->toBe('Karl');
+});

@@ -120,8 +120,8 @@ made it — following a link teaches you the query you would have written.
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-`tab` moves between the three cells. On the column or operator, `↵` opens a
-type-to-filter list — start typing to narrow it, arrows to move, `↵` to pick —
+`tab` and `shift+tab` move between the three cells. On the column or operator,
+`↵` opens a type-to-filter list — start typing to narrow it, arrows to move, `↵` to pick —
 and `← →` step through the options without opening it. On the value, `↵` types.
 `+` and `-` add and remove conditions, `o` switches the whole bar between `and`
 and `or`, `ctrl+s` applies and `esc` clears.

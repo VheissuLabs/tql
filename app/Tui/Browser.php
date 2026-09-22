@@ -1639,6 +1639,7 @@ class Browser extends Prompt
             in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $this->moveOrCycle($form, -1),
             in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l'], true) => $this->moveOrCycle($form, 1),
             $key === Key::TAB => $form->moveCell(1),
+            $key === Key::SHIFT_TAB => $form->moveCell(-1),
             $key === '+', $key === 'n' => $form->add(),
             $key === '-', $key === 'd' => $form->remove(),
             $key === 'o' => $form->toggleJoiner(),

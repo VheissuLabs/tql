@@ -86,8 +86,8 @@ class FilterIsland extends Island
         }
 
         return match ($this->form->cell) {
-            FilterForm::VALUE => '↵ types a value    + adds    - removes    ctrl+s applies    esc clears',
-            default => '← → changes it    ↑↓ moves    + adds    - removes    ctrl+s applies',
+            FilterForm::VALUE => '↵ types    ⇥ ⇧⇥ moves    + adds    - removes    ctrl+s applies',
+            default => '← → changes it    ⇥ ⇧⇥ moves    ↵ opens a list    ctrl+s applies',
         };
     }
 }
