@@ -29,7 +29,8 @@ encryption key), both `0600`.
 | `=` | reset the column width |
 | `n` / `p` | next or previous page (100 rows) |
 | `r` | reload the current table |
-| `:` | command line — `:q`, `:tables`, `:rows`, `:reload` |
+| `s` | open the SQL editor |
+| `:` | command line — `:q`, `:tables`, `:rows`, `:reload`, `:sql` |
 | `q` / `esc` | quit |
 
 Mouse works too: click a table or a row, scroll with the wheel, and **drag a
@@ -37,6 +38,13 @@ column border in the header row to resize it**, as you would in a spreadsheet.
 
 Column widths you set are remembered per column name, so several columns keep
 their sizes at once and survive paging and switching tables.
+
+## Running SQL
+
+Press `s` (or `:sql`) for the SQL editor, which opens above the results.
+`ctrl+r` runs what you have typed, `esc` returns to browsing. Results replace
+the grid and are read-only, since they have no primary key to write back
+through — open a table to edit.
 
 ## Editing
 

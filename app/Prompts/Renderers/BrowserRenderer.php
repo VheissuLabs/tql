@@ -32,8 +32,15 @@ class BrowserRenderer extends Renderer
         $this->line($this->headerRow($prompt, $widths, $available));
         $this->line($this->rule($prompt, '├', '┼', '┤', $widths, $available));
 
+        $editorHeight = $prompt->mode === 'query' ? min(8, intdiv($bodyHeight, 2)) : 0;
+        $resultHeight = $bodyHeight - $editorHeight;
+
         $sidebar = $this->sidebar($prompt, $bodyHeight);
-        $rows = $this->dataRows($prompt, $widths, $bodyHeight, $available);
+        $rows = $this->dataRows($prompt, $widths, $resultHeight, $available);
+
+        if ($editorHeight > 0) {
+            $rows = array_merge($this->editorPane($prompt, $editorHeight, $available), $rows);
+        }
 
         $blank = $this->blankRow($widths, $available);
 
@@ -53,6 +60,7 @@ class BrowserRenderer extends Renderer
         $this->clearHotkeys();
         $this->hotkey('tab', 'Pane');
         $this->hotkey('↑↓←→', 'Move');
+        $this->hotkey('s', 'SQL');
         $this->hotkey('e', 'Edit');
         $this->hotkey('< >', 'Width');
         $this->hotkey('r', 'Reload');
@@ -151,6 +159,36 @@ class BrowserRenderer extends Renderer
         $cells = array_map(fn (int $width) => str_repeat(' ', $width + 2), $widths);
 
         return $this->pad(implode($this->dim('│'), $cells), $available);
+    }
+
+    private function editorPane(Browser $prompt, int $height, int $available): array
+    {
+        $lines = [$this->bold(' SQL').$this->dim('   ctrl+r run    esc back')];
+
+        $buffer = $prompt->editor->lines();
+        $cursorLine = $prompt->editor->cursorLine();
+        $cursorColumn = $prompt->editor->cursorColumn();
+
+        $room = $height - 2;
+        $start = max(0, $cursorLine - $room + 1);
+
+        foreach (array_slice($buffer, $start, $room) as $index => $line) {
+            $actual = $start + $index;
+
+            if ($actual === $cursorLine) {
+                $line = mb_substr($line, 0, $cursorColumn).'█'.mb_substr($line, $cursorColumn);
+            }
+
+            $lines[] = ' '.$this->truncate($line, $available - 2);
+        }
+
+        while (count($lines) < $height - 1) {
+            $lines[] = '';
+        }
+
+        $lines[] = $this->dim(str_repeat('─', $available));
+
+        return array_slice($lines, 0, $height);
     }
 
     private function handles(Browser $prompt, array $widths): array

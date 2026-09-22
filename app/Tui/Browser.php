@@ -49,6 +49,12 @@ class Browser extends Prompt
 
     public bool $hasMore = false;
 
+    public string $mode = 'browse';
+
+    public QueryEditor $editor;
+
+    public bool $resultsFromQuery = false;
+
     public string $focus = 'sidebar';
 
     public ?string $status = null;
@@ -69,6 +75,8 @@ class Browser extends Prompt
         private RowFormatter $formatter,
     ) {
         $this->registerRenderer(BrowserRenderer::class);
+
+        $this->editor = new QueryEditor;
 
         $this->tables = $this->runner->tables($this->connection);
 
@@ -128,6 +136,12 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->mode === 'query') {
+            $this->handleQueryKey($key);
+
+            return;
+        }
+
         if ($this->editing !== null) {
             $this->handleEditKey($key);
 
@@ -151,6 +165,7 @@ class Browser extends Prompt
             $key === '<' => $this->resize(-4),
             $key === '>' => $this->resize(4),
             $key === '=' => $this->resetWidth(),
+            $key === 's' => $this->openQuery(),
             $key === 'e' => $this->startEditing(),
             $key === Key::ENTER => $this->activate(),
             $key === 'n' => $this->page(self::PAGE),
@@ -209,6 +224,60 @@ class Browser extends Prompt
         return min($width, 28);
     }
 
+    private function openQuery(): bool
+    {
+        $this->mode = 'query';
+        $this->status = 'ctrl+r runs the query · esc returns';
+
+        return true;
+    }
+
+    private function handleQueryKey(string $key): void
+    {
+        if ($key === Key::ESCAPE) {
+            $this->mode = 'browse';
+            $this->status = null;
+
+            return;
+        }
+
+        if ($key === QueryEditor::RUN) {
+            $this->runQueryBuffer();
+
+            return;
+        }
+
+        $this->editor->handle($key);
+    }
+
+    private function runQueryBuffer(): void
+    {
+        if ($this->editor->isEmpty()) {
+            $this->status = 'nothing to run';
+
+            return;
+        }
+
+        $result = $this->runner->run($this->connection, $this->editor->buffer(), 'tui');
+
+        if ($result->failed()) {
+            $this->status = $result->error;
+
+            return;
+        }
+
+        $this->headers = $result->headers();
+        $this->raw = $result->rows;
+        $this->rows = $this->formatter->rows($result->rows);
+        $this->rowIndex = 0;
+        $this->columnIndex = 0;
+        $this->columnOffset = 0;
+        $this->hasMore = false;
+        $this->resultsFromQuery = true;
+
+        $this->status = "{$result->count()} rows · {$result->durationMs}ms";
+    }
+
     private function startEditing(): bool
     {
         if ($this->focus !== 'grid') {
@@ -222,6 +291,12 @@ class Browser extends Prompt
         }
 
         if ($this->raw === []) {
+            return true;
+        }
+
+        if ($this->resultsFromQuery) {
+            $this->status = 'query results are read-only — open a table to edit';
+
             return true;
         }
 
@@ -487,6 +562,7 @@ class Browser extends Prompt
             'tables' => $this->focusOn('sidebar'),
             'rows' => $this->focusOn('grid'),
             'r', 'reload' => $this->reload(),
+            'sql' => $this->openQuery(),
             default => $this->unknownCommand($command),
         };
     }
@@ -612,6 +688,7 @@ class Browser extends Prompt
             array_pop($rows);
         }
 
+        $this->resultsFromQuery = false;
         $this->headers = $result->headers();
         $this->raw = $rows;
         $this->rows = $this->formatter->rows($rows);
