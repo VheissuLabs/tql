@@ -295,3 +295,38 @@ it('clamps the hotkey bar and status line to the terminal width', function () {
 
     expect($over)->toBe([]);
 });
+
+it('only offers paging when there is another page', function () {
+    $browser = aligned();
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $method->invoke($browser);
+    $browser->emit('key', "\n");
+
+    expect($method->invoke($browser))->not->toContain('n/p');
+
+    $browser->hasMore = true;
+
+    expect($method->invoke($browser))->toContain('n/p');
+});
+
+it('keeps the hotkey bar to a single line at a usable width', function () {
+    putenv('COLUMNS=100');
+    putenv('LINES=40');
+
+    $browser = aligned();
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $method->invoke($browser);
+    $browser->emit('key', "\n");
+
+    $lines = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser)));
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    // The hotkey bar is the second to last line; a wrap would push the frame.
+    expect(array_filter($lines, fn (string $l) => str_contains($l, 'Pane')))->toHaveCount(1);
+});

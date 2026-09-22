@@ -142,15 +142,16 @@ class BrowserRenderer extends Renderer
 
         $this->clearHotkeys();
         $this->hotkey('tab', 'Pane');
-        $this->hotkey('⇧tab', 'Back');
-        $this->hotkey('↑↓←→', 'Move');
-        $this->hotkey('s', 'SQL');
         $this->hotkey('i', 'View');
         $this->hotkey('e', 'Edit');
         $this->hotkey('o', 'Sort');
-        $this->hotkey('< >', 'Width');
-        $this->hotkey('r', 'Reload');
-        $this->hotkey('n/p', 'Page');
+        $this->hotkey('s', 'SQL');
+
+        // Paging is only worth a slot when there is somewhere to page to.
+        if ($prompt->hasMore || $prompt->offset > 0) {
+            $this->hotkey('n/p', 'Page');
+        }
+
         $this->hotkey('?', 'Help');
         $this->hotkey(':q', 'Quit');
 
