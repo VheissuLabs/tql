@@ -135,6 +135,7 @@ class BrowserRenderer extends Renderer
         $visible = count($widths);
 
         $prompt->visibleColumns = $visible;
+        $prompt->columnHandles = $this->handles($prompt, $widths);
 
         $header = [];
 
@@ -203,24 +204,79 @@ class BrowserRenderer extends Renderer
         return max(0, min($cursor - intdiv($room, 2), $total - $room));
     }
 
-    private function columnWidths(Browser $prompt, int $available): array
+    private function handles(Browser $prompt, array $widths): array
+    {
+        $handles = [];
+        $x = Layout::gridFirstColumn();
+
+        foreach ($widths as $i => $width) {
+            $handles[$prompt->columnOffset + $i] = $x + $width;
+            $x += $width + 2;
+        }
+
+        return $handles;
+    }
+
+    private function allWidths(Browser $prompt, int $available): array
     {
         $widths = [];
-        $used = 0;
 
-        foreach (array_slice($prompt->headers, $prompt->columnOffset) as $index => $name) {
+        foreach ($prompt->headers as $index => $name) {
             $width = mb_strlen($name);
 
             foreach ($prompt->rows as $row) {
                 $values = array_values($row);
-                $width = max($width, mb_strlen((string) ($values[$prompt->columnOffset + $index] ?? '')));
+                $width = max($width, mb_strlen((string) ($values[$index] ?? '')));
             }
 
             $width = $prompt->widthFor($name, min($width, 28));
 
-            if ($prompt->editing !== null && ($prompt->columnOffset + $index) === $prompt->columnIndex) {
+            if ($prompt->editing !== null && $index === $prompt->columnIndex) {
                 $width = max($width, min(24, $available - 2));
             }
+
+            $widths[] = min($width, max(3, $available - 2));
+        }
+
+        return $widths;
+    }
+
+    private function scrollToCursor(Browser $prompt, array $all, int $available): int
+    {
+        $offset = min($prompt->columnOffset, $prompt->columnIndex);
+
+        while (true) {
+            $used = 0;
+
+            for ($i = $offset; $i <= $prompt->columnIndex; $i++) {
+                $used += ($all[$i] ?? 0) + 2;
+            }
+
+            if ($used <= $available || $offset >= $prompt->columnIndex) {
+                break;
+            }
+
+            $offset++;
+        }
+
+        return $offset;
+    }
+
+    private function columnWidths(Browser $prompt, int $available): array
+    {
+        $all = $this->allWidths($prompt, $available);
+
+        if ($all === []) {
+            return [$available];
+        }
+
+        $prompt->columnOffset = $this->scrollToCursor($prompt, $all, $available);
+
+        $widths = [];
+        $used = 0;
+
+        for ($i = $prompt->columnOffset; $i < count($all); $i++) {
+            $width = $all[$i];
 
             if ($used + $width + 2 > $available && $widths !== []) {
                 break;

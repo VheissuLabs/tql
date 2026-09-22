@@ -10,7 +10,7 @@ trait HandlesMouse
             return;
         }
 
-        static::output()->write("\e[?1000h\e[?1006h");
+        static::output()->write("\e[?1000h\e[?1002h\e[?1006h");
     }
 
     public function disableMouse(): void
@@ -19,6 +19,6 @@ trait HandlesMouse
             return;
         }
 
-        static::output()->write("\e[?1006l\e[?1000l");
+        static::output()->write("\e[?1006l\e[?1002l\e[?1000l");
     }
 }

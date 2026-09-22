@@ -214,3 +214,52 @@ it('resizes columns even while the sidebar has focus', function () {
 
     expect($browser->widthOverrides)->not->toBeEmpty();
 });
+
+it('resizes a column by dragging its border', function () {
+    $browser = browserFor(sqliteFixture());
+    frameOf($browser);
+
+    $row = $browser->firstBodyRow;
+    $handle = $browser->columnHandles[1];
+
+    $browser->emit('key', "\e[<0;{$handle};{$row}M");
+
+    expect($browser->columnIndex)->toBe(1);
+
+    $browser->emit('key', "\e[<32;".($handle + 6).";{$row}M");
+
+    expect($browser->widthOverrides)->toHaveKey('name');
+
+    $widened = $browser->widthOverrides['name'];
+
+    $browser->emit('key', "\e[<0;".($handle + 6).";{$row}m");
+    $browser->emit('key', "\e[<32;2;{$row}M");
+
+    expect($browser->widthOverrides['name'])->toBe($widened);
+});
+
+it('keeps several column widths at once', function () {
+    $browser = browserFor(sqliteFixture());
+    frameOf($browser);
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', '>');
+    $browser->emit('key', 'l');
+    $browser->emit('key', '>');
+
+    expect($browser->widthOverrides)->toHaveKeys(['name', 'qty']);
+
+    frameOf($browser);
+
+    expect($browser->widthOverrides)->toHaveKeys(['name', 'qty']);
+});
+
+it('does not scroll earlier columns away when moving right', function () {
+    $browser = browserFor(sqliteFixture());
+    frameOf($browser);
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+
+    expect(headerRowOf($browser))->toContain('id');
+});

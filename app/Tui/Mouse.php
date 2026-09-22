@@ -10,11 +10,15 @@ class Mouse
 
     public const WHEEL_DOWN = 65;
 
+    public const DRAG_LEFT = 32;
+
     public static function parse(string $sequence): ?array
     {
-        if (preg_match('/\e\[<(\d+);(\d+);(\d+)([Mm])/', $sequence, $matches) !== 1) {
+        if (preg_match_all('/\e\[<(\d+);(\d+);(\d+)([Mm])/', $sequence, $all, PREG_SET_ORDER) < 1) {
             return null;
         }
+
+        $matches = end($all);
 
         return [
             'button' => (int) $matches[1],

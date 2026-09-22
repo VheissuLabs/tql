@@ -39,6 +39,10 @@ class Browser extends Prompt
 
     public array $widthOverrides = [];
 
+    public array $columnHandles = [];
+
+    private ?array $drag = null;
+
     public int $offset = 0;
 
     public string $focus = 'sidebar';
@@ -308,16 +312,77 @@ class Browser extends Prompt
 
     private function onMouse(array $event): void
     {
-        if (! $event['pressed'] || $this->editing !== null) {
+        if ($this->editing !== null) {
+            return;
+        }
+
+        if (! $event['pressed']) {
+            $this->drag = null;
+
+            return;
+        }
+
+        if ($event['button'] === Mouse::DRAG_LEFT) {
+            $this->dragTo($event['column']);
+
             return;
         }
 
         match ($event['button']) {
             Mouse::WHEEL_UP => $this->moveUp(),
             Mouse::WHEEL_DOWN => $this->moveDown(),
-            Mouse::LEFT => $this->click($event['column'], $event['row']),
+            Mouse::LEFT => $this->press($event['column'], $event['row']),
             default => true,
         };
+    }
+
+    private function press(int $column, int $row): bool
+    {
+        if ($row === ($this->firstBodyRow ?? Layout::firstBodyRow(2))) {
+            $handle = $this->handleNear($column);
+
+            if ($handle !== null) {
+                $name = $this->headers[$handle] ?? null;
+
+                if ($name !== null) {
+                    $this->drag = [
+                        'column' => $name,
+                        'originX' => $column,
+                        'originWidth' => $this->widthOverrides[$name] ?? $this->naturalWidth($name),
+                    ];
+
+                    $this->columnIndex = $handle;
+
+                    return true;
+                }
+            }
+        }
+
+        return $this->click($column, $row);
+    }
+
+    private function handleNear(int $column): ?int
+    {
+        foreach ($this->columnHandles as $index => $x) {
+            if (abs($column - $x) <= 1) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    private function dragTo(int $column): void
+    {
+        if ($this->drag === null) {
+            return;
+        }
+
+        $width = $this->drag['originWidth'] + ($column - $this->drag['originX']);
+
+        $this->widthOverrides[$this->drag['column']] = max(3, min(120, $width));
+
+        $this->status = "{$this->drag['column']} width {$this->widthOverrides[$this->drag['column']]}";
     }
 
     private function click(int $column, int $row): bool
@@ -472,14 +537,6 @@ class Browser extends Prompt
         }
 
         $this->columnIndex = max(0, min(count($this->headers) - 1, $this->columnIndex + $by));
-
-        if ($this->columnIndex < $this->columnOffset) {
-            $this->columnOffset = $this->columnIndex;
-        }
-
-        if ($this->columnIndex >= $this->columnOffset + $this->visibleColumns) {
-            $this->columnOffset = $this->columnIndex - $this->visibleColumns + 1;
-        }
 
         return true;
     }

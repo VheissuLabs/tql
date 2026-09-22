@@ -32,7 +32,11 @@ encryption key), both `0600`.
 | `:` | command line — `:q`, `:tables`, `:rows`, `:reload` |
 | `q` / `esc` | quit |
 
-Mouse works too: click a table or a row, and the scroll wheel moves the cursor.
+Mouse works too: click a table or a row, scroll with the wheel, and **drag a
+column border in the header row to resize it**, as you would in a spreadsheet.
+
+Column widths you set are remembered per column name, so several columns keep
+their sizes at once and survive paging and switching tables.
 
 ## Editing
 
