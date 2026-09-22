@@ -38,6 +38,20 @@ class QueryEditor
         $this->cursor = 0;
     }
 
+    public function toLine(int $line): void
+    {
+        $lines = $this->lines();
+        $line = max(0, min($line, count($lines) - 1));
+
+        $offset = 0;
+
+        for ($i = 0; $i < $line; $i++) {
+            $offset += mb_strlen($lines[$i]) + 1;
+        }
+
+        $this->cursor = $offset;
+    }
+
     public function toEnd(): void
     {
         $this->cursor = mb_strlen($this->buffer);

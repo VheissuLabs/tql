@@ -10,6 +10,7 @@ use App\Tui\Concerns\HandlesMouse;
 use App\Tui\Concerns\RendersSmoothly;
 use App\Tui\Islands\SidebarIsland;
 use App\Tui\Islands\TableIsland;
+use App\Tui\Islands\ValueEditorIsland;
 use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Laravel\Prompts\Key;
@@ -50,6 +51,8 @@ class Browser extends Prompt
 
     public ?TableIsland $table = null;
 
+    public ?ValueEditorIsland $valueIsland = null;
+
     private ?array $drag = null;
 
     public int $offset = 0;
@@ -81,6 +84,8 @@ class Browser extends Prompt
     public ?string $readOnlyReason = null;
 
     public ?int $visualAnchor = null;
+
+    public string $countPrefix = '';
 
     public bool $debugMouse = false;
 
@@ -428,15 +433,67 @@ class Browser extends Prompt
 
     private function scrollOrIgnore(string $key): void
     {
+        if (ctype_digit($key) && ! ($key === '0' && $this->countPrefix === '')) {
+            $this->countPrefix .= $key;
+
+            return;
+        }
+
+        $count = max(1, (int) ($this->countPrefix ?: 1));
+
         match (true) {
-            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->cellEditor?->handle(Key::DOWN),
-            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->cellEditor?->handle(Key::UP),
-            $key === 'g' => $this->cellEditor?->toStart(),
-            $key === 'G' => $this->cellEditor?->toEnd(),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->repeat($count, Key::DOWN),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->repeat($count, Key::UP),
+            $key === 'g' => $this->jump(0),
+            $key === 'G' => $this->jumpToCount(),
             $key === 'V' => $this->toggleVisual(),
             $key === 'y' => $this->yank(),
             default => null,
         };
+
+        if ($key !== 'G') {
+            $this->countPrefix = '';
+        }
+    }
+
+    private function repeat(int $times, string $key): void
+    {
+        for ($i = 0; $i < $times; $i++) {
+            $this->cellEditor?->handle($key);
+        }
+    }
+
+    private function jump(int $line): void
+    {
+        $this->cellEditor?->toLine($line);
+        $this->countPrefix = '';
+    }
+
+    private function jumpToCount(): void
+    {
+        if ($this->countPrefix === '') {
+            $this->cellEditor?->toEnd();
+            $this->countPrefix = '';
+
+            return;
+        }
+
+        $this->jump(max(0, (int) $this->countPrefix - 1));
+    }
+
+    public function viewerLineAt(int $row): ?int
+    {
+        if ($this->valueIsland === null || $this->cellEditor === null) {
+            return null;
+        }
+
+        $local = $this->valueIsland->localRow($row);
+
+        if ($local < 0 || $local >= $this->valueIsland->innerHeight()) {
+            return null;
+        }
+
+        return $this->valueIsland->lineAt($local);
     }
 
     private function toggleVisual(): void
@@ -552,6 +609,12 @@ class Browser extends Prompt
 
     private function onMouse(array $event): void
     {
+        if ($this->mode === 'edit') {
+            $this->mouseInViewer($event);
+
+            return;
+        }
+
         $debug = $this->debugMouse && $event['pressed'] && $event['button'] === Mouse::LEFT;
 
         if ($debug) {
@@ -591,6 +654,43 @@ class Browser extends Prompt
         if ($debug) {
             $this->lastMouse['selected'] = $this->currentTable();
             $this->lastMouse['rowIndex'] = $this->rowIndex;
+        }
+    }
+
+    private function mouseInViewer(array $event): void
+    {
+        if ($this->editable || ! $event['pressed']) {
+            return;
+        }
+
+        if ($event['button'] === Mouse::WHEEL_UP) {
+            $this->cellEditor?->handle(Key::UP);
+
+            return;
+        }
+
+        if ($event['button'] === Mouse::WHEEL_DOWN) {
+            $this->cellEditor?->handle(Key::DOWN);
+
+            return;
+        }
+
+        $line = $this->viewerLineAt($event['row']);
+
+        if ($line === null) {
+            return;
+        }
+
+        if ($event['button'] === Mouse::DRAG_LEFT) {
+            $this->visualAnchor ??= $this->cellEditor?->cursorLine();
+            $this->jump($line);
+
+            return;
+        }
+
+        if ($event['button'] === Mouse::LEFT) {
+            $this->visualAnchor = null;
+            $this->jump($line);
         }
     }
 

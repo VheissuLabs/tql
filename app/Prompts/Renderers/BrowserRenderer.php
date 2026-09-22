@@ -81,6 +81,7 @@ class BrowserRenderer extends Renderer
 
             $screen = (new Screen)->add($editor);
 
+            $prompt->valueIsland = $editor;
             $tableHeight = 0;
         }
 

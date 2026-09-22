@@ -18,6 +18,15 @@ class ValueEditorIsland extends Island
         $this->title = $column.($json ? '  ·  json' : '');
     }
 
+    private int $firstLine = 0;
+
+    public function lineAt(int $localRow): ?int
+    {
+        $line = $this->firstLine + $localRow;
+
+        return $line < count($this->editor->lines()) ? $line : null;
+    }
+
     public function content(int $innerWidth, int $innerHeight): array
     {
         $lines = $this->editor->lines();
@@ -27,7 +36,10 @@ class ValueEditorIsland extends Island
         $gutter = max(2, mb_strlen((string) count($lines)));
         $room = $innerWidth - $gutter - 4;
 
-        $start = max(0, $cursorLine - $innerHeight + 1);
+        $start = max(0, min($cursorLine - intdiv($innerHeight, 2), count($lines) - $innerHeight));
+        $start = max(0, $start);
+
+        $this->firstLine = $start;
 
         $out = [];
 

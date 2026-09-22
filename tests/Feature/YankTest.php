@@ -180,3 +180,93 @@ it('does not mark lines while editing, where the text cursor shows instead', fun
     expect(preg_replace('/\e\[[0-9;]*m/', '', $raw))->not->toContain('▸')
         ->and($raw)->toContain("\e[7m");
 });
+
+it('jumps to a line number typed before G', function () {
+    $browser = viewer();
+
+    $browser->emit('key', '3');
+    $browser->emit('key', 'G');
+
+    expect($browser->cellEditor->cursorLine())->toBe(2);
+
+    $browser->emit('key', '1');
+    $browser->emit('key', 'G');
+
+    expect($browser->cellEditor->cursorLine())->toBe(0);
+});
+
+it('still jumps to the bottom with a bare G', function () {
+    $browser = viewer();
+
+    $browser->emit('key', 'G');
+
+    expect($browser->cellEditor->cursorLine())->toBe(count($browser->cellEditor->lines()) - 1);
+});
+
+it('repeats movement with a count', function () {
+    $browser = viewer();
+
+    $browser->emit('key', '3');
+    $browser->emit('key', 'j');
+
+    expect($browser->cellEditor->cursorLine())->toBe(3);
+
+    $browser->emit('key', '2');
+    $browser->emit('key', 'k');
+
+    expect($browser->cellEditor->cursorLine())->toBe(1);
+});
+
+it('clears the count after using it', function () {
+    $browser = viewer();
+
+    $browser->emit('key', '3');
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'G');
+
+    expect($browser->cellEditor->cursorLine())->toBe(count($browser->cellEditor->lines()) - 1);
+});
+
+it('clicks a line in the viewer', function () {
+    config(['dotsql.ui.mouse_row_offset' => 0]);
+
+    $browser = viewer();
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $method->invoke($browser);
+
+    $island = $browser->valueIsland;
+
+    expect($island)->not->toBeNull();
+
+    $row = $island->y + 1 + 2;
+
+    $browser->emit('key', "\e[<0;6;{$row}M");
+
+    expect($browser->cellEditor->cursorLine())->toBe($island->lineAt(2));
+});
+
+it('drags to select lines in the viewer', function () {
+    config(['dotsql.ui.mouse_row_offset' => 0]);
+
+    $browser = viewer();
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $method->invoke($browser);
+
+    $island = $browser->valueIsland;
+    $row = $island->y + 1;
+
+    $browser->emit('key', "\e[<0;6;{$row}M");
+    $method->invoke($browser);
+
+    $browser->emit('key', "\e[<32;6;".($row + 2).'M');
+    $method->invoke($browser);
+
+    [$from, $to] = $browser->selectedLines();
+
+    expect($to - $from)->toBe(2)
+        ->and($browser->visualAnchor)->not->toBeNull();
+});

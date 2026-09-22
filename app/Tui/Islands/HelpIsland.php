@@ -44,8 +44,11 @@ class HelpIsland extends Island
                 '=' => 'reset the column width',
             ],
             'viewing a value (i)' => [
-                'j / k' => 'move a line at a time',
+                'j / k' => 'move a line, 3j moves three',
                 'g / G' => 'jump to the top or bottom',
+                '12G' => 'jump to line 12',
+                'click' => 'put the cursor on a line',
+                'drag' => 'select a range of lines',
                 'V' => 'start a line selection',
                 'y' => 'yank the selection to the clipboard',
                 'esc' => 'clear the selection, then close',
