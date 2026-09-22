@@ -34,6 +34,7 @@ class HelpIsland extends Island
                 '← → / h l' => 'move between columns',
                 'n / p' => 'next or previous page',
                 'r' => 'reload the current table',
+                'o' => 'sort by the column the cursor is on',
             ],
             'doing' => [
                 '↵' => 'open a table, or edit the selected value',
@@ -56,6 +57,7 @@ class HelpIsland extends Island
             'mouse' => [
                 'click' => 'select a table, row or cell',
                 'drag' => 'a column border in the header resizes it',
+                'header' => 'click a column header to sort by it',
                 'wheel' => 'scroll the focused pane',
             ],
             'commands' => [

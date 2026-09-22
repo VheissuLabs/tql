@@ -96,16 +96,11 @@ class EditorIsland extends Island
 
     private function showRunning(int $innerWidth, int $innerHeight): array
     {
-        $dim = fn (string $t) => $this->style?->dim($t) ?? $t;
+        $lines = [];
 
-        $lines = [$dim(' showing')];
-
-        foreach ($this->split((string) $this->running, $innerWidth - 2) as $line) {
-            $lines[] = ' '.$line;
+        foreach ($this->split((string) $this->running, $innerWidth) as $line) {
+            $lines[] = $this->highlight($line, $innerWidth, null);
         }
-
-        $lines[] = '';
-        $lines[] = $dim(' press s to write your own');
 
         return array_slice($lines, 0, $innerHeight);
     }

@@ -77,12 +77,22 @@ class QueryRunner
         }
     }
 
-    public function rows(Connection $connection, string $table, int $limit = 50, int $offset = 0): QueryResult
-    {
+    public function rows(
+        Connection $connection,
+        string $table,
+        int $limit = 50,
+        int $offset = 0,
+        ?string $sort = null,
+        string $direction = 'asc',
+    ): QueryResult {
         $grammar = $this->connections->resolve($connection)->getQueryGrammar();
         $wrapped = $grammar->wrapTable($table);
 
-        return $this->run($connection, "select * from {$wrapped} limit {$limit} offset {$offset}", 'tui');
+        $order = $sort === null
+            ? ''
+            : ' order by '.$grammar->wrap($sort).' '.($direction === 'desc' ? 'desc' : 'asc');
+
+        return $this->run($connection, "select * from {$wrapped}{$order} limit {$limit} offset {$offset}", 'tui');
     }
 
     public function run(Connection $connection, string $statement, string $source): QueryResult

@@ -103,6 +103,8 @@ class BrowserRenderer extends Renderer
             $prompt->widthOverrides,
             $prompt->editing,
             $style,
+            $prompt->sortColumn,
+            $prompt->sortDirection,
         );
         $table->columnOffset = $prompt->columnOffset;
         $table->scrollLocked = $prompt->isDragging();

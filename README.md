@@ -30,6 +30,7 @@ encryption key), both `0600`.
 | `=` | reset the column width |
 | `n` / `p` | next or previous page (100 rows) |
 | `r` | reload the current table |
+| `o` | sort by the column the cursor is on |
 | `s` | open the SQL editor |
 | `:` | command line — `:q`, `:tables`, `:rows`, `:reload`, `:sql` |
 | `q` / `esc` | quit |
@@ -40,6 +41,16 @@ column border in the header row to resize it**, as you would in a spreadsheet.
 Column widths you set are remembered per column name, so several columns keep
 their sizes at once and survive paging and switching tables.
 
+## Sorting
+
+Click a column header, or press `o` on a column, to sort by it: first click
+ascending, second descending, third clears it. The header shows `▲` or `▼`, and
+the `order by` appears in the SQL pane — so the sort teaches the clause that
+produced it.
+
+Sorting applies to a table, not to query results; those are ordered by whatever
+your query says.
+
 ## Seeing the query behind the view
 
 With `ui.sql_always` on, the SQL pane shows the statement that produced what you
@@ -47,10 +58,7 @@ are looking at, and updates as you change table or page:
 
 ```
 ┌─ SQL ────────────────────────────────────────────┐
-│ showing                                          │
 │ select * from "tracks" limit 100 offset 100      │
-│                                                  │
-│ press s to write your own                        │
 └──────────────────────────────────────────────────┘
 ```
 

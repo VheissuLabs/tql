@@ -1005,10 +1005,8 @@ it('shows the query behind the current view', function () {
     $browser = browserFor(sqliteFixture());
     $frame = frameOf($browser);
 
-    expect($frame)->toContain('showing')
-        ->and($frame)->toContain('select * from')
-        ->and($frame)->toContain('widgets')
-        ->and($frame)->toContain('press s to write your own');
+    expect($frame)->toContain('select * from')
+        ->and($frame)->toContain('widgets');
 
     config(['dotsql.ui.sql_always' => false]);
 });
@@ -1068,8 +1066,7 @@ it('gives the pane back to your own query when you start typing', function () {
 
     $frame = frameOf($browser);
 
-    expect($frame)->toContain('select 1')
-        ->and($frame)->not->toContain('press s to write your own');
+    expect($frame)->toContain('select 1');
 
     config(['dotsql.ui.sql_always' => false]);
 });
@@ -1255,6 +1252,30 @@ it('leaves the sql pane with tab rather than indenting', function () {
 
     expect($browser->editor->buffer())->toBe($before)
         ->and($browser->mode)->toBe('browse');
+
+    config(['dotsql.ui.sql_always' => false]);
+});
+
+it('highlights the query it is showing', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = browserFor(sqliteFixture());
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $raw = $method->invoke($browser);
+
+    $sqlLine = '';
+
+    foreach (explode("\n", $raw) as $line) {
+        if (str_contains(preg_replace('/\e\[[0-9;]*m/', '', $line), 'select * from')) {
+            $sqlLine = $line;
+            break;
+        }
+    }
+
+    expect($sqlLine)->toContain("\e[35m")
+        ->and($sqlLine)->toContain("\e[36m");
 
     config(['dotsql.ui.sql_always' => false]);
 });

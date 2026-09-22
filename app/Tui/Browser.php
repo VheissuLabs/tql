@@ -63,6 +63,10 @@ class Browser extends Prompt
 
     public ?string $queryTable = null;
 
+    public ?string $sortColumn = null;
+
+    public string $sortDirection = 'asc';
+
     public string $mode = 'browse';
 
     public QueryEditor $editor;
@@ -219,6 +223,7 @@ class Browser extends Prompt
             $key === 'n' => $this->page(self::PAGE),
             $key === 'p' => $this->page(-self::PAGE),
             $key === 'r' => $this->reload(),
+            $key === 'o' => $this->sortBy($this->headers[$this->columnIndex] ?? null),
             default => true,
         };
     }
@@ -735,7 +740,10 @@ class Browser extends Prompt
 
     private function press(int $column, int $row): bool
     {
-        if ($this->table !== null && $row === $this->table->y + 1) {
+        if ($this->table !== null
+            && $row === $this->table->y + 1
+            && $column >= $this->table->x
+            && $column <= $this->table->x + $this->table->width - 1) {
             $handle = $this->handleNear($column);
 
             if ($handle !== null) {
@@ -749,6 +757,8 @@ class Browser extends Prompt
                     return true;
                 }
             }
+
+            return $this->sortFromClick($column);
         }
 
         return $this->click($column, $row);
@@ -835,6 +845,41 @@ class Browser extends Prompt
         }
 
         return true;
+    }
+
+    public function sortBy(?string $column): bool
+    {
+        if ($column === null || $this->resultsFromQuery) {
+            return true;
+        }
+
+        if ($this->sortColumn === $column) {
+            if ($this->sortDirection === 'asc') {
+                $this->sortDirection = 'desc';
+            } else {
+                $this->sortColumn = null;
+                $this->sortDirection = 'asc';
+            }
+        } else {
+            $this->sortColumn = $column;
+            $this->sortDirection = 'asc';
+        }
+
+        $this->offset = 0;
+        $this->load();
+
+        $this->status = $this->sortColumn === null
+            ? 'sort cleared'
+            : "sorted by {$this->sortColumn} {$this->sortDirection}";
+
+        return true;
+    }
+
+    private function sortFromClick(int $column): bool
+    {
+        $index = $this->table?->columnIndexFor($this->table->localColumn($column));
+
+        return $this->sortBy($index === null ? null : ($this->headers[$index] ?? null));
     }
 
     private function quit(string $exit = 'quit'): bool
@@ -962,6 +1007,8 @@ class Browser extends Prompt
 
         $this->tableIndex = $index;
         $this->offset = 0;
+        $this->sortColumn = null;
+        $this->sortDirection = 'asc';
         $this->load();
 
         return true;
@@ -1026,7 +1073,14 @@ class Browser extends Prompt
             return;
         }
 
-        $result = $this->runner->rows($this->connection, $table, self::PAGE + 1, $this->offset);
+        $result = $this->runner->rows(
+            $this->connection,
+            $table,
+            self::PAGE + 1,
+            $this->offset,
+            $this->sortColumn,
+            $this->sortDirection,
+        );
 
         if ($result->failed()) {
             $this->status = $result->error;

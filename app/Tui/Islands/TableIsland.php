@@ -24,6 +24,8 @@ class TableIsland extends Island
         private array $overrides,
         private ?string $editing,
         private Styler $style,
+        private ?string $sortColumn = null,
+        private string $sortDirection = 'asc',
     ) {}
 
     public function content(int $innerWidth, int $innerHeight): array
@@ -157,7 +159,11 @@ class TableIsland extends Island
         $cells = [];
 
         foreach (array_slice($this->headers, $this->columnOffset, count($this->widths)) as $i => $name) {
-            $text = ' '.$this->style->pad($this->style->truncate($name, $this->widths[$i]), $this->widths[$i]).' ';
+            $label = $name === $this->sortColumn
+                ? $name.' '.($this->sortDirection === 'desc' ? '▼' : '▲')
+                : $name;
+
+            $text = ' '.$this->style->pad($this->style->truncate($label, $this->widths[$i]), $this->widths[$i]).' ';
 
             $cells[] = ($this->columnOffset + $i) === $this->columnIndex
                 ? $this->style->bold($text)
