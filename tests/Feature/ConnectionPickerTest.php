@@ -185,3 +185,65 @@ it('draws the form centred over the list', function () {
     expect(max(array_map('mb_strlen', $lines)))->toBeLessThanOrEqual(120)
         ->and(str_contains($row, 'Name'))->toBeFalse();
 });
+
+function pickerFrame(ConnectionPicker $picker, int $cols = 120, int $rows = 30): string
+{
+    putenv("COLUMNS={$cols}");
+    putenv("LINES={$rows}");
+
+    $render = new ReflectionMethod($picker, 'renderTheme');
+    $render->setAccessible(true);
+
+    $frame = $render->invoke($picker);
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    return $frame;
+}
+
+it('marks the driver with an icon instead of a column', function () {
+    Connection::create(['name' => 'shop', 'driver' => 'mysql', 'host' => 'h', 'port' => 3306, 'database' => 'd']);
+
+    $picker = new ConnectionPicker(Connection::orderBy('name')->get());
+
+    $plain = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker));
+
+    expect($plain)->toContain('◆ shop')
+        ->and($plain)->not->toContain('DRIVER');
+});
+
+it('gives each driver its own icon', function () {
+    foreach (['mysql' => '◆', 'pgsql' => '●', 'sqlite' => '▪'] as $driver => $icon) {
+        Connection::query()->delete();
+        Connection::create(['name' => 'one', 'driver' => $driver, 'database' => '/tmp/x', 'host' => 'h', 'port' => 1]);
+
+        $picker = new ConnectionPicker(Connection::get());
+
+        expect(preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker)))->toContain($icon.' one');
+    }
+});
+
+it('titles the connection frame', function () {
+    expect(preg_replace('/\e\[[0-9;]*m/', '', pickerFrame(picker())))->toContain('CONNECTIONS');
+});
+
+it('keeps the connection screen inside the terminal', function () {
+    $picker = picker();
+
+    foreach ([70, 90, 120, 160, 200] as $cols) {
+        $frame = pickerFrame($picker, $cols);
+
+        foreach (explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $frame)) as $line) {
+            expect(mb_strlen($line))->toBeLessThanOrEqual($cols);
+        }
+    }
+});
+
+it('puts the hotkeys above the status line', function () {
+    $plain = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame(picker()));
+    $lines = array_values(array_filter(explode("\n", $plain), fn (string $l) => trim($l) !== ''));
+
+    expect(end($lines))->toContain('connections')
+        ->and(prev($lines))->toContain('Move');
+});

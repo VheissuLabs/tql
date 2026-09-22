@@ -33,7 +33,7 @@ class ConnectionPickerRenderer extends Renderer
         }
 
         $lines = [
-            $this->rule($prompt, '┌', '┬', '┐', $widths, $inner),
+            $this->titleRule($widths, $inner),
             $this->headerRow($widths, $inner),
             $this->rule($prompt, '├', '┼', '┤', $widths, $inner),
         ];
@@ -42,7 +42,9 @@ class ConnectionPickerRenderer extends Renderer
         $blank = $this->blank($widths, $inner);
 
         for ($i = 0; $i < $bodyHeight; $i++) {
-            $lines[] = $this->dim('│').$this->pad($rows[$i] ?? $blank, $inner).$this->dim('│');
+            $lines[] = $this->paint(Theme::border(true), '│')
+                .$this->pad($rows[$i] ?? $blank, $inner)
+                .$this->paint(Theme::border(true), '│');
         }
 
         $lines[] = $this->rule($prompt, '└', '┴', '┘', $widths, $inner);
@@ -159,51 +161,79 @@ class ConnectionPickerRenderer extends Renderer
     {
         $rows = $prompt->rows();
 
-        $name = 4;
-        $driver = 6;
+        // The name column carries the driver icon and a space in front of it.
+        $name = 6;
         $used = 9;
 
         foreach ($rows as $row) {
-            $name = max($name, mb_strlen($row['name']));
-            $driver = max($driver, mb_strlen($row['driver']));
+            $name = max($name, mb_strlen($row['name']) + 2);
             $used = max($used, mb_strlen($row['used']));
         }
 
-        $name = min($name, 30);
+        $name = min($name, 32);
         $used = min($used, 20);
 
-        $where = max(10, $inner - $name - $driver - $used - 11);
+        $where = max(10, $inner - $name - $used - 8);
 
-        return [$name, $driver, $where, $used];
+        return [$name, $where, $used];
     }
 
     private function rule(ConnectionPicker $prompt, string $left, string $join, string $right, array $widths, int $inner): string
     {
+        $body = $this->ruleBody($widths, $join, $inner);
+
+        return $this->paint(Theme::border(true), $left)
+            .$this->paint(Theme::grid(true), $body)
+            .$this->paint(Theme::border(true), $right);
+    }
+
+    private function ruleBody(array $widths, string $join, int $inner): string
+    {
         $segments = array_map(fn (int $w) => str_repeat('─', $w + 2), $widths);
 
         $body = implode($join, $segments);
-        $body .= str_repeat('─', max(0, $inner - mb_strlen($body)));
 
-        return $this->dim($left.$body.$right);
+        return $body.str_repeat('─', max(0, $inner - mb_strlen($body)));
+    }
+
+    /**
+     * The same titled frame the browser panes use, so the first screen looks
+     * like the rest of the application rather than a plain table.
+     */
+    private function titleRule(array $widths, int $inner): string
+    {
+        $title = ' CONNECTIONS ';
+        $body = $this->ruleBody($widths, '┬', $inner);
+
+        $edge = fn (string $text) => $this->paint(Theme::border(true), $text);
+
+        return $edge('┌─')
+            .$this->bold($this->paint(Theme::title(true), $title))
+            .$this->paint(Theme::grid(true), mb_substr($body, mb_strlen($title) + 1))
+            .$edge('┐');
     }
 
     private function headerRow(array $widths, int $inner): string
     {
-        $labels = ['NAME', 'DRIVER', 'WHERE', 'LAST USED'];
+        $labels = ['NAME', 'WHERE', 'LAST USED'];
         $cells = [];
 
         foreach ($widths as $i => $width) {
-            $cells[] = $this->dim(' '.$this->pad($this->truncate($labels[$i], $width), $width).' ');
+            $cells[] = $this->bold(' '.$this->pad($this->truncate($labels[$i], $width), $width).' ');
         }
 
-        return $this->dim('│').$this->pad(implode($this->dim('│'), $cells), $inner).$this->dim('│');
+        $grid = $this->paint(Theme::grid(true), '│');
+
+        return $this->paint(Theme::border(true), '│')
+            .$this->pad(implode($grid, $cells), $inner)
+            .$this->paint(Theme::border(true), '│');
     }
 
     private function blank(array $widths, int $inner): string
     {
         $cells = array_map(fn (int $w) => str_repeat(' ', $w + 2), $widths);
 
-        return $this->pad(implode($this->dim('│'), $cells), $inner);
+        return $this->pad(implode($this->paint(Theme::grid(true), '│'), $cells), $inner);
     }
 
     private function rows(ConnectionPicker $prompt, array $widths, int $height): array
@@ -222,20 +252,75 @@ class ConnectionPickerRenderer extends Renderer
 
         $lines = [];
 
+        $grid = $this->paint(Theme::grid(true), '│');
+
         foreach (array_slice($rows, $start, $height) as $offset => $row) {
-            $values = [$row['name'], $row['driver'], $row['where'], $row['used']];
+            $selected = ($start + $offset) === $prompt->index;
+            $values = [$row['name'], $row['where'], $row['used']];
             $cells = [];
 
             foreach ($widths as $i => $width) {
-                $cells[] = ' '.$this->pad($this->truncate((string) $values[$i], $width), $width).' ';
+                if ($i === 0) {
+                    $cells[] = $this->nameCell($row['driver'], (string) $values[0], $width, $selected);
+
+                    continue;
+                }
+
+                $text = ' '.$this->pad($this->truncate((string) $values[$i], $width), $width).' ';
+
+                $cells[] = $selected ? $text : $this->dim($text);
             }
 
-            $line = implode($this->dim('│'), $cells);
+            $line = implode($grid, $cells);
 
-            $lines[] = ($start + $offset) === $prompt->index ? $this->inverse($line) : $line;
+            $lines[] = $selected ? $this->highlight($line) : $line;
         }
 
         return $lines;
+    }
+
+    /**
+     * The driver rides in front of the name as a glyph rather than taking a
+     * column of its own. Shape carries the meaning as well as colour, so it
+     * still reads without colour.
+     */
+    private function nameCell(string $driver, string $name, int $width, bool $selected): string
+    {
+        $icon = $this->driverIcon($driver);
+        $label = $this->pad($this->truncate($name, $width - 2), $width - 2);
+
+        return ' '.($selected ? $icon : $this->paint($this->driverColour($driver), $icon)).' '.$label.' ';
+    }
+
+    private function driverIcon(string $driver): string
+    {
+        return match ($driver) {
+            'mysql' => '◆',
+            'pgsql' => '●',
+            'sqlite' => '▪',
+            'sqlsrv' => '★',
+            default => '·',
+        };
+    }
+
+    private function driverColour(string $driver): string
+    {
+        return match ($driver) {
+            'mysql' => 'yellow',
+            'pgsql' => 'blue',
+            'sqlite' => 'green',
+            'sqlsrv' => 'magenta',
+            default => 'dim',
+        };
+    }
+
+    private function highlight(string $line): string
+    {
+        $colour = Theme::selection();
+
+        return $colour === 'default'
+            ? $this->inverse($line)
+            : $this->paint($colour, $this->inverse($line));
     }
 
     private function status(ConnectionPicker $prompt): string
