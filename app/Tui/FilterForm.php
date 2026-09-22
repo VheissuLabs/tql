@@ -24,6 +24,9 @@ class FilterForm
 
     public ?QueryEditor $editor = null;
 
+    /** The type-to-filter list for the column or operator cell. */
+    public ?Picker $picker = null;
+
     public string $joiner = 'and';
 
     /** @var array<int, Filter> */
@@ -122,6 +125,46 @@ class FilterForm
     public function toggleJoiner(): void
     {
         $this->joiner = $this->joiner === 'and' ? 'or' : 'and';
+    }
+
+    /**
+     * Enter on the column or operator cell opens a list you can type into,
+     * which beats cycling past forty columns one arrow at a time.
+     */
+    public function openPicker(): void
+    {
+        $filter = $this->current();
+
+        $this->picker = match ($this->cell) {
+            self::COLUMN => new Picker('COLUMN', $this->columns, $filter->column),
+            self::OPERATOR => new Picker('OPERATOR', array_keys(Filter::OPERATORS), $filter->operator),
+            default => null,
+        };
+    }
+
+    public function choose(): void
+    {
+        $chosen = $this->picker?->selected();
+
+        if ($chosen === null) {
+            $this->picker = null;
+
+            return;
+        }
+
+        if ($this->cell === self::COLUMN) {
+            $this->current()->column = $chosen;
+        } else {
+            $this->current()->operator = $chosen;
+            $this->cell = min($this->cell, $this->lastCell());
+        }
+
+        $this->picker = null;
+    }
+
+    public function closePicker(): void
+    {
+        $this->picker = null;
     }
 
     public function startEditing(): void

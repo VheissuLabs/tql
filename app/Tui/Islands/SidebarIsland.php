@@ -54,13 +54,4 @@ class SidebarIsland extends Island
     {
         return $this->start + $localRow === $this->selected;
     }
-
-    private function window(int $cursor, int $total, int $room): int
-    {
-        if ($total <= $room) {
-            return 0;
-        }
-
-        return max(0, min($cursor - intdiv($room, 2), $total - $room));
-    }
 }

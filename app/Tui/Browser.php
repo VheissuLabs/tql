@@ -1338,6 +1338,18 @@ class Browser extends Prompt
     {
         $form = $this->filterForm;
 
+        if ($form->picker !== null) {
+            match (true) {
+                $key === Key::ESCAPE => $form->closePicker(),
+                $key === Key::ENTER => $form->choose(),
+                in_array($key, [Key::UP, Key::UP_ARROW], true) => $form->picker->move(-1),
+                in_array($key, [Key::DOWN, Key::DOWN_ARROW], true) => $form->picker->move(1),
+                default => $form->picker->type($key),
+            };
+
+            return;
+        }
+
         if ($form->editor !== null) {
             match (true) {
                 $key === Key::ESCAPE => $form->abandon(),
@@ -1363,7 +1375,9 @@ class Browser extends Prompt
             $key === '+', $key === 'n' => $form->add(),
             $key === '-', $key === 'd' => $form->remove(),
             $key === 'o' => $form->toggleJoiner(),
-            $key === Key::ENTER => $form->startEditing(),
+            $key === Key::ENTER => $form->cell === FilterForm::VALUE
+                ? $form->startEditing()
+                : $form->openPicker(),
             default => true,
         };
     }

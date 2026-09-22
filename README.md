@@ -93,10 +93,15 @@ their sizes at once and survive paging and switching tables.
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-`← →` change the column or operator under the cursor, `tab` moves between the
-three cells, `↵` types a value, `+` and `-` add and remove conditions, `o`
-switches the whole bar between `and` and `or`, `ctrl+s` applies and `esc`
-clears.
+`tab` moves between the three cells. On the column or operator, `↵` opens a
+type-to-filter list — start typing to narrow it, arrows to move, `↵` to pick —
+and `← →` step through the options without opening it. On the value, `↵` types.
+`+` and `-` add and remove conditions, `o` switches the whole bar between `and`
+and `or`, `ctrl+s` applies and `esc` clears.
+
+The list behaves like Laravel Prompts' `search`, but it is drawn inside the
+frame: Prompts' own `select` and `search` block the loop and render a frame of
+their own, so using one would mean leaving the TUI and flashing the screen.
 
 Operators: is, is not, contains, starts with, ends with, is greater than, is at
 least, is less than, is at most, is empty, is not empty, is one of (a

@@ -9,6 +9,7 @@ use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\FilterIsland;
 use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\Island;
+use App\Tui\Islands\PickerIsland;
 use App\Tui\Islands\Screen;
 use App\Tui\Islands\SidebarIsland;
 use App\Tui\Islands\Styler;
@@ -91,6 +92,23 @@ class BrowserRenderer extends Renderer
             );
 
             $screen->overlay($bar);
+
+            if ($prompt->filterForm->picker !== null) {
+                $list = new PickerIsland($prompt->filterForm->picker, $style);
+                $list->focused = true;
+
+                $listWidth = min($width - 4, PickerIsland::WIDTH);
+                $listHeight = $list->rows();
+
+                $list->place(
+                    (int) (($width - $listWidth) / 2) + 1,
+                    $top + (int) (($frameHeight - $listHeight) / 2),
+                    $listWidth,
+                    $listHeight,
+                );
+
+                $screen->overlay($list);
+            }
         }
 
         if ($prompt->question !== null) {

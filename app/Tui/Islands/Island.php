@@ -79,4 +79,17 @@ abstract class Island
     {
         return $this->x + 1 + $local;
     }
+
+    /**
+     * Where to start drawing so the cursor stays in view, centred when there
+     * is more than fits.
+     */
+    protected function window(int $cursor, int $total, int $room): int
+    {
+        if ($total <= $room) {
+            return 0;
+        }
+
+        return max(0, min($cursor - intdiv($room, 2), $total - $room));
+    }
 }

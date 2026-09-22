@@ -2,6 +2,8 @@
 
 use App\Database\Filter;
 use App\Database\Filters;
+use App\Tui\Islands\Island;
+use App\Tui\Islands\Screen;
 use Illuminate\Database\Query\Grammars\SQLiteGrammar;
 
 function grammar(): SQLiteGrammar
@@ -86,4 +88,28 @@ it('skips conditions that are not finished', function () {
 it('is nothing at all when no condition is usable', function () {
     expect((new Filters([new Filter('name', 'is', '')]))->toSql(grammar()))->toBeNull()
         ->and((new Filters)->toSql(grammar()))->toBeNull();
+});
+
+it('draws one overlay on top of another', function () {
+    $screen = new Screen;
+
+    $under = new class extends Island
+    {
+        public function content(int $innerWidth, int $innerHeight): array
+        {
+            return [];
+        }
+    };
+    $under->place(1, 1, 20, 3);
+
+    $over = clone $under;
+    $over->place(5, 2, 6, 1);
+
+    $screen->overlay($under)->overlay($over);
+
+    $lines = $screen->compose(4, fn ($island) => $island === $over
+        ? ['OVER  ']
+        : ['....................', '....................', '....................']);
+
+    expect($lines[1])->toContain('OVER');
 });

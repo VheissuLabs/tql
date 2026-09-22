@@ -242,3 +242,115 @@ it('drops pending changes when the filter changes', function () {
 
     expect($browser->pendingDeletes)->toBe([]);
 });
+
+it('opens a type-to-filter list on the column cell', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', "\n");
+
+    $picker = $browser->filterForm->picker;
+
+    expect($picker)->not->toBeNull()
+        ->and($picker->title)->toBe('COLUMN')
+        ->and($picker->options)->toBe(['id', 'name', 'age', 'city']);
+});
+
+it('filters the list as you type and picks on enter', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', "\n");
+    $browser->emit('key', 'cit');
+
+    expect($browser->filterForm->picker->matches())->toBe(['city']);
+
+    $browser->emit('key', "\n");
+
+    expect($browser->filterForm->picker)->toBeNull()
+        ->and($browser->filterForm->current()->column)->toBe('city');
+});
+
+it('opens the operator list on the operator cell', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', "\t");
+    $browser->emit('key', "\n");
+
+    expect($browser->filterForm->picker->title)->toBe('OPERATOR');
+
+    $browser->emit('key', 'empty');
+
+    expect($browser->filterForm->picker->matches())->toBe(['is empty', 'is not empty']);
+
+    $browser->emit('key', "\n");
+
+    expect($browser->filterForm->current()->operator)->toBe('is empty');
+});
+
+it('leaves the list alone on escape', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $was = $browser->filterForm->current()->column;
+
+    $browser->emit('key', "\n");
+    $browser->emit('key', 'city');
+    $browser->emit('key', "\e");
+
+    expect($browser->filterForm->picker)->toBeNull()
+        ->and($browser->filterForm->current()->column)->toBe($was);
+});
+
+it('wraps around the ends of the list', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', "\n");
+
+    $picker = $browser->filterForm->picker;
+
+    expect($picker->selected())->toBe('id');
+
+    $picker->move(-1);
+
+    expect($picker->selected())->toBe('city');
+
+    $picker->move(1);
+
+    expect($picker->selected())->toBe('id');
+});
+
+it('goes back to the top when the list changes under you', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', "\n");
+
+    $browser->emit('key', "\e[B");
+    $browser->emit('key', "\e[B");
+
+    expect($browser->filterForm->picker->index)->toBe(2);
+
+    $browser->emit('key', 'a');
+
+    expect($browser->filterForm->picker->index)->toBe(0)
+        ->and($browser->filterForm->picker->selected())->toBe('name');
+});
+
+it('says when nothing matches', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', "\n");
+    $browser->emit('key', 'zzz');
+
+    expect($browser->filterForm->picker->matches())->toBe([])
+        ->and($browser->filterForm->picker->selected())->toBeNull();
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+
+    expect(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)))->toContain('nothing matches');
+});

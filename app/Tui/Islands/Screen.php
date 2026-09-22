@@ -65,17 +65,20 @@ class Screen
             $lines[] = $line;
         }
 
+        // Each overlay is drawn over the last, so a picker can sit on top of
+        // the form that opened it. Note the separate variable: reusing $box
+        // would replace the callable with the first overlay's lines.
         foreach ($this->overlays as $island) {
-            $box = $box($island);
+            $rows = $box($island);
 
             for ($i = 0; $i < $island->height; $i++) {
                 $row = $island->y + $i - 1;
 
-                if (! isset($lines[$row]) || ! isset($box[$i])) {
+                if (! isset($lines[$row]) || ! isset($rows[$i])) {
                     continue;
                 }
 
-                $lines[$row] = static::splice($lines[$row], $box[$i], $island->x, $island->width);
+                $lines[$row] = static::splice($lines[$row], $rows[$i], $island->x, $island->width);
             }
         }
 
