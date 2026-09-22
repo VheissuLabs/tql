@@ -212,7 +212,7 @@ class BrowserRenderer extends Renderer
                 'gutter' => $this->dim($t),
                 'grid' => $this->paint(Theme::grid($this->painting), $t),
                 'cursor' => $this->highlight(Theme::cursor(), $t),
-                'deleted' => $this->paint(Theme::colour('deleted', 'red'), $t),
+                'marked' => $this->highlight(Theme::colour('deleted', 'red'), $t),
                 'selection' => $this->highlight(Theme::selection(), $t),
                 default => $t,
             },

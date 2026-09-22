@@ -211,8 +211,8 @@ drivers your PHP build actually has.
 ## Deleting
 
 `d` marks the row under the cursor and moves down, so a run of rows is `ddd`.
-Nothing is written yet: marked rows are drawn in `theme.deleted` (red by
-default) with a `-` in the gutter, `d` again unmarks, and `u` clears every mark.
+Nothing is written yet: marked rows are highlighted in `theme.deleted` (red by
+default), `d` again unmarks, and `u` clears every mark.
 
 `:w` writes them, all in one transaction. Until then the database is untouched.
 

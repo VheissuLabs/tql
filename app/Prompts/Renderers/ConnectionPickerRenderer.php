@@ -303,13 +303,14 @@ class ConnectionPickerRenderer extends Renderer
             // A selected row is built without any colour of its own: an escape
             // sequence inside the span would reset the highlight partway and
             // tear it at the column separators.
-            $line = $selected
-                ? $this->highlight($this->pad(implode('│', $cells), $inner))
-                : implode($grid, $cells);
-
-            $lines[] = $marked && ! $selected
-                ? $this->paint(Theme::colour('deleted', 'red'), $this->strip($line))
-                : $line;
+            $lines[] = match (true) {
+                $marked => $this->highlight(
+                    $this->pad(implode('│', $cells), $inner),
+                    Theme::colour('deleted', 'red'),
+                ),
+                $selected => $this->highlight($this->pad(implode('│', $cells), $inner)),
+                default => implode($grid, $cells),
+            };
         }
 
         return $lines;
@@ -324,11 +325,7 @@ class ConnectionPickerRenderer extends Renderer
     {
         $icon = $this->driverIcon($driver);
 
-        $marker = match (true) {
-            $marked => '-',
-            Layout::rowStyle() === 'marker' && $selected => '▸',
-            default => ' ',
-        };
+        $marker = Layout::rowStyle() === 'marker' && $selected ? '▸' : ' ';
         $label = $this->pad($this->truncate($name, $width - 4), $width - 4);
 
         return ' '.$marker.' '
@@ -352,9 +349,9 @@ class ConnectionPickerRenderer extends Renderer
         };
     }
 
-    private function highlight(string $line): string
+    private function highlight(string $line, ?string $colour = null): string
     {
-        $colour = Theme::selection();
+        $colour ??= Theme::selection();
 
         return $colour === 'default'
             ? $this->inverse($line)

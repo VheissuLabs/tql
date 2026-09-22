@@ -195,6 +195,7 @@ class TableIsland extends Island
     private function rowLine(array $row, int $absolute, int $innerWidth): string
     {
         $selected = $absolute === $this->rowIndex;
+        $pending = in_array($absolute, $this->marked, true);
         $values = array_values($row);
         $cells = [];
         $style = Layout::rowStyle();
@@ -209,24 +210,26 @@ class TableIsland extends Island
 
             $padded = ' '.$this->style->pad($text, $width).' ';
 
-            $cells[] = $selected && $column === $this->columnIndex
+            $cells[] = $selected && $column === $this->columnIndex && ! $pending
                 ? $this->cursorCell($text, $width)
                 : $padded;
         }
 
-        $pending = in_array($absolute, $this->marked, true);
+        // A marked row is drawn as one bar, so it is built without colour of
+        // its own: an escape sequence inside the span would tear the
+        // highlight at the first column separator.
+        if ($pending) {
+            $marker = $selected && $style === 'marker' ? ' ▸' : '  ';
 
-        $marker = match (true) {
-            $pending => $this->style->colour('deleted', ' -'),
-            $selected && $style === 'marker' => ' ▸',
-            default => '  ',
-        };
+            return $this->style->colour(
+                'marked',
+                $this->style->pad($marker.implode('│', $cells), $innerWidth),
+            );
+        }
+
+        $marker = $selected && $style === 'marker' ? ' ▸' : '  ';
 
         $line = $marker.implode($this->style->colour('grid', '│'), $cells);
-
-        if ($pending) {
-            return $this->style->colour('deleted', $this->style->visible($line) === 0 ? $line : $line);
-        }
 
         if (! $selected) {
             return $style === 'dim-others' ? $this->style->dim($line) : $line;

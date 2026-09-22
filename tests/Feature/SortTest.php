@@ -42,6 +42,14 @@ function sortable(): Browser
     return $browser;
 }
 
+function rerenderRaw(Browser $browser): string
+{
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    return $method->invoke($browser);
+}
+
 function rerender(Browser $browser): string
 {
     $method = new ReflectionMethod($browser, 'renderTheme');
@@ -574,4 +582,29 @@ it('forgets marks when you change table', function () {
 
     expect($browser->pendingDeletes)->toBe([])
         ->and($browser->currentTable())->toBe('veg');
+});
+
+it('highlights a marked row as one unbroken bar', function () {
+    config(['tql.theme.deleted' => 'red']);
+
+    $browser = sortable();
+    $browser->emit('key', 'd');
+
+    $marked = collect(explode("\n", rerenderRaw($browser)))
+        ->first(fn (string $line) => str_contains($line, "\e[31m\e[7m"));
+
+    expect($marked)->not->toBeNull();
+
+    preg_match('/\e\[7m(.*?)\e\[27m/', $marked, $match);
+
+    // Nothing inside the span resets the highlight, so the bar does not tear.
+    expect($match[1] ?? '')->not->toContain("\e[")
+        ->and($match[1] ?? '')->toContain('│');
+});
+
+it('no longer puts a dash in the gutter', function () {
+    $browser = sortable();
+    $browser->emit('key', 'd');
+
+    expect(rerender($browser))->not->toContain(' -');
 });
