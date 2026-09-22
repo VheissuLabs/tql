@@ -37,6 +37,11 @@ class Layout
         return (string) config('tql.ui.row_style', 'marker');
     }
 
+    public static function inspectRelated(): int
+    {
+        return (int) config('tql.ui.inspect_related', 10);
+    }
+
     public static function doubleClickMs(): int
     {
         return (int) config('tql.ui.double_click_ms', 400);

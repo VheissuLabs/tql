@@ -190,6 +190,15 @@ class ConfigTemplate
             ],
             [
                 'section' => 'ui',
+                'key' => 'inspect_related',
+                'default' => '10',
+                'comment' => [
+                    'Related rows to load into the row inspector, following',
+                    'foreign keys both ways. 0 turns it off.',
+                ],
+            ],
+            [
+                'section' => 'ui',
                 'key' => 'double_click_ms',
                 'default' => '400',
                 'comment' => ['How close two clicks must be to open the editor'],

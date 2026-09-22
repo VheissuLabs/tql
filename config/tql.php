@@ -91,6 +91,9 @@ return [
 
         'double_click_ms' => env('TQL_DOUBLE_CLICK_MS', 400),
 
+        // Related rows to load into the row inspector. 0 turns it off.
+        'inspect_related' => env('TQL_INSPECT_RELATED', 10),
+
         'mouse_row_offset' => env('TQL_MOUSE_ROW_OFFSET', 0),
 
         'mouse_column_offset' => env('TQL_MOUSE_COLUMN_OFFSET', 0),

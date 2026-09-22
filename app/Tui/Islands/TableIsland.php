@@ -28,6 +28,7 @@ class TableIsland extends Island
         private string $sortDirection = 'asc',
         private array $marked = [],
         private array $edited = [],
+        private array $linked = [],
     ) {}
 
     public function content(int $innerWidth, int $innerHeight): array
@@ -149,7 +150,9 @@ class TableIsland extends Island
     {
         // The sort marker lives in the header, so the column has to be wide
         // enough to hold it or it is the first thing truncation eats.
-        $width = mb_strlen($column) + ($column === $this->sortColumn ? 2 : 0);
+        $width = mb_strlen($column)
+            + ($column === $this->sortColumn ? 2 : 0)
+            + (in_array($column, $this->linked, true) ? 2 : 0);
 
         foreach ($this->rows as $row) {
             $width = max($width, mb_strlen((string) ($row[$column] ?? '')));
@@ -166,6 +169,12 @@ class TableIsland extends Island
             $label = $name === $this->sortColumn
                 ? $name.' '.($this->sortDirection === 'desc' ? '▼' : '▲')
                 : $name;
+
+            // A column you can follow says so, rather than making you press L
+            // to find out.
+            if (in_array($name, $this->linked, true)) {
+                $label .= ' →';
+            }
 
             $text = ' '.$this->style->pad($this->style->truncate($label, $this->widths[$i]), $this->widths[$i]).' ';
 

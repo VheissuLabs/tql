@@ -88,7 +88,7 @@ class HelpIsland extends Island
                 '/' => 'filter the tables list',
                 'f' => 'filter the rows: column, operator, value',
                 't' => 'structure: columns, types, keys and indexes',
-                'L' => 'follow the foreign key under the cursor',
+                'L' => 'follow a link: the key under the cursor, or what points here',
                 'ctrl+o' => 'go back where you followed from',
                 '↵ in a filter' => 'open a list you can type to narrow',
                 ', .' => 'narrow or widen the column',

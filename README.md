@@ -133,8 +133,13 @@ STRUCTURE  ·  albums
 
 ## Following a link
 
+Columns you can follow are marked with `→` in the header.
+
 With the cursor on a foreign key, `L` opens the table it points at, filtered to
-the row it points to. `ctrl+o` goes back where you came from, vim style.
+the row it points to. From anywhere else on the row, `L` goes the other way:
+the tables that reference this one. If more than one does, it offers a list.
+
+`ctrl+o` goes back where you came from, vim style.
 
 The jump is an ordinary filter, so the SQL pane shows the `where` clause that
 made it — following a link teaches you the query you would have written.
@@ -320,6 +325,25 @@ screen — nothing is truncated into a cell.
 
 A json column is decoded on the way in, so it reads as part of the object
 rather than as a string of json hiding inside it.
+
+**Relations come with it**, the way an API resource would return them: the
+record this row belongs to, and the records that belong to it, both found by
+following foreign keys.
+
+```json
+{
+    "id": 1,
+    "name": "AC/DC",
+    "albums": [
+        { "id": 1, "title": "For Those About To Rock We Salute You" },
+        { "id": 4, "title": "Let There Be Rock" }
+    ]
+}
+```
+
+`ui.inspect_related` caps how many related rows are loaded (10 by default, 0
+turns it off). When there are more, a `<table>_truncated_at` key says so rather
+than quietly showing you part of the story.
 
 `I` opens just the value under the cursor, which is what `i` used to do. Both
 scroll with `j`/`k`, select with `V` and yank with `y`. From either, `e` leaves

@@ -290,6 +290,12 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->linkPicker !== null) {
+            $this->handleLinkPickerKey($key);
+
+            return;
+        }
+
         if ($this->filterForm !== null) {
             $this->handleFilterFormKey($key);
 
@@ -583,6 +589,12 @@ class Browser extends Prompt
     /** @var array<int, array{table: string, filters: Filters|null, row: int}> */
     private array $jumps = [];
 
+    /** The list open for choosing which way to follow a row. */
+    public ?Picker $linkPicker = null;
+
+    /** @var array<string, array{table: string, column: string, references: string}> */
+    private array $linkChoices = [];
+
     public function cellColumn(): string
     {
         if ($this->inspectingRow) {
@@ -622,7 +634,7 @@ class Browser extends Prompt
 
         $this->cellEditor = new QueryEditor;
         $this->cellEditor->set(Json::pretty((string) json_encode(
-            $this->readable($row),
+            $this->withRelations($this->readable($row)),
             JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
         )));
         $this->cellEditor->toStart();
@@ -630,6 +642,63 @@ class Browser extends Prompt
         $this->mode = 'edit';
 
         return true;
+    }
+
+    /**
+     * The row with its relations loaded, the way an API resource would return
+     * it: the records it belongs to, and the records that belong to it.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, mixed>
+     */
+    private function withRelations(array $row): array
+    {
+        $limit = Layout::inspectRelated();
+
+        if ($limit < 1) {
+            return $row;
+        }
+
+        foreach ($this->links() as $column => $link) {
+            $value = $row[$column] ?? null;
+
+            if ($value === null) {
+                continue;
+            }
+
+            $parent = $this->runner->related($this->connection, $link['table'], $link['column'], $value, 1);
+
+            if ($parent !== []) {
+                $row[$link['table']] = $this->readable($parent[0]);
+            }
+        }
+
+        foreach ($this->backLinks() as $link) {
+            $value = $row[$link['references']] ?? null;
+
+            if ($value === null) {
+                continue;
+            }
+
+            $rows = $this->runner->related($this->connection, $link['table'], $link['column'], $value, $limit);
+
+            if ($rows === []) {
+                continue;
+            }
+
+            $more = count($rows) > $limit;
+
+            $row[$link['table']] = array_map(
+                fn (array $related) => $this->readable($related),
+                array_slice($rows, 0, $limit),
+            );
+
+            if ($more) {
+                $row[$link['table'].'_truncated_at'] = $limit;
+            }
+        }
+
+        return $row;
     }
 
     /**
@@ -1507,17 +1576,28 @@ class Browser extends Prompt
      * filtered to the row it points to. The filter is a real where clause, so
      * the SQL pane shows how the jump was made.
      */
+    /**
+     * @return array<int, array{table: string, column: string, references: string}>
+     */
+    public function backLinks(): array
+    {
+        $table = $this->currentTable();
+
+        if ($table === null || $this->resultsFromQuery) {
+            return [];
+        }
+
+        return $this->runner->referencedBy($this->connection, $table);
+    }
+
     private function followLink(): bool
     {
         $column = $this->headers[$this->columnIndex] ?? null;
         $link = $this->links()[$column] ?? null;
 
+        // Nothing to follow forwards, so offer what points back at this row.
         if ($link === null) {
-            $this->status = $column === null
-                ? 'nothing to follow'
-                : $column.' is not a foreign key';
-
-            return true;
+            return $this->followBack();
         }
 
         $value = $this->raw[$this->rowIndex][$column] ?? null;
@@ -1547,6 +1627,97 @@ class Browser extends Prompt
         $this->status = 'followed '.$column.' → '.$link['table'].'  ·  ctrl+o goes back';
 
         return true;
+    }
+
+    /**
+     * From a row, open a table that references it: an artist to their albums.
+     * One candidate goes straight there, several open a list to pick from.
+     */
+    private function followBack(): bool
+    {
+        $back = $this->backLinks();
+
+        if ($back === []) {
+            $column = $this->headers[$this->columnIndex] ?? null;
+
+            $this->status = $column === null
+                ? 'nothing to follow'
+                : 'nothing links to '.$this->currentTable().', and '.$column.' is not a foreign key';
+
+            return true;
+        }
+
+        $this->linkChoices = [];
+
+        foreach ($back as $link) {
+            $this->linkChoices[$link['table'].'.'.$link['column']] = $link;
+        }
+
+        if (count($back) === 1) {
+            return $this->openBackLink($back[0]);
+        }
+
+        $this->linkPicker = new Picker('REFERENCED BY', array_keys($this->linkChoices));
+
+        return true;
+    }
+
+    /**
+     * @param  array{table: string, column: string, references: string}  $link
+     */
+    private function openBackLink(array $link): bool
+    {
+        $value = $this->raw[$this->rowIndex][$link['references']] ?? null;
+
+        if ($value === null) {
+            $this->status = $link['references'].' is empty on this row';
+
+            return true;
+        }
+
+        $target = array_search($link['table'], $this->tables, true);
+
+        if ($target === false) {
+            return true;
+        }
+
+        $this->jumps[] = [
+            'table' => (string) $this->currentTable(),
+            'filters' => $this->filters,
+            'row' => $this->rowIndex,
+        ];
+
+        $this->openLinked($target, new Filters([new Filter($link['column'], 'is', (string) $value)]));
+
+        $this->status = 'followed → '.$link['table'].' where '.$link['column'].' is '.$value.
+            '  ·  ctrl+o goes back';
+
+        return true;
+    }
+
+    private function handleLinkPickerKey(string $key): void
+    {
+        $picker = $this->linkPicker;
+
+        match (true) {
+            $key === Key::ESCAPE, $key === 'q' => $this->linkPicker = null,
+            in_array($key, [Key::UP, Key::UP_ARROW], true) => $picker->move(-1),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW], true) => $picker->move(1),
+            $key === Key::ENTER => $this->chooseBackLink(),
+            default => $picker->type($key),
+        };
+    }
+
+    private function chooseBackLink(): void
+    {
+        $chosen = $this->linkPicker?->selected();
+        $link = $chosen === null ? null : ($this->linkChoices[$chosen] ?? null);
+
+        $this->linkPicker = null;
+
+        if ($link !== null) {
+            $this->openBackLink($link);
+        }
     }
 
     private function jumpBack(): bool
@@ -2033,6 +2204,15 @@ class Browser extends Prompt
 
     private function reload(): bool
     {
+        // Re-read the tables too: reload should mean the whole picture, so a
+        // table created since you opened the connection shows up.
+        $table = $this->currentTable();
+
+        $this->tables = $this->runner->tables($this->connection);
+
+        $at = $table === null ? false : array_search($table, $this->visibleTables(), true);
+        $this->tableIndex = $at === false ? min($this->tableIndex, max(0, count($this->visibleTables()) - 1)) : $at;
+
         $this->load(keepCursor: true);
 
         return true;

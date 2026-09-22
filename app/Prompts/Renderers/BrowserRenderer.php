@@ -129,6 +129,23 @@ class BrowserRenderer extends Renderer
             $screen->overlay($ask);
         }
 
+        if ($prompt->linkPicker !== null) {
+            $links = new PickerIsland($prompt->linkPicker, $style);
+            $links->focused = true;
+
+            $linksWidth = min($width - 4, PickerIsland::WIDTH);
+            $linksHeight = $links->rows();
+
+            $links->place(
+                (int) (($width - $linksWidth) / 2) + 1,
+                $top + (int) (($frameHeight - $linksHeight) / 2),
+                $linksWidth,
+                $linksHeight,
+            );
+
+            $screen->overlay($links);
+        }
+
         if ($prompt->mode === 'structure') {
             $table = (string) $prompt->currentTable();
 
@@ -207,6 +224,7 @@ class BrowserRenderer extends Renderer
             $prompt->sortDirection,
             $prompt->markedRows(),
             $prompt->editedRows(),
+            array_keys($prompt->links()),
         );
         $table->columnOffset = $prompt->columnOffset;
         $table->scrollLocked = $prompt->isDragging();
