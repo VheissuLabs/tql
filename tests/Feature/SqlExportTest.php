@@ -184,7 +184,7 @@ it('takes every table when the table list is answered with the first option', fu
     // The first option on the table list is the whole database.
     $this->artisan('export')
         ->expectsQuestion('Export from', $connection->id)
-        ->expectsQuestion('Which table?', '')
+        ->expectsQuestion('Which table?', '*')
         ->expectsQuestion('Save it where?', $out)
         ->assertExitCode(0);
 

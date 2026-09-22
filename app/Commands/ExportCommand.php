@@ -294,25 +294,35 @@ class ExportCommand extends Command
 
     private function chooseTable(array $available): ?string
     {
-        $every = 'every table ('.count($available).')';
+        // Not '' for the every-table option: prompts count an empty answer as
+        // no answer and refuse it as required.
+        $every = ['*' => 'every table ('.count($available).')'];
 
         if (count($available) <= 15) {
-            $chosen = select(label: 'Which table?', options: ['' => $every, ...array_combine($available, $available)], scroll: 15);
+            $chosen = select(
+                label: 'Which table?',
+                options: [...$every, ...array_combine($available, $available)],
+                scroll: 15,
+            );
 
-            return $chosen === '' ? null : (string) $chosen;
+            return $chosen === '*' ? null : (string) $chosen;
         }
 
         $chosen = search(
             label: 'Which table?',
             placeholder: 'type to filter, or pick the first for all of them',
-            options: fn (string $typed) => ['' => $every, ...array_combine(
-                $matches = array_values(array_filter($available, fn ($table) => $typed === '' || str_contains(strtolower($table), strtolower($typed)))),
-                $matches,
-            )],
+            options: function (string $typed) use ($available, $every) {
+                $matches = array_values(array_filter(
+                    $available,
+                    fn ($table) => $typed === '' || str_contains(strtolower($table), strtolower($typed)),
+                ));
+
+                return [...$every, ...array_combine($matches, $matches)];
+            },
             scroll: 15,
         );
 
-        return $chosen === '' ? null : (string) $chosen;
+        return $chosen === '*' ? null : (string) $chosen;
     }
 
     private function destination(Connection $connection, array $tables): ?string
