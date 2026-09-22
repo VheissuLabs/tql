@@ -1,42 +1,94 @@
-<p align="center">
-    <img title="Laravel Zero" height="100" src="https://raw.githubusercontent.com/laravel-zero/docs/master/images/logo/laravel-zero-readme.png" alt="Laravel Zero Logo" />
-</p>
+# dotsql
 
-<p align="center">
-  <a href="https://github.com/laravel-zero/framework/actions"><img src="https://github.com/laravel-zero/laravel-zero/actions/workflows/tests.yml/badge.svg" alt="Build Status" /></a>
-  <a href="https://packagist.org/packages/laravel-zero/framework"><img src="https://img.shields.io/packagist/dt/laravel-zero/framework.svg" alt="Total Downloads" /></a>
-  <a href="https://packagist.org/packages/laravel-zero/framework"><img src="https://img.shields.io/packagist/v/laravel-zero/framework.svg?label=stable" alt="Latest Stable Version" /></a>
-  <a href="https://packagist.org/packages/laravel-zero/framework"><img src="https://img.shields.io/packagist/l/laravel-zero/framework.svg" alt="License" /></a>
-  <a href="https://youtube.com/@nunomaduro?sub_confirmation=1"><img alt="YouTube Channel Subscribers" src="https://img.shields.io/youtube/channel/subscribers/UCO_hYZF2gb_CyG5sA7ArlGg?style=flat&label=youtube&color=brightgreen"></a>
-</p>
+A database client for the terminal, built with Laravel Zero, Laravel Prompts and Laravel MCP.
 
-Laravel Zero was created by [Nuno Maduro](https://github.com/nunomaduro) and [Owen Voke](https://github.com/owenvoke), and is a micro-framework that provides an elegant starting point for your console application. It is an **unofficial** and customized version of Laravel, optimized for building command-line applications.
+The same engine drives two faces: a full-screen terminal interface for you, and an
+MCP server for an AI agent. Both call the same `QueryRunner`, and every statement
+either of them runs is recorded in one shared history.
 
-- Built on top of the [Laravel](https://laravel.com) components.
-- Optional installation of Laravel [Eloquent](https://laravel-zero.com/docs/database/), Laravel [Logging](https://laravel-zero.com/docs/logging/) and many others.
-- Supports interactive [menus](https://laravel-zero.com/docs/build-interactive-menus/) and [desktop notifications](https://laravel-zero.com/docs/send-desktop-notifications/) on Linux, Windows & MacOS.
-- Ships with a [Scheduler](https://laravel-zero.com/docs/task-scheduling/) and  a [Standalone Compiler](https://laravel-zero.com/docs/distribute-as-a-single-executable-binary/).
-- Integration with [Collision](https://github.com/nunomaduro/collision) - Beautiful error reporting
-- Follow the creator Nuno Maduro:
-    - YouTube: **[youtube.com/@nunomaduro](https://www.youtube.com/@nunomaduro)** — Videos every weekday
-    - Twitch: **[twitch.tv/enunomaduro](https://www.twitch.tv/enunomaduro)** — Streams (almost) every weekday
-    - Twitter / X: **[x.com/enunomaduro](https://x.com/enunomaduro)**
-    - LinkedIn: **[linkedin.com/in/nunomaduro](https://www.linkedin.com/in/nunomaduro)**
-    - Instagram: **[instagram.com/enunomaduro](https://www.instagram.com/enunomaduro)**
-    - Tiktok: **[tiktok.com/@enunomaduro](https://www.tiktok.com/@enunomaduro)**
+## Running it
 
-------
+```bash
+php dotsql
+```
 
-## Documentation
+`browse` is the default command. On first run dotsql creates `~/.config/dotsql/`
+containing `dotsql.sqlite` (connections and query history) and `key` (the
+encryption key), both `0600`.
 
-For full documentation, visit [laravel-zero.com](https://laravel-zero.com/).
+## Keys
 
-## Support the development
-**Do you like this project? Support it by donating**
+| Key | Action |
+| --- | --- |
+| `tab` | switch between the table list and the grid |
+| `↑ ↓` / `j k` | move the cursor |
+| `← →` / `h l` | move between columns |
+| `↵` | open a table, or edit the selected cell |
+| `e` | edit the selected cell |
+| `< >` | narrow or widen the selected column |
+| `=` | reset the column width |
+| `n` / `p` | next or previous page (100 rows) |
+| `r` | reload the current table |
+| `:` | command line — `:q`, `:tables`, `:rows`, `:reload` |
+| `q` / `esc` | quit |
 
-- PayPal: [Donate](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=66BYDWAT92N6L)
-- Patreon: [Donate](https://www.patreon.com/nunomaduro)
+Mouse works too: click a table or a row, and the scroll wheel moves the cursor.
 
-## License
+## Editing
 
-Laravel Zero is an open-source software licensed under the MIT license.
+Select a cell and press `e` or `↵`. `↵` saves, `esc` cancels. An empty value
+writes `NULL`.
+
+Editing requires a single-column primary key, which dotsql uses to target the
+row. Tables without one are read-only, as are connections flagged `read_only`.
+
+## MCP
+
+The MCP server is registered as a local (stdio) server named `dotsql`:
+
+```bash
+php dotsql mcp:start dotsql
+```
+
+Tools: list connections, list tables, describe a table, and run a query.
+Queries through MCP are **read-only** — only `select`, `show`, `explain`,
+`describe`, `pragma` and `with` are accepted, and statements containing a
+second statement are rejected. Writes happen in the interface, not through
+an agent.
+
+## Storage
+
+Connection passwords are encrypted with Laravel's encrypter using a key at
+`~/.config/dotsql/key`. The key sits beside the database, so this protects
+against casual reading of the file, not against someone with access to your
+account.
+
+## Tests
+
+```bash
+./vendor/bin/pest
+```
+
+Tests use `tests/.scratch` as their config directory and never touch your real
+connections.
+
+## Notes on the stack
+
+Laravel Zero strips `illuminate/encryption`, so it is required explicitly.
+
+Laravel MCP's service provider registers web routes when `routes/ai.php` exists,
+which needs a `router` binding Laravel Zero does not have. The server is
+therefore registered from `AppServiceProvider::boot()` with `Mcp::local()` and
+no routes file.
+
+Three gaps found in `joetannenbaum/chewie` 0.1.11:
+
+- `RegistersRenderers` resolves `Chewie\Theme::$namespace`, but `src/Theme.php`
+  is not in the release, so calling `registerRenderer()` with no argument fatals.
+  Pass the renderer class explicitly.
+- `Input\Mouse` is three constants with no implementation.
+- There is no mouse sequence parsing, so `App\Tui\Mouse` does it.
+
+`Prompt::handleKeyPress()` is private, so it cannot be overridden. Keys are
+handled by registering `$this->on('key', ...)`, and a prompt exits by setting
+`$this->state = 'submit'`.
