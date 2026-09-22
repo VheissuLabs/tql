@@ -8,6 +8,7 @@ use App\Tui\Islands\AskIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\FilterIsland;
 use App\Tui\Islands\HelpIsland;
+use App\Tui\Islands\InspectorWidth;
 use App\Tui\Islands\Island;
 use App\Tui\Islands\PickerIsland;
 use App\Tui\Islands\Screen;
@@ -152,8 +153,11 @@ class BrowserRenderer extends Renderer
             $document = $prompt->document;
             $selection = $prompt->documentAnchor === null ? null : $prompt->documentSelection();
 
-            $screen = new Screen;
-            $y = $top;
+            $boxWidth = min($width - 6, InspectorWidth::COLUMNS);
+            $room = $frameHeight - 2;
+
+            $boxes = [];
+            $total = 0;
 
             foreach ([RowDocument::RECORD, RowDocument::RELATED] as $name) {
                 $heading = $document->headingAt($name);
@@ -170,18 +174,34 @@ class BrowserRenderer extends Renderer
                 $box->focused = $prompt->documentLine === $heading;
                 $box->collapsed = $folded;
 
-                $height = $folded
-                    ? 1
-                    : min(max(3, count($lines) + 2), max(3, $top + $frameHeight - $y - 1));
+                $height = $folded ? 1 : max(3, count($lines) + 2);
 
-                $box->place(1, $y, $width, $height);
+                $boxes[] = [$box, $height];
+                $total += $height + 1;
+            }
 
-                $screen->add($box);
+            $total = max(0, $total - 1);
+
+            // Share the room out when the two boxes want more than there is.
+            if ($total > $room) {
+                $boxes = $this->shrink($boxes, $room);
+                $total = $room;
+            }
+
+            $y = $top + max(0, (int) (($frameHeight - $total) / 2));
+
+            foreach ($boxes as [$box, $height]) {
+                $box->place(
+                    max(1, (int) (($width - $boxWidth) / 2) + 1),
+                    $y,
+                    $boxWidth,
+                    $height,
+                );
+
+                $screen->overlay($box);
 
                 $y += $height + 1;
             }
-
-            $tableHeight = 0;
         }
 
         if ($prompt->mode === 'structure') {
@@ -275,7 +295,7 @@ class BrowserRenderer extends Renderer
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
-        $modal = in_array($prompt->mode, ['help', 'edit', 'inspect'], true);
+        $modal = in_array($prompt->mode, ['help', 'edit'], true);
 
         if (! $modal) {
             $screen->add($table);
@@ -335,6 +355,33 @@ class BrowserRenderer extends Renderer
     private function visible(string $line): int
     {
         return mb_strlen((string) preg_replace('/\e\[[0-9;]*m/', '', $line));
+    }
+
+    /**
+     * Give each box its share of the room, smallest first, so one long
+     * relation cannot squeeze the record out of sight.
+     *
+     * @param  array<int, array{0: SectionIsland, 1: int}>  $boxes
+     * @return array<int, array{0: SectionIsland, 1: int}>
+     */
+    private function shrink(array $boxes, int $room): array
+    {
+        $gaps = max(0, count($boxes) - 1);
+        $room = max(count($boxes) * 3, $room - $gaps);
+
+        $left = $room;
+        $remaining = count($boxes);
+
+        foreach ($boxes as $index => [$box, $height]) {
+            $share = max(3, (int) ($left / $remaining));
+
+            $boxes[$index][1] = min($height, $share);
+
+            $left -= $boxes[$index][1];
+            $remaining--;
+        }
+
+        return $boxes;
     }
 
     private function styler(): Styler

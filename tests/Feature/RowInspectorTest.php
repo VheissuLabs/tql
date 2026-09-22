@@ -181,8 +181,46 @@ it('collapses a box to its title bar', function () {
 
     $frame = preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser));
 
+    // The box is down to its title bar: no bottom border follows it.
     expect($frame)->toContain('┌─ RECORD  (4)')
-        ->and($frame)->not->toContain('user.signed_up');
+        ->and($browser->document->section(RowDocument::RECORD))->toBe([]);
+});
+
+it('floats over the grid rather than taking the screen', function () {
+    $browser = inspectable();
+
+    $browser->emit('key', 'i');
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+
+    $frame = preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser));
+
+    // The panes are still there behind it.
+    expect($frame)->toContain('TABLES')
+        ->and($frame)->toContain('┌─ RECORD')
+        ->and($frame)->toContain('events');
+});
+
+it('keeps the inspector inside the terminal at any size', function () {
+    foreach ([[100, 24], [140, 30], [90, 20], [200, 50]] as [$cols, $rows]) {
+        putenv("COLUMNS={$cols}");
+        putenv("LINES={$rows}");
+
+        $browser = inspectable();
+        $browser->emit('key', 'i');
+
+        $render = new ReflectionMethod($browser, 'renderTheme');
+        $render->setAccessible(true);
+
+        $lines = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)));
+
+        expect(max(array_map('mb_strlen', $lines)))->toBeLessThanOrEqual($cols)
+            ->and(count($lines))->toBeLessThanOrEqual($rows);
+    }
+
+    putenv('COLUMNS');
+    putenv('LINES');
 });
 
 it('still shows one value on shift+i', function () {
