@@ -140,7 +140,9 @@ With the cursor on a foreign key, `L` opens the table it points at, filtered to
 the row it points to. From anywhere else on the row, `L` goes the other way:
 the tables that reference this one. If more than one does, it offers a list.
 
-`ctrl+o` goes back where you came from, vim style.
+`esc` goes back where you came from, and so does `ctrl+o` if vim's jumplist is
+in your fingers. The stack is as deep as you followed, so a chain of links
+unwinds one step at a time.
 
 The jump is an ordinary filter, so the SQL pane shows the `where` clause that
 made it — following a link teaches you the query you would have written.

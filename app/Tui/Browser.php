@@ -350,6 +350,7 @@ class Browser extends Prompt
             $key === 't' => $this->toggleStructure(),
             $key === 'L' => $this->followLink(),
             $key === self::BACK => $this->jumpBack(),
+            $key === Key::ESCAPE => $this->escape(),
             $key === 'd' => $this->markDelete(),
             $key === 'u' => $this->unmarkAll(),
             default => true,
@@ -1624,7 +1625,7 @@ class Browser extends Prompt
 
         $this->openLinked($target, new Filters([new Filter($link['column'], 'is', (string) $value)]));
 
-        $this->status = 'followed '.$column.' → '.$link['table'].'  ·  ctrl+o goes back';
+        $this->status = 'followed '.$column.' → '.$link['table'].'  ·  esc goes back';
 
         return true;
     }
@@ -1690,7 +1691,7 @@ class Browser extends Prompt
         $this->openLinked($target, new Filters([new Filter($link['column'], 'is', (string) $value)]));
 
         $this->status = 'followed → '.$link['table'].' where '.$link['column'].' is '.$value.
-            '  ·  ctrl+o goes back';
+            '  ·  esc goes back';
 
         return true;
     }
@@ -1718,6 +1719,16 @@ class Browser extends Prompt
         if ($link !== null) {
             $this->openBackLink($link);
         }
+    }
+
+    /**
+     * Escape means "back where I was" while a jump is on the stack, which is
+     * what following a link makes you want. With nothing to go back to it
+     * stays quiet rather than reporting on every stray press.
+     */
+    private function escape(): bool
+    {
+        return $this->jumps === [] ? true : $this->jumpBack();
     }
 
     private function jumpBack(): bool

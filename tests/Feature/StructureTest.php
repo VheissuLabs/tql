@@ -399,3 +399,64 @@ it('leaves a null foreign key without a relation', function () {
     expect($object['title'])->toBe('Orphan')
         ->and($object)->not->toHaveKey('artists');
 });
+
+it('goes back on escape after following a link', function () {
+    $browser = linked();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'L');
+
+    expect($browser->currentTable())->toBe('artists')
+        ->and($browser->status)->toContain('esc goes back');
+
+    $browser->emit('key', "\e");
+
+    expect($browser->currentTable())->toBe('albums')
+        ->and($browser->filters)->toBeNull();
+});
+
+it('unwinds a chain of links one step at a time', function () {
+    $browser = linked();
+
+    // albums → artists, then back out to albums via the reverse link.
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'L');
+
+    expect($browser->currentTable())->toBe('artists');
+
+    $browser->emit('key', 'L');
+
+    expect($browser->currentTable())->toBe('albums')
+        ->and($browser->filters)->not->toBeNull();
+
+    $browser->emit('key', "\e");
+
+    expect($browser->currentTable())->toBe('artists');
+
+    $browser->emit('key', "\e");
+
+    expect($browser->currentTable())->toBe('albums')
+        ->and($browser->filters)->toBeNull();
+});
+
+it('does nothing on escape when nothing was followed', function () {
+    $browser = linked();
+
+    $browser->emit('key', "\e");
+
+    expect($browser->currentTable())->toBe('albums')
+        ->and($browser->status)->not->toContain('nowhere');
+});
+
+it('still goes back with ctrl+o', function () {
+    $browser = linked();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'L');
+    $browser->emit('key', Browser::BACK);
+
+    expect($browser->currentTable())->toBe('albums');
+});
