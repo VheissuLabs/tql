@@ -5,12 +5,12 @@ namespace App\Prompts\Renderers;
 use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\Islands\AskIsland;
-use App\Tui\Islands\BackdropIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\FilterIsland;
 use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\InspectorWidth;
 use App\Tui\Islands\Island;
+use App\Tui\Islands\Modal;
 use App\Tui\Islands\PickerIsland;
 use App\Tui\Islands\Screen;
 use App\Tui\Islands\SectionIsland;
@@ -88,39 +88,17 @@ class BrowserRenderer extends Renderer
             $bar = new FilterIsland($prompt->filterForm, $style);
             $bar->focused = true;
 
-            $barWidth = min($width - 4, FilterIsland::WIDTH);
-            $barHeight = $bar->rows();
-
-            $bar->place(
-                (int) (($width - $barWidth) / 2) + 1,
-                $top + (int) (($frameHeight - $barHeight) / 2),
-                $barWidth,
-                $barHeight,
-            );
-
-            $bar->modal = true;
-
-            $screen->overlay($this->backdrop($bar, $width, $top, $frameHeight));
-            $screen->overlay($bar);
+            $this->modal($width, $top, $frameHeight, min($width - 4, FilterIsland::WIDTH))
+                ->add($bar, $bar->rows())
+                ->onto($screen);
 
             if ($prompt->filterForm->picker !== null) {
                 $list = new PickerIsland($prompt->filterForm->picker, $style);
                 $list->focused = true;
 
-                $listWidth = min($width - 4, PickerIsland::WIDTH);
-                $listHeight = $list->rows();
-
-                $list->place(
-                    (int) (($width - $listWidth) / 2) + 1,
-                    $top + (int) (($frameHeight - $listHeight) / 2),
-                    $listWidth,
-                    $listHeight,
-                );
-
-                $list->modal = true;
-
-                $screen->overlay($this->backdrop($list, $width, $top, $frameHeight));
-                $screen->overlay($list);
+                $this->modal($width, $top, $frameHeight, min($width - 4, PickerIsland::WIDTH))
+                    ->add($list, $list->rows())
+                    ->onto($screen);
             }
         }
 
@@ -128,56 +106,27 @@ class BrowserRenderer extends Renderer
             $ask = new AskIsland($prompt->question, $style, $prompt->asking);
             $ask->focused = true;
 
-            $askWidth = min($width - 4, AskIsland::WIDTH);
-            $askHeight = AskIsland::ROWS + 5;
-
-            $ask->place(
-                (int) (($width - $askWidth) / 2) + 1,
-                $top + (int) (($frameHeight - $askHeight) / 2),
-                $askWidth,
-                $askHeight,
-            );
-
-            $ask->modal = true;
-
-            $screen->overlay($this->backdrop($ask, $width, $top, $frameHeight));
-            $screen->overlay($ask);
+            $this->modal($width, $top, $frameHeight, min($width - 4, AskIsland::WIDTH))
+                ->add($ask, AskIsland::ROWS + 5)
+                ->onto($screen);
         }
 
         if ($prompt->databasePicker !== null) {
             $databases = new PickerIsland($prompt->databasePicker, $style);
             $databases->focused = true;
-            $databases->modal = true;
 
-            $databasesWidth = min($width - 4, PickerIsland::WIDTH);
-            $databasesHeight = $databases->rows();
-
-            $databases->place(
-                (int) (($width - $databasesWidth) / 2) + 1,
-                $top + (int) (($frameHeight - $databasesHeight) / 2),
-                $databasesWidth,
-                $databasesHeight,
-            );
-
-            $screen->overlay($this->backdrop($databases, $width, $top, $frameHeight));
-            $screen->overlay($databases);
+            $this->modal($width, $top, $frameHeight, min($width - 4, PickerIsland::WIDTH))
+                ->add($databases, $databases->rows())
+                ->onto($screen);
         }
 
         if ($prompt->linkPicker !== null) {
             $links = new PickerIsland($prompt->linkPicker, $style);
             $links->focused = true;
 
-            $linksWidth = min($width - 4, PickerIsland::WIDTH);
-            $linksHeight = $links->rows();
-
-            $links->place(
-                (int) (($width - $linksWidth) / 2) + 1,
-                $top + (int) (($frameHeight - $linksHeight) / 2),
-                $linksWidth,
-                $linksHeight,
-            );
-
-            $screen->overlay($links);
+            $this->modal($width, $top, $frameHeight, min($width - 4, PickerIsland::WIDTH))
+                ->add($links, $links->rows())
+                ->onto($screen);
         }
 
         if ($prompt->mode === 'inspect' && $prompt->document !== null) {
@@ -222,23 +171,13 @@ class BrowserRenderer extends Renderer
                 $total = $room;
             }
 
-            $y = $top + max(0, (int) (($frameHeight - $total) / 2));
-            $x = max(1, (int) (($width - $boxWidth) / 2) + 1);
-
-            // An opaque backdrop first, with a margin, so the panes do not
-            // show through the gap between the boxes.
-            $screen->overlay(
-                $this->backdropAround($x, $y, $boxWidth, $total, $width, $top, $frameHeight),
-            );
+            $modal = $this->modal($width, $top, $frameHeight, $boxWidth);
 
             foreach ($boxes as [$box, $height]) {
-                $box->modal = true;
-                $box->place($x, $y, $boxWidth, $height);
-
-                $screen->overlay($box);
-
-                $y += $height + 1;
+                $modal->add($box, $height);
             }
+
+            $modal->onto($screen);
         }
 
         if ($prompt->mode === 'structure') {
@@ -255,20 +194,9 @@ class BrowserRenderer extends Renderer
             $structure->focused = true;
             $structure->title = 'STRUCTURE  ·  '.$table;
 
-            $structureWidth = min($width - 4, StructureIsland::WIDTH);
-            $structureHeight = min($frameHeight - 2, count($prompt->columnsOf($table)) + 9);
-
-            $structure->place(
-                (int) (($width - $structureWidth) / 2) + 1,
-                $top + (int) (($frameHeight - $structureHeight) / 2),
-                $structureWidth,
-                $structureHeight,
-            );
-
-            $structure->modal = true;
-
-            $screen->overlay($this->backdrop($structure, $width, $top, $frameHeight));
-            $screen->overlay($structure);
+            $this->modal($width, $top, $frameHeight, min($width - 4, StructureIsland::WIDTH))
+                ->add($structure, min($frameHeight - 2, count($prompt->columnsOf($table)) + 9))
+                ->onto($screen);
 
             $prompt->structureHidden = $structure->hidden;
         }
@@ -277,20 +205,9 @@ class BrowserRenderer extends Renderer
             $help = new HelpIsland($style, $prompt->helpOffset);
             $help->focused = true;
 
-            $modalWidth = min($width - 4, HelpIsland::WIDTH);
-            $modalHeight = min($frameHeight - 2, $help->naturalHeight() + 2);
-
-            $help->place(
-                (int) (($width - $modalWidth) / 2) + 1,
-                $top + (int) (($frameHeight - $modalHeight) / 2),
-                $modalWidth,
-                $modalHeight,
-            );
-
-            $help->modal = true;
-
-            $screen->overlay($this->backdrop($help, $width, $top, $frameHeight));
-            $screen->overlay($help);
+            $this->modal($width, $top, $frameHeight, min($width - 4, HelpIsland::WIDTH))
+                ->add($help, min($frameHeight - 2, $help->naturalHeight() + 2))
+                ->onto($screen);
 
             $prompt->helpIsland = $help;
         }
@@ -410,49 +327,12 @@ class BrowserRenderer extends Renderer
      * An opaque margin around a modal, so the panes do not show through at
      * its edges and it reads as something on top rather than part of the grid.
      */
-    private function backdrop(Island $island, int $width, int $top, int $frameHeight): BackdropIsland
-    {
-        return $this->backdropAround(
-            $island->x, $island->y, $island->width, $island->height, $width, $top, $frameHeight,
-        );
-    }
-
     /**
-     * The opaque area behind a modal, around a rectangle rather than around an
-     * island: the row inspector is two boxes under one backdrop.
-     *
-     * One column of air, then the ring, so the modal's own border and the
-     * backdrop's do not end up touching. Kept inside the frame, since a ring
-     * with its bottom edge cut off reads as a mistake. Without the ring the
-     * backdrop is the padding alone.
+     * A modal to hang boxes on: centred, backed and ringed for you.
      */
-    private function backdropAround(
-        int $x,
-        int $y,
-        int $boxWidth,
-        int $boxHeight,
-        int $width,
-        int $top,
-        int $frameHeight,
-    ): BackdropIsland {
-        $ring = Layout::modalRing();
-
-        $backdrop = new BackdropIsland($ring);
-
-        $pad = $ring ? 3 : 2;
-        $margin = $ring ? 2 : 1;
-
-        $first = max($top, $y - $margin);
-        $last = min($top + $frameHeight - 1, $y + $boxHeight - 1 + $margin);
-
-        $backdrop->place(
-            max(1, $x - $pad),
-            $first,
-            min($width, $boxWidth + ($pad * 2)),
-            max($boxHeight, $last - $first + 1),
-        );
-
-        return $backdrop;
+    private function modal(int $width, int $top, int $frameHeight, int $boxWidth): Modal
+    {
+        return new Modal($width, $top, $frameHeight, $boxWidth);
     }
 
     /**
