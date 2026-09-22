@@ -392,3 +392,33 @@ it('scrolls the help when it is longer than the modal', function () {
     expect($scrolled)->not->toBe($first)
         ->and($browser->helpOffset)->toBe(2);
 });
+
+it('keeps the help modal inside the terminal at any width', function () {
+    $over = [];
+
+    foreach ([80, 100, 120, 140, 180, 220] as $cols) {
+        foreach ([20, 24, 30, 40] as $rows) {
+            putenv("COLUMNS={$cols}");
+            putenv("LINES={$rows}");
+
+            $browser = aligned();
+
+            $method = new ReflectionMethod($browser, 'renderTheme');
+            $method->setAccessible(true);
+            $method->invoke($browser);
+            $browser->emit('key', "\n");
+            $browser->emit('key', '?');
+
+            foreach (explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser))) as $line) {
+                if (mb_strlen($line) > $cols) {
+                    $over[] = "{$cols}x{$rows}: ".mb_strlen($line);
+                }
+            }
+        }
+    }
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    expect($over)->toBe([]);
+});

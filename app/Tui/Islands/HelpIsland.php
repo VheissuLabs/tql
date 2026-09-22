@@ -4,7 +4,9 @@ namespace App\Tui\Islands;
 
 class HelpIsland extends Island
 {
-    public const WIDTH = 72;
+    public const WIDTH = 56;
+
+    private const KEYS = 12;
 
     public string $title = 'HELP';
 
@@ -20,7 +22,7 @@ class HelpIsland extends Island
 
     public function content(int $innerWidth, int $innerHeight): array
     {
-        $lines = $this->lines();
+        $lines = $this->lines($innerWidth);
 
         $this->hidden = max(0, count($lines) - $innerHeight);
 
@@ -38,17 +40,21 @@ class HelpIsland extends Island
     }
 
     /**
+     * Every line is cut to the modal. A line that overruns wraps, and a wrap
+     * costs a terminal row the frame does not know about.
+     *
      * @return array<int, string>
      */
-    private function lines(): array
+    private function lines(int $width = self::WIDTH - 2): array
     {
         $lines = [];
 
         foreach ($this->sections() as $heading => $entries) {
-            $lines[] = ' '.$this->style->bold($heading);
+            $lines[] = ' '.$this->style->bold($this->style->truncate($heading, $width - 1));
 
             foreach ($entries as $keys => $description) {
-                $lines[] = '   '.$this->style->pad($keys, 14).$this->style->dim($description);
+                $lines[] = '   '.$this->style->pad($this->style->truncate($keys, self::KEYS), self::KEYS)
+                    .$this->style->dim($this->style->truncate($description, $width - self::KEYS - 3));
             }
 
             $lines[] = '';
@@ -61,37 +67,35 @@ class HelpIsland extends Island
     {
         return [
             'moving' => [
-                'tab' => 'cycle panes: tables, rows, and SQL when shown',
-                'shift+tab' => 'cycle panes the other way',
-                'ctrl+l' => 'redraw the screen when something else has messed it up',
+                'tab' => 'next pane',
+                'shift+tab' => 'previous pane',
                 '↑ ↓ / j k' => 'move the cursor',
                 '← → / h l' => 'move between columns',
                 'n / p' => 'next or previous page',
-                'r' => 'reload the current table',
-                'o' => 'sort by the column the cursor is on: asc, desc, then back to the primary key',
+                'o' => 'sort this column: asc, desc, primary key',
+                'r' => 'reload the table',
+                'ctrl+l' => 'redraw the screen',
             ],
             'doing' => [
-                '↵' => 'open a table, or edit the selected value',
-                'i' => 'view the value full screen, never writes',
+                '↵' => 'open a table, or edit the value',
+                'i' => 'view the value, read only',
                 'e' => 'edit the value, ctrl+s saves',
-                's' => 'open the SQL editor (ctrl+r runs it)',
-                ', .' => 'narrow or widen the selected column (< > work too)',
+                's' => 'SQL editor, ctrl+r runs it',
+                ', .' => 'narrow or widen the column',
                 '=' => 'reset the column width',
             ],
-            'viewing a value (i)' => [
+            'viewing a value' => [
                 'j / k' => 'move a line, 3j moves three',
-                'g / G' => 'jump to the top or bottom',
+                'g / G' => 'top or bottom',
                 '12G' => 'jump to line 12',
-                'click' => 'put the cursor on a line',
-                'drag' => 'select a range of lines',
                 'V' => 'start a line selection',
-                'y' => 'yank the selection to the clipboard',
+                'y' => 'yank the selection',
                 'esc' => 'clear the selection, then close',
             ],
             'mouse' => [
                 'click' => 'select a table, row or cell',
-                'drag' => 'a column border in the header resizes it',
-                'header' => 'click a column header to sort by it',
+                'header' => 'sort by that column',
+                'drag' => 'a header border resizes the column',
                 'wheel' => 'scroll the focused pane',
             ],
             'commands' => [
@@ -99,13 +103,13 @@ class HelpIsland extends Island
                 ':sql' => 'open the SQL editor',
                 ':tables' => 'focus the tables list',
                 ':rows' => 'focus the rows',
-                ':reload' => 'reload the current table',
+                ':reload' => 'reload the table',
                 ':c' => 'back to the connection list',
-                ':q' => 'quit dotsql',
+                ':q' => 'quit',
             ],
             'from the shell' => [
-                'export' => 'dotsql export <connection> [table] --limit= --sql=',
-                '' => 'dotsql export <connection> --list',
+                'export' => 'dotsql export <conn> [table] --sql=',
+                'list' => 'dotsql export <conn> --list',
             ],
         ];
     }

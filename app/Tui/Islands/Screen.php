@@ -88,7 +88,12 @@ class Screen
      */
     public static function splice(string $line, string $patch, int $x, int $width): string
     {
-        return static::cut($line, 0, $x - 1).$patch."\e[0m".static::cut($line, $x - 1 + $width, PHP_INT_MAX);
+        // Clip the patch too: an overlay that draws wider than its own rect
+        // would push the rest of the row off the screen.
+        return static::cut($line, 0, $x - 1)
+            .static::cut($patch, 0, $width)
+            ."\e[0m"
+            .static::cut($line, $x - 1 + $width, PHP_INT_MAX);
     }
 
     /**
