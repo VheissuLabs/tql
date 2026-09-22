@@ -16,7 +16,7 @@ chmod +x tql
 mv tql /usr/local/bin/
 ```
 
-It needs PHP 8.3 or newer on the machine. On first run it creates
+It needs PHP 8.4 or newer on the machine. On first run it creates
 `~/.config/tql/` and migrates its own store, so there is nothing to set up.
 
 Building it yourself:
