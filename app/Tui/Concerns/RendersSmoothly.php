@@ -98,14 +98,17 @@ trait RendersSmoothly
     }
 
     /**
-     * Clear the frame's own rows, in place.
+     * Force the next render to redraw every row the frame occupies.
      *
-     * Not \e[H: that is the top of the screen, and the frame does not always
-     * start there — inside a multiplexer pane the row above belongs to
-     * something else, and homing the cursor walks the whole app up into it.
-     * Going up by the taller of the two frames from where the cursor already
-     * is clears the stale row a growing frame would otherwise leave behind,
-     * without moving the app.
+     * Not by writing \e[H and erasing: that is the top of the screen, and the
+     * frame does not always start there — the alt screen keeps the cursor row
+     * it was given, so the frame can sit a row down. Instead hand Prompts a
+     * blank previous frame as tall as the taller of the two, and its own
+     * relative erase clears exactly the rows in play, including the one a
+     * growing frame would otherwise leave behind.
+     *
+     * A previous frame of one line would make Prompts write \e[0A, which a
+     * terminal reads as "up one", walking the whole app up a row.
      */
     private function clearIfAsked(): void
     {
@@ -118,10 +121,8 @@ trait RendersSmoothly
         $previous = $this->prevFrame === '' ? 1 : count(explode(PHP_EOL, $this->prevFrame));
         $next = count(explode(PHP_EOL, $this->renderTheme()));
 
-        $this->moveCursorToColumn(1);
-        $this->moveCursorUp(min($this->terminal()->lines(), max($previous, $next)) - 1);
-        $this->eraseDown();
+        $height = min($this->terminal()->lines(), max($previous, $next));
 
-        $this->prevFrame = '';
+        $this->prevFrame = str_repeat(PHP_EOL, max(0, $height - 1));
     }
 }
