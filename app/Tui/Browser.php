@@ -37,6 +37,10 @@ class Browser extends Prompt
 
     public ?string $command = null;
 
+    public int $sidebarStart = 0;
+
+    public int $gridStart = 0;
+
     public function __construct(
         public Connection $connection,
         private QueryRunner $runner,
@@ -52,7 +56,18 @@ class Browser extends Prompt
             $this->load();
         }
 
+        Mouse::enable();
+
         $this->on('key', fn (string $key) => $this->onKey($key));
+    }
+
+    public function __destruct()
+    {
+        Mouse::disable();
+
+        $this->exitAltScreen();
+
+        parent::__destruct();
     }
 
     public function value(): mixed
@@ -77,6 +92,12 @@ class Browser extends Prompt
 
     public function onKey(string $key): void
     {
+        if ($event = Mouse::parse($key)) {
+            $this->onMouse($event);
+
+            return;
+        }
+
         if ($this->command !== null) {
             $this->handleCommandKey($key);
 
@@ -96,6 +117,70 @@ class Browser extends Prompt
             $key === 'p' => $this->page(-self::PAGE),
             default => true,
         };
+    }
+
+    private function onMouse(array $event): void
+    {
+        if (! $event['pressed']) {
+            return;
+        }
+
+        match ($event['button']) {
+            Mouse::WHEEL_UP => $this->moveUp(),
+            Mouse::WHEEL_DOWN => $this->moveDown(),
+            Mouse::LEFT => $this->click($event['column'], $event['row']),
+            default => true,
+        };
+    }
+
+    private function click(int $column, int $row): bool
+    {
+        $index = Layout::bodyIndex($row);
+
+        if ($index === null) {
+            return true;
+        }
+
+        if (Layout::inSidebar($column)) {
+            return $this->clickSidebar($index);
+        }
+
+        if (Layout::inGrid($column)) {
+            return $this->clickGrid($index);
+        }
+
+        return true;
+    }
+
+    private function clickSidebar(int $index): bool
+    {
+        $target = $this->sidebarStart + $index;
+
+        if ($target < 0 || $target >= count($this->tables)) {
+            return true;
+        }
+
+        $this->focus = 'sidebar';
+        $this->tableIndex = $target;
+        $this->offset = 0;
+        $this->load();
+        $this->focus = 'grid';
+
+        return true;
+    }
+
+    private function clickGrid(int $index): bool
+    {
+        $target = $this->gridStart + $index - Layout::GRID_HEADER_ROWS;
+
+        if ($target < 0 || $target >= count($this->rows)) {
+            return true;
+        }
+
+        $this->focus = 'grid';
+        $this->rowIndex = $target;
+
+        return true;
     }
 
     private function quit(): bool

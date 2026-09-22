@@ -3,6 +3,7 @@
 namespace App\Prompts\Renderers;
 
 use App\Tui\Browser;
+use App\Tui\Layout;
 use Chewie\Concerns\DrawsHotkeys;
 use Laravel\Prompts\Themes\Default\Renderer;
 
@@ -10,9 +11,9 @@ class BrowserRenderer extends Renderer
 {
     use DrawsHotkeys;
 
-    private const SIDEBAR = 24;
+    private const SIDEBAR = Layout::SIDEBAR;
 
-    private const CHROME = 7;
+    private const CHROME = Layout::CHROME;
 
     public function __invoke(Browser $prompt): string
     {
@@ -99,6 +100,8 @@ class BrowserRenderer extends Renderer
         $lines = [];
         $start = $this->windowStart($prompt->tableIndex, count($prompt->tables), $height);
 
+        $prompt->sidebarStart = $start;
+
         foreach (array_slice($prompt->tables, $start, $height) as $index => $table) {
             $actual = $start + $index;
             $label = $this->truncate($table, self::SIDEBAR - 2);
@@ -135,6 +138,8 @@ class BrowserRenderer extends Renderer
 
         $room = max(1, $height - count($lines));
         $start = $this->windowStart($prompt->rowIndex, count($prompt->rows), $room);
+
+        $prompt->gridStart = $start;
 
         foreach (array_slice($prompt->rows, $start, $room) as $index => $row) {
             $cells = [];

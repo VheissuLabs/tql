@@ -21,6 +21,8 @@ class ConnectionPicker extends Prompt
 
     public ?string $status = null;
 
+    public int $start = 0;
+
     private ?string $choice = null;
 
     public function __construct(public Collection $connections)
@@ -29,7 +31,18 @@ class ConnectionPicker extends Prompt
 
         $this->createAltScreen();
 
+        Mouse::enable();
+
         $this->on('key', fn (string $key) => $this->onKey($key));
+    }
+
+    public function __destruct()
+    {
+        Mouse::disable();
+
+        $this->exitAltScreen();
+
+        parent::__destruct();
     }
 
     public function value(): mixed
@@ -51,6 +64,12 @@ class ConnectionPicker extends Prompt
 
     public function onKey(string $key): void
     {
+        if ($event = Mouse::parse($key)) {
+            $this->onMouse($event);
+
+            return;
+        }
+
         if ($this->command !== null) {
             $this->handleCommandKey($key);
 
@@ -66,6 +85,39 @@ class ConnectionPicker extends Prompt
             $key === Key::ENTER => $this->select(),
             default => true,
         };
+    }
+
+    private function onMouse(array $event): void
+    {
+        if (! $event['pressed']) {
+            return;
+        }
+
+        match ($event['button']) {
+            Mouse::WHEEL_UP => $this->move(-1),
+            Mouse::WHEEL_DOWN => $this->move(1),
+            Mouse::LEFT => $this->clickRow($event['row']),
+            default => true,
+        };
+    }
+
+    private function clickRow(int $row): bool
+    {
+        $index = Layout::bodyIndex($row);
+
+        if ($index === null) {
+            return true;
+        }
+
+        $target = $this->start + $index - Layout::GRID_HEADER_ROWS;
+
+        if ($target < 0 || $target >= $this->connections->count()) {
+            return true;
+        }
+
+        $this->index = $target;
+
+        return $this->select();
     }
 
     private function select(): bool

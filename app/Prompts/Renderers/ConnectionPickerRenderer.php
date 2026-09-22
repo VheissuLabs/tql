@@ -75,6 +75,8 @@ class ConnectionPickerRenderer extends Renderer
         $room = max(1, $height - count($lines));
         $start = count($rows) <= $room ? 0 : max(0, min($prompt->index - intdiv($room, 2), count($rows) - $room));
 
+        $prompt->start = $start;
+
         foreach (array_slice($rows, $start, $room) as $offset => $row) {
             $text =
                 '  '.$this->pad($this->truncate($row['name'], $nameWidth), $nameWidth).'  '.
