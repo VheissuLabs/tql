@@ -80,6 +80,9 @@ class ConnectionPicker extends Prompt
             ->map(fn (Connection $c) => [
                 'id' => $c->id,
                 'name' => $c->name,
+                'colour' => (string) $c->colour,
+                'tag' => (string) $c->tag,
+                'read_only' => (bool) $c->read_only,
                 'driver' => $c->driver,
                 'where' => $c->describe(),
                 'used' => $c->last_used_at?->diffForHumans() ?? 'never',
@@ -249,14 +252,14 @@ class ConnectionPicker extends Prompt
         }
 
         // The driver is a fixed set, so it cycles rather than being typed.
-        if ($form->currentKey() === 'driver') {
+        if ($form->choices($form->currentKey()) !== null) {
             match (true) {
                 $key === Key::ESCAPE, $key === 'q' => $this->closeForm('nothing changed'),
                 $key === self::SAVE => $this->saveForm(),
                 in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->move(-1),
                 in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->move(1),
-                in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $form->cycleDriver(-1),
-                in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l', ' '], true), $key === Key::ENTER => $form->cycleDriver(),
+                in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $form->cycleValue(-1),
+                in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l', ' '], true), $key === Key::ENTER => $form->cycleValue(1),
                 default => true,
             };
 
@@ -268,7 +271,9 @@ class ConnectionPicker extends Prompt
             $key === self::SAVE => $this->saveForm(),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->move(-1),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->move(1),
-            $key === Key::ENTER, $key === 'i' => $form->start(),
+            $key === Key::ENTER, $key === 'i' => in_array($form->currentKey(), ConnectionForm::FILES, true)
+                ? $form->openFilePicker()
+                : $form->start(),
             default => true,
         };
     }

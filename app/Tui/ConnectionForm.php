@@ -3,6 +3,7 @@
 namespace App\Tui;
 
 use App\Models\Connection;
+use App\Support\KeyFiles;
 
 /**
  * The edit modal's state. Values live here until saved, so cancelling costs
@@ -47,7 +48,26 @@ class ConnectionForm
         'ssh_port' => 'SSH port',
         'ssh_user' => 'SSH user',
         'ssh_key' => 'SSH key',
+        'ssh_password' => 'SSH password',
+        'ssl_mode' => 'SSL mode',
+        'ssl_ca' => 'SSL CA cert',
+        'ssl_cert' => 'SSL cert',
+        'ssl_key' => 'SSL key',
+        'colour' => 'Colour',
+        'tag' => 'Tag',
+        'read_only' => 'Read only',
     ];
+
+    public const COLOURS = ['', 'red', 'yellow', 'green', 'blue', 'magenta', 'cyan'];
+
+    public const YES_NO = ['no', 'yes'];
+
+    /** Fields that hold a path to a file on this machine. */
+    public const FILES = ['ssh_key', 'ssl_ca', 'ssl_cert', 'ssl_key'];
+
+    public const TYPE_IT = 'type a path…';
+
+    public ?Picker $picker = null;
 
     public const DRIVERS = ['sqlite', 'mysql', 'pgsql', 'sqlsrv'];
 
@@ -111,6 +131,98 @@ class ConnectionForm
     /**
      * @return array<string, string>
      */
+    /**
+     * Fields with a fixed set of answers are cycled rather than typed.
+     *
+     * @return array<int, string>|null
+     */
+    public function choices(string $key): ?array
+    {
+        return match ($key) {
+            'driver' => array_values(array_filter(
+                self::DRIVERS,
+                fn (string $driver) => in_array($driver, \PDO::getAvailableDrivers(), true),
+            )) ?: self::DRIVERS,
+            'ssl_mode' => Connection::SSL_MODES,
+            'colour' => self::COLOURS,
+            'read_only' => self::YES_NO,
+            default => null,
+        };
+    }
+
+    /**
+     * The files this machine already has for a field, so a key is chosen
+     * rather than remembered.
+     *
+     * @return array<int, string>
+     */
+    public function files(string $key): array
+    {
+        $found = $key === 'ssh_key' ? KeyFiles::sshKeys() : KeyFiles::certificates();
+
+        return array_merge($found, [self::TYPE_IT]);
+    }
+
+    public function openFilePicker(): void
+    {
+        $key = $this->currentKey();
+
+        if (! in_array($key, self::FILES, true)) {
+            return;
+        }
+
+        $this->picker = new Picker(
+            strtoupper(str_replace('_', ' ', $key)),
+            $this->files($key),
+            (string) ($this->values[$key] ?? ''),
+        );
+    }
+
+    public function chooseFile(): void
+    {
+        $chosen = $this->picker?->selected();
+
+        $this->picker = null;
+
+        if ($chosen === null) {
+            return;
+        }
+
+        if ($chosen === self::TYPE_IT) {
+            $this->start();
+
+            return;
+        }
+
+        $this->values[$this->currentKey()] = $chosen;
+    }
+
+    public function closePicker(): void
+    {
+        $this->picker = null;
+    }
+
+    public function cycleValue(int $by): void
+    {
+        $key = $this->currentKey();
+        $choices = $this->choices($key);
+
+        if ($choices === null) {
+            return;
+        }
+
+        if ($key === 'driver') {
+            $this->cycleDriver($by);
+
+            return;
+        }
+
+        $at = array_search((string) ($this->values[$key] ?? ''), $choices, true);
+        $at = $at === false ? 0 : $at;
+
+        $this->values[$key] = $choices[($at + $by + count($choices)) % count($choices)];
+    }
+
     public function fields(): array
     {
         $fields = $this->driver() === 'sqlite'
@@ -122,18 +234,52 @@ class ConnectionForm
                 'database' => 'Database',
                 'username' => 'Username',
                 'password' => 'Password',
+                'ssl_mode' => 'SSL mode',
                 'ssh_host' => 'SSH host',
             ];
 
-        // The rest of the ssh fields only matter once there is a host to
-        // tunnel through, so they stay out of the way until then.
+        // The detail fields only matter once the thing they belong to is set,
+        // so they stay out of the way until then.
+        if ($this->driver() !== 'sqlite' && trim($this->values['ssl_mode'] ?? '') !== '') {
+            $fields = $this->insertAfter($fields, 'ssl_mode', [
+                'ssl_ca' => 'SSL CA cert',
+                'ssl_cert' => 'SSL cert',
+                'ssl_key' => 'SSL key',
+            ]);
+        }
+
         if ($this->driver() !== 'sqlite' && trim($this->values['ssh_host'] ?? '') !== '') {
             $fields['ssh_port'] = 'SSH port';
             $fields['ssh_user'] = 'SSH user';
             $fields['ssh_key'] = 'SSH key';
+            $fields['ssh_password'] = 'SSH password';
         }
 
+        $fields['colour'] = 'Colour';
+        $fields['tag'] = 'Tag';
+        $fields['read_only'] = 'Read only';
+
         return $this->creating ? ['driver' => 'Driver'] + $fields : $fields;
+    }
+
+    /**
+     * @param  array<string, string>  $fields
+     * @param  array<string, string>  $extra
+     * @return array<string, string>
+     */
+    private function insertAfter(array $fields, string $after, array $extra): array
+    {
+        $out = [];
+
+        foreach ($fields as $key => $label) {
+            $out[$key] = $label;
+
+            if ($key === $after) {
+                $out += $extra;
+            }
+        }
+
+        return $out;
     }
 
     public function keys(): array
@@ -200,13 +346,27 @@ class ConnectionForm
             return '22';
         }
 
+        if ($key === 'ssl_mode' && ($this->values[$key] ?? '') === '') {
+            return 'driver default';
+        }
+
+        if ($key === 'colour' && ($this->values[$key] ?? '') === '') {
+            return 'none';
+        }
+
+        if ($key === 'read_only') {
+            return ($this->values[$key] ?? '') === '1' || ($this->values[$key] ?? '') === 'yes'
+                ? 'yes'
+                : 'no';
+        }
+
         if ($this->editing && $key === $this->currentKey()) {
             return $this->buffer();
         }
 
         $value = $this->values[$key] ?? '';
 
-        if ($key === 'password') {
+        if ($key === 'password' || $key === 'ssh_password') {
             return $value === '' ? '' : str_repeat('•', min(8, mb_strlen($value)));
         }
 
@@ -238,6 +398,14 @@ class ConnectionForm
 
         if (isset($values['port'])) {
             $values['port'] = (int) $values['port'];
+        }
+
+        if (isset($values['ssh_port'])) {
+            $values['ssh_port'] = $values['ssh_port'] === '' ? null : (int) $values['ssh_port'];
+        }
+
+        if (isset($values['read_only'])) {
+            $values['read_only'] = in_array($values['read_only'], ['yes', '1', 1, true], true);
         }
 
         $this->connection->forceFill($values)->save();

@@ -51,6 +51,10 @@ class ConnectionPickerRenderer extends Renderer
 
         if ($prompt->form !== null) {
             $lines = $this->overlayForm($lines, $prompt->form, $width);
+
+            if ($prompt->form->picker !== null) {
+                $lines = $this->overlayPicker($lines, $prompt->form->picker, $width);
+            }
         }
 
         foreach ($lines as $line) {
@@ -63,6 +67,59 @@ class ConnectionPickerRenderer extends Renderer
         $this->line($this->fit($this->status($prompt), $width));
 
         return $this;
+    }
+
+    /**
+     * @param  array<int, string>  $lines
+     * @return array<int, string>
+     */
+    private function overlayPicker(array $lines, App\Tui\Picker $picker, int $width): array
+    {
+        $box = new App\Tui\Islands\PickerIsland($picker, $this->styler());
+        $box->modal = true;
+
+        $boxWidth = min($width - 6, 52);
+        $boxHeight = $box->rows();
+
+        $box->place(
+            max(1, (int) (($width - $boxWidth) / 2) + 1),
+            max(1, (int) ((count($lines) - $boxHeight) / 2)),
+            $boxWidth,
+            $boxHeight,
+        );
+
+        $rows = $this->pickerBox($box, $boxWidth);
+
+        foreach ($rows as $i => $row) {
+            $at = $box->y + $i - 1;
+
+            if (isset($lines[$at])) {
+                $lines[$at] = App\Tui\Islands\Screen::splice($lines[$at], $row, $box->x, $boxWidth);
+            }
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function pickerBox(App\Tui\Islands\PickerIsland $box, int $width): array
+    {
+        $inner = $width - 2;
+        $edge = fn (string $text) => $this->paint(Theme::border(true, true), $text);
+        $title = ' '.$box->title.' ';
+
+        $rows = [$edge('┌─').$this->bold($this->paint(Theme::title(true, true), $title))
+            .$edge(str_repeat('─', max(0, $inner - mb_strlen($title) - 1)).'┐')];
+
+        foreach ($box->content($inner, $box->height - 2) as $line) {
+            $rows[] = $edge('│').$this->pad($line, $inner).$edge('│');
+        }
+
+        $rows[] = $edge('└'.str_repeat('─', $inner).'┘');
+
+        return $rows;
     }
 
     /**
@@ -191,18 +248,21 @@ class ConnectionPickerRenderer extends Renderer
         // The name column carries the row marker and the driver icon.
         $name = 8;
         $used = 9;
+        $tag = 3;
 
         foreach ($rows as $row) {
             $name = max($name, mb_strlen($row['name']) + 4);
             $used = max($used, mb_strlen($row['used']));
+            $tag = max($tag, mb_strlen($this->tagOf($row)));
         }
 
         $name = min($name, 32);
         $used = min($used, 20);
+        $tag = min($tag, 16);
 
-        $where = max(10, $inner - $name - $used - 8);
+        $where = max(10, $inner - $name - $tag - $used - 11);
 
-        return [$name, $where, $used];
+        return [$name, $tag, $where, $used];
     }
 
     private function rule(ConnectionPicker $prompt, string $left, string $join, string $right, array $widths, int $inner): string
@@ -242,7 +302,7 @@ class ConnectionPickerRenderer extends Renderer
 
     private function headerRow(array $widths, int $inner): string
     {
-        $labels = ['NAME', 'WHERE', 'LAST USED'];
+        $labels = ['NAME', 'TAG', 'WHERE', 'LAST USED'];
         $cells = [];
 
         foreach ($widths as $i => $width) {
@@ -285,7 +345,7 @@ class ConnectionPickerRenderer extends Renderer
         foreach (array_slice($rows, $start, $height) as $offset => $row) {
             $selected = ($start + $offset) === $prompt->index;
             $marked = $prompt->isMarked((int) $row['id']);
-            $values = [$row['name'], $row['where'], $row['used']];
+            $values = [$row['name'], $this->tagOf($row), $row['where'], $row['used']];
             $cells = [];
 
             foreach ($widths as $i => $width) {
@@ -335,6 +395,18 @@ class ConnectionPickerRenderer extends Renderer
         return ' '.$marker.' '
             .($plain ? $icon : $this->paint($this->driverColour($driver), $icon))
             .' '.$label.' ';
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function tagOf(array $row): string
+    {
+        $tag = trim((string) ($row['tag'] ?? ''));
+
+        return ($row['read_only'] ?? false)
+            ? trim($tag.' ro')
+            : $tag;
     }
 
     private function driverIcon(string $driver): string

@@ -2,6 +2,7 @@
 
 use App\Database\Tunnel;
 use App\Models\Connection;
+use App\Support\KeyFiles;
 use App\Tui\ConnectionForm;
 use Illuminate\Support\Facades\Artisan;
 
@@ -147,4 +148,117 @@ it('saves the ssh settings', function () {
         ->and($saved->ssh_user)->toBe('karl')
         ->and($saved->ssh_port)->toBe(2222)
         ->and($saved->usesSsh())->toBeTrue();
+});
+
+it('finds the private keys in ~/.ssh and skips what is not one', function () {
+    $keys = KeyFiles::sshKeys();
+
+    foreach ($keys as $key) {
+        expect($key)->not->toEndWith('.pub')
+            ->and(basename($key))->not->toBe('known_hosts')
+            ->and(basename($key))->not->toBe('config');
+    }
+});
+
+it('shortens a key path to the home directory', function () {
+    expect(KeyFiles::shorten(getenv('HOME').'/.ssh/id_rsa'))->toBe('~/.ssh/id_rsa')
+        ->and(KeyFiles::shorten('/etc/ssl/ca.pem'))->toBe('/etc/ssl/ca.pem');
+});
+
+it('offers the keys it found plus a way to type one', function () {
+    $form = new ConnectionForm(tunnelled());
+
+    $files = $form->files('ssh_key');
+
+    expect(end($files))->toBe(ConnectionForm::TYPE_IT);
+});
+
+it('picks a key from the list instead of typing it', function () {
+    $connection = tunnelled(['ssh_key' => null]);
+    $form = new ConnectionForm($connection);
+
+    // Stand on the ssh key field.
+    $form->values['ssh_host'] = 'bastion.example.com';
+
+    while ($form->currentKey() !== 'ssh_key') {
+        $form->move(1);
+    }
+
+    $form->openFilePicker();
+
+    expect($form->picker)->not->toBeNull()
+        ->and($form->picker->title)->toBe('SSH KEY');
+
+    $chosen = $form->picker->options[0];
+
+    $form->chooseFile();
+
+    expect($form->picker)->toBeNull()
+        ->and($form->values['ssh_key'])->toBe($chosen);
+});
+
+it('falls back to typing a path', function () {
+    $form = new ConnectionForm(tunnelled());
+
+    $form->values['ssh_host'] = 'bastion.example.com';
+
+    while ($form->currentKey() !== 'ssh_key') {
+        $form->move(1);
+    }
+
+    $form->openFilePicker();
+
+    $form->picker->index = array_search(ConnectionForm::TYPE_IT, $form->picker->matches(), true);
+
+    $form->chooseFile();
+
+    expect($form->picker)->toBeNull()
+        ->and($form->editing)->toBeTrue();
+});
+
+it('expands a chosen key when it opens the tunnel', function () {
+    $connection = tunnelled(['ssh_key' => '~/.ssh/id_ed25519']);
+
+    $tunnel = (new ReflectionClass(Tunnel::class))->newInstanceWithoutConstructor();
+
+    (new ReflectionProperty(Tunnel::class, 'connection'))->setValue($tunnel, $connection);
+    (new ReflectionProperty(Tunnel::class, 'port'))->setValue($tunnel, 1234);
+
+    $command = (new ReflectionMethod(Tunnel::class, 'command'))->invoke($tunnel);
+
+    expect($command)->toContain(getenv('HOME').'/.ssh/id_ed25519')
+        ->and($command)->not->toContain('~/.ssh/id_ed25519');
+});
+
+it('writes an askpass helper only when there is a password', function () {
+    $without = tunnelled();
+    $with = tunnelled(['name' => 'pw'.uniqid(), 'ssh_password' => 'hunter2']);
+
+    $environment = function (Connection $connection) {
+        $tunnel = (new ReflectionClass(Tunnel::class))->newInstanceWithoutConstructor();
+
+        (new ReflectionProperty(Tunnel::class, 'connection'))->setValue($tunnel, $connection);
+
+        return [(new ReflectionMethod(Tunnel::class, 'environment'))->invoke($tunnel), $tunnel];
+    };
+
+    [$none] = $environment($without);
+
+    expect($none)->toBeNull();
+
+    [$env, $tunnel] = $environment($with);
+
+    expect($env)->toHaveKey('SSH_ASKPASS')
+        ->and($env['SSH_ASKPASS_REQUIRE'])->toBe('force')
+        ->and(is_file($env['SSH_ASKPASS']))->toBeTrue();
+
+    // The password lives in a file only the user can read.
+    $secret = dirname($env['SSH_ASKPASS']).'/secret';
+
+    expect(file_get_contents($secret))->toBe('hunter2')
+        ->and(substr(sprintf('%o', fileperms($secret)), -3))->toBe('600');
+
+    (new ReflectionMethod(Tunnel::class, 'forgetAskpass'))->invoke($tunnel);
+
+    expect(is_file($secret))->toBeFalse();
 });

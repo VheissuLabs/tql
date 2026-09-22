@@ -28,6 +28,20 @@ php -d phar.readonly=0 tql app:build tql --build-version=dev
 
 Tagging `v*` builds and publishes a release from GitHub Actions.
 
+## TLS
+
+**SSL mode** on a server connection takes `disable`, `prefer`, `require`,
+`verify-ca` or `verify-full`, and reveals the CA, cert and key fields. Managed
+databases usually want `require` and a CA certificate. Only `verify-full`
+checks the hostname.
+
+## Colour, tag and read only
+
+A connection can carry a **colour** and a **tag**, both shown in the connection
+list, and a **read only** switch that refuses every write — no edits, no marks,
+no `:w`. Red and `production` on the connection you should be careful with is
+worth the ten seconds it takes.
+
 ## Databases behind SSH
 
 A connection can reach its database through an SSH tunnel. Set **SSH host** on
@@ -39,6 +53,12 @@ a mysql, postgres or sqlsrv connection and the rest of the fields appear:
 | SSH port | 22 unless you say otherwise |
 | SSH user | the user on that machine |
 | SSH key | a key file; empty uses your agent and `~/.ssh/config` |
+| SSH password | for a bastion that wants one instead of a key |
+
+Press `↵` on **SSH key** and it lists the private keys it found in `~/.ssh`,
+so there is no path to remember. The same goes for the SSL certificate fields,
+which also look in `~/.postgresql`, `~/.mysql`, `~/certs`, `~/Downloads` and
+the current directory. `type a path…` is always the last option.
 
 tql opens `ssh -N -L <free port>:<db host>:<db port>` and points the driver at
 that local port, so the database only ever sees a connection from the machine

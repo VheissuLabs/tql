@@ -19,6 +19,8 @@ class Tunnel
 
     private ?Process $process = null;
 
+    private ?string $askpass = null;
+
     public int $port = 0;
 
     private function __construct(private Connection $connection) {}
@@ -69,17 +71,24 @@ class Tunnel
     {
         $this->process?->stop(1);
         $this->process = null;
+
+        $this->forgetAskpass();
     }
 
     private function open(): void
     {
         $this->port = static::freePort();
 
-        $this->process = new Process($this->command());
+        $this->process = new Process($this->command(), null, $this->environment());
         $this->process->setTimeout(null);
         $this->process->start();
 
-        $this->waitUntilListening();
+        try {
+            $this->waitUntilListening();
+        } finally {
+            // The helper only has to survive the handshake.
+            $this->forgetAskpass();
+        }
     }
 
     /**
@@ -111,6 +120,57 @@ class Tunnel
             : (string) $this->connection->ssh_host;
 
         return $command;
+    }
+
+    /**
+     * ssh refuses to read a password from a pipe, so a password is handed
+     * over the way ssh asks for one: a helper it runs itself.
+     *
+     * @return array<string, string>|null
+     */
+    private function environment(): ?array
+    {
+        $password = (string) $this->connection->ssh_password;
+
+        if ($password === '') {
+            return null;
+        }
+
+        $directory = sys_get_temp_dir().'/tql-askpass-'.bin2hex(random_bytes(6));
+
+        mkdir($directory, 0700);
+
+        $secret = $directory.'/secret';
+        $script = $directory.'/askpass';
+
+        file_put_contents($secret, $password);
+        chmod($secret, 0600);
+
+        file_put_contents($script, "#!/bin/sh\ncat ".escapeshellarg($secret)."\n");
+        chmod($script, 0700);
+
+        $this->askpass = $directory;
+
+        return [
+            'SSH_ASKPASS' => $script,
+            'SSH_ASKPASS_REQUIRE' => 'force',
+            'DISPLAY' => (string) (getenv('DISPLAY') ?: ':0'),
+        ];
+    }
+
+    private function forgetAskpass(): void
+    {
+        if ($this->askpass === null) {
+            return;
+        }
+
+        foreach (['secret', 'askpass'] as $file) {
+            @unlink($this->askpass.'/'.$file);
+        }
+
+        @rmdir($this->askpass);
+
+        $this->askpass = null;
     }
 
     public static function expand(string $path): string

@@ -109,15 +109,18 @@ it('saves on ctrl+s', function () {
 it('offers only the fields that driver has', function () {
     $sqlite = Connection::create(['name' => 'lite', 'driver' => 'sqlite', 'database' => '/tmp/a.sqlite']);
 
-    expect(array_keys(form($sqlite)->fields()))->toBe(['name', 'database']);
+    expect(array_keys(form($sqlite)->fields()))
+        ->toBe(['name', 'database', 'colour', 'tag', 'read_only']);
 
     $mysql = Connection::create([
         'name' => 'my', 'driver' => 'mysql', 'host' => 'h', 'port' => 3306,
         'database' => 'shop', 'username' => 'alice', 'password' => 'pw',
     ]);
 
-    expect(array_keys(form($mysql)->fields()))
-        ->toBe(['name', 'host', 'port', 'database', 'username', 'password', 'ssh_host']);
+    expect(array_keys(form($mysql)->fields()))->toBe([
+        'name', 'host', 'port', 'database', 'username', 'password',
+        'ssl_mode', 'ssh_host', 'colour', 'tag', 'read_only',
+    ]);
 });
 
 it('never shows the password back', function () {
@@ -320,14 +323,17 @@ it('shows the fields that suit the chosen driver', function () {
 
     $picker->emit('key', 'n');
 
-    expect(array_keys($picker->form->fields()))->toBe(['driver', 'name', 'database']);
+    expect(array_keys($picker->form->fields()))
+        ->toBe(['driver', 'name', 'database', 'colour', 'tag', 'read_only']);
 
     while ($picker->form->driver() !== 'mysql') {
         $picker->form->cycleDriver();
     }
 
-    expect(array_keys($picker->form->fields()))
-        ->toBe(['driver', 'name', 'host', 'port', 'database', 'username', 'password', 'ssh_host']);
+    expect(array_keys($picker->form->fields()))->toBe([
+        'driver', 'name', 'host', 'port', 'database', 'username', 'password',
+        'ssl_mode', 'ssh_host', 'colour', 'tag', 'read_only',
+    ]);
 });
 
 it('fills in the default host and port for a server driver', function () {
