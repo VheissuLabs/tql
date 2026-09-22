@@ -891,7 +891,7 @@ class Browser extends Prompt
         }
 
         $this->offset = 0;
-        $this->load();
+        $this->load(keepCursor: true);
 
         $this->status = $this->sortColumn === null
             ? 'sort cleared'
@@ -1113,18 +1113,18 @@ class Browser extends Prompt
 
     private function reload(): bool
     {
-        $row = $this->rowIndex;
-        $column = $this->columnIndex;
-
-        $this->load();
-
-        $this->rowIndex = min($row, max(0, count($this->rows) - 1));
-        $this->columnIndex = min($column, max(0, count($this->headers) - 1));
+        $this->load(keepCursor: true);
 
         return true;
     }
 
-    private function load(): void
+    /**
+     * @param  bool  $keepCursor  Stay on the same column and row. Sorting and
+     *                            reloading are about the rows you are already
+     *                            looking at, so throwing the cursor back to
+     *                            the first cell loses your place.
+     */
+    private function load(bool $keepCursor = false): void
     {
         $table = $this->currentTable();
 
@@ -1133,6 +1133,9 @@ class Browser extends Prompt
         }
 
         $this->sortColumn ??= $this->defaultSort();
+
+        $column = $this->headers[$this->columnIndex] ?? null;
+        $row = $this->rowIndex;
 
         $result = $this->runner->rows(
             $this->connection,
@@ -1171,6 +1174,16 @@ class Browser extends Prompt
         $this->rowIndex = 0;
         $this->columnIndex = 0;
         $this->columnOffset = 0;
+
+        if ($keepCursor) {
+            $index = $column === null ? false : array_search($column, $this->headers, true);
+
+            $this->columnIndex = $index === false
+                ? min($this->columnIndex, max(0, count($this->headers) - 1))
+                : $index;
+
+            $this->rowIndex = min($row, max(0, count($this->rows) - 1));
+        }
 
         if ($this->mode !== 'query' && $this->lastStatement !== null) {
             $this->editor->set($this->lastStatement);

@@ -299,3 +299,42 @@ it('sorts the column under the cursor with o and cycles it', function () {
 it('offers the sort key on the hotkey bar', function () {
     expect(rerender(sortable()))->toContain('o Sort');
 });
+
+it('leaves the cursor on the column it sorted', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+
+    expect($browser->headers[$browser->columnIndex])->toBe('qty');
+
+    $browser->emit('key', 'o');
+
+    expect($browser->headers[$browser->columnIndex])->toBe('qty')
+        ->and($browser->sortColumn)->toBe('qty');
+});
+
+it('keeps the cursor row across a sort', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'o');
+
+    expect($browser->rowIndex)->toBe(1);
+});
+
+it('still jumps to the first cell when you change table', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'l');
+
+    expect($browser->rowIndex)->toBe(1)
+        ->and($browser->columnIndex)->toBe(1);
+
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+
+    expect($browser->rowIndex)->toBe(0)
+        ->and($browser->columnIndex)->toBe(0);
+});
