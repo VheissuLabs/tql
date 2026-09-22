@@ -211,7 +211,9 @@ class TableIsland extends Island
 
             $padded = ' '.$this->style->pad($text, $width).' ';
 
-            $cells[] = $selected && $column === $this->columnIndex
+            // The cursor belongs to the focused pane. Leaving it on a pane you
+            // are not in says you are somewhere you are not.
+            $cells[] = $this->focused && $selected && $column === $this->columnIndex
                 && ! $pending && ! in_array($absolute, $this->edited, true)
                 ? $this->cursorCell($text, $width)
                 : $padded;

@@ -829,3 +829,43 @@ it('types straight back into the filter value', function () {
     expect($browser->filterForm->editor)->not->toBeNull()
         ->and($browser->filterForm->editor->buffer())->toBe('anx');
 });
+
+it('hides the cell cursor when the grid is not focused', function () {
+    $browser = sortable();
+
+    expect($browser->focus)->toBe('grid')
+        ->and(rerenderRaw($browser))->toContain("\e[7m");
+
+    $browser->emit('key', "\t");
+
+    expect($browser->focus)->toBe('sidebar');
+
+    // The sidebar's own selection is the only highlight left in the grid area.
+    $lines = collect(explode("\n", rerenderRaw($browser)))
+        ->filter(fn (string $line) => str_contains($line, 'cherry') || str_contains($line, 'apple'));
+
+    foreach ($lines as $line) {
+        expect($line)->not->toContain("\e[7m");
+    }
+});
+
+it('keeps the row marker when the grid is not focused', function () {
+    $browser = sortable();
+
+    $browser->emit('key', "\t");
+
+    expect(rerender($browser))->toContain('▸');
+});
+
+it('keeps the tables list showing which table you are in', function () {
+    $browser = sortable();
+
+    expect($browser->focus)->toBe('grid');
+
+    // The sidebar is not focused, but it still says which table this is.
+    // The title row also mentions the table, so take the sidebar's own entry.
+    $line = collect(explode("\n", rerenderRaw($browser)))
+        ->first(fn (string $l) => str_contains($l, "\e[7m fruit"));
+
+    expect($line)->not->toBeNull();
+});

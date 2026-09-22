@@ -982,7 +982,8 @@ it('only shows the editor cursor when the editor has focus', function () {
 
     $browser->emit('key', 's');
 
-    expect($inverses())->toBe($unfocused + 1);
+    // The editor gains a cursor and the grid loses one, so the count holds.
+    expect($inverses())->toBe($unfocused);
 
     config(['tql.ui.sql_always' => false]);
 });
