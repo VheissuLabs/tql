@@ -9,10 +9,13 @@ use App\Models\Connection;
 use LaravelZero\Framework\Commands\Command;
 use Throwable;
 
+use function Laravel\Prompts\search;
+use function Laravel\Prompts\select;
+
 class ExportCommand extends Command
 {
     protected $signature = 'export
-        {connection : The tql connection name}
+        {connection? : The tql connection name, asked for when left out}
         {table? : The table to export, or every table when omitted}
         {--sql= : Where to write the file, a path or a directory}
         {--limit= : Export at most this many rows per table}
@@ -25,6 +28,9 @@ class ExportCommand extends Command
     Data only — no schema, so the target table must already exist.
 
     <fg=yellow>Examples</>
+
+      <fg=green>tql export</>
+          asks which connection and which table
 
       <fg=green>tql export prod orders --limit=1000 --sql=./orders.sql</>
           a thousand rows of one table into a named file
@@ -53,14 +59,16 @@ class ExportCommand extends Command
         parent::__construct();
     }
 
+    /**
+     * Whether the connection was chosen from a list rather than typed.
+     */
+    private bool $asked = false;
+
     public function handle(): int
     {
-        $connection = Connection::where('name', $this->argument('connection'))->first();
+        $connection = $this->connection();
 
         if ($connection === null) {
-            $this->error("No connection named [{$this->argument('connection')}].");
-            $this->line('  known: '.Connection::orderBy('name')->pluck('name')->implode(', '));
-
             return self::FAILURE;
         }
 
@@ -87,6 +95,12 @@ class ExportCommand extends Command
         }
 
         $table = $this->argument('table');
+
+        // Nothing was typed at all, so keep asking rather than assuming the
+        // whole database is what they meant.
+        if ($table === null && $this->asked) {
+            $table = $this->chooseTable($available);
+        }
 
         if ($table !== null && ! in_array($table, $available, true)) {
             $this->error("No table named [{$table}] in [{$connection->name}].");
@@ -124,6 +138,81 @@ class ExportCommand extends Command
         $this->line('  '.$result->path);
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The connection to export from: the one named, or one picked off the list.
+     */
+    private function connection(): ?Connection
+    {
+        $name = $this->argument('connection');
+
+        if ($name !== null) {
+            $connection = Connection::where('name', $name)->first();
+
+            if ($connection === null) {
+                $this->error("No connection named [{$name}].");
+                $this->line('  known: '.Connection::orderBy('name')->pluck('name')->implode(', '));
+            }
+
+            return $connection;
+        }
+
+        $connections = Connection::orderByDesc('last_used_at')->orderBy('name')->get();
+
+        if ($connections->isEmpty()) {
+            $this->error('No saved connections.');
+            $this->line('  <fg=green>tql open <path-or-dsn></> saves one.');
+
+            return null;
+        }
+
+        if (! $this->input->isInteractive()) {
+            $this->error('Which connection? Name one, or run it in a terminal to be asked.');
+            $this->line('  known: '.$connections->pluck('name')->implode(', '));
+
+            return null;
+        }
+
+        $this->asked = true;
+
+        $chosen = select(
+            label: 'Export from',
+            options: $connections->mapWithKeys(fn (Connection $c) => [
+                $c->id => $c->name.'  ·  '.$c->describe(),
+            ])->all(),
+            scroll: 10,
+        );
+
+        return $connections->firstWhere('id', $chosen);
+    }
+
+    /**
+     * Which table, with the whole database as the first answer.
+     *
+     * @param  string[]  $available
+     */
+    private function chooseTable(array $available): ?string
+    {
+        $every = 'every table ('.count($available).')';
+
+        if (count($available) <= 15) {
+            $chosen = select(label: 'Which table?', options: ['' => $every, ...array_combine($available, $available)], scroll: 15);
+
+            return $chosen === '' ? null : (string) $chosen;
+        }
+
+        $chosen = search(
+            label: 'Which table?',
+            placeholder: 'type to filter, or pick the first for all of them',
+            options: fn (string $typed) => ['' => $every, ...array_combine(
+                $matches = array_values(array_filter($available, fn ($table) => $typed === '' || str_contains(strtolower($table), strtolower($typed)))),
+                $matches,
+            )],
+            scroll: 15,
+        );
+
+        return $chosen === '' ? null : (string) $chosen;
     }
 
     private function destination(Connection $connection, array $tables): ?string

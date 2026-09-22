@@ -4,7 +4,29 @@ use App\Commands\BrowseCommand;
 use Illuminate\Console\Scheduling\ScheduleFinishCommand;
 use Illuminate\Console\Scheduling\ScheduleListCommand;
 use Illuminate\Console\Scheduling\ScheduleRunCommand;
+use Illuminate\Database\Console\Factories\FactoryMakeCommand;
+use Illuminate\Database\Console\Migrations\FreshCommand;
+use Illuminate\Database\Console\Migrations\InstallCommand as MigrateInstallCommand;
+use Illuminate\Database\Console\Migrations\MigrateCommand;
+use Illuminate\Database\Console\Migrations\MigrateMakeCommand;
+use Illuminate\Database\Console\Migrations\RefreshCommand;
+use Illuminate\Database\Console\Migrations\ResetCommand;
+use Illuminate\Database\Console\Migrations\RollbackCommand;
+use Illuminate\Database\Console\Migrations\StatusCommand;
+use Illuminate\Database\Console\Seeds\SeedCommand;
+use Illuminate\Database\Console\Seeds\SeederMakeCommand;
+use Illuminate\Database\Console\WipeCommand;
+use Illuminate\Foundation\Console\ModelMakeCommand;
 use Illuminate\Foundation\Console\VendorPublishCommand;
+use Laravel\Ai\Console\Commands\MakeAgentCommand;
+use Laravel\Ai\Console\Commands\MakeAgentMiddlewareCommand;
+use Laravel\Ai\Console\Commands\MakeToolCommand as MakeAiToolCommand;
+use Laravel\Mcp\Console\Commands\InspectorCommand;
+use Laravel\Mcp\Console\Commands\MakeAppResourceCommand;
+use Laravel\Mcp\Console\Commands\MakePromptCommand;
+use Laravel\Mcp\Console\Commands\MakeResourceCommand;
+use Laravel\Mcp\Console\Commands\MakeServerCommand;
+use Laravel\Mcp\Console\Commands\MakeToolCommand;
 use LaravelZero\Framework\Commands\StubPublishCommand;
 use NunoMaduro\LaravelConsoleSummary\SummaryCommand;
 use Symfony\Component\Console\Command\DumpCompletionCommand;
@@ -64,7 +86,35 @@ return [
     |
     */
 
+    // The binary is one TUI with two side doors. The rest is framework
+    // plumbing — migrations tql runs for itself, seeders, scaffolding — still
+    // runnable, just not worth showing to someone who typed `tql list` to find
+    // out what tql does. (Laravel Zero's 'remove' cannot take them: the kernel
+    // applies it before Laravel's own providers register their commands.)
     'hidden' => [
+        BrowseCommand::class,
+        MigrateCommand::class,
+        FreshCommand::class,
+        RefreshCommand::class,
+        ResetCommand::class,
+        RollbackCommand::class,
+        MigrateInstallCommand::class,
+        StatusCommand::class,
+        SeedCommand::class,
+        WipeCommand::class,
+        FactoryMakeCommand::class,
+        MigrateMakeCommand::class,
+        ModelMakeCommand::class,
+        SeederMakeCommand::class,
+        MakeAgentCommand::class,
+        MakeAgentMiddlewareCommand::class,
+        MakeAiToolCommand::class,
+        MakeAppResourceCommand::class,
+        MakePromptCommand::class,
+        MakeResourceCommand::class,
+        MakeServerCommand::class,
+        MakeToolCommand::class,
+        InspectorCommand::class,
         SummaryCommand::class,
         DumpCompletionCommand::class,
         HelpCommand::class,

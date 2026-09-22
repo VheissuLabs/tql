@@ -441,10 +441,16 @@ off); when there are more, the heading says `(10 of 47)`.
 From the command line, which is the scriptable way:
 
 ```bash
+tql export                           # asks which connection, then which table
 tql export prod orders --limit=1000 --sql=./orders.sql
 tql export prod --sql=./prod.sql     # every table, one file
 tql export prod --list               # what tables are there
 ```
+
+Name a connection and it goes straight through; name nothing and it asks, with
+the saved connections listed most recently used first and the whole database as
+the first answer to the table question. Piped or with `--no-interaction` it
+never asks — it says what it needed and stops with a non-zero exit.
 
 `--sql` takes a file or a directory; omit it and the file is named
 automatically in the export directory. `--limit` caps rows per table, which is

@@ -154,3 +154,58 @@ it('fails clearly for an unknown table', function () {
 
     unlink($path);
 });
+
+it('asks which connection and table when given neither', function () {
+    Connection::query()->delete();
+
+    [$connection, $path] = exportFixture();
+
+    $out = sys_get_temp_dir().'/tql-ask-'.uniqid().'.sql';
+
+    $this->artisan('export', ['--sql' => $out])
+        ->expectsQuestion('Export from', $connection->id)
+        ->expectsQuestion('Which table?', 'things')
+        ->assertExitCode(0);
+
+    expect(file_get_contents($out))->toContain('insert into "things"');
+
+    unlink($out);
+    unlink($path);
+});
+
+it('takes every table when the table list is answered with the first option', function () {
+    Connection::query()->delete();
+
+    [$connection, $path] = exportFixture();
+
+    $out = sys_get_temp_dir().'/tql-ask-all-'.uniqid().'.sql';
+
+    // The first option on the table list is the whole database.
+    $this->artisan('export', ['--sql' => $out])
+        ->expectsQuestion('Export from', $connection->id)
+        ->expectsQuestion('Which table?', '')
+        ->assertExitCode(0);
+
+    expect(file_get_contents($out))->toContain('insert into');
+
+    unlink($out);
+    unlink($path);
+});
+
+it('says which connections there are when it cannot ask', function () {
+    [$connection, $path] = exportFixture();
+
+    $this->artisan('export', ['--no-interaction' => true])
+        ->expectsOutputToContain($connection->name)
+        ->assertExitCode(1);
+
+    unlink($path);
+});
+
+it('has nothing to export before a connection is saved', function () {
+    Connection::query()->delete();
+
+    $this->artisan('export', ['--no-interaction' => true])
+        ->expectsOutputToContain('No saved connections')
+        ->assertExitCode(1);
+});
