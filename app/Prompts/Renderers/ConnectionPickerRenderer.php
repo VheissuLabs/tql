@@ -2,6 +2,7 @@
 
 namespace App\Prompts\Renderers;
 
+use App\Connections\Tag;
 use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\ConnectionForm;
 use App\Tui\ConnectionPicker;
@@ -87,7 +88,9 @@ class ConnectionPickerRenderer extends Renderer
             fn (string $name, string $t) => match ($name) {
                 'cursor' => $this->highlight($t, Theme::cursor()),
                 'selection' => $this->highlight($t, Theme::selection()),
-                default => $t,
+                // A plain color name paints with it, for lists whose point is
+                // the color beside each option.
+                default => $this->paint($name, $t),
             },
         );
     }
@@ -224,8 +227,10 @@ class ConnectionPickerRenderer extends Renderer
                 $shown = '← '.$shown.' →';
             }
 
-            if ($key === 'color' && ($form->values['color'] ?? '') !== '') {
-                $shown = $this->paint((string) $form->values['color'], '●').' '.$shown;
+            // The tag carries the color it is configured with, so choosing it
+            // shows what it will look like.
+            if ($key === 'tag' && ($color = Tag::colorOf($form->values['tag'] ?? null)) !== '') {
+                $shown = $this->paint($color, '●').' '.$shown;
             }
 
             // The label is chrome; the value is the thing. A placeholder is
@@ -403,12 +408,28 @@ class ConnectionPickerRenderer extends Renderer
 
             foreach ($widths as $i => $width) {
                 if ($i === 0) {
-                    $cells[] = $this->nameCell($row['driver'], (string) $values[0], $width, $selected, $marked);
+                    $cells[] = $this->nameCell(
+                        $row['driver'],
+                        (string) $values[0],
+                        $width,
+                        $selected,
+                        $marked,
+                        Tag::colorOf($row['tag'] ?? null),
+                    );
 
                     continue;
                 }
 
                 $text = ' '.$this->pad($this->truncate((string) $values[$i], $width), $width).' ';
+
+                // The tag wears the color it stands for, so "production"
+                // reads as a warning rather than as another grey word.
+                if ($i === 1 && ! $selected && ! $marked
+                    && ($color = Tag::colorOf($row['tag'] ?? null)) !== '') {
+                    $cells[] = $this->paint($color, $text);
+
+                    continue;
+                }
 
                 $cells[] = $selected || $marked ? $text : $this->dim($text);
             }
@@ -434,8 +455,14 @@ class ConnectionPickerRenderer extends Renderer
      * column of its own. Shape carries the meaning as well as color, so it
      * still reads without color.
      */
-    private function nameCell(string $driver, string $name, int $width, bool $selected, bool $marked = false): string
-    {
+    private function nameCell(
+        string $driver,
+        string $name,
+        int $width,
+        bool $selected,
+        bool $marked = false,
+        string $color = '',
+    ): string {
         $icon = $this->driverIcon($driver);
 
         $marker = Layout::rowStyle() === 'marker' && $selected ? '▸' : ' ';
@@ -445,8 +472,12 @@ class ConnectionPickerRenderer extends Renderer
         // the icon's escape code would end the highlight right after it.
         $plain = $selected || $marked;
 
+        // A connection with a color wears it on its icon, which is the thing
+        // you are looking at when you decide whether to open it.
+        $shade = $color !== '' ? $color : $this->driverColor($driver);
+
         return ' '.$marker.' '
-            .($plain ? $icon : $this->paint($this->driverColor($driver), $icon))
+            .($plain ? $icon : $this->paint($shade, $icon))
             .' '.$label.' ';
     }
 

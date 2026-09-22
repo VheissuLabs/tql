@@ -35,12 +35,27 @@ Tagging `v*` builds and publishes a release from GitHub Actions.
 databases usually want `require` and a CA certificate. Only `verify-full`
 checks the hostname.
 
-## Color, tag and read only
+## Tags and read only
 
-A connection can carry a **color** and a **tag**, both shown in the connection
-list, and a **read only** switch that refuses every write — no edits, no marks,
-no `:w`. Red and `production` on the connection you should be careful with is
-worth the ten seconds it takes.
+A connection can carry a **tag**, and the tag decides its color:
+
+| tag | color |
+| --- | --- |
+| production | red |
+| staging | yellow |
+| dev | blue |
+| local | green |
+
+The tag colors the driver icon and the tag itself in the connection list, and
+the connection name in the status line while you are in it — so the screen
+tells you where you are before you press `d`.
+
+It is a fixed set rather than a configurable one, on purpose: the point of a
+tag is that production looks the same in your terminal and in someone else's
+screenshot.
+
+**Read only** refuses every write on that connection: no edits, no marks, no
+`:w`.
 
 ## Databases behind SSH
 

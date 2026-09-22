@@ -2,6 +2,7 @@
 
 namespace App\Tui;
 
+use App\Connections\Tag;
 use App\Models\Connection;
 use App\Ssh\Settings as SshSettings;
 use App\Support\KeyFiles;
@@ -50,17 +51,17 @@ class ConnectionForm
         'ssl_ca' => 'SSL CA cert',
         'ssl_cert' => 'SSL cert',
         'ssl_key' => 'SSL key',
-        'color' => 'Color',
         'tag' => 'Tag',
         'read_only' => 'Read only',
     ] + SshSettings::FIELDS;
-
-    public const COLORS = ['', 'red', 'yellow', 'green', 'blue', 'magenta', 'cyan'];
 
     public const YES_NO = ['no', 'yes'];
 
     /** Fields that hold a path to a file on this machine. */
     public const FILES = [SshSettings::FILE, 'ssl_ca', 'ssl_cert', 'ssl_key'];
+
+    /** Fields answered from a list rather than by typing or cycling. */
+    public const PICKED = [...self::FILES, 'tag'];
 
     public const TYPE_IT = 'type a path…';
 
@@ -144,7 +145,7 @@ class ConnectionForm
             str_starts_with($key, 'ssl_') => 'tls',
             $key === 'ssl_mode' => 'tls',
             $key === SshSettings::TOGGLE, str_starts_with($key, 'ssh_') => 'ssh',
-            in_array($key, ['color', 'tag', 'read_only'], true) => 'labels',
+            in_array($key, ['tag', 'read_only'], true) => 'labels',
             default => 'where',
         };
     }
@@ -175,7 +176,7 @@ class ConnectionForm
     public function isPlaceholder(string $key): bool
     {
         return ($this->values[$key] ?? '') === ''
-            && ! in_array($key, [SshSettings::TOGGLE, 'read_only', 'color'], true)
+            && ! in_array($key, [SshSettings::TOGGLE, 'read_only', 'tag'], true)
             && $this->display($key) !== '';
     }
 
@@ -192,7 +193,6 @@ class ConnectionForm
                 fn (string $driver) => in_array($driver, \PDO::getAvailableDrivers(), true),
             )) ?: self::DRIVERS,
             'ssl_mode' => Connection::SSL_MODES,
-            'color' => self::COLORS,
             'read_only', SshSettings::TOGGLE => self::YES_NO,
             default => null,
         };
@@ -215,15 +215,32 @@ class ConnectionForm
     {
         $key = $this->currentKey();
 
-        if (! in_array($key, self::FILES, true)) {
+        if (! in_array($key, self::PICKED, true)) {
             return;
         }
 
-        $this->picker = new Picker(
-            strtoupper(str_replace('_', ' ', $key)),
-            $this->files($key),
-            (string) ($this->values[$key] ?? ''),
-        );
+        $title = strtoupper(str_replace('_', ' ', $key));
+        $chosen = (string) ($this->values[$key] ?? '');
+
+        // The tag list shows the color each one wears, since that is what you
+        // are choosing between.
+        $this->picker = $key === 'tag'
+            ? new Picker($title, Tag::choices(), $chosen === '' ? Tag::NONE : $chosen, self::tagColors())
+            : new Picker($title, $this->files($key), $chosen);
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    private static function tagColors(): array
+    {
+        $colors = [];
+
+        foreach (Tag::cases() as $tag) {
+            $colors[$tag->value] = $tag->color();
+        }
+
+        return $colors;
     }
 
     public function chooseFile(): void
@@ -242,7 +259,9 @@ class ConnectionForm
             return;
         }
 
-        $this->values[$this->currentKey()] = $chosen;
+        $this->values[$this->currentKey()] = $this->currentKey() === 'tag'
+            ? Tag::value($chosen)
+            : $chosen;
     }
 
     public function closePicker(): void
@@ -303,7 +322,6 @@ class ConnectionForm
             }
         }
 
-        $fields['color'] = 'Color';
         $fields['tag'] = 'Tag';
         $fields['read_only'] = 'Read only';
 
@@ -394,7 +412,7 @@ class ConnectionForm
             return 'driver default';
         }
 
-        if ($key === 'color' && ($this->values[$key] ?? '') === '') {
+        if ($key === 'tag' && ($this->values[$key] ?? '') === '') {
             return 'none';
         }
 

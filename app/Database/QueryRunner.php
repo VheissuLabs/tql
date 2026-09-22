@@ -110,6 +110,36 @@ class QueryRunner
         }
     }
 
+    /**
+     * The databases on this server, for a connection that is not pinned to
+     * one. sqlite is a single file, so it has exactly one.
+     *
+     * @return array<int, string>
+     */
+    public function databases(Connection $connection): array
+    {
+        if ($connection->driver === 'sqlite') {
+            return [];
+        }
+
+        $statement = match ($connection->driver) {
+            'pgsql' => 'select datname as name from pg_database where datistemplate = false order by datname',
+            'sqlsrv' => 'select name from sys.databases order by name',
+            default => 'show databases',
+        };
+
+        try {
+            $rows = $this->connections->resolve($connection)->select($statement);
+        } catch (Throwable) {
+            return [];
+        }
+
+        return array_values(array_filter(array_map(
+            fn ($row) => (string) (((array) $row)['name'] ?? ((array) $row)['Database'] ?? ''),
+            $rows,
+        )));
+    }
+
     public function indexes(Connection $connection, string $table): array
     {
         try {

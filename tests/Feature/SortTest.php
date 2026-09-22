@@ -892,3 +892,16 @@ it('warns about unwritten changes before leaving for the connections', function 
 
     expect($browser->exit)->toBe('connections');
 });
+
+it('shows the connection color and tag in the status line', function () {
+    $browser = sortable();
+
+    $browser->connection->color = 'red';
+    $browser->connection->tag = 'production';
+
+    $status = collect(explode("\n", rerenderRaw($browser)))
+        ->first(fn (string $l) => str_contains($l, 'production'));
+
+    expect($status)->not->toBeNull()
+        ->and($status)->toContain("\e[31m");
+});

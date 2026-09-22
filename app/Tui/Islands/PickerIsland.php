@@ -50,11 +50,25 @@ class PickerIsland extends Island
         $start = $this->window($this->picker->index, count($matches), $room);
 
         foreach (array_slice($matches, $start, $room) as $offset => $option) {
-            $label = '  '.$this->style->pad($this->style->truncate($option, $width), $width);
+            $here = ($start + $offset) === $this->picker->index;
+            $color = $this->picker->colorOf($option);
 
-            $lines[] = ($start + $offset) === $this->picker->index
-                ? $this->style->color('selection', $label)
-                : $this->style->dim($label);
+            $text = '  '.($color === '' ? '  ' : '● ').$this->style->pad(
+                $this->style->truncate($option, $width - 2),
+                $width - 2,
+            );
+
+            // A highlighted row carries no color of its own: the dot's escape
+            // would end the highlight right after it.
+            if ($here) {
+                $lines[] = $this->style->color('selection', $text);
+
+                continue;
+            }
+
+            $lines[] = $color === ''
+                ? $text
+                : '  '.$this->style->color($color, '●').mb_substr($text, 3);
         }
 
         return array_slice($lines, 0, $innerHeight);

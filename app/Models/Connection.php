@@ -28,6 +28,19 @@ class Connection extends Model
         return $this->hasMany(QueryExecution::class);
     }
 
+    /**
+     * A database chosen for this session only.
+     *
+     * It is not an attribute, so saving the connection — which happens every
+     * time it is opened, to record last used — cannot persist it by accident.
+     */
+    public ?string $sessionDatabase = null;
+
+    public function activeDatabase(): ?string
+    {
+        return $this->sessionDatabase ?? $this->database;
+    }
+
     public function usesSsh(): bool
     {
         return SshSettings::used($this);
@@ -58,7 +71,7 @@ class Connection extends Model
 
         // The connectors read $config['database'] directly, so the key has to
         // be there even when the connection string carried no database name.
-        $config['database'] = (string) $this->database;
+        $config['database'] = (string) $this->activeDatabase();
 
         return array_merge($config, $this->sslConfig());
     }

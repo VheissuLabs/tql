@@ -110,7 +110,7 @@ it('offers only the fields that driver has', function () {
     $sqlite = Connection::create(['name' => 'lite', 'driver' => 'sqlite', 'database' => '/tmp/a.sqlite']);
 
     expect(array_keys(form($sqlite)->fields()))
-        ->toBe(['name', 'database', 'color', 'tag', 'read_only']);
+        ->toBe(['name', 'database', 'tag', 'read_only']);
 
     $mysql = Connection::create([
         'name' => 'my', 'driver' => 'mysql', 'host' => 'h', 'port' => 3306,
@@ -119,7 +119,7 @@ it('offers only the fields that driver has', function () {
 
     expect(array_keys(form($mysql)->fields()))->toBe([
         'name', 'host', 'port', 'database', 'username', 'password',
-        'ssl_mode', 'over_ssh', 'color', 'tag', 'read_only',
+        'ssl_mode', 'over_ssh', 'tag', 'read_only',
     ]);
 });
 
@@ -324,7 +324,7 @@ it('shows the fields that suit the chosen driver', function () {
     $picker->emit('key', 'n');
 
     expect(array_keys($picker->form->fields()))
-        ->toBe(['driver', 'name', 'database', 'color', 'tag', 'read_only']);
+        ->toBe(['driver', 'name', 'database', 'tag', 'read_only']);
 
     while ($picker->form->driver() !== 'mysql') {
         $picker->form->cycleDriver();
@@ -332,7 +332,7 @@ it('shows the fields that suit the chosen driver', function () {
 
     expect(array_keys($picker->form->fields()))->toBe([
         'driver', 'name', 'host', 'port', 'database', 'username', 'password',
-        'ssl_mode', 'over_ssh', 'color', 'tag', 'read_only',
+        'ssl_mode', 'over_ssh', 'tag', 'read_only',
     ]);
 });
 
@@ -562,7 +562,7 @@ it('groups the form into sections', function () {
 
     $inside = collect(explode("\n", $plain))
         ->filter(fn (string $l) => str_contains($l, 'Driver') || str_contains($l, 'SSL mode')
-            || str_contains($l, 'Over SSH') || str_contains($l, 'Color'))
+            || str_contains($l, 'Over SSH') || str_contains($l, 'Tag'))
         ->values();
 
     expect($inside)->toHaveCount(4);
@@ -584,13 +584,42 @@ it('groups the form into sections', function () {
         ->and($lineOf('Over SSH') - $lineOf('SSL mode'))->toBeGreaterThan(1);
 });
 
-it('shows a swatch beside the chosen color', function () {
+it('shows a swatch beside the chosen tag', function () {
     $picker = picker();
 
     $picker->emit('key', 'n');
-    $picker->form->values['color'] = 'red';
+    $picker->form->values['tag'] = 'production';
 
     expect(pickerFrame($picker))->toContain("\e[31m●");
+});
+
+it('picks a tag from a list that shows its color', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    $picker->form->index = array_search('tag', $picker->form->keys(), true);
+
+    $picker->emit('key', "\n");
+
+    expect($picker->form->picker)->not->toBeNull()
+        ->and($picker->form->picker->title)->toBe('TAG')
+        ->and($picker->form->picker->options)->toBe(['none', 'production', 'staging', 'dev', 'local'])
+        ->and($picker->form->picker->colorOf('production'))->toBe('red')
+        ->and($picker->form->picker->colorOf('local'))->toBe('green');
+
+    $frame = pickerFrame($picker);
+
+    expect($frame)->toContain("\e[31m●")
+        ->and($frame)->toContain("\e[32m●");
+
+    // Choose staging.
+    $picker->form->picker->index = array_search('staging', $picker->form->picker->matches(), true);
+
+    $picker->emit('key', "\n");
+
+    expect($picker->form->picker)->toBeNull()
+        ->and($picker->form->values['tag'])->toBe('staging');
 });
 
 it('dims a placeholder but not a real value', function () {
@@ -612,10 +641,43 @@ it('offers arrows on every field with a fixed set of answers', function () {
 
     $picker->emit('key', 'n');
 
-    foreach (['driver', 'color', 'read_only', 'over_ssh'] as $key) {
+    foreach (['driver', 'read_only'] as $key) {
         expect($picker->form->choices($key))->not->toBeNull();
     }
 
     expect($picker->form->choices('name'))->toBeNull()
         ->and($picker->form->choices('host'))->toBeNull();
+});
+
+it('wears the color on the icon and the tag in the list', function () {
+    // Two, so the tagged one is not the row under the cursor.
+    Connection::create(['name' => 'aaa', 'driver' => 'sqlite', 'database' => '/tmp/a.sqlite']);
+    Connection::create([
+        'name' => 'prod', 'driver' => 'mysql', 'host' => 'h', 'port' => 3306,
+        'database' => 'shop', 'tag' => 'production',
+    ]);
+
+    $picker = new ConnectionPicker(Connection::orderBy('name')->get());
+
+    $line = collect(explode("\n", pickerFrame($picker)))
+        ->first(fn (string $l) => str_contains(preg_replace('/\e\[[0-9;]*m/', '', $l), 'production')
+            && ! str_contains($l, "\e[7m"));
+
+    expect($line)->not->toBeNull()
+        // The icon and the tag both carry it.
+        ->and(substr_count($line, "\e[31m"))->toBeGreaterThanOrEqual(2);
+});
+
+it('leaves a connection without a color alone', function () {
+    Connection::create([
+        'name' => 'plain', 'driver' => 'mysql', 'host' => 'h', 'port' => 3306, 'database' => 'd',
+    ]);
+
+    $picker = new ConnectionPicker(Connection::orderBy('name')->get());
+
+    $line = collect(explode("\n", pickerFrame($picker)))
+        ->first(fn (string $l) => str_contains(preg_replace('/\e\[[0-9;]*m/', '', $l), 'plain'));
+
+    // mysql's own yellow icon, and nothing else coloured.
+    expect(substr_count($line, "\e[31m"))->toBe(0);
 });

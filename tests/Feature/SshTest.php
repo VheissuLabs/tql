@@ -201,10 +201,20 @@ it('offers the keys it found plus a way to type one', function () {
 });
 
 it('picks a key from the list instead of typing it', function () {
-    $connection = tunnelled(['ssh_key' => null]);
-    $form = new ConnectionForm($connection);
+    // Build a home with a key in it, so the test does not depend on whether
+    // the machine running it happens to have one.
+    $home = sys_get_temp_dir().'/tql-home-'.uniqid();
 
-    // Stand on the ssh key field.
+    mkdir($home.'/.ssh', 0700, true);
+    file_put_contents($home.'/.ssh/id_test', "-----BEGIN OPENSSH PRIVATE KEY-----\nnot really\n");
+    file_put_contents($home.'/.ssh/id_test.pub', 'ssh-ed25519 AAAA not-a-key');
+    file_put_contents($home.'/.ssh/known_hosts', 'example.com ssh-ed25519 AAAA');
+
+    $previous = getenv('HOME');
+    putenv("HOME={$home}");
+
+    $form = new ConnectionForm(tunnelled(['ssh_key' => null]));
+
     $form->values['over_ssh'] = 'yes';
     $form->values['ssh_host'] = 'bastion.example.com';
 
@@ -215,14 +225,16 @@ it('picks a key from the list instead of typing it', function () {
     $form->openFilePicker();
 
     expect($form->picker)->not->toBeNull()
-        ->and($form->picker->title)->toBe('SSH KEY');
-
-    $chosen = $form->picker->options[0];
+        ->and($form->picker->title)->toBe('SSH KEY')
+        // The key is offered; the public key and known_hosts are not.
+        ->and($form->picker->options)->toBe(['~/.ssh/id_test', ConnectionForm::TYPE_IT]);
 
     $form->chooseFile();
 
     expect($form->picker)->toBeNull()
-        ->and($form->values['ssh_key'])->toBe($chosen);
+        ->and($form->values['ssh_key'])->toBe('~/.ssh/id_test');
+
+    putenv($previous === false ? 'HOME' : "HOME={$previous}");
 });
 
 it('falls back to typing a path', function () {

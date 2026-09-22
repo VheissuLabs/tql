@@ -80,7 +80,6 @@ class ConnectionPicker extends Prompt
             ->map(fn (Connection $c) => [
                 'id' => $c->id,
                 'name' => $c->name,
-                'color' => (string) $c->color,
                 'tag' => (string) $c->tag,
                 'read_only' => (bool) $c->read_only,
                 'driver' => $c->driver,
@@ -284,7 +283,7 @@ class ConnectionPicker extends Prompt
             $key === self::SAVE => $this->saveForm(),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->move(-1),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->move(1),
-            $key === Key::ENTER, $key === 'i' => in_array($form->currentKey(), ConnectionForm::FILES, true)
+            $key === Key::ENTER, $key === 'i' => in_array($form->currentKey(), ConnectionForm::PICKED, true)
                 ? $form->openFilePicker()
                 : $form->start(),
             default => true,

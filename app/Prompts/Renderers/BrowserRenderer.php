@@ -661,7 +661,16 @@ class BrowserRenderer extends Renderer
         $columns = count($prompt->headers);
         $position = $columns === 0 ? '' : ' · col '.($prompt->columnIndex + 1)."/{$columns}";
 
-        return $this->dim(' '.$prompt->connection->name.' · '.($prompt->status ?? '').$position)
+        $name = trim((string) $prompt->connection->color) !== ''
+            ? $this->bold($this->paint((string) $prompt->connection->color, $prompt->connection->name))
+            : $this->dim($prompt->connection->name);
+
+        $tag = trim((string) $prompt->connection->tag) !== ''
+            ? $this->dim(' ['.$prompt->connection->tag.']')
+            : '';
+
+        return ' '.$name.$tag
+            .$this->dim(' · '.($prompt->status ?? '').$position)
             .$this->link($prompt);
     }
 }

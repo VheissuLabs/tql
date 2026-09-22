@@ -16,10 +16,16 @@ class Picker
     /**
      * @param  array<int, string>  $options
      */
+    /**
+     * @param  array<int, string>  $options
+     * @param  array<string, string>  $colors  option => color, for a list
+     *                                         where the color is the point
+     */
     public function __construct(
         public string $title,
         public array $options,
         public string $chosen = '',
+        public array $colors = [],
     ) {
         $this->query = new QueryEditor(multiline: false);
 
@@ -66,6 +72,11 @@ class Picker
 
         // The list changed under the cursor, so start again from the top.
         $this->index = 0;
+    }
+
+    public function colorOf(string $option): string
+    {
+        return $this->colors[$option] ?? '';
     }
 
     public function selected(): ?string
