@@ -245,6 +245,19 @@ class ConnectionPicker extends Prompt
     {
         $form = $this->form;
 
+        // A list of key files is open over the form, so it gets the keys.
+        if ($form->picker !== null) {
+            match (true) {
+                $key === Key::ESCAPE, $key === 'q' => $form->closePicker(),
+                $key === Key::ENTER => $form->chooseFile(),
+                in_array($key, [Key::UP, Key::UP_ARROW], true) => $form->picker->move(-1),
+                in_array($key, [Key::DOWN, Key::DOWN_ARROW], true) => $form->picker->move(1),
+                default => $form->picker->type($key),
+            };
+
+            return;
+        }
+
         if ($form->editing) {
             $this->handleFieldKey($form, $key);
 

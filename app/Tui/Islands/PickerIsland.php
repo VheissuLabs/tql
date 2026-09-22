@@ -45,7 +45,8 @@ class PickerIsland extends Island
             return array_slice($lines, 0, $innerHeight);
         }
 
-        $room = max(1, $innerHeight - 4);
+        // Three rows go above the list: a blank, the query, another blank.
+        $room = max(1, $innerHeight - 3);
         $start = $this->window($this->picker->index, count($matches), $room);
 
         foreach (array_slice($matches, $start, $room) as $offset => $option) {

@@ -5,8 +5,11 @@ namespace App\Prompts\Renderers;
 use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\ConnectionForm;
 use App\Tui\ConnectionPicker;
+use App\Tui\Islands\PickerIsland;
 use App\Tui\Islands\Screen;
+use App\Tui\Islands\Styler;
 use App\Tui\Layout;
+use App\Tui\Picker;
 use App\Tui\Theme;
 use Laravel\Prompts\Themes\Default\Renderer;
 
@@ -70,20 +73,45 @@ class ConnectionPickerRenderer extends Renderer
     }
 
     /**
+     * The picker draws itself, so it needs the same styling hooks the browser
+     * gives its islands.
+     */
+    private function styler(): Styler
+    {
+        return new Styler(
+            fn (string $t) => $this->dim($t),
+            fn (string $t) => $this->bold($t),
+            fn (string $t) => $this->inverse($t),
+            fn (string $t) => $this->underline($t),
+            fn (string $t, int $w) => $this->truncate($t, $w),
+            fn (string $name, string $t) => match ($name) {
+                'cursor' => $this->highlight($t, Theme::cursor()),
+                'selection' => $this->highlight($t, Theme::selection()),
+                default => $t,
+            },
+        );
+    }
+
+    /**
      * @param  array<int, string>  $lines
      * @return array<int, string>
      */
-    private function overlayPicker(array $lines, App\Tui\Picker $picker, int $width): array
+    private function overlayPicker(array $lines, Picker $picker, int $width): array
     {
-        $box = new App\Tui\Islands\PickerIsland($picker, $this->styler());
+        $box = new PickerIsland($picker, $this->styler());
         $box->modal = true;
 
         $boxWidth = min($width - 6, 52);
         $boxHeight = $box->rows();
 
+        // Centre it, then pull it back inside the frame so the last row is
+        // not clipped off the bottom.
+        $y = (int) ((count($lines) - $boxHeight) / 2);
+        $y = max(0, min($y, count($lines) - $boxHeight));
+
         $box->place(
             max(1, (int) (($width - $boxWidth) / 2) + 1),
-            max(1, (int) ((count($lines) - $boxHeight) / 2)),
+            $y,
             $boxWidth,
             $boxHeight,
         );
@@ -91,10 +119,10 @@ class ConnectionPickerRenderer extends Renderer
         $rows = $this->pickerBox($box, $boxWidth);
 
         foreach ($rows as $i => $row) {
-            $at = $box->y + $i - 1;
+            $at = $box->y + $i;
 
             if (isset($lines[$at])) {
-                $lines[$at] = App\Tui\Islands\Screen::splice($lines[$at], $row, $box->x, $boxWidth);
+                $lines[$at] = Screen::splice($lines[$at], $row, $box->x, $boxWidth);
             }
         }
 
@@ -104,7 +132,7 @@ class ConnectionPickerRenderer extends Renderer
     /**
      * @return array<int, string>
      */
-    private function pickerBox(App\Tui\Islands\PickerIsland $box, int $width): array
+    private function pickerBox(PickerIsland $box, int $width): array
     {
         $inner = $width - 2;
         $edge = fn (string $text) => $this->paint(Theme::border(true, true), $text);

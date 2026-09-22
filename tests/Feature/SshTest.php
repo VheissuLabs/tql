@@ -4,6 +4,7 @@ use App\Database\Tunnel;
 use App\Models\Connection;
 use App\Support\KeyFiles;
 use App\Tui\ConnectionForm;
+use App\Tui\ConnectionPicker;
 use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function () {
@@ -262,3 +263,86 @@ it('writes an askpass helper only when there is a password', function () {
 
     expect(is_file($secret))->toBeFalse();
 });
+
+it('keeps the form open when the key list is closed', function () {
+    $picker = new ConnectionPicker(collect());
+
+    $picker->emit('key', 'n');
+
+    while ($picker->form->driver() !== 'mysql') {
+        $picker->form->cycleDriver();
+    }
+
+    $picker->form->values['ssh_host'] = 'bastion.example.com';
+    $picker->form->index = array_search('ssh_key', $picker->form->keys(), true);
+
+    $picker->emit('key', "\n");
+
+    expect($picker->form?->picker)->not->toBeNull();
+
+    $picker->emit('key', "\e");
+
+    // Escape closes the list, not the form behind it.
+    expect($picker->form)->not->toBeNull()
+        ->and($picker->form->picker)->toBeNull();
+
+    $picker->emit('key', "\e");
+
+    expect($picker->form)->toBeNull();
+});
+
+it('renders the key list without blowing up', function () {
+    $picker = new ConnectionPicker(collect());
+
+    $picker->emit('key', 'n');
+
+    while ($picker->form->driver() !== 'mysql') {
+        $picker->form->cycleDriver();
+    }
+
+    $picker->form->values['ssh_host'] = 'bastion.example.com';
+    $picker->form->index = array_search('ssh_key', $picker->form->keys(), true);
+
+    $picker->emit('key', "\n");
+
+    $render = new ReflectionMethod($picker, 'renderTheme');
+    $render->setAccessible(true);
+
+    expect(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($picker)))
+        ->toContain('SSH KEY')
+        ->toContain('type a path');
+});
+
+it('walks every field of every driver without closing the form', function (string $driver) {
+    $picker = new ConnectionPicker(collect());
+
+    $picker->emit('key', 'n');
+
+    while ($picker->form->driver() !== $driver) {
+        $picker->form->cycleDriver();
+    }
+
+    $picker->form->values['ssl_mode'] = 'require';
+    $picker->form->values['ssh_host'] = 'bastion.example.com';
+
+    $render = new ReflectionMethod($picker, 'renderTheme');
+    $render->setAccessible(true);
+
+    foreach (array_keys($picker->form->fields()) as $index => $field) {
+        expect($picker->form)->not->toBeNull("the form closed before {$field}");
+
+        $picker->form->index = min($index, count($picker->form->keys()) - 1);
+
+        $render->invoke($picker);
+
+        $picker->emit('key', "\n");
+        $render->invoke($picker);
+
+        if ($picker->form?->picker !== null || $picker->form?->editor !== null) {
+            $picker->emit('key', "\e");
+            $render->invoke($picker);
+        }
+    }
+
+    expect($picker->form)->not->toBeNull();
+})->with(['sqlite', 'mysql', 'pgsql']);
