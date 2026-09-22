@@ -1,0 +1,180 @@
+<?php
+
+namespace App\Database;
+
+use App\Models\Connection;
+use App\Support\Paths;
+use PDO;
+use RuntimeException;
+
+class SqlExporter
+{
+    private const CHUNK = 500;
+
+    private const PER_STATEMENT = 100;
+
+    public function __construct(private ConnectionManager $connections) {}
+
+    public function directory(): string
+    {
+        $path = (string) (config('dotsql.ui.export_path') ?: Paths::configDirectory().'/exports');
+
+        if (! is_dir($path)) {
+            mkdir($path, 0700, true);
+        }
+
+        return $path;
+    }
+
+    public function filename(Connection $connection, string $table): string
+    {
+        $slug = fn (string $v) => strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $v) ?: 'export');
+
+        return $this->directory().'/'.$slug($connection->name).'-'.$slug($table).'-'.date('Ymd-His').'.sql';
+    }
+
+    public function table(Connection $connection, string $table, ?string $path = null): ExportResult
+    {
+        $path ??= $this->filename($connection, $table);
+
+        $db = $this->connections->resolve($connection);
+        $grammar = $db->getQueryGrammar();
+        $pdo = $db->getPdo();
+
+        $handle = fopen($path, 'w');
+
+        if ($handle === false) {
+            throw new RuntimeException("Could not write to [{$path}].");
+        }
+
+        $started = microtime(true);
+
+        fwrite($handle, $this->header($connection, $table));
+
+        $columns = array_map(
+            fn ($column) => is_array($column) ? $column['name'] : $column->name,
+            $db->getSchemaBuilder()->getColumns($table)
+        );
+
+        $wrappedTable = $grammar->wrapTable($table);
+        $wrappedColumns = implode(', ', array_map(fn ($c) => $grammar->wrap($c), $columns));
+
+        $key = (new QueryRunner($this->connections))->primaryKey($connection, $table);
+
+        $written = 0;
+        $offset = 0;
+        $buffer = [];
+
+        while (true) {
+            $order = $key === null ? '' : ' order by '.$grammar->wrap($key);
+            $sql = "select * from {$wrappedTable}{$order} limit ".self::CHUNK." offset {$offset}";
+
+            $rows = $db->select($sql);
+
+            if ($rows === []) {
+                break;
+            }
+
+            foreach ($rows as $row) {
+                $buffer[] = '('.implode(', ', array_map(
+                    fn ($value) => $this->literal($pdo, $value),
+                    array_values((array) $row)
+                )).')';
+
+                $written++;
+
+                if (count($buffer) >= self::PER_STATEMENT) {
+                    $this->flush($handle, $wrappedTable, $wrappedColumns, $buffer);
+                }
+            }
+
+            $offset += self::CHUNK;
+        }
+
+        $this->flush($handle, $wrappedTable, $wrappedColumns, $buffer);
+
+        fclose($handle);
+
+        return new ExportResult(
+            path: $path,
+            rows: $written,
+            bytes: filesize($path) ?: 0,
+            durationMs: (int) ((microtime(true) - $started) * 1000),
+        );
+    }
+
+    public function rows(Connection $connection, string $label, array $columns, array $rows, ?string $path = null): ExportResult
+    {
+        $path ??= $this->filename($connection, $label);
+
+        $db = $this->connections->resolve($connection);
+        $grammar = $db->getQueryGrammar();
+        $pdo = $db->getPdo();
+
+        $handle = fopen($path, 'w');
+
+        if ($handle === false) {
+            throw new RuntimeException("Could not write to [{$path}].");
+        }
+
+        $started = microtime(true);
+
+        fwrite($handle, $this->header($connection, $label));
+
+        $wrappedTable = $grammar->wrapTable($label);
+        $wrappedColumns = implode(', ', array_map(fn ($c) => $grammar->wrap($c), $columns));
+
+        $buffer = [];
+
+        foreach ($rows as $row) {
+            $buffer[] = '('.implode(', ', array_map(
+                fn ($value) => $this->literal($pdo, $value),
+                array_values((array) $row)
+            )).')';
+
+            if (count($buffer) >= self::PER_STATEMENT) {
+                $this->flush($handle, $wrappedTable, $wrappedColumns, $buffer);
+            }
+        }
+
+        $this->flush($handle, $wrappedTable, $wrappedColumns, $buffer);
+
+        fclose($handle);
+
+        return new ExportResult(
+            path: $path,
+            rows: count($rows),
+            bytes: filesize($path) ?: 0,
+            durationMs: (int) ((microtime(true) - $started) * 1000),
+        );
+    }
+
+    private function flush($handle, string $table, string $columns, array &$buffer): void
+    {
+        if ($buffer === []) {
+            return;
+        }
+
+        fwrite($handle, "insert into {$table} ({$columns}) values\n".implode(",\n", $buffer).";\n\n");
+
+        $buffer = [];
+    }
+
+    private function header(Connection $connection, string $table): string
+    {
+        return "-- dotsql export\n".
+            "-- connection: {$connection->name} ({$connection->driver})\n".
+            "-- table: {$table}\n".
+            '-- exported: '.date('c')."\n\n";
+    }
+
+    private function literal(PDO $pdo, mixed $value): string
+    {
+        return match (true) {
+            $value === null => 'null',
+            is_bool($value) => $value ? '1' : '0',
+            is_int($value), is_float($value) => (string) $value,
+            default => $pdo->quote((string) $value),
+        };
+    }
+}

@@ -54,6 +54,19 @@ space is handed back to the visible columns. When a value is still too long,
 `i` opens it in full in its own pane, wrapped, with its length in the status
 line. `esc` closes it.
 
+## Exporting
+
+`:export` writes what you are looking at to a `.sql` file of `insert`
+statements. On a table that is every row, read in chunks so a large table does
+not go through memory at once; after a query it is the rows you have loaded.
+
+Files land in `~/.config/dotsql/exports` (override with `ui.export_path`), named
+`connection-table-YYYYMMDD-HHMMSS.sql`. The status line reports the row count,
+file size and path.
+
+Data only — no schema. Your migrations own the schema; this is for pulling rows
+from one database into another.
+
 ## Editing
 
 Select a cell and press `e` or `↵`. `↵` saves, `esc` cancels. An empty value
@@ -122,6 +135,7 @@ Shipped defaults:
 | --- | --- | --- |
 | `ui.top_margin` | 1 | blank rows above the frame |
 | `ui.sidebar_width` | 24 | width of the tables pane |
+| `ui.export_path` | `~/.config/dotsql/exports` | where `:export` writes files |
 | `ui.row_style` | `marker` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
 | `ui.mouse_row_offset` | 0 | rows to subtract from reported mouse coordinates |
 | `ui.mouse_column_offset` | 0 | columns to subtract from reported mouse coordinates |

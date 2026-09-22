@@ -3,6 +3,7 @@
 namespace App\Tui;
 
 use App\Database\QueryRunner;
+use App\Database\SqlExporter;
 use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Tui\Concerns\HandlesMouse;
@@ -241,6 +242,30 @@ class Browser extends Prompt
         }
 
         return min($width, 28);
+    }
+
+    private function export(): bool
+    {
+        $exporter = app(SqlExporter::class);
+
+        try {
+            $result = $this->resultsFromQuery
+                ? $exporter->rows($this->connection, 'results', $this->headers, $this->raw)
+                : $exporter->table($this->connection, (string) $this->currentTable());
+        } catch (\Throwable $e) {
+            $this->status = 'export failed: '.$e->getMessage();
+
+            return true;
+        }
+
+        $this->status = sprintf(
+            'exported %d rows (%s) to %s',
+            $result->rows,
+            $result->size(),
+            $result->path,
+        );
+
+        return true;
     }
 
     private function toggleMouseDebug(): bool
@@ -651,6 +676,7 @@ class Browser extends Prompt
             'rows' => $this->focusOn('grid'),
             'r', 'reload' => $this->reload(),
             'sql' => $this->openQuery(),
+            'export', 'export sql' => $this->export(),
             'mouse' => $this->toggleMouseDebug(),
             default => $this->unknownCommand($command),
         };

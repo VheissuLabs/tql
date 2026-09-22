@@ -8,6 +8,8 @@ return [
 
         'row_style' => 'marker',
 
+        'export_path' => null,
+
         'sidebar_width' => 24,
 
         'mouse_row_offset' => env('DOTSQL_MOUSE_ROW_OFFSET', 0),
