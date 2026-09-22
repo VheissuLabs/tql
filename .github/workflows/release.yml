@@ -1,0 +1,47 @@
+name: release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_sqlite, pdo_mysql, pdo_pgsql, mbstring
+          # box writes the phar, which the default ini forbids.
+          ini-values: phar.readonly=0
+          coverage: none
+
+      - name: Install dependencies
+        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
+
+      - name: Read the version from the tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        run: php tql app:build tql --build-version=${{ steps.version.outputs.version }} --no-interaction
+
+      - name: Check the binary runs
+        run: |
+          chmod +x builds/tql
+          ./builds/tql --version
+          ./builds/tql list | grep -q 'mcp:start'
+
+      - name: Publish the release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: builds/tql
+          generate_release_notes: true
+          draft: false

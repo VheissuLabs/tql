@@ -7,6 +7,8 @@ use App\Support\ConfigFile;
 use App\Support\Paths;
 use Devium\Toml\Toml;
 use Illuminate\Encryption\EncryptionServiceProvider;
+use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Mcp\Facades\Mcp;
 use Throwable;
@@ -100,6 +102,31 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        $this->migrate();
+
         Mcp::local('tql', TqlServer::class);
+    }
+
+    /**
+     * Create the store on first run.
+     *
+     * A released binary is the first thing a new user touches, and nobody is
+     * going to run migrate on a database they did not know existed.
+     */
+    private function migrate(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        try {
+            if (Schema::connection('tql')->hasTable('connections')) {
+                return;
+            }
+
+            Artisan::call('migrate', ['--force' => true]);
+        } catch (Throwable $e) {
+            config(['tql.config_error' => 'could not prepare '.Paths::database().': '.$e->getMessage()]);
+        }
     }
 }
