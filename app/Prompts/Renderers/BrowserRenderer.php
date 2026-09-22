@@ -160,6 +160,10 @@ class BrowserRenderer extends Renderer
             fn (string $t, int $w) => $this->truncate($t, $w),
             fn (string $name, string $t) => match ($name) {
                 'key' => $this->cyan($t),
+                'keyword' => $this->magenta($t),
+                'identifier' => $this->cyan($t),
+                'operator' => $this->dim($t),
+                'comment' => $this->dim($t),
                 'string' => $this->green($t),
                 'number' => $this->yellow($t),
                 'literal' => $this->magenta($t),

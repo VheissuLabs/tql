@@ -76,20 +76,44 @@ class ValueEditorIsland extends Island
     {
         $tokens = $this->json ? Json::tokenise($line) : [['plain', $line]];
 
+        $inverse = fn (string $t) => $this->style->inverse($t);
+        $paint = fn (string $type, string $t) => $this->style->colour($type, $t);
+
         $rendered = '';
         $used = 0;
 
         foreach ($tokens as [$type, $text]) {
+            $length = mb_strlen($text);
+
+            $containsCursor = $cursor !== null && $cursor >= $used && $cursor < $used + $length;
+
+            if (! $containsCursor) {
+                $room = $width - $used;
+
+                if ($room <= 0) {
+                    return $rendered;
+                }
+
+                if ($length > $room) {
+                    $text = mb_substr($text, 0, $room);
+                    $length = $room;
+                }
+
+                $rendered .= $type === 'plain' ? $text : $paint($type, $text);
+                $used += $length;
+
+                continue;
+            }
+
             foreach (preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $char) {
                 if ($used >= $width) {
                     return $rendered;
                 }
 
-                $painted = $type === 'plain' ? $char : $this->style->colour($type, $char);
-
                 $rendered .= $used === $cursor
-                    ? $this->style->inverse($this->style->bold($char === ' ' ? ' ' : $char))
-                    : $painted;
+                    ? $inverse($char)
+                    : ($type === 'plain' ? $char : $paint($type, $char));
+
                 $used++;
             }
         }

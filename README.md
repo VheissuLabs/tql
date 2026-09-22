@@ -60,6 +60,12 @@ the running query comes back.
 
 ## Running SQL
 
+The SQL pane is syntax highlighted — keywords, quoted identifiers, strings,
+numbers and comments each coloured, the same tokeniser approach as the JSON
+viewer and equally careful never to drop a character while you type.
+
+
+
 Press `s` (or `:sql`) for the SQL editor, which opens above the results.
 `ctrl+r` runs what you have typed, `esc` returns to browsing. Results replace
 the grid and are read-only, since they have no primary key to write back

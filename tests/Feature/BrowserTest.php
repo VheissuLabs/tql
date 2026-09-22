@@ -959,15 +959,21 @@ it('only shows the editor cursor when the editor has focus', function () {
 
     $browser = browserFor(sqliteFixture());
 
-    expect(frameOf($browser))->not->toContain('█');
+    $inverses = function () use ($browser) {
+        $method = new ReflectionMethod($browser, 'renderTheme');
+        $method->setAccessible(true);
+
+        return substr_count($method->invoke($browser), "\e[7m");
+    };
+
+    $unfocused = $inverses();
 
     $browser->emit('key', 's');
 
-    expect(frameOf($browser))->toContain('█');
+    expect($inverses())->toBe($unfocused + 1);
 
     config(['dotsql.ui.sql_always' => false]);
 });
-
 it('honours a configured sql height', function () {
     config(['dotsql.ui.sql_always' => true, 'dotsql.ui.sql_height' => 6]);
 
