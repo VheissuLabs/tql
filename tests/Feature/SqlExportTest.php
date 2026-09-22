@@ -162,9 +162,10 @@ it('asks which connection and table when given neither', function () {
 
     $out = sys_get_temp_dir().'/tql-ask-'.uniqid().'.sql';
 
-    $this->artisan('export', ['--sql' => $out])
+    $this->artisan('export')
         ->expectsQuestion('Export from', $connection->id)
         ->expectsQuestion('Which table?', 'things')
+        ->expectsQuestion('Save it where?', $out)
         ->assertExitCode(0);
 
     expect(file_get_contents($out))->toContain('insert into "things"');
@@ -181,9 +182,10 @@ it('takes every table when the table list is answered with the first option', fu
     $out = sys_get_temp_dir().'/tql-ask-all-'.uniqid().'.sql';
 
     // The first option on the table list is the whole database.
-    $this->artisan('export', ['--sql' => $out])
+    $this->artisan('export')
         ->expectsQuestion('Export from', $connection->id)
         ->expectsQuestion('Which table?', '')
+        ->expectsQuestion('Save it where?', $out)
         ->assertExitCode(0);
 
     expect(file_get_contents($out))->toContain('insert into');
@@ -208,4 +210,46 @@ it('has nothing to export before a connection is saved', function () {
     $this->artisan('export', ['--no-interaction' => true])
         ->expectsOutputToContain('No saved connections')
         ->assertExitCode(1);
+});
+
+it('names the file itself when the answer is a folder', function () {
+    Connection::query()->delete();
+
+    [$connection, $path] = exportFixture();
+
+    $folder = sys_get_temp_dir().'/tql-into-'.uniqid();
+    mkdir($folder);
+
+    $this->artisan('export')
+        ->expectsQuestion('Export from', $connection->id)
+        ->expectsQuestion('Which table?', 'things')
+        ->expectsQuestion('Save it where?', $folder)
+        ->assertExitCode(0);
+
+    $written = glob($folder.'/*.sql');
+
+    expect($written)->toHaveCount(1)
+        ->and(file_get_contents($written[0]))->toContain('insert into "things"');
+
+    unlink($written[0]);
+    rmdir($folder);
+    unlink($path);
+});
+
+it('does not ask where when --sql says so', function () {
+    Connection::query()->delete();
+
+    [$connection, $path] = exportFixture();
+
+    $out = sys_get_temp_dir().'/tql-told-'.uniqid().'.sql';
+
+    $this->artisan('export', ['--sql' => $out])
+        ->expectsQuestion('Export from', $connection->id)
+        ->expectsQuestion('Which table?', 'things')
+        ->assertExitCode(0);
+
+    expect(file_exists($out))->toBeTrue();
+
+    unlink($out);
+    unlink($path);
 });

@@ -3,6 +3,7 @@
 namespace App\Ssh;
 
 use App\Models\Connection;
+use App\Support\Paths;
 use Symfony\Component\Process\Process;
 
 /**
@@ -175,9 +176,7 @@ class Tunnel
 
     public static function expand(string $path): string
     {
-        return str_starts_with($path, '~/')
-            ? (string) getenv('HOME').substr($path, 1)
-            : $path;
+        return Paths::expand($path);
     }
 
     /**

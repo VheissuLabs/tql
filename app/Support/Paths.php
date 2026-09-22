@@ -11,6 +11,16 @@ class Paths
         return $base.'/tql';
     }
 
+    /**
+     * Home-relative paths, since that is how people type them.
+     */
+    public static function expand(string $path): string
+    {
+        return str_starts_with($path, '~/')
+            ? (string) getenv('HOME').substr($path, 1)
+            : $path;
+    }
+
     public static function database(): string
     {
         return static::configDirectory().'/tql.sqlite';

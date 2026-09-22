@@ -6,11 +6,13 @@ use App\Database\ConnectionManager;
 use App\Database\QueryRunner;
 use App\Database\SqlExporter;
 use App\Models\Connection;
+use App\Support\Paths;
 use LaravelZero\Framework\Commands\Command;
 use Throwable;
 
 use function Laravel\Prompts\search;
 use function Laravel\Prompts\select;
+use function Laravel\Prompts\text;
 
 class ExportCommand extends Command
 {
@@ -192,6 +194,29 @@ class ExportCommand extends Command
      *
      * @param  string[]  $available
      */
+    /**
+     * Where to write it, offering the auto-named file as the answer.
+     *
+     * @param  string[]  $tables
+     */
+    private function askWhere(Connection $connection, array $tables): ?string
+    {
+        $suggested = $this->exporter->filename(
+            $connection, count($tables) === 1 ? $tables[0] : 'all',
+        );
+
+        $answer = trim(text(
+            label: 'Save it where?',
+            default: $suggested,
+            hint: 'a file, or a folder to have it named for you',
+            validate: fn (string $value) => is_dir($dir = dirname(Paths::expand(trim($value) ?: $suggested)))
+                ? null
+                : "There is no folder [{$dir}].",
+        ));
+
+        return $answer === '' ? null : $answer;
+    }
+
     private function chooseTable(array $available): ?string
     {
         $every = 'every table ('.count($available).')';
@@ -217,11 +242,13 @@ class ExportCommand extends Command
 
     private function destination(Connection $connection, array $tables): ?string
     {
-        $sql = $this->option('sql');
+        $sql = $this->option('sql') ?? ($this->asked ? $this->askWhere($connection, $tables) : null);
 
         if ($sql === null) {
             return null;
         }
+
+        $sql = Paths::expand($sql);
 
         if (is_dir($sql)) {
             $label = count($tables) === 1 ? $tables[0] : 'all';

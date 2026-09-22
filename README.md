@@ -447,9 +447,11 @@ tql export prod --sql=./prod.sql     # every table, one file
 tql export prod --list               # what tables are there
 ```
 
-Name a connection and it goes straight through; name nothing and it asks, with
-the saved connections listed most recently used first and the whole database as
-the first answer to the table question. Piped or with `--no-interaction` it
+Name a connection and it goes straight through; name nothing and it asks three
+questions — which connection (most recently used first), which table (the whole
+database is the first answer), and where to save it, offering the auto-named
+file in the export directory. Answer that last one with a folder and it names
+the file for you; `--sql` skips the question. Piped or with `--no-interaction` it
 never asks — it says what it needed and stops with a non-zero exit.
 
 `--sql` takes a file or a directory; omit it and the file is named
