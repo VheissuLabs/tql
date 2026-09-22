@@ -137,3 +137,46 @@ it('does not yank from an editable value', function () {
     expect($browser->cellEditor->buffer())->toContain('y')
         ->and($browser->cellEditor->buffer())->not->toBe($before);
 });
+
+it('marks the current line in the viewer', function () {
+    $browser = viewer();
+
+    $frame = function () use ($browser) {
+        $method = new ReflectionMethod($browser, 'renderTheme');
+        $method->setAccessible(true);
+
+        return preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser));
+    };
+
+    $lineOf = function (string $frame) {
+        foreach (explode("\n", $frame) as $index => $line) {
+            if (str_contains($line, '▸')) {
+                return $index;
+            }
+        }
+
+        return null;
+    };
+
+    $first = $lineOf($frame());
+
+    expect($first)->not->toBeNull();
+
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'j');
+
+    expect($lineOf($frame()))->toBe($first + 2);
+});
+
+it('does not mark lines while editing, where the text cursor shows instead', function () {
+    $browser = viewer();
+    $browser->emit('key', "\e");
+    $browser->emit('key', 'e');
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $raw = $method->invoke($browser);
+
+    expect(preg_replace('/\e\[[0-9;]*m/', '', $raw))->not->toContain('▸')
+        ->and($raw)->toContain("\e[7m");
+});

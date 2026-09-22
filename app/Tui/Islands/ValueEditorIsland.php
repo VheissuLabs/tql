@@ -25,7 +25,7 @@ class ValueEditorIsland extends Island
         $cursorColumn = $this->editor->cursorColumn();
 
         $gutter = max(2, mb_strlen((string) count($lines)));
-        $room = $innerWidth - $gutter - 3;
+        $room = $innerWidth - $gutter - 4;
 
         $start = max(0, $cursorLine - $innerHeight + 1);
 
@@ -33,6 +33,10 @@ class ValueEditorIsland extends Island
 
         foreach (array_slice($lines, $start, $innerHeight, true) as $number => $line) {
             $label = $this->style->colour('gutter', str_pad((string) ($number + 1), $gutter, ' ', STR_PAD_LEFT));
+
+            $here = $number === $cursorLine
+                ? ($this->showCursor ? ' ' : $this->style->bold('▸'))
+                : ' ';
 
             $body = $this->render(
                 $line,
@@ -44,7 +48,7 @@ class ValueEditorIsland extends Island
                 && $number >= $this->selection[0]
                 && $number <= $this->selection[1];
 
-            $out[] = ' '.$label.' '.($selected ? $this->style->inverse($this->style->pad($body, $room)) : $body);
+            $out[] = $here.$label.' '.($selected ? $this->style->inverse($this->style->pad($body, $room)) : $body);
         }
 
         return $out;
