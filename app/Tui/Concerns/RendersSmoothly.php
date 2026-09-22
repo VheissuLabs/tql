@@ -19,8 +19,30 @@ trait RendersSmoothly
         $this->repaint = true;
     }
 
+    private bool $flowControlDisabled = false;
+
+    /**
+     * Prompts sets the tty to "-icanon -isig -echo" but leaves ixon on, so the
+     * terminal driver eats ctrl+s as XOFF and it never reaches the key loop.
+     * The mode Prompts saved was taken before this, so it still restores.
+     */
+    private function allowCtrlS(): void
+    {
+        if ($this->flowControlDisabled) {
+            return;
+        }
+
+        $this->flowControlDisabled = true;
+
+        if (function_exists('stream_isatty') && @stream_isatty(STDIN)) {
+            @shell_exec('stty -ixon -ixoff < /dev/tty 2>/dev/null');
+        }
+    }
+
     protected function render(): void
     {
+        $this->allowCtrlS();
+
         $this->terminal()->initDimensions();
 
         $size = [$this->terminal()->cols(), $this->terminal()->lines()];

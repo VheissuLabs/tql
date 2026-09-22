@@ -420,3 +420,70 @@ it('flattens a multi-line paste into a single line field', function () {
 
     expect($picker->form->buffer)->toBe('first second');
 });
+
+it('saves from a row you can select, not only ctrl+s', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+    $picker->form->values['name'] = 'by enter';
+    $picker->form->values['database'] = '/tmp/by-enter.sqlite';
+
+    while (! $picker->form->onAction()) {
+        $picker->emit('key', 'j');
+    }
+
+    expect($picker->form->currentKey())->toBe('save');
+
+    $picker->emit('key', "\n");
+
+    expect($picker->form)->toBeNull()
+        ->and(Connection::where('name', 'by enter')->exists())->toBeTrue();
+});
+
+it('cancels from the cancel row', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+    $picker->form->values['name'] = 'never saved';
+    $picker->form->values['database'] = '/tmp/never.sqlite';
+
+    while ($picker->form->currentKey() !== 'cancel') {
+        $picker->emit('key', 'j');
+    }
+
+    $picker->emit('key', "\n");
+
+    expect($picker->form)->toBeNull()
+        ->and(Connection::where('name', 'never saved')->exists())->toBeFalse();
+});
+
+it('saves what you are typing without committing the field first', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+    $picker->form->values['database'] = '/tmp/mid-type.sqlite';
+    $picker->form->move(1);
+
+    expect($picker->form->currentKey())->toBe('name');
+
+    $picker->emit('key', "\n");
+    $picker->emit('key', 'typed then saved');
+
+    expect($picker->form->editing)->toBeTrue();
+
+    $picker->emit('key', ConnectionPicker::SAVE);
+
+    expect($picker->form)->toBeNull()
+        ->and(Connection::where('name', 'typed then saved')->exists())->toBeTrue();
+});
+
+it('shows the save and cancel rows in the modal', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    $plain = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker));
+
+    expect($plain)->toContain('Save')
+        ->and($plain)->toContain('Cancel');
+});

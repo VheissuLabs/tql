@@ -168,6 +168,21 @@ class ConnectionPicker extends Prompt
             return;
         }
 
+        if ($form->onAction()) {
+            match (true) {
+                $key === Key::ESCAPE, $key === 'q' => $this->closeForm('nothing changed'),
+                $key === self::SAVE => $this->saveForm(),
+                in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->move(-1),
+                in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->move(1),
+                $key === Key::ENTER => $form->currentKey() === 'save'
+                    ? $this->saveForm()
+                    : $this->closeForm('nothing changed'),
+                default => true,
+            };
+
+            return;
+        }
+
         // The driver is a fixed set, so it cycles rather than being typed.
         if ($form->currentKey() === 'driver') {
             match (true) {
@@ -195,6 +210,15 @@ class ConnectionPicker extends Prompt
 
     private function handleFieldKey(ConnectionForm $form, string $key): void
     {
+        // Saving from inside a field keeps what you just typed, rather than
+        // making you press enter first and wonder why nothing happened.
+        if ($key === self::SAVE) {
+            $form->commit();
+            $this->saveForm();
+
+            return;
+        }
+
         if ($key === Key::ESCAPE) {
             $form->abandon();
 

@@ -129,10 +129,23 @@ class ConnectionPickerRenderer extends Renderer
 
         $rows[] = $this->row('', $inner);
 
+        foreach (ConnectionForm::ACTIONS as $action) {
+            $focused = $form->currentKey() === $action;
+            $text = $action === 'save' ? 'Save' : 'Cancel';
+
+            $rows[] = $this->row(
+                '  '.($focused ? $this->bold($this->paint(Theme::title(true), '▸ '.$text)) : $this->dim('  '.$text)),
+                $inner,
+            );
+        }
+
+        $rows[] = $this->row('', $inner);
+
         $rows[] = $this->row('  '.$this->dim($form->error !== null
             ? $this->paint('red', $form->error)
             : match (true) {
                 $form->editing => '↵ keeps it    esc drops it',
+                $form->onAction() => '↵ chooses    ↑↓ moves',
                 $form->currentKey() === 'driver' => '← → driver    ctrl+s save    esc cancel',
                 default => '↵ change    ctrl+s save    esc cancel',
             }), $inner);

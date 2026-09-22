@@ -122,9 +122,20 @@ class ConnectionForm
         return $this->creating ? ['driver' => 'Driver'] + $fields : $fields;
     }
 
+    /**
+     * Save and Cancel are rows you can move to and press enter on, so there
+     * is always a way through the form without a modifier key.
+     */
+    public const ACTIONS = ['save', 'cancel'];
+
     public function keys(): array
     {
-        return array_keys($this->fields());
+        return array_merge(array_keys($this->fields()), self::ACTIONS);
+    }
+
+    public function onAction(): bool
+    {
+        return in_array($this->currentKey(), self::ACTIONS, true);
     }
 
     public function currentKey(): string
