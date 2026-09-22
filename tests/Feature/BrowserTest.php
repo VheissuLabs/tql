@@ -842,3 +842,34 @@ it('keeps the row marker out of the cell padding', function () {
 
     throw new Exception('no marker found in the frame');
 });
+
+it('inspects from the sidebar without needing to enter the grid first', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->focus = 'sidebar';
+
+    $browser->emit('key', 'i');
+
+    expect($browser->mode)->toBe('inspect')
+        ->and($browser->focus)->toBe('grid');
+});
+
+it('says so when there is nothing to inspect', function () {
+    $path = sys_get_temp_dir().'/dotsql-empty-'.uniqid().'.sqlite';
+    touch($path);
+
+    (new PDO('sqlite:'.$path))->exec('create table blanks (id integer primary key)');
+
+    $connection = Connection::create([
+        'name' => 'empty'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+    frameOf($browser);
+    $browser->emit('key', "\n");
+    $browser->emit('key', 'i');
+
+    expect($browser->mode)->toBe('browse')
+        ->and($browser->status)->toContain('nothing to inspect');
+
+    unlink($path);
+});

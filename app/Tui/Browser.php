@@ -307,10 +307,13 @@ class Browser extends Prompt
             return true;
         }
 
-        if ($this->focus !== 'grid' || $this->raw === []) {
+        if ($this->raw === []) {
+            $this->status = 'nothing to inspect — this table has no rows';
+
             return true;
         }
 
+        $this->focus = 'grid';
         $this->mode = 'inspect';
         $this->inspectOffset = 0;
 
