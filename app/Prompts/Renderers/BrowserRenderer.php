@@ -3,6 +3,7 @@
 namespace App\Prompts\Renderers;
 
 use App\Tui\Browser;
+use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\Island;
 use App\Tui\Islands\Screen;
@@ -16,20 +17,20 @@ use Laravel\Prompts\Themes\Default\Renderer;
 class BrowserRenderer extends Renderer
 {
     use DrawsHotkeys;
+    use RendersWithoutPadding;
 
     public function __invoke(Browser $prompt): string
     {
-        $prompt->firstBodyRow ??= Layout::firstBodyRow(max(2 - $prompt->newLinesWritten(), 0));
-
         $width = max(60, $prompt->terminal()->cols());
         $height = max(12, $prompt->terminal()->lines());
 
-        $top = $prompt->firstBodyRow - Layout::TOP_BORDER_ROWS;
-        $frameHeight = max(6, $height - $top - 4);
+        $top = 2;
+        $prompt->firstBodyRow = $top + 1;
+        $frameHeight = max(6, $height - $top - 3);
 
         $style = $this->styler();
 
-        $sidebar = new SidebarIsland($prompt->tables, $prompt->tableIndex, fn ($t, $w) => $this->truncate($t, $w));
+        $sidebar = new SidebarIsland($prompt->tables, $prompt->tableIndex, $style);
         $sidebar->focused = $prompt->focus === 'sidebar';
         $sidebar->place(1, $top, Layout::SIDEBAR + 2, $frameHeight);
 

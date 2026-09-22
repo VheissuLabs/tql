@@ -2,24 +2,28 @@
 
 namespace App\Prompts\Renderers;
 
+use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\ConnectionPicker;
 use App\Tui\Layout;
 use Laravel\Prompts\Themes\Default\Renderer;
 
 class ConnectionPickerRenderer extends Renderer
 {
+    use RendersWithoutPadding;
+
     public function __invoke(ConnectionPicker $prompt): string
     {
-        $prompt->firstBodyRow ??= Layout::firstBodyRow(max(2 - $prompt->newLinesWritten(), 0));
+        $prompt->firstBodyRow = Layout::firstBodyRow(1);
 
         $width = max(60, $prompt->terminal()->cols());
         $height = max(10, $prompt->terminal()->lines());
 
         $inner = $width - 2;
-        $bodyHeight = max(3, $height - 9);
+        $bodyHeight = max(3, $height - 8);
 
         $widths = $this->widths($prompt, $inner);
 
+        $this->line('');
         $this->line($this->rule($prompt, '┌', '┬', '┐', $widths, $inner));
         $this->line($this->headerRow($widths, $inner));
         $this->line($this->rule($prompt, '├', '┼', '┤', $widths, $inner));

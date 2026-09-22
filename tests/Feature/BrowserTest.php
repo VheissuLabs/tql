@@ -294,3 +294,43 @@ it('ignores sidebar clicks on the chrome above the first row', function () {
 
     expect($browser->tableIndex)->toBe($before);
 });
+
+it('draws each island exactly where it claims to be', function () {
+    $browser = browserFor(sqliteFixture());
+    $frame = frameOf($browser);
+    $lines = explode("\n", $frame);
+
+    $sidebarRow = null;
+
+    foreach ($lines as $index => $line) {
+        if (str_contains($line, 'TABLES')) {
+            $sidebarRow = $index + 1;
+            break;
+        }
+    }
+
+    expect($sidebarRow)->not->toBeNull()
+        ->and($browser->sidebar->y)->toBe($sidebarRow);
+});
+
+it('highlights the selected table in the sidebar', function () {
+    $browser = browserFor(sqliteFixture());
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $raw = $method->invoke($browser);
+
+    $selected = $browser->tables[$browser->tableIndex];
+
+    expect($raw)->toContain("\e[7m");
+
+    foreach (explode("\n", $raw) as $line) {
+        if (str_contains($line, $selected) && str_contains($line, "\e[7m")) {
+            expect(true)->toBeTrue();
+
+            return;
+        }
+    }
+
+    throw new Exception("the selected table [{$selected}] is not highlighted");
+});

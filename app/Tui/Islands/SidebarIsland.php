@@ -11,7 +11,7 @@ class SidebarIsland extends Island
     public function __construct(
         private array $tables,
         private int $selected,
-        private \Closure $truncate,
+        private Styler $style,
     ) {}
 
     public function content(int $innerWidth, int $innerHeight): array
@@ -21,7 +21,11 @@ class SidebarIsland extends Island
         $lines = [];
 
         foreach (array_slice($this->tables, $this->start, $innerHeight) as $index => $table) {
-            $lines[] = ' '.($this->truncate)($table, $innerWidth - 2);
+            $label = ' '.$this->style->truncate($table, $innerWidth - 2);
+
+            $lines[] = ($this->start + $index) === $this->selected
+                ? $this->style->inverse($this->style->pad($label, $innerWidth))
+                : $this->style->dim($label);
         }
 
         return $lines;
