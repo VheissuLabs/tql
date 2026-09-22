@@ -505,11 +505,7 @@ class Browser extends Prompt
                 $name = $this->headers[$handle] ?? null;
 
                 if ($name !== null) {
-                    $this->drag = [
-                        'column' => $name,
-                        'originX' => $column,
-                        'originWidth' => $this->widthOverrides[$name] ?? $this->naturalWidth($name),
-                    ];
+                    $this->drag = ['column' => $name, 'index' => $handle];
 
                     $this->columnIndex = $handle;
 
@@ -519,6 +515,11 @@ class Browser extends Prompt
         }
 
         return $this->click($column, $row);
+    }
+
+    public function isDragging(): bool
+    {
+        return $this->drag !== null;
     }
 
     private function handleNear(int $column): ?int
@@ -534,15 +535,21 @@ class Browser extends Prompt
 
     private function dragTo(int $column): void
     {
-        if ($this->drag === null) {
+        if ($this->drag === null || $this->table === null) {
             return;
         }
 
-        $width = $this->drag['originWidth'] + ($column - $this->drag['originX']);
+        $start = $this->table->cellStart($this->drag['index']);
 
-        $this->widthOverrides[$this->drag['column']] = max(3, min(120, $width));
+        if ($start === null) {
+            return;
+        }
 
-        $this->status = "{$this->drag['column']} width {$this->widthOverrides[$this->drag['column']]}";
+        $width = max(3, min(200, $column - $start - 1));
+
+        $this->widthOverrides[$this->drag['column']] = $width;
+
+        $this->status = "{$this->drag['column']} width {$width}";
     }
 
     private function click(int $column, int $row): bool

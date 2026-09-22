@@ -541,3 +541,50 @@ it('supports the other selected row styles', function (string $style, string $ex
     ['bold', "\e[1m"],
     ['inverse', "\e[7m"],
 ]);
+
+it('does not jump when a column border is first grabbed', function () {
+    config(['dotsql.ui.mouse_row_offset' => 0]);
+
+    $browser = browserFor(sqliteFixture());
+    frameOf($browser);
+
+    $row = $browser->table->y + 1;
+    $handle = $browser->columnHandles[1];
+
+    $browser->emit('key', "\e[<0;{$handle};{$row}M");
+    frameOf($browser);
+
+    expect($browser->columnHandles[1])->toBe($handle)
+        ->and($browser->widthOverrides)->toBeEmpty();
+});
+
+it('keeps the column border under the pointer while dragging', function () {
+    config(['dotsql.ui.mouse_row_offset' => 0]);
+    putenv('COLUMNS=140');
+    putenv('LINES=24');
+
+    $browser = browserFor(sqliteFixture());
+    frameOf($browser);
+
+    $row = $browser->table->y + 1;
+    $handle = $browser->columnHandles[1];
+
+    $browser->emit('key', "\e[<0;{$handle};{$row}M");
+    frameOf($browser);
+
+    $misses = 0;
+
+    foreach ([$handle + 8, $handle + 16, $handle - 6, $handle + 3] as $target) {
+        $browser->emit('key', "\e[<32;{$target};{$row}M");
+        frameOf($browser);
+
+        if (abs(($browser->columnHandles[1] ?? -99) - $target) > 1) {
+            $misses++;
+        }
+    }
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    expect($misses)->toBe(0);
+});

@@ -12,6 +12,8 @@ class TableIsland extends Island
 
     public int $columnOffset = 0;
 
+    public bool $scrollLocked = false;
+
     private array $widths = [];
 
     public function __construct(
@@ -62,6 +64,28 @@ class TableIsland extends Island
         }
 
         return $handles;
+    }
+
+    public function cellStart(int $absoluteColumn): ?int
+    {
+        $x = $this->contentColumn(0);
+
+        foreach ($this->widths as $i => $width) {
+            if ($this->columnOffset + $i === $absoluteColumn) {
+                return $x;
+            }
+
+            $x += $width + 3;
+        }
+
+        return null;
+    }
+
+    public function widthOf(int $absoluteColumn): ?int
+    {
+        $index = $absoluteColumn - $this->columnOffset;
+
+        return $this->widths[$index] ?? null;
     }
 
     public function rowIndexFor(int $localRow): ?int
@@ -195,7 +219,9 @@ class TableIsland extends Island
         for ($i = $this->columnOffset; $i < count($all); $i++) {
             $cost = $all[$i] + 2 + ($widths === [] ? 0 : 1);
 
-            if ($used + $cost > $available && $widths !== []) {
+            $reachedCursor = ($this->columnOffset + count($widths) - 1) >= $this->columnIndex;
+
+            if ($used + $cost > $available && $widths !== [] && $reachedCursor) {
                 break;
             }
 
@@ -214,28 +240,14 @@ class TableIsland extends Island
             return $widths;
         }
 
-        foreach ($widths as $i => $width) {
-            $name = $this->headers[$this->columnOffset + $i] ?? null;
+        $last = count($widths) - 1;
+        $name = $this->headers[$this->columnOffset + $last] ?? null;
 
-            if ($name === null || isset($this->overrides[$name])) {
-                continue;
-            }
-
-            $wanted = $this->naturalWidth($name) - $width;
-
-            if ($wanted <= 0) {
-                continue;
-            }
-
-            $give = min($wanted, $leftover);
-
-            $widths[$i] += $give;
-            $leftover -= $give;
-
-            if ($leftover <= 0) {
-                break;
-            }
+        if ($name === null || isset($this->overrides[$name])) {
+            return $widths;
         }
+
+        $widths[$last] += $leftover;
 
         return $widths;
     }
@@ -272,6 +284,10 @@ class TableIsland extends Island
 
     private function scroll(array $all, int $available): int
     {
+        if ($this->scrollLocked) {
+            return $this->columnOffset;
+        }
+
         $offset = min($this->columnOffset, $this->columnIndex);
 
         while ($offset < $this->columnIndex) {
