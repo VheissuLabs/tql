@@ -583,9 +583,16 @@ it('shows help and lists the commands', function () {
     $frame = frameOf($browser);
 
     expect($frame)->toContain('HELP')
-        ->and($frame)->toContain(':export')
-        ->and($frame)->toContain('drag')
+        ->and($frame)->toContain('tab')
         ->and(substr_count($frame, 'HELP'))->toBe(1);
+
+    // The help is longer than the modal, so the later sections need scrolling.
+    $browser->emit('key', 'G');
+
+    $bottom = frameOf($browser);
+
+    expect($bottom)->toContain(':export')
+        ->and($bottom)->not->toBe($frame);
 
     $browser->emit('key', '?');
 
