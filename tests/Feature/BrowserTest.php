@@ -861,10 +861,10 @@ it('ignores typing in a read-only value but still scrolls', function () {
     expect($browser->mode)->toBe('browse');
 });
 
-it('opens read-only with i even where editing is possible', function () {
+it('opens read-only with I even where editing is possible', function () {
     $browser = jsonBrowser();
     $browser->emit('key', 'l');
-    $browser->emit('key', 'i');
+    $browser->emit('key', 'I');
 
     expect($browser->mode)->toBe('edit')
         ->and($browser->editable)->toBeFalse();
@@ -888,7 +888,7 @@ it('opens editable with e where editing is possible', function () {
 it('hides the cursor when the value is read-only', function () {
     $browser = jsonBrowser();
     $browser->emit('key', 'l');
-    $browser->emit('key', 'i');
+    $browser->emit('key', 'I');
 
     $method = new ReflectionMethod($browser, 'renderTheme');
     $method->setAccessible(true);

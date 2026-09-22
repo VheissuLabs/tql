@@ -42,42 +42,118 @@ function inspectable(): Browser
 
 function inspected(Browser $browser): string
 {
-    return $browser->cellEditor?->buffer() ?? '';
+    return $browser->document?->text() ?? '';
 }
 
-it('shows the whole row as an object on i', function () {
+function inspectorLines(Browser $browser): array
+{
+    return array_column($browser->document->lines(), 'text');
+}
+
+it('shows the record and its types on i', function () {
     $browser = inspectable();
 
     $browser->emit('key', 'i');
 
-    expect($browser->mode)->toBe('edit')
-        ->and($browser->inspectingRow)->toBeTrue()
-        ->and($browser->editable)->toBeFalse();
+    expect($browser->mode)->toBe('inspect')
+        ->and($browser->document)->not->toBeNull();
 
-    $object = json_decode(inspected($browser), true);
+    $text = inspected($browser);
 
-    expect($object)->toHaveKeys(['id', 'name', 'payload', 'created_at'])
-        ->and($object['name'])->toBe('user.signed_up')
-        ->and($object['created_at'])->toBe('2026-09-22T15:11:32+00:00');
+    expect($text)->toContain('▾ record')
+        ->and($text)->toContain('name')
+        ->and($text)->toContain('user.signed_up')
+        ->and($text)->toContain('created_at')
+        ->and($text)->toContain('text')
+        ->and($text)->toContain('integer');
 });
 
-it('unwraps a json column rather than nesting a string of json', function () {
+it('folds a section with enter', function () {
     $browser = inspectable();
 
     $browser->emit('key', 'i');
 
-    $object = json_decode(inspected($browser), true);
+    expect(inspected($browser))->toContain('user.signed_up');
 
-    expect($object['payload'])->toBeArray()
-        ->and($object['payload']['user']['email'])->toBe('karl@example.com');
+    // The cursor starts on the record heading.
+    $browser->emit('key', "\n");
+
+    expect(inspected($browser))->toContain('▸ record')
+        ->and(inspected($browser))->not->toContain('user.signed_up');
+
+    $browser->emit('key', "\n");
+
+    expect(inspected($browser))->toContain('▾ record')
+        ->and(inspected($browser))->toContain('user.signed_up');
 });
 
-it('titles the modal with the row key', function () {
+it('folds with space as well as enter', function () {
+    $browser = inspectable();
+
+    $browser->emit('key', 'i');
+    $browser->emit('key', ' ');
+
+    expect(inspected($browser))->toContain('▸ record');
+});
+
+it('does nothing when the line is not foldable', function () {
+    $browser = inspectable();
+
+    $browser->emit('key', 'i');
+    $browser->emit('key', 'j');
+
+    $before = inspected($browser);
+
+    $browser->emit('key', "\n");
+
+    expect(inspected($browser))->toBe($before);
+});
+
+it('moves with j and k and jumps with g and G', function () {
     $browser = inspectable();
 
     $browser->emit('key', 'i');
 
-    expect($browser->cellColumn())->toBe('row id 1');
+    expect($browser->documentLine)->toBe(0);
+
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'j');
+
+    expect($browser->documentLine)->toBe(2);
+
+    $browser->emit('key', 'g');
+
+    expect($browser->documentLine)->toBe(0);
+
+    $browser->emit('key', 'G');
+
+    expect($browser->documentLine)->toBe(count($browser->document->lines()) - 1);
+});
+
+it('keeps the cursor in range when a fold shortens the document', function () {
+    $browser = inspectable();
+
+    $browser->emit('key', 'i');
+    $browser->emit('key', 'G');
+
+    $bottom = $browser->documentLine;
+
+    $browser->emit('key', 'g');
+    $browser->emit('key', "\n");
+
+    expect($browser->documentLine)->toBeLessThanOrEqual(count($browser->document->lines()) - 1)
+        ->and($bottom)->toBeGreaterThan(0);
+});
+
+it('titles the modal with the table', function () {
+    $browser = inspectable();
+
+    $browser->emit('key', 'i');
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+
+    expect(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)))->toContain('ROW  ·  events');
 });
 
 it('still shows one value on shift+i', function () {
@@ -86,12 +162,12 @@ it('still shows one value on shift+i', function () {
     $browser->emit('key', 'l');
     $browser->emit('key', 'I');
 
-    expect($browser->inspectingRow)->toBeFalse()
-        ->and(inspected($browser))->toBe('user.signed_up')
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->cellEditor?->buffer())->toBe('user.signed_up')
         ->and($browser->cellColumn())->toBe('name');
 });
 
-it('scrolls and yanks like the value viewer', function () {
+it('selects and yanks lines', function () {
     $browser = inspectable();
 
     $browser->emit('key', 'i');
@@ -99,34 +175,43 @@ it('scrolls and yanks like the value viewer', function () {
     $browser->emit('key', 'V');
     $browser->emit('key', 'j');
 
-    expect($browser->visualAnchor)->not->toBeNull()
-        ->and($browser->selectedLines())->toBe([1, 2]);
+    expect($browser->documentSelection())->toBe([1, 2]);
+
+    $browser->emit('key', 'y');
+
+    expect($browser->status)->toContain('yanked 2 lines')
+        ->and($browser->documentAnchor)->toBeNull();
 });
 
-it('opens the editor on the cell with e', function () {
+it('clears a selection with escape before closing', function () {
     $browser = inspectable();
 
-    $browser->emit('key', 'l');
+    $browser->emit('key', 'i');
+    $browser->emit('key', 'V');
+    $browser->emit('key', "\e");
+
+    expect($browser->mode)->toBe('inspect')
+        ->and($browser->documentAnchor)->toBeNull();
+
+    $browser->emit('key', "\e");
+
+    expect($browser->mode)->toBe('browse');
+});
+
+it('edits the column the cursor is on with e', function () {
+    $browser = inspectable();
+
     $browser->emit('key', 'i');
 
-    expect($browser->inspectingRow)->toBeTrue();
+    // record heading, then id, then name.
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'j');
 
     $browser->emit('key', 'e');
 
-    expect($browser->inspectingRow)->toBeFalse()
-        ->and($browser->editable)->toBeTrue()
-        ->and(inspected($browser))->toBe('user.signed_up');
-});
-
-it('closes on escape without saying it cancelled an edit', function () {
-    $browser = inspectable();
-
-    $browser->emit('key', 'i');
-    $browser->emit('key', "\e");
-
-    expect($browser->mode)->toBe('browse')
-        ->and($browser->inspectingRow)->toBeFalse()
-        ->and($browser->status)->toBeNull();
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->cellColumn())->toBe('name')
+        ->and($browser->cellEditor?->buffer())->toBe('user.signed_up');
 });
 
 it('says so when there is no row to inspect', function () {

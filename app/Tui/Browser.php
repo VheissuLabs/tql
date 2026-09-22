@@ -278,6 +278,12 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->mode === 'inspect') {
+            $this->handleInspectKey($key);
+
+            return;
+        }
+
         if ($this->mode === 'query') {
             $this->handleQueryKey($key);
 
@@ -582,6 +588,12 @@ class Browser extends Prompt
     /** Set while inspecting a whole row, for the modal's title. */
     public bool $inspectingRow = false;
 
+    public ?RowDocument $document = null;
+
+    public int $documentLine = 0;
+
+    public ?int $documentAnchor = null;
+
     public int $structureOffset = 0;
 
     /** Set by the renderer, so scrolling knows where the list ends. */
@@ -628,37 +640,53 @@ class Browser extends Prompt
         }
 
         $this->focus = 'grid';
-        $this->inspectingRow = true;
-        $this->readOnlyReason = 'the whole row — press e to edit a value';
-        $this->editable = false;
-        $this->editingJson = true;
+        $this->documentLine = 0;
+        $this->documentAnchor = null;
 
-        $this->cellEditor = new QueryEditor;
-        $this->cellEditor->set(Json::pretty((string) json_encode(
-            $this->withRelations($this->readable($row)),
-            JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
-        )));
-        $this->cellEditor->toStart();
+        $this->document = new RowDocument(
+            $this->readable($row),
+            $this->columnTypes(),
+            $this->relatedRecords($row),
+        );
 
-        $this->mode = 'edit';
+        $this->mode = 'inspect';
 
         return true;
     }
 
     /**
-     * The row with its relations loaded, the way an API resource would return
-     * it: the records it belongs to, and the records that belong to it.
-     *
-     * @param  array<string, mixed>  $row
-     * @return array<string, mixed>
+     * @return array<string, string>
      */
-    private function withRelations(array $row): array
+    private function columnTypes(): array
+    {
+        $table = $this->currentTable();
+
+        if ($table === null) {
+            return [];
+        }
+
+        $types = [];
+
+        foreach ($this->columnsOf($table) as $column) {
+            $types[(string) ($column['name'] ?? '')] = (string) ($column['type_name'] ?? $column['type'] ?? '');
+        }
+
+        return $types;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @return array<string, array{rows: array<int, array<string, mixed>>, total: ?int}>
+     */
+    private function relatedRecords(array $row): array
     {
         $limit = Layout::inspectRelated();
 
         if ($limit < 1) {
-            return $row;
+            return [];
         }
+
+        $related = [];
 
         foreach ($this->links() as $column => $link) {
             $value = $row[$column] ?? null;
@@ -670,7 +698,7 @@ class Browser extends Prompt
             $parent = $this->runner->related($this->connection, $link['table'], $link['column'], $value, 1);
 
             if ($parent !== []) {
-                $row[$link['table']] = $this->readable($parent[0]);
+                $related[$link['table']] = ['rows' => [$this->readable($parent[0])], 'total' => 1];
             }
         }
 
@@ -689,17 +717,129 @@ class Browser extends Prompt
 
             $more = count($rows) > $limit;
 
-            $row[$link['table']] = array_map(
-                fn (array $related) => $this->readable($related),
-                array_slice($rows, 0, $limit),
-            );
+            $related[$link['table']] = [
+                'rows' => array_map(fn (array $r) => $this->readable($r), array_slice($rows, 0, $limit)),
+                'total' => $more ? $this->countRelated($link, $value) : count($rows),
+            ];
+        }
 
-            if ($more) {
-                $row[$link['table'].'_truncated_at'] = $limit;
+        return $related;
+    }
+
+    /**
+     * @param  array{table: string, column: string, references: string}  $link
+     */
+    private function countRelated(array $link, mixed $value): ?int
+    {
+        $grammar = $this->runner->grammarFor($this->connection);
+
+        $result = $this->runner->run(
+            $this->connection,
+            'select count(*) as total from '.$grammar->wrapTable($link['table']).
+                ' where '.$grammar->wrap($link['column']).' = ?',
+            'tui',
+            [$value],
+        );
+
+        return $result->failed() ? null : (int) ($result->rows[0]['total'] ?? 0);
+    }
+
+    private function handleInspectKey(string $key): void
+    {
+        $document = $this->document;
+        $lines = count($document->lines());
+
+        if (in_array($key, [Key::ESCAPE, 'q'], true)) {
+            if ($this->documentAnchor !== null) {
+                $this->documentAnchor = null;
+                $this->status = 'selection cleared';
+
+                return;
+            }
+
+            $this->document = null;
+            $this->mode = 'browse';
+            $this->status = null;
+
+            return;
+        }
+
+        if ($key === 'e') {
+            $column = $document->columnAt($this->documentLine);
+
+            if ($column !== null) {
+                $at = array_search($column, $this->headers, true);
+                $this->columnIndex = $at === false ? $this->columnIndex : $at;
+            }
+
+            $this->document = null;
+            $this->startEditing();
+
+            return;
+        }
+
+        match (true) {
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->documentLine = min($lines - 1, $this->documentLine + 1),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->documentLine = max(0, $this->documentLine - 1),
+            $key === 'g' => $this->documentLine = 0,
+            $key === 'G' => $this->documentLine = $lines - 1,
+            $key === Key::ENTER, $key === ' ' => $document->toggle($this->documentLine),
+            $key === 'V' => $this->documentAnchor = $this->documentAnchor === null ? $this->documentLine : null,
+            $key === 'y' => $this->yankDocument(),
+            $key === 'i' => $this->foldAll($document),
+            default => null,
+        };
+
+        $this->documentLine = min($this->documentLine, max(0, count($document->lines()) - 1));
+    }
+
+    private function foldAll(RowDocument $document): void
+    {
+        foreach ([RowDocument::RECORD, RowDocument::RELATED] as $section) {
+            if (! $document->isFolded($section)) {
+                $document->toggle($this->lineOf($document, $section));
             }
         }
 
-        return $row;
+        $this->documentLine = 0;
+    }
+
+    private function lineOf(RowDocument $document, string $fold): int
+    {
+        foreach ($document->lines() as $index => $line) {
+            if (($line['fold'] ?? null) === $fold) {
+                return $index;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * @return array{0: int, 1: int}
+     */
+    public function documentSelection(): array
+    {
+        $anchor = $this->documentAnchor ?? $this->documentLine;
+
+        return [min($anchor, $this->documentLine), max($anchor, $this->documentLine)];
+    }
+
+    private function yankDocument(): void
+    {
+        $lines = array_column($this->document->lines(), 'text');
+
+        [$from, $to] = $this->documentAnchor === null
+            ? [0, count($lines) - 1]
+            : $this->documentSelection();
+
+        $text = implode("\n", array_slice($lines, $from, $to - $from + 1));
+
+        $where = Clipboard::copy($text) ? 'system' : 'terminal';
+        $count = $to - $from + 1;
+
+        $this->documentAnchor = null;
+        $this->status = "yanked {$count} line".($count === 1 ? '' : 's')." to the {$where} clipboard";
     }
 
     /**

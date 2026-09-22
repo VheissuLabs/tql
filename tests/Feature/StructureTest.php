@@ -316,11 +316,13 @@ it('inspects a row with the record it belongs to', function () {
 
     $browser->emit('key', 'i');
 
-    $object = json_decode($browser->cellEditor->buffer(), true);
+    $text = $browser->document->text();
 
-    expect($object['title'])->toBe('Let There Be Rock')
-        ->and($object['artists'])->toBeArray()
-        ->and($object['artists']['name'])->toBe('AC/DC');
+    expect($text)->toContain('▾ record')
+        ->and($text)->toContain('Let There Be Rock')
+        ->and($text)->toContain('▾ related')
+        ->and($text)->toContain('artists')
+        ->and($text)->toContain('AC/DC');
 });
 
 it('inspects a row with the records that belong to it', function () {
@@ -333,11 +335,30 @@ it('inspects a row with the records that belong to it', function () {
 
     $browser->emit('key', 'i');
 
-    $object = json_decode($browser->cellEditor->buffer(), true);
+    $text = $browser->document->text();
 
-    expect($object['name'])->toBe('AC/DC')
-        ->and($object['albums'])->toHaveCount(1)
-        ->and($object['albums'][0]['title'])->toBe('Let There Be Rock');
+    expect($text)->toContain('AC/DC')
+        ->and($text)->toContain('albums  (1)')
+        ->and($text)->toContain('Let There Be Rock');
+});
+
+it('folds a related table on its own', function () {
+    $browser = linked();
+
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'i');
+
+    // Walk to the albums heading inside related.
+    while (! str_contains($browser->document->lines()[$browser->documentLine]['text'], 'albums  (')) {
+        $browser->emit('key', 'j');
+    }
+
+    $browser->emit('key', "\n");
+
+    expect($browser->document->text())->toContain('▸ albums')
+        ->and($browser->document->text())->not->toContain('Let There Be Rock')
+        ->and($browser->document->text())->toContain('AC/DC');
 });
 
 it('caps how many related rows it loads and says it did', function () {
@@ -356,10 +377,7 @@ it('caps how many related rows it loads and says it did', function () {
     $browser->emit('key', 'j');
     $browser->emit('key', 'i');
 
-    $object = json_decode($browser->cellEditor->buffer(), true);
-
-    expect($object['albums'])->toHaveCount(3)
-        ->and($object['albums_truncated_at'])->toBe(3);
+    expect($browser->document->text())->toContain('albums  (3 of 13)');
 
     config(['tql.ui.inspect_related' => 10]);
 });
@@ -371,10 +389,8 @@ it('loads no relations when the limit is zero', function () {
 
     $browser->emit('key', 'i');
 
-    $object = json_decode($browser->cellEditor->buffer(), true);
-
-    expect($object)->not->toHaveKey('artists')
-        ->and($object['title'])->toBe('Let There Be Rock');
+    expect($browser->document->text())->not->toContain('▾ related')
+        ->and($browser->document->text())->toContain('Let There Be Rock');
 
     config(['tql.ui.inspect_related' => 10]);
 });
@@ -394,10 +410,8 @@ it('leaves a null foreign key without a relation', function () {
 
     $browser->emit('key', 'i');
 
-    $object = json_decode($browser->cellEditor->buffer(), true);
-
-    expect($object['title'])->toBe('Orphan')
-        ->and($object)->not->toHaveKey('artists');
+    expect($browser->document->text())->toContain('Orphan')
+        ->and($browser->document->text())->not->toContain('▾ related');
 });
 
 it('goes back on escape after following a link', function () {

@@ -33,7 +33,7 @@ function viewer(): Browser
 
     $browser->emit('key', "\n");
     $browser->emit('key', 'l');
-    $browser->emit('key', 'i');
+    $browser->emit('key', 'I');
 
     return $browser;
 }

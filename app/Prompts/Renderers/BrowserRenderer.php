@@ -8,6 +8,7 @@ use App\Tui\Islands\AskIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\FilterIsland;
 use App\Tui\Islands\HelpIsland;
+use App\Tui\Islands\InspectIsland;
 use App\Tui\Islands\Island;
 use App\Tui\Islands\PickerIsland;
 use App\Tui\Islands\Screen;
@@ -146,6 +147,21 @@ class BrowserRenderer extends Renderer
             $screen->overlay($links);
         }
 
+        if ($prompt->mode === 'inspect' && $prompt->document !== null) {
+            $inspector = new InspectIsland(
+                $prompt->document,
+                $prompt->documentLine,
+                $style,
+                $prompt->documentAnchor === null ? null : $prompt->documentSelection(),
+            );
+            $inspector->focused = true;
+            $inspector->title = 'ROW  ·  '.($prompt->currentTable() ?? '');
+            $inspector->place(1, $top, $width, $frameHeight);
+
+            $screen = (new Screen)->add($inspector);
+            $tableHeight = 0;
+        }
+
         if ($prompt->mode === 'structure') {
             $table = (string) $prompt->currentTable();
 
@@ -237,7 +253,7 @@ class BrowserRenderer extends Renderer
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
-        $modal = $prompt->mode === 'help' || $prompt->mode === 'edit';
+        $modal = in_array($prompt->mode, ['help', 'edit', 'inspect'], true);
 
         if (! $modal) {
             $screen->add($table);
@@ -501,6 +517,12 @@ class BrowserRenderer extends Renderer
 
         if ($prompt->mode === 'help') {
             return ' '.$this->bold('help').$this->dim('   ? or esc closes');
+        }
+
+        if ($prompt->mode === 'inspect') {
+            return ' '.$this->bold('row').$this->dim(
+                '   ↵ folds    j/k moves    e edits    V selects    y yanks    esc closes'
+            );
         }
 
         $columns = count($prompt->headers);

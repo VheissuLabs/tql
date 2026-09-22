@@ -80,7 +80,7 @@ class HelpIsland extends Island
             ],
             'doing' => [
                 '↵' => 'open a table, or edit the value',
-                'i' => 'view the whole row as an object, read only',
+                'i' => 'inspect the row: record and related, foldable',
                 'I' => 'view just this value, read only',
                 'e' => 'edit the value, ctrl+s saves',
                 's' => 'SQL editor, ctrl+r runs it',
