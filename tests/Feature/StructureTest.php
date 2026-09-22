@@ -318,9 +318,9 @@ it('inspects a row with the record it belongs to', function () {
 
     $text = $browser->document->text();
 
-    expect($text)->toContain('▾ record')
+    expect($text)->toContain('RECORD')
         ->and($text)->toContain('Let There Be Rock')
-        ->and($text)->toContain('▾ related')
+        ->and($text)->toContain('RELATED')
         ->and($text)->toContain('artists')
         ->and($text)->toContain('AC/DC');
 });
@@ -340,6 +340,36 @@ it('inspects a row with the records that belong to it', function () {
     expect($text)->toContain('AC/DC')
         ->and($text)->toContain('albums  (1)')
         ->and($text)->toContain('Let There Be Rock');
+});
+
+it('draws the record and related boxes', function () {
+    $browser = linked();
+
+    $browser->emit('key', 'i');
+
+    $frame = structureFrame($browser);
+
+    expect($frame)->toContain('┌─ RECORD')
+        ->and($frame)->toContain('┌─ RELATED');
+});
+
+it('shows related rows as a collection with one header', function () {
+    $browser = linked();
+
+    $pdo = new PDO('sqlite:'.$browser->connection->database);
+    $pdo->prepare('insert into albums (title, artist_id) values (?, 1)')->execute(['Powerage']);
+
+    $browser->emit('key', 'r');
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'i');
+
+    $text = $browser->document->text();
+
+    // One header for the collection, then a line per record.
+    expect(substr_count($text, 'title'))->toBe(1)
+        ->and($text)->toContain('Let There Be Rock')
+        ->and($text)->toContain('Powerage');
 });
 
 it('folds a related table on its own', function () {
@@ -389,7 +419,7 @@ it('loads no relations when the limit is zero', function () {
 
     $browser->emit('key', 'i');
 
-    expect($browser->document->text())->not->toContain('▾ related')
+    expect($browser->document->text())->not->toContain('RELATED')
         ->and($browser->document->text())->toContain('Let There Be Rock');
 
     config(['tql.ui.inspect_related' => 10]);
@@ -411,7 +441,7 @@ it('leaves a null foreign key without a relation', function () {
     $browser->emit('key', 'i');
 
     expect($browser->document->text())->toContain('Orphan')
-        ->and($browser->document->text())->not->toContain('▾ related');
+        ->and($browser->document->text())->not->toContain('RELATED');
 });
 
 it('goes back on escape after following a link', function () {

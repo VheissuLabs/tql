@@ -3,6 +3,7 @@
 use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Tui\Browser;
+use App\Tui\RowDocument;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
 
@@ -60,7 +61,7 @@ it('shows the record and its types on i', function () {
 
     $text = inspected($browser);
 
-    expect($text)->toContain('▾ record')
+    expect($text)->toContain('RECORD  (4)')
         ->and($text)->toContain('name')
         ->and($text)->toContain('user.signed_up')
         ->and($text)->toContain('created_at')
@@ -78,12 +79,12 @@ it('folds a section with enter', function () {
     // The cursor starts on the record heading.
     $browser->emit('key', "\n");
 
-    expect(inspected($browser))->toContain('▸ record')
+    expect($browser->document->isFolded(RowDocument::RECORD))->toBeTrue()
         ->and(inspected($browser))->not->toContain('user.signed_up');
 
     $browser->emit('key', "\n");
 
-    expect(inspected($browser))->toContain('▾ record')
+    expect($browser->document->isFolded(RowDocument::RECORD))->toBeFalse()
         ->and(inspected($browser))->toContain('user.signed_up');
 });
 
@@ -93,7 +94,7 @@ it('folds with space as well as enter', function () {
     $browser->emit('key', 'i');
     $browser->emit('key', ' ');
 
-    expect(inspected($browser))->toContain('▸ record');
+    expect($browser->document->isFolded(RowDocument::RECORD))->toBeTrue();
 });
 
 it('does nothing when the line is not foldable', function () {
@@ -145,7 +146,7 @@ it('keeps the cursor in range when a fold shortens the document', function () {
         ->and($bottom)->toBeGreaterThan(0);
 });
 
-it('titles the modal with the table', function () {
+it('draws each section as its own box', function () {
     $browser = inspectable();
 
     $browser->emit('key', 'i');
@@ -153,7 +154,35 @@ it('titles the modal with the table', function () {
     $render = new ReflectionMethod($browser, 'renderTheme');
     $render->setAccessible(true);
 
-    expect(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)))->toContain('ROW  ·  events');
+    $frame = preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser));
+
+    // This table has no foreign keys, so there is nothing to relate.
+    expect($frame)->toContain('┌─ RECORD  (4)')
+        ->and($frame)->not->toContain('RELATED');
+});
+
+it('collapses a box to its title bar', function () {
+    $browser = inspectable();
+
+    $browser->emit('key', 'i');
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+
+    $open = substr_count(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)), "\n");
+
+    $browser->emit('key', "\n");
+
+    $closed = substr_count(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)), "\n");
+
+    // Folding takes rows off the screen, rather than emptying a box that
+    // stays the same size.
+    expect($closed)->toBe($open);
+
+    $frame = preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser));
+
+    expect($frame)->toContain('┌─ RECORD  (4)')
+        ->and($frame)->not->toContain('user.signed_up');
 });
 
 it('still shows one value on shift+i', function () {

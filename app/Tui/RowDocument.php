@@ -30,20 +30,28 @@ class RowDocument
     ) {}
 
     /**
-     * @return array<int, array{text: string, fold: ?string, depth: int, column: ?string}>
+     * Every line, in order, tagged with the section it belongs to so the two
+     * boxes can be drawn from one list and share one cursor.
+     *
+     * @return array<int, array{text: string, fold: ?string, section: string, heading: bool, column: ?string}>
      */
     public function lines(): array
     {
-        $lines = [];
-
-        $lines[] = $this->heading(self::RECORD, 'record', count($this->row));
+        $lines = [[
+            'text' => 'RECORD  ('.count($this->row).')',
+            'fold' => self::RECORD,
+            'section' => self::RECORD,
+            'heading' => true,
+            'column' => null,
+        ]];
 
         if (! $this->isFolded(self::RECORD)) {
             foreach ($this->row as $column => $value) {
                 $lines[] = [
-                    'text' => '    '.$this->field((string) $column, $value, 1),
+                    'text' => '  '.$this->field((string) $column, $value, 1),
                     'fold' => null,
-                    'depth' => 1,
+                    'section' => self::RECORD,
+                    'heading' => false,
                     'column' => (string) $column,
                 ];
             }
@@ -53,8 +61,13 @@ class RowDocument
             return $lines;
         }
 
-        $lines[] = ['text' => '', 'fold' => null, 'depth' => 0, 'column' => null];
-        $lines[] = $this->heading(self::RELATED, 'related', count($this->related));
+        $lines[] = [
+            'text' => 'RELATED  ('.count($this->related).')',
+            'fold' => self::RELATED,
+            'section' => self::RELATED,
+            'heading' => true,
+            'column' => null,
+        ];
 
         if ($this->isFolded(self::RELATED)) {
             return $lines;
@@ -69,7 +82,8 @@ class RowDocument
                 'text' => '  '.$this->marker($key).' '.$table.'  '
                     .($total !== null && $total > $shown ? "({$shown} of {$total})" : "({$shown})"),
                 'fold' => $key,
-                'depth' => 1,
+                'section' => self::RELATED,
+                'heading' => false,
                 'column' => null,
             ];
 
@@ -77,19 +91,16 @@ class RowDocument
                 continue;
             }
 
-            foreach ($relation['rows'] as $index => $related) {
-                foreach ($related as $column => $value) {
-                    $lines[] = [
-                        'text' => '      '.$this->field((string) $column, $value, 2),
-                        'fold' => null,
-                        'depth' => 2,
-                        'column' => null,
-                    ];
-                }
-
-                if ($index !== array_key_last($relation['rows'])) {
-                    $lines[] = ['text' => '', 'fold' => null, 'depth' => 2, 'column' => null];
-                }
+            // Related rows read as a collection: one header, then the rows,
+            // rather than the same keys repeated for every record.
+            foreach ($this->collection($relation['rows']) as $line) {
+                $lines[] = [
+                    'text' => '      '.$line,
+                    'fold' => null,
+                    'section' => self::RELATED,
+                    'heading' => false,
+                    'column' => null,
+                ];
             }
         }
 
@@ -97,21 +108,99 @@ class RowDocument
     }
 
     /**
-     * @return array{text: string, fold: ?string, depth: int, column: ?string}
+     * The lines of one section, with their index in the full list so the
+     * cursor and selection still line up.
+     *
+     * @return array<int, array{text: string, fold: ?string, section: string, heading: bool, column: ?string}>
      */
-    private function heading(string $key, string $label, int $count): array
+    public function section(string $section): array
     {
-        return [
-            'text' => $this->marker($key).' '.$label.'  ('.$count.')',
-            'fold' => $key,
-            'depth' => 0,
-            'column' => null,
-        ];
+        $found = [];
+
+        foreach ($this->lines() as $index => $line) {
+            if ($line['section'] === $section && ! $line['heading']) {
+                $found[$index] = $line;
+            }
+        }
+
+        return $found;
+    }
+
+    public function headingAt(string $section): ?int
+    {
+        foreach ($this->lines() as $index => $line) {
+            if ($line['section'] === $section && $line['heading']) {
+                return $index;
+            }
+        }
+
+        return null;
+    }
+
+    public function hasRelated(): bool
+    {
+        return $this->related !== [];
     }
 
     private function marker(string $key): string
     {
         return $this->isFolded($key) ? '▸' : '▾';
+    }
+
+    /**
+     * @param  array<int, array<string, mixed>>  $rows
+     * @return array<int, string>
+     */
+    private function collection(array $rows): array
+    {
+        $columns = array_keys($rows[0] ?? []);
+
+        if ($columns === []) {
+            return [];
+        }
+
+        $widths = [];
+
+        foreach ($columns as $column) {
+            $widths[$column] = min(28, max(
+                mb_strlen((string) $column),
+                ...array_map(fn (array $row) => mb_strlen($this->value($row[$column] ?? null)), $rows),
+            ));
+        }
+
+        $lines = [$this->collectionRow(
+            array_combine($columns, $columns),
+            $columns,
+            $widths,
+        )];
+
+        foreach ($rows as $row) {
+            $lines[] = $this->collectionRow($row, $columns, $widths);
+        }
+
+        return $lines;
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     * @param  array<int, string>  $columns
+     * @param  array<string, int>  $widths
+     */
+    private function collectionRow(array $row, array $columns, array $widths): string
+    {
+        $cells = [];
+
+        foreach ($columns as $column) {
+            $value = $this->value($row[$column] ?? null);
+            $width = $widths[$column];
+
+            $cells[] = str_pad(
+                mb_strlen($value) > $width ? mb_substr($value, 0, $width - 1).'…' : $value,
+                $width,
+            );
+        }
+
+        return rtrim(implode('  ', $cells));
     }
 
     /**

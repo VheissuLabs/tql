@@ -308,36 +308,37 @@ is recognised too.
 
 ## Inspecting a row
 
-`i` opens the row in two sections you can fold: the record itself, and the
-records related to it.
+`i` opens the row in two boxes: the record itself, and the records related to
+it. Folding a box collapses it to its title bar, so the shape of the screen
+tells you what is open.
 
 ```
-▾ record  (4)
-    AlbumId               1                                   integer
-    Title                 For Those About To Rock We Salute   text
-    ArtistId              1                                   integer
+┌─ RECORD  (3) ───────────────────────────────────────────────┐
+│  AlbumId      1                                     integer │
+│  Title        For Those About To Rock We Salute     text    │
+│  ArtistId     1                                     integer │
+└─────────────────────────────────────────────────────────────┘
 
-▾ related  (2)
-  ▾ artists  (1)
-      ArtistId            1
-      Name                AC/DC
-  ▸ tracks  (10 of 47)
+┌─ RELATED  (2) ──────────────────────────────────────────────┐
+│  ▾ artists  (1)                                             │
+│      ArtistId  Name                                         │
+│      1         AC/DC                                        │
+│  ▸ tracks  (10 of 47)                                       │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-Column, value, then the type as an annotation. `↵` or `space` folds whichever
-section or table the cursor is on, so a row with a lot of children collapses to
-a summary. `j`/`k` move, `g`/`G` jump, `V` selects, `y` yanks, `esc` closes.
+Column, value, then the type as an annotation. Related records stay as
+collections: one header for the relation, then a line per record.
 
-`e` on a field opens the editor on **that** column, not whichever one the grid
-cursor was on.
+`↵` or `space` folds whichever box or relation the cursor is on. `j`/`k` move,
+`g`/`G` jump, `V` selects, `y` yanks, `esc` closes. `e` on a field opens the
+editor on **that** column, not whichever one the grid cursor was on.
 
-Relations are found by following foreign keys both ways: the record this row
-belongs to, and the records that belong to it. `ui.inspect_related` caps how
-many are loaded (10 by default, 0 turns it off); when there are more, the
-heading says `(10 of 47)` rather than quietly showing part of the story.
+Relations are found by following foreign keys both ways.
+`ui.inspect_related` caps how many rows are loaded (10 by default, 0 turns it
+off); when there are more, the heading says `(10 of 47)`.
 
-`I` opens just the value under the cursor, for a single enormous blob. Both
-support `V` and `y`.
+`I` opens just the value under the cursor, for a single enormous blob.
 
 
 ## Exporting

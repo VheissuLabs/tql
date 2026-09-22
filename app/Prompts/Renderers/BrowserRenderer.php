@@ -8,16 +8,17 @@ use App\Tui\Islands\AskIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\FilterIsland;
 use App\Tui\Islands\HelpIsland;
-use App\Tui\Islands\InspectIsland;
 use App\Tui\Islands\Island;
 use App\Tui\Islands\PickerIsland;
 use App\Tui\Islands\Screen;
+use App\Tui\Islands\SectionIsland;
 use App\Tui\Islands\SidebarIsland;
 use App\Tui\Islands\StructureIsland;
 use App\Tui\Islands\Styler;
 use App\Tui\Islands\TableIsland;
 use App\Tui\Islands\ValueEditorIsland;
 use App\Tui\Layout;
+use App\Tui\RowDocument;
 use App\Tui\Theme;
 use Chewie\Concerns\DrawsHotkeys;
 use Laravel\Prompts\Themes\Default\Renderer;
@@ -148,17 +149,38 @@ class BrowserRenderer extends Renderer
         }
 
         if ($prompt->mode === 'inspect' && $prompt->document !== null) {
-            $inspector = new InspectIsland(
-                $prompt->document,
-                $prompt->documentLine,
-                $style,
-                $prompt->documentAnchor === null ? null : $prompt->documentSelection(),
-            );
-            $inspector->focused = true;
-            $inspector->title = 'ROW  ·  '.($prompt->currentTable() ?? '');
-            $inspector->place(1, $top, $width, $frameHeight);
+            $document = $prompt->document;
+            $selection = $prompt->documentAnchor === null ? null : $prompt->documentSelection();
 
-            $screen = (new Screen)->add($inspector);
+            $screen = new Screen;
+            $y = $top;
+
+            foreach ([RowDocument::RECORD, RowDocument::RELATED] as $name) {
+                $heading = $document->headingAt($name);
+
+                if ($heading === null) {
+                    continue;
+                }
+
+                $lines = $document->section($name);
+                $folded = $document->isFolded($name);
+
+                $box = new SectionIsland($lines, $prompt->documentLine, $style, $selection);
+                $box->title = $document->lines()[$heading]['text'];
+                $box->focused = $prompt->documentLine === $heading;
+                $box->collapsed = $folded;
+
+                $height = $folded
+                    ? 1
+                    : min(max(3, count($lines) + 2), max(3, $top + $frameHeight - $y - 1));
+
+                $box->place(1, $y, $width, $height);
+
+                $screen->add($box);
+
+                $y += $height + 1;
+            }
+
             $tableHeight = 0;
         }
 
@@ -349,6 +371,14 @@ class BrowserRenderer extends Renderer
         $this->painting = $island->focused;
 
         $inner = $island->innerWidth();
+
+        // A collapsed section is its title bar and nothing else, so folding
+        // changes the shape of the screen rather than hiding text inside a
+        // box that stays the same size.
+        if ($island->collapsed) {
+            return [$this->topBorder($island, $style, $inner, [])];
+        }
+
         $content = $island->content($inner, $island->innerHeight());
         $joins = $island->joins();
 

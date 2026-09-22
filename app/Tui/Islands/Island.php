@@ -65,6 +65,9 @@ abstract class Island
         return $column - $this->x - 1;
     }
 
+    /** Drawn as a title bar only, with no body. */
+    public bool $collapsed = false;
+
     public function joins(): array
     {
         return [];
