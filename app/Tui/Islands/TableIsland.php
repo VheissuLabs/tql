@@ -52,6 +52,29 @@ class TableIsland extends Island
         return $lines;
     }
 
+    public function ruleRows(): array
+    {
+        return $this->headers === [] ? [] : [1];
+    }
+
+    public function joins(): array
+    {
+        $joins = [];
+        $x = 0;
+
+        foreach ($this->widths as $i => $width) {
+            if ($i === count($this->widths) - 1) {
+                break;
+            }
+
+            $x += $width + 2;
+            $joins[] = $x;
+            $x += 1;
+        }
+
+        return $joins;
+    }
+
     public function handles(): array
     {
         $handles = [];

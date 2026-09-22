@@ -755,3 +755,60 @@ it('never shows one table under another table name', function () {
         }
     }
 });
+
+it('joins the column separators to the island borders', function () {
+    $browser = browserFor(sqliteFixture());
+    $lines = explode("\n", frameOf($browser));
+
+    $top = null;
+    $rule = null;
+    $bottom = null;
+
+    foreach ($lines as $line) {
+        if ($top === null && str_contains($line, '┬')) {
+            $top = $line;
+        }
+
+        if ($rule === null && str_contains($line, '┼')) {
+            $rule = $line;
+        }
+
+        if (str_contains($line, '┴')) {
+            $bottom = $line;
+        }
+    }
+
+    expect($top)->not->toBeNull('top border has no ┬ join')
+        ->and($rule)->not->toBeNull('header rule has no ┼ join')
+        ->and($bottom)->not->toBeNull('bottom border has no ┴ join')
+        ->and($rule)->toContain('├')
+        ->and($rule)->toContain('┤');
+});
+
+it('lines up the joins in the borders with the separators in the rows', function () {
+    $browser = browserFor(sqliteFixture());
+    $lines = array_values(array_filter(
+        explode("\n", frameOf($browser)),
+        fn ($l) => str_contains($l, '┬') || str_contains($l, '┼') || str_contains($l, '┴')
+    ));
+
+    $positions = function (string $line, array $needles) {
+        $found = [];
+
+        foreach (preg_split('//u', $line, -1, PREG_SPLIT_NO_EMPTY) as $index => $char) {
+            if (in_array($char, $needles, true)) {
+                $found[] = $index;
+            }
+        }
+
+        return $found;
+    };
+
+    $top = $positions($lines[0], ['┬']);
+    $rule = $positions($lines[1], ['┼']);
+    $bottom = $positions($lines[count($lines) - 1], ['┴']);
+
+    expect($top)->not->toBeEmpty()
+        ->and($rule)->toBe($top)
+        ->and($bottom)->toBe($top);
+});

@@ -65,6 +65,16 @@ abstract class Island
         return $column - $this->x - 1;
     }
 
+    public function joins(): array
+    {
+        return [];
+    }
+
+    public function ruleRows(): array
+    {
+        return [];
+    }
+
     public function contentColumn(int $local): int
     {
         return $this->x + 1 + $local;

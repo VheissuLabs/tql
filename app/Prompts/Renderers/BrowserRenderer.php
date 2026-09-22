@@ -164,22 +164,46 @@ class BrowserRenderer extends Renderer
     {
         $inner = $island->innerWidth();
         $content = $island->content($inner, $island->innerHeight());
+        $joins = $island->joins();
 
-        $label = ' '.$island->title.' ';
-        $label = $island->focused ? $this->bold($label) : $this->dim($label);
-        $used = $style->visible($label);
+        $lines = [$this->topBorder($island, $style, $inner, $joins)];
 
-        $lines = [
-            $this->dim('┌─').$label.$this->dim(str_repeat('─', max(0, $inner - $used - 1)).'┐'),
-        ];
+        $rules = $island->ruleRows();
 
         for ($i = 0; $i < $island->innerHeight(); $i++) {
-            $lines[] = $this->dim('│').$style->pad($content[$i] ?? '', $inner).$this->dim('│');
+            $edges = in_array($i, $rules, true) ? ['├', '┤'] : ['│', '│'];
+
+            $lines[] = $this->dim($edges[0]).$style->pad($content[$i] ?? '', $inner).$this->dim($edges[1]);
         }
 
-        $lines[] = $this->dim('└'.str_repeat('─', $inner).'┘');
+        $lines[] = $this->dim('└'.$this->border($inner, $joins, '┴').'┘');
 
         return $lines;
+    }
+
+    private function topBorder(Island $island, Styler $style, int $inner, array $joins): string
+    {
+        $label = ' '.$island->title.' ';
+        $plain = $style->visible($label);
+        $label = $island->focused ? $this->bold($label) : $this->dim($label);
+
+        $rule = $this->border($inner, $joins, '┬');
+        $tail = mb_substr($rule, min($inner, $plain + 1));
+
+        return $this->dim('┌─').$label.$this->dim($tail.'┐');
+    }
+
+    private function border(int $inner, array $joins, string $join): string
+    {
+        $chars = array_fill(0, max(0, $inner), '─');
+
+        foreach ($joins as $position) {
+            if ($position >= 0 && $position < $inner) {
+                $chars[$position] = $join;
+            }
+        }
+
+        return implode('', $chars);
     }
 
     private function status(Browser $prompt): string
