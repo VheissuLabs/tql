@@ -32,9 +32,12 @@ class TableIsland extends Island
             return [$this->style->dim('no columns')];
         }
 
-        $this->widths = $this->fit($innerWidth);
+        $this->widths = $this->fit($innerWidth - self::GUTTER);
 
-        $lines = [$this->headerLine(), $this->rule($innerWidth)];
+        $lines = [
+            str_repeat(' ', self::GUTTER).$this->headerLine(),
+            $this->rule($innerWidth),
+        ];
 
         $room = max(1, $innerHeight - 2);
         $this->rowStart = $this->window($this->rowIndex, count($this->rows), $room);
@@ -43,7 +46,7 @@ class TableIsland extends Island
             $lines[] = $this->rowLine($row, $this->rowStart + $index, $innerWidth);
         }
 
-        $blank = $this->blankLine();
+        $blank = str_repeat(' ', self::GUTTER).$this->blankLine();
 
         while (count($lines) < $innerHeight) {
             $lines[] = $blank;
@@ -60,7 +63,7 @@ class TableIsland extends Island
     public function joins(): array
     {
         $joins = [];
-        $x = 0;
+        $x = self::GUTTER;
 
         foreach ($this->widths as $i => $width) {
             if ($i === count($this->widths) - 1) {
@@ -78,7 +81,7 @@ class TableIsland extends Island
     public function handles(): array
     {
         $handles = [];
-        $x = $this->contentColumn(0);
+        $x = $this->contentColumn(self::GUTTER);
 
         foreach ($this->widths as $i => $width) {
             $x += $width + 2;
@@ -91,7 +94,7 @@ class TableIsland extends Island
 
     public function cellStart(int $absoluteColumn): ?int
     {
-        $x = $this->contentColumn(0);
+        $x = $this->contentColumn(self::GUTTER);
 
         foreach ($this->widths as $i => $width) {
             if ($this->columnOffset + $i === $absoluteColumn) {
@@ -120,6 +123,7 @@ class TableIsland extends Island
 
     public function columnIndexFor(int $localColumn): ?int
     {
+        $localColumn -= self::GUTTER;
         $offset = 0;
 
         foreach ($this->widths as $i => $width) {
@@ -134,6 +138,8 @@ class TableIsland extends Island
     }
 
     public const COMFORTABLE = 28;
+
+    public const GUTTER = 2;
 
     public function naturalWidth(string $column): int
     {
@@ -165,7 +171,7 @@ class TableIsland extends Island
     {
         $segments = array_map(fn (int $w) => str_repeat('─', $w + 2), $this->widths);
 
-        $body = implode('┼', $segments);
+        $body = str_repeat('─', self::GUTTER).implode('┼', $segments);
 
         return $this->style->dim($body.str_repeat('─', max(0, $innerWidth - mb_strlen($body))));
     }
@@ -192,16 +198,16 @@ class TableIsland extends Island
                 ? $this->editBuffer($this->editing, $width)
                 : $this->style->truncate($value, $width);
 
-            $lead = $selected && $i === 0 && $style === 'marker' ? '▸' : ' ';
-
-            $padded = $lead.$this->style->pad($text, $width).' ';
+            $padded = ' '.$this->style->pad($text, $width).' ';
 
             $cells[] = $selected && $column === $this->columnIndex
                 ? $this->style->inverse($padded)
                 : $padded;
         }
 
-        $line = implode($this->style->dim('│'), $cells);
+        $marker = $selected && $style === 'marker' ? ' ▸' : '  ';
+
+        $line = $marker.implode($this->style->dim('│'), $cells);
 
         if (! $selected) {
             return $style === 'dim-others' ? $this->style->dim($line) : $line;

@@ -808,7 +808,37 @@ it('lines up the joins in the borders with the separators in the rows', function
     $rule = $positions($lines[1], ['┼']);
     $bottom = $positions($lines[count($lines) - 1], ['┴']);
 
-    expect($top)->not->toBeEmpty()
-        ->and($rule)->toBe($top)
-        ->and($bottom)->toBe($top);
+    expect($rule)->not->toBeEmpty()
+        ->and($bottom)->toBe($rule, 'the bottom border should join every separator')
+        ->and(array_diff($top, $rule))->toBe([], 'the top border should only join where separators are');
+
+    $hidden = array_diff($rule, $top);
+
+    foreach ($hidden as $position) {
+        expect($position)->toBeLessThan(max($top) ?: PHP_INT_MAX, 'only joins under the title may be missing');
+    }
+});
+
+it('keeps the row marker out of the cell padding', function () {
+    config(['dotsql.ui.row_style' => 'marker']);
+
+    $browser = browserFor(sqliteFixture());
+    $lines = explode("\n", frameOf($browser));
+
+    foreach ($lines as $line) {
+        if (! str_contains($line, '▸')) {
+            continue;
+        }
+
+        $at = mb_strpos($line, '▸');
+        $before = mb_substr($line, $at - 1, 1);
+        $after = mb_substr($line, $at + 1, 1);
+
+        expect($before)->toBe(' ', 'the marker should not touch the border')
+            ->and($after)->toBe(' ', 'the marker should not touch the value');
+
+        return;
+    }
+
+    throw new Exception('no marker found in the frame');
 });
