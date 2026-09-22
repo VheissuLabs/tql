@@ -120,6 +120,8 @@ class Browser extends Prompt
 
         if ($error = config('dotsql.config_error')) {
             $this->status = $error;
+        } elseif ($notice = config('dotsql.config_notice')) {
+            $this->status = $notice;
         }
 
         $this->enableMouse();
@@ -324,6 +326,12 @@ class Browser extends Prompt
 
     private function handleQueryKey(string $key): void
     {
+        if ($key === Key::TAB) {
+            $this->toggleFocus();
+
+            return;
+        }
+
         if ($key === Key::ESCAPE) {
             $this->mode = 'browse';
             $this->status = null;
@@ -902,7 +910,24 @@ class Browser extends Prompt
 
     private function toggleFocus(): bool
     {
-        $this->focus = $this->focus === 'sidebar' ? 'grid' : 'sidebar';
+        if ($this->mode === 'query') {
+            $this->mode = 'browse';
+            $this->focus = 'sidebar';
+
+            return true;
+        }
+
+        if ($this->focus === 'sidebar') {
+            $this->focus = 'grid';
+
+            return true;
+        }
+
+        if (Layout::sqlAlways()) {
+            return $this->openQuery();
+        }
+
+        $this->focus = 'sidebar';
 
         return true;
     }

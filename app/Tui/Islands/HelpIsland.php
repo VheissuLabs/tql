@@ -29,7 +29,7 @@ class HelpIsland extends Island
     {
         return [
             'moving' => [
-                'tab' => 'switch between the tables list and the rows',
+                'tab' => 'cycle panes: tables, rows, and SQL when shown',
                 '↑ ↓ / j k' => 'move the cursor',
                 '← → / h l' => 'move between columns',
                 'n / p' => 'next or previous page',

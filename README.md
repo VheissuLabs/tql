@@ -180,6 +180,11 @@ connections.
 
 ## Configuration
 
+On first run dotsql writes `~/.config/dotsql/config.toml` containing every
+setting at its default, each with a comment. When a later version adds a
+setting, it is appended to your file on the next run — your values and your own
+comments are left alone — and the status line says which ones arrived.
+
 Defaults ship in `config/dotsql.php`. Machine-specific overrides go in
 `~/.config/dotsql/config.toml`, which is merged over them — so settings that
 depend on where dotsql runs stay out of the repo:

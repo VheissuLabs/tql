@@ -1205,3 +1205,56 @@ it('goes back to the table name when you leave the results', function () {
     expect($browser->queryTable)->toBeNull()
         ->and(frameOf($browser))->toContain('─ events ');
 });
+
+it('tabs through the sql pane when it is on screen', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = browserFor(sqliteFixture());
+    $browser->focus = 'sidebar';
+
+    $browser->emit('key', "\t");
+
+    expect($browser->focus)->toBe('grid')
+        ->and($browser->mode)->toBe('browse');
+
+    $browser->emit('key', "\t");
+
+    expect($browser->mode)->toBe('query');
+
+    $browser->emit('key', "\t");
+
+    expect($browser->mode)->toBe('browse')
+        ->and($browser->focus)->toBe('sidebar');
+
+    config(['dotsql.ui.sql_always' => false]);
+});
+
+it('tabs between two panes when the sql pane is hidden', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->focus = 'sidebar';
+
+    $browser->emit('key', "\t");
+
+    expect($browser->focus)->toBe('grid');
+
+    $browser->emit('key', "\t");
+
+    expect($browser->focus)->toBe('sidebar')
+        ->and($browser->mode)->toBe('browse');
+});
+
+it('leaves the sql pane with tab rather than indenting', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', 's');
+
+    $before = $browser->editor->buffer();
+
+    $browser->emit('key', "\t");
+
+    expect($browser->editor->buffer())->toBe($before)
+        ->and($browser->mode)->toBe('browse');
+
+    config(['dotsql.ui.sql_always' => false]);
+});

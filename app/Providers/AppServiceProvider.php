@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Mcp\Servers\DotsqlServer;
+use App\Support\ConfigFile;
 use App\Support\Paths;
 use Devium\Toml\Toml;
 use Illuminate\Encryption\EncryptionServiceProvider;
@@ -28,7 +29,28 @@ class AppServiceProvider extends ServiceProvider
 
         $this->app->register(EncryptionServiceProvider::class);
 
+        $this->writeUserConfig();
         $this->mergeUserConfig();
+    }
+
+    private function writeUserConfig(): void
+    {
+        if (! $this->app->runningInConsole()) {
+            return;
+        }
+
+        $result = ConfigFile::ensure();
+
+        if ($result['created']) {
+            config(['dotsql.config_notice' => 'wrote '.Paths::configFile()]);
+
+            return;
+        }
+
+        if ($result['added'] !== []) {
+            config(['dotsql.config_notice' => count($result['added']).' new setting'.
+                (count($result['added']) === 1 ? '' : 's').' added to config.toml: '.implode(', ', $result['added'])]);
+        }
     }
 
     private function mergeUserConfig(): void
