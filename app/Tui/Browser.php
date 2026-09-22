@@ -454,13 +454,16 @@ class Browser extends Prompt
 
     private function onMouse(array $event): void
     {
-        if ($this->debugMouse && $event['pressed'] && $event['button'] === Mouse::LEFT) {
+        $debug = $this->debugMouse && $event['pressed'] && $event['button'] === Mouse::LEFT;
+
+        if ($debug) {
             $this->lastMouse = $event + [
                 'sidebar' => $this->sidebar?->containsContent($event['column'], $event['row']) ?? false,
                 'table' => $this->table?->containsContent($event['column'], $event['row']) ?? false,
                 'sidebarY' => $this->sidebar?->y,
                 'tableY' => $this->table?->y,
                 'localRow' => $this->sidebar?->localRow($event['row']),
+                'before' => $this->currentTable(),
             ];
         }
 
@@ -486,6 +489,11 @@ class Browser extends Prompt
             Mouse::LEFT => $this->press($event['column'], $event['row']),
             default => true,
         };
+
+        if ($debug) {
+            $this->lastMouse['selected'] = $this->currentTable();
+            $this->lastMouse['rowIndex'] = $this->rowIndex;
+        }
     }
 
     private function press(int $column, int $row): bool

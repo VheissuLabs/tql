@@ -153,9 +153,10 @@ class BrowserRenderer extends Renderer
             $m = $prompt->lastMouse;
 
             return ' '.$this->bold('mouse').$this->dim(sprintf(
-                '  reported row=%d col=%d   sidebar island y=%s (row %s of it)   table island y=%s   hit=%s',
-                $m['row'], $m['column'], $m['sidebarY'] ?? '?', $m['localRow'] ?? '?', $m['tableY'] ?? '?',
-                $m['sidebar'] ? 'sidebar' : ($m['table'] ? 'table' : 'nothing')
+                '  row=%d col=%d  hit=%s  SELECTED=%s  (was %s)  rowIndex=%s',
+                $m['row'], $m['column'],
+                $m['sidebar'] ? 'sidebar' : ($m['table'] ? 'table' : 'nothing'),
+                $m['selected'] ?? '?', $m['before'] ?? '?', $m['rowIndex'] ?? '?'
             ));
         }
 
