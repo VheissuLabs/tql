@@ -275,6 +275,55 @@ class TableIsland extends Island
             return $widths;
         }
 
+        if ($this->scrollLocked) {
+            return $this->growLast($widths, $leftover);
+        }
+
+        $widths = $this->shareOut($widths, $leftover);
+
+        $leftover = $available - $this->total($widths);
+
+        return $leftover > 0 ? $this->growLast($widths, $leftover) : $widths;
+    }
+
+    private function shareOut(array $widths, int $leftover): array
+    {
+        $wanted = [];
+
+        foreach ($widths as $i => $width) {
+            $name = $this->headers[$this->columnOffset + $i] ?? null;
+
+            if ($name === null || isset($this->overrides[$name])) {
+                continue;
+            }
+
+            $deficit = $this->naturalWidth($name) - $width;
+
+            if ($deficit > 0) {
+                $wanted[$i] = $deficit;
+            }
+        }
+
+        while ($leftover > 0 && $wanted !== []) {
+            foreach ($wanted as $i => $deficit) {
+                if ($leftover === 0) {
+                    break;
+                }
+
+                $widths[$i]++;
+                $leftover--;
+
+                if (--$wanted[$i] === 0) {
+                    unset($wanted[$i]);
+                }
+            }
+        }
+
+        return $widths;
+    }
+
+    private function growLast(array $widths, int $leftover): array
+    {
         $last = count($widths) - 1;
         $name = $this->headers[$this->columnOffset + $last] ?? null;
 

@@ -1279,3 +1279,65 @@ it('highlights the query it is showing', function () {
 
     config(['dotsql.ui.sql_always' => false]);
 });
+
+it('gives spare width to the columns that are truncated', function () {
+    putenv('COLUMNS=140');
+    putenv('LINES=20');
+
+    $path = sys_get_temp_dir().'/dotsql-width-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table t (id integer primary key, long text, stamp text)');
+    $pdo->prepare('insert into t (long, stamp) values (?, ?)')->execute([
+        str_repeat('x', 120),
+        '2026-09-22T15:11:32+00:00',
+    ]);
+
+    $connection = Connection::create([
+        'name' => 'width'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+    frameOf($browser);
+    $browser->emit('key', "\n");
+    frameOf($browser);
+
+    $stamp = array_search('stamp', $browser->headers, true);
+    $long = array_search('long', $browser->headers, true);
+
+    $stampWidth = $browser->table->widthOf($stamp);
+    $longWidth = $browser->table->widthOf($long);
+
+    expect($stampWidth)->toBe(25)
+        ->and($longWidth)->toBeGreaterThan(28);
+
+    putenv('COLUMNS');
+    putenv('LINES');
+    unlink($path);
+});
+
+it('does not redistribute width while a column is being dragged', function () {
+    config(['dotsql.ui.mouse_row_offset' => 0]);
+    putenv('COLUMNS=140');
+    putenv('LINES=24');
+
+    $browser = browserFor(sqliteFixture());
+    frameOf($browser);
+
+    $row = $browser->table->y + 1;
+    $handle = $browser->columnHandles[1];
+
+    $browser->emit('key', "\e[<0;{$handle};{$row}M");
+    frameOf($browser);
+
+    $firstColumn = $browser->table->widthOf(0);
+
+    $browser->emit('key', "\e[<32;".($handle - 6).";{$row}M");
+    frameOf($browser);
+
+    expect($browser->table->widthOf(0))->toBe($firstColumn);
+
+    putenv('COLUMNS');
+    putenv('LINES');
+});
