@@ -18,6 +18,11 @@ class Paths
 
     public static function configFile(): string
     {
+        return static::configDirectory().'/config.toml';
+    }
+
+    public static function legacyConfigFile(): string
+    {
         return static::configDirectory().'/config.php';
     }
 

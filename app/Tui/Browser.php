@@ -114,6 +114,10 @@ class Browser extends Prompt
             $this->load();
         }
 
+        if ($error = config('dotsql.config_error')) {
+            $this->status = $error;
+        }
+
         $this->enableMouse();
 
         $this->on('key', fn (string $key) => $this->onKey($key));

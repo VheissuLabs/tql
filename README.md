@@ -157,35 +157,38 @@ connections.
 ## Configuration
 
 Defaults ship in `config/dotsql.php`. Machine-specific overrides go in
-`~/.config/dotsql/config.php`, which is merged over them — so settings that
+`~/.config/dotsql/config.toml`, which is merged over them — so settings that
 depend on where dotsql runs stay out of the repo:
 
-```php
-<?php
+```toml
+# dotsql configuration
+# Anything omitted falls back to the shipped defaults.
 
-return [
-    'ui' => [
-        'mouse_row_offset' => 1,
-    ],
-];
+[ui]
+
+# Where the SQL editor sits when you press s: "top" or "bottom"
+sql_position = "bottom"
+
+# Blank rows above the frame
+top_margin = 0
+
+# Subtract this from reported mouse rows.
+# Set to 1 inside a multiplexer whose tab bar sits above the pane.
+mouse_row_offset = 1
 ```
 
-Shipped defaults:
+A file that cannot be parsed does not stop dotsql — it starts on the defaults
+and reports the problem in the status line.
 
 | Key | Default | Meaning |
 | --- | --- | --- |
+| `ui.sql_position` | `top` | `top` or `bottom` — where the SQL editor sits |
+| `ui.row_style` | `marker` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
 | `ui.top_margin` | 1 | blank rows above the frame |
 | `ui.sidebar_width` | 24 | width of the tables pane |
 | `ui.export_path` | `~/.config/dotsql/exports` | where `:export` writes files |
-| `ui.sql_position` | `top` | `top` or `bottom` — where the SQL editor sits |
-| `ui.row_style` | `marker` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
 | `ui.mouse_row_offset` | 0 | rows to subtract from reported mouse coordinates |
 | `ui.mouse_column_offset` | 0 | columns to subtract from reported mouse coordinates |
-
-Set `mouse_row_offset` to `1` when running inside a multiplexer whose own chrome
-(a tab bar, for instance) occupies rows above the pane and whose mouse
-coordinates are not translated. `:mouse` inside the app shows the raw and
-adjusted coordinates side by side so the right value is obvious.
 
 ## Islands
 

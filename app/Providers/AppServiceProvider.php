@@ -4,9 +4,11 @@ namespace App\Providers;
 
 use App\Mcp\Servers\DotsqlServer;
 use App\Support\Paths;
+use Devium\Toml\Toml;
 use Illuminate\Encryption\EncryptionServiceProvider;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Mcp\Facades\Mcp;
+use Throwable;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -31,19 +33,40 @@ class AppServiceProvider extends ServiceProvider
 
     private function mergeUserConfig(): void
     {
-        $file = Paths::configFile();
+        $user = $this->readUserConfig();
 
-        if (! is_readable($file)) {
-            return;
-        }
-
-        $user = require $file;
-
-        if (! is_array($user)) {
+        if ($user === []) {
             return;
         }
 
         config(['dotsql' => array_replace_recursive(config('dotsql', []), $user)]);
+    }
+
+    private function readUserConfig(): array
+    {
+        $toml = Paths::configFile();
+
+        if (is_readable($toml)) {
+            try {
+                $decoded = Toml::decode((string) file_get_contents($toml), true);
+
+                return is_array($decoded) ? $decoded : [];
+            } catch (Throwable $e) {
+                config(['dotsql.config_error' => basename($toml).' could not be read: '.$e->getMessage()]);
+
+                return [];
+            }
+        }
+
+        $php = Paths::legacyConfigFile();
+
+        if (is_readable($php)) {
+            $decoded = require $php;
+
+            return is_array($decoded) ? $decoded : [];
+        }
+
+        return [];
     }
 
     public function boot(): void
