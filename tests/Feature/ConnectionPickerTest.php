@@ -681,3 +681,27 @@ it('leaves a connection without a color alone', function () {
     // mysql's own yellow icon, and nothing else coloured.
     expect(substr_count($line, "\e[31m"))->toBe(0);
 });
+
+it('runs the highlight the full width of the list', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    $picker->form->index = array_search('tag', $picker->form->keys(), true);
+    $picker->emit('key', "\n");
+
+    // The highlighted row inside the list, not the one behind it.
+    $selected = collect(explode("\n", pickerFrame($picker)))
+        ->first(fn (string $l) => str_contains($l, "\e[7m") && str_contains($l, 'none'));
+
+    expect($selected)->not->toBeNull();
+
+    preg_match('/\e\[7m(.*?)\e\[27m/', $selected, $match);
+
+    $span = $match[1] ?? '';
+
+    // It runs past the word to the edge of the box.
+    expect(trim($span))->toBe('none')
+        ->and(mb_strlen($span))->toBeGreaterThan(40)
+        ->and(mb_substr($span, -1))->toBe(' ');
+});

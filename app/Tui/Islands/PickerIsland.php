@@ -53,9 +53,11 @@ class PickerIsland extends Island
             $here = ($start + $offset) === $this->picker->index;
             $color = $this->picker->colorOf($option);
 
-            $text = '  '.($color === '' ? '  ' : '● ').$this->style->pad(
-                $this->style->truncate($option, $width - 2),
-                $width - 2,
+            // Padded to the full inner width, so the highlight runs the whole
+            // way across rather than stopping where the word does.
+            $text = $this->style->pad(
+                '  '.($color === '' ? '  ' : '● ').$this->style->truncate($option, $width - 2),
+                $innerWidth,
             );
 
             // A highlighted row carries no color of its own: the dot's escape
