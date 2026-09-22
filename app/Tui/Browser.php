@@ -338,6 +338,19 @@ class Browser extends Prompt
         $this->editor->handle($key);
     }
 
+    private function followQueryTable(string $statement): void
+    {
+        if (preg_match('/\bfrom\s+[`"\[]?([A-Za-z0-9_]+)/i', $statement, $match) !== 1) {
+            return;
+        }
+
+        $index = array_search($match[1], $this->tables, true);
+
+        if ($index !== false) {
+            $this->tableIndex = $index;
+        }
+    }
+
     private function runQueryBuffer(): void
     {
         if ($this->editor->isEmpty()) {
@@ -363,6 +376,7 @@ class Browser extends Prompt
         $this->hasMore = false;
         $this->resultsFromQuery = true;
         $this->lastStatement = $result->statement;
+        $this->followQueryTable($this->editor->buffer());
 
         $this->status = "{$result->count()} rows · {$result->durationMs}ms";
     }

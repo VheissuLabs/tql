@@ -817,11 +817,7 @@ it('shows a cursor in the value editor without shifting the text', function () {
 it('opens a value read-only when it cannot be written back', function () {
     $browser = jsonBrowser();
     $browser->emit('key', 's');
-
-    foreach (str_split('select 1 as one') as $char) {
-        $browser->emit('key', $char);
-    }
-
+    $browser->editor->set('select 1 as one');
     $browser->emit('key', QueryEditor::RUN);
     $browser->emit('key', "\e");
     $browser->emit('key', 'e');
@@ -836,11 +832,7 @@ it('opens a value read-only when it cannot be written back', function () {
 it('ignores typing in a read-only value but still scrolls', function () {
     $browser = jsonBrowser();
     $browser->emit('key', 's');
-
-    foreach (str_split('select 1 as one') as $char) {
-        $browser->emit('key', $char);
-    }
-
+    $browser->editor->set('select 1 as one');
     $browser->emit('key', QueryEditor::RUN);
     $browser->emit('key', "\e");
     $browser->emit('key', 'e');
@@ -1114,4 +1106,37 @@ it('runs an edited query against the connection', function () {
         ->and($browser->headers)->toBe(['name'])
         ->and($browser->rows)->toHaveCount(1)
         ->and($browser->rows[0]['name'])->toBe('beta');
+});
+
+it('moves the sidebar to the table a query selects from', function () {
+    $browser = jsonBrowser();
+
+    expect($browser->currentTable())->toBe('events');
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from settings');
+    $browser->emit('key', QueryEditor::RUN);
+
+    expect($browser->currentTable())->toBe('settings');
+});
+
+it('handles quoted table names', function () {
+    $browser = jsonBrowser();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select * from "settings" limit 10');
+    $browser->emit('key', QueryEditor::RUN);
+
+    expect($browser->currentTable())->toBe('settings');
+});
+
+it('leaves the sidebar alone for a query with no known table', function () {
+    $browser = jsonBrowser();
+    $before = $browser->currentTable();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select 1 as one');
+    $browser->emit('key', QueryEditor::RUN);
+
+    expect($browser->currentTable())->toBe($before);
 });
