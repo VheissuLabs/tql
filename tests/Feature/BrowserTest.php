@@ -787,6 +787,8 @@ it('shows a cursor in the value editor without shifting the text', function () {
     $browser->emit('key', 'l');
     $browser->emit('key', 'e');
 
+    expect($browser->editable)->toBeTrue();
+
     $method = new ReflectionMethod($browser, 'renderTheme');
     $method->setAccessible(true);
 
@@ -876,4 +878,16 @@ it('opens editable with e where editing is possible', function () {
     expect($browser->mode)->toBe('edit')
         ->and($browser->editable)->toBeTrue()
         ->and($browser->readOnlyReason)->toBeNull();
+});
+
+it('hides the cursor when the value is read-only', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'i');
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    expect($browser->editable)->toBeFalse()
+        ->and($method->invoke($browser))->not->toContain("\e[7m");
 });

@@ -73,6 +73,7 @@ class BrowserRenderer extends Renderer
                 $prompt->cellEditor,
                 $prompt->editingJson,
                 $style,
+                $prompt->editable,
             );
             $editor->focused = true;
             $editor->place(1, $top, $width, $frameHeight);

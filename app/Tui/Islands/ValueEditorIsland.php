@@ -12,6 +12,7 @@ class ValueEditorIsland extends Island
         private QueryEditor $editor,
         private bool $json,
         private Styler $style,
+        private bool $showCursor = true,
     ) {
         $this->title = $column.($json ? '  ·  json' : '');
     }
@@ -35,7 +36,7 @@ class ValueEditorIsland extends Island
             $out[] = ' '.$label.' '.$this->render(
                 $line,
                 $room,
-                $number === $cursorLine ? $cursorColumn : null,
+                $this->showCursor && $number === $cursorLine ? $cursorColumn : null,
             );
         }
 
@@ -57,7 +58,9 @@ class ValueEditorIsland extends Island
 
                 $painted = $type === 'plain' ? $char : $this->style->colour($type, $char);
 
-                $rendered .= $used === $cursor ? $this->style->inverse($char) : $painted;
+                $rendered .= $used === $cursor
+                    ? $this->style->inverse($this->style->bold($char === ' ' ? ' ' : $char))
+                    : $painted;
                 $used++;
             }
         }
