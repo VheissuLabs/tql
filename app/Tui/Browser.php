@@ -6,6 +6,7 @@ use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Tui\Concerns\HandlesMouse;
+use App\Tui\Concerns\RendersSmoothly;
 use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Laravel\Prompts\Key;
@@ -16,6 +17,7 @@ class Browser extends Prompt
     use CreatesAnAltScreen;
     use HandlesMouse;
     use RegistersRenderers;
+    use RendersSmoothly;
 
     public const PAGE = 100;
 

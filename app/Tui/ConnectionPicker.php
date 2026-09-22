@@ -5,6 +5,7 @@ namespace App\Tui;
 use App\Models\Connection;
 use App\Prompts\Renderers\ConnectionPickerRenderer;
 use App\Tui\Concerns\HandlesMouse;
+use App\Tui\Concerns\RendersSmoothly;
 use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Illuminate\Support\Collection;
@@ -16,6 +17,7 @@ class ConnectionPicker extends Prompt
     use CreatesAnAltScreen;
     use HandlesMouse;
     use RegistersRenderers;
+    use RendersSmoothly;
 
     public int $index = 0;
 

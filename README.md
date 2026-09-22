@@ -60,6 +60,14 @@ Queries through MCP are **read-only** — only `select`, `show`, `explain`,
 second statement are rejected. Writes happen in the interface, not through
 an agent.
 
+## Rendering
+
+Laravel Prompts repaints by erasing the frame and rewriting it, which flickers.
+Every repaint is wrapped in synchronized output (`\e[?2026h` / `\e[?2026l`) so
+the terminal presents the update atomically and the erase is never shown.
+Terminals that do not support it ignore the sequence. Set `NO_SYNC_OUTPUT=1` to
+turn it off.
+
 ## Storage
 
 Connection passwords are encrypted with Laravel's encrypter using a key at
