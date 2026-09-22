@@ -47,6 +47,15 @@ class Layout
         return (int) config('tql.ui.inspect_related', 10);
     }
 
+    /**
+     * Whether a modal is ringed by a border of its own, or just floats on an
+     * opaque backdrop.
+     */
+    public static function modalRing(): bool
+    {
+        return (bool) config('tql.ui.modal_ring', true);
+    }
+
     public static function doubleClickMs(): int
     {
         return (int) config('tql.ui.double_click_ms', 400);

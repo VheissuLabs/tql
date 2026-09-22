@@ -418,18 +418,23 @@ class BrowserRenderer extends Renderer
      */
     private function backdrop(Island $island, int $width, int $top, int $frameHeight): BackdropIsland
     {
-        $backdrop = new BackdropIsland;
+        $ring = Layout::modalRing();
+
+        $backdrop = new BackdropIsland($ring);
 
         // One column of air, then the ring: the modal's own border and the
         // backdrop's must not end up touching. Kept inside the frame, since a
-        // ring with its bottom edge cut off reads as a mistake.
-        $first = max($top, $island->y - 2);
-        $last = min($top + $frameHeight - 1, $island->y + $island->height + 1);
+        // ring with its bottom edge cut off reads as a mistake. Without the
+        // ring the backdrop is the padding alone.
+        $pad = $ring ? 3 : 2;
+
+        $first = max($top, $island->y - ($ring ? 2 : 1));
+        $last = min($top + $frameHeight - 1, $island->y + $island->height - 1 + ($ring ? 2 : 1));
 
         $backdrop->place(
-            max(1, $island->x - 3),
+            max(1, $island->x - $pad),
             $first,
-            min($width, $island->width + 6),
+            min($width, $island->width + ($pad * 2)),
             max($island->height, $last - $first + 1),
         );
 

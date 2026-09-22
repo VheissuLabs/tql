@@ -208,6 +208,15 @@ class ConfigTemplate
             ],
             [
                 'section' => 'ui',
+                'key' => 'modal_ring',
+                'default' => 'true',
+                'comment' => [
+                    'Draw a border around a modal as well as the box itself.',
+                    'false leaves the backdrop plain.',
+                ],
+            ],
+            [
+                'section' => 'ui',
                 'key' => 'export_path',
                 'default' => '""',
                 'comment' => ['Where :export writes files, empty uses ~/.config/tql/exports'],

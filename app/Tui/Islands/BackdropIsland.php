@@ -12,8 +12,9 @@ namespace App\Tui\Islands;
  */
 class BackdropIsland extends Island
 {
-    public function __construct()
+    public function __construct(bool $ring = true)
     {
+        $this->bare = ! $ring;
         $this->modal = true;
         $this->focused = true;
     }

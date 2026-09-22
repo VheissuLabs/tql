@@ -97,6 +97,9 @@ return [
 
         'sidebar_width' => 24,
 
+        // The border drawn around a modal's backdrop.
+        'modal_ring' => true,
+
         'mouse' => env('TQL_MOUSE', true),
 
         'double_click_ms' => env('TQL_DOUBLE_CLICK_MS', 400),
