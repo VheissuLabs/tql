@@ -102,7 +102,21 @@ connections.
 
 ## Configuration
 
-`config/dotsql.php`:
+Defaults ship in `config/dotsql.php`. Machine-specific overrides go in
+`~/.config/dotsql/config.php`, which is merged over them — so settings that
+depend on where dotsql runs stay out of the repo:
+
+```php
+<?php
+
+return [
+    'ui' => [
+        'mouse_row_offset' => 1,
+    ],
+];
+```
+
+Shipped defaults:
 
 | Key | Default | Meaning |
 | --- | --- | --- |

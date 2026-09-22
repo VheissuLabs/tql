@@ -3,6 +3,7 @@
 use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
+use App\Support\Paths;
 use App\Tui\Browser;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
@@ -458,4 +459,23 @@ it('does not open the inspector from the sidebar', function () {
     $browser->emit('key', 'i');
 
     expect($browser->mode)->toBe('browse');
+});
+
+it('merges a user config file over the shipped defaults', function () {
+    $directory = Paths::ensureDirectory();
+    $file = Paths::configFile();
+
+    file_put_contents($file, "<?php return ['ui' => ['mouse_row_offset' => 4]];");
+
+    $shipped = require base_path('config/dotsql.php');
+
+    config(['dotsql' => $shipped]);
+
+    $user = require $file;
+    config(['dotsql' => array_replace_recursive(config('dotsql'), $user)]);
+
+    expect(config('dotsql.ui.mouse_row_offset'))->toBe(4)
+        ->and(config('dotsql.ui.top_margin'))->toBe($shipped['ui']['top_margin']);
+
+    unlink($file);
 });

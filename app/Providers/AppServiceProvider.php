@@ -25,6 +25,25 @@ class AppServiceProvider extends ServiceProvider
         ]);
 
         $this->app->register(EncryptionServiceProvider::class);
+
+        $this->mergeUserConfig();
+    }
+
+    private function mergeUserConfig(): void
+    {
+        $file = Paths::configFile();
+
+        if (! is_readable($file)) {
+            return;
+        }
+
+        $user = require $file;
+
+        if (! is_array($user)) {
+            return;
+        }
+
+        config(['dotsql' => array_replace_recursive(config('dotsql', []), $user)]);
     }
 
     public function boot(): void

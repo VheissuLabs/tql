@@ -16,6 +16,11 @@ class Paths
         return static::configDirectory().'/dotsql.sqlite';
     }
 
+    public static function configFile(): string
+    {
+        return static::configDirectory().'/config.php';
+    }
+
     public static function keyFile(): string
     {
         return static::configDirectory().'/key';
