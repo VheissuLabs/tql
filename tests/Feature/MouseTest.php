@@ -169,3 +169,34 @@ it('treats three clicks as one double click, not two', function () {
 
     expect($browser->mode)->toBe('browse');
 });
+
+it('turns the mouse on by default', function () {
+    expect(Layout::mouse())->toBeTrue();
+});
+
+it('ignores clicks when the mouse is turned off', function () {
+    $browser = clickable();
+
+    $browser->emit('key', cellAt($browser, 2, 1));
+
+    expect($browser->rowIndex)->toBe(2);
+
+    config(['tql.ui.mouse' => false]);
+
+    $browser->emit('key', cellAt($browser, 0, 1));
+
+    expect($browser->rowIndex)->toBe(2);
+
+    config(['tql.ui.mouse' => true]);
+});
+
+it('does not ask the terminal for the mouse when it is off', function () {
+    config(['tql.ui.mouse' => false]);
+
+    expect(Browser::mouseWanted())->toBeFalse();
+
+    config(['tql.ui.mouse' => true]);
+
+    // NO_MOUSE is set for the suite, so the escape codes stay off in tests.
+    expect(getenv('NO_MOUSE'))->toBeTruthy();
+});

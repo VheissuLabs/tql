@@ -37,6 +37,11 @@ class Layout
         return (string) config('tql.ui.row_style', 'marker');
     }
 
+    public static function mouse(): bool
+    {
+        return (bool) config('tql.ui.mouse', true);
+    }
+
     public static function inspectRelated(): int
     {
         return (int) config('tql.ui.inspect_related', 10);

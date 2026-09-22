@@ -268,7 +268,11 @@ class Browser extends Prompt
     public function onKey(string $key): void
     {
         if ($event = Mouse::parse($key)) {
-            $this->onMouse($event);
+            // A terminal can keep reporting the mouse after we asked it to
+            // stop, so honour the setting here as well as at the escape code.
+            if (Layout::mouse()) {
+                $this->onMouse($event);
+            }
 
             return;
         }

@@ -223,6 +223,16 @@ class ConfigTemplate
             ],
             [
                 'section' => 'ui',
+                'key' => 'mouse',
+                'default' => 'true',
+                'comment' => [
+                    'Click, drag and scroll inside tql. Turn it off to give the',
+                    'terminal its own selection and scrollback back, for copying',
+                    'text with the mouse instead of clicking cells with it.',
+                ],
+            ],
+            [
+                'section' => 'ui',
                 'key' => 'double_click_ms',
                 'default' => '400',
                 'comment' => ['How close two clicks must be to open the editor'],

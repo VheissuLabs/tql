@@ -90,7 +90,9 @@ class ConnectionPicker extends Prompt
     public function onKey(string $key): void
     {
         if ($event = Mouse::parse($key)) {
-            $this->onMouse($event);
+            if (Layout::mouse()) {
+                $this->onMouse($event);
+            }
 
             return;
         }

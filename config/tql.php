@@ -97,6 +97,8 @@ return [
 
         'sidebar_width' => 24,
 
+        'mouse' => env('TQL_MOUSE', true),
+
         'double_click_ms' => env('TQL_DOUBLE_CLICK_MS', 400),
 
         // Related rows to load into the row inspector. 0 turns it off.
