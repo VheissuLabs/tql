@@ -5,7 +5,7 @@ namespace App\Support;
 class Argv
 {
     /**
-     * Let `dotsql some.sqlite` mean `dotsql open some.sqlite`.
+     * Let `tql some.sqlite` mean `tql open some.sqlite`.
      *
      * Laravel Zero reads the first argument as a command name, so without
      * this a path is met with "command not found". A file that exists on

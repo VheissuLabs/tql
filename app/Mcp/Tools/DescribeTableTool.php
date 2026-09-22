@@ -11,7 +11,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Throwable;
 
-#[Description('Describe the columns of a table in a dotsql connection, including types and nullability.')]
+#[Description('Describe the columns of a table in a tql connection, including types and nullability.')]
 class DescribeTableTool extends Tool
 {
     use ResolvesConnections;
@@ -50,7 +50,7 @@ class DescribeTableTool extends Tool
     {
         return [
             'connection' => $schema->string()
-                ->description('The dotsql connection name.')
+                ->description('The tql connection name.')
                 ->required(),
 
             'table' => $schema->string()

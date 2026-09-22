@@ -11,14 +11,14 @@ use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 
-#[Name('dotsql')]
+#[Name('tql')]
 #[Version('0.1.0')]
 #[Instructions(
-    'dotsql exposes the same database connections the user browses in the dotsql terminal interface. '.
+    'tql exposes the same database connections the user browses in the tql terminal interface. '.
     'Start by listing connections, then list or describe tables before querying. '.
-    'Queries are read-only; writes must happen in the dotsql interface.'
+    'Queries are read-only; writes must happen in the tql interface.'
 )]
-class DotsqlServer extends Server
+class TqlServer extends Server
 {
     protected array $tools = [
         ListConnectionsTool::class,

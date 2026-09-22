@@ -10,12 +10,12 @@ use Laravel\Prompts\Prompt;
 
 beforeEach(function () {
     Artisan::call('migrate', ['--force' => true]);
-    config(['dotsql.ui.mouse_row_offset' => 0, 'dotsql.ui.sql_always' => false]);
+    config(['tql.ui.mouse_row_offset' => 0, 'tql.ui.sql_always' => false]);
 });
 
 function aligned(): Browser
 {
-    $path = sys_get_temp_dir().'/dotsql-align-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-align-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -98,7 +98,7 @@ it('runs the selection to the full inner width of its pane', function () {
 });
 
 it('keeps the editor caret visible on a line that fills the pane', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = aligned();
 
@@ -114,7 +114,7 @@ it('keeps the editor caret visible on a line that fills the pane', function () {
 
     expect($method->invoke($browser))->toContain("\e[7m");
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('pads the cursor block by a column either side', function () {
@@ -137,7 +137,7 @@ it('pads the cursor block by a column either side', function () {
 });
 
 it('never renders taller than the terminal with the sql pane on', function (int $lines, bool $query) {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
     putenv('COLUMNS=200');
     putenv("LINES={$lines}");
 
@@ -157,13 +157,13 @@ it('never renders taller than the terminal with the sql pane on', function (int 
 
     putenv('COLUMNS');
     putenv('LINES');
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 
     expect(count($rows))->toBeLessThanOrEqual($lines);
 })->with([[24, false], [30, false], [33, false], [40, false], [24, true], [33, true], [60, true]]);
 
 it('never renders wider than the terminal at any width', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $over = [];
 
@@ -193,13 +193,13 @@ it('never renders wider than the terminal at any width', function () {
 
     putenv('COLUMNS');
     putenv('LINES');
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 
     expect($over)->toBe([]);
 });
 
 it('does not change height when the sql pane takes focus', function (int $lines) {
-    config(['dotsql.ui.sql_always' => true, 'dotsql.ui.sql_position' => 'bottom', 'dotsql.ui.sql_height' => 0]);
+    config(['tql.ui.sql_always' => true, 'tql.ui.sql_position' => 'bottom', 'tql.ui.sql_height' => 0]);
     putenv('COLUMNS=135');
     putenv("LINES={$lines}");
 
@@ -218,7 +218,7 @@ it('does not change height when the sql pane takes focus', function (int $lines)
 
     putenv('COLUMNS');
     putenv('LINES');
-    config(['dotsql.ui.sql_always' => false, 'dotsql.ui.sql_position' => 'top', 'dotsql.ui.sql_height' => 0]);
+    config(['tql.ui.sql_always' => false, 'tql.ui.sql_position' => 'top', 'tql.ui.sql_height' => 0]);
 
     expect($after)->toBe($before);
 })->with([20, 24, 30, 33, 36, 40, 50]);
@@ -332,7 +332,7 @@ it('keeps the hotkey bar to a single line at a usable width', function () {
 });
 
 it('floats the help over the panes instead of interleaving with them', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
     putenv('COLUMNS=140');
     putenv('LINES=40');
 
@@ -348,7 +348,7 @@ it('floats the help over the panes instead of interleaving with them', function 
 
     putenv('COLUMNS');
     putenv('LINES');
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 
     $plain = implode("\n", $lines);
 

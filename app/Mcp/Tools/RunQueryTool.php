@@ -10,7 +10,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('Run a read-only SQL query against a dotsql connection. Only SELECT, SHOW, EXPLAIN, DESCRIBE and PRAGMA statements are permitted.')]
+#[Description('Run a read-only SQL query against a tql connection. Only SELECT, SHOW, EXPLAIN, DESCRIBE and PRAGMA statements are permitted.')]
 class RunQueryTool extends Tool
 {
     use ResolvesConnections;
@@ -30,7 +30,7 @@ class RunQueryTool extends Tool
         if (! $this->runner->isReadOnly($statement)) {
             return Response::error(
                 'Only read-only statements are permitted through MCP. '.
-                'Use the dotsql interface directly to modify data.'
+                'Use the tql interface directly to modify data.'
             );
         }
 
@@ -53,7 +53,7 @@ class RunQueryTool extends Tool
     {
         return [
             'connection' => $schema->string()
-                ->description('The dotsql connection name.')
+                ->description('The tql connection name.')
                 ->required(),
 
             'query' => $schema->string()

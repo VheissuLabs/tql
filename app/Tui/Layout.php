@@ -8,22 +8,22 @@ class Layout
 
     public static function topMargin(): int
     {
-        return max(0, (int) config('dotsql.ui.top_margin', 1));
+        return max(0, (int) config('tql.ui.top_margin', 1));
     }
 
     public static function sqlPosition(): string
     {
-        return config('dotsql.ui.sql_position') === 'bottom' ? 'bottom' : 'top';
+        return config('tql.ui.sql_position') === 'bottom' ? 'bottom' : 'top';
     }
 
     public static function sqlAlways(): bool
     {
-        return (bool) config('dotsql.ui.sql_always', false);
+        return (bool) config('tql.ui.sql_always', false);
     }
 
     public static function sqlHeight(int $frameHeight): int
     {
-        $configured = (int) config('dotsql.ui.sql_height', 0);
+        $configured = (int) config('tql.ui.sql_height', 0);
 
         if ($configured > 0) {
             return max(3, min($configured, $frameHeight - 5));
@@ -34,22 +34,22 @@ class Layout
 
     public static function rowStyle(): string
     {
-        return (string) config('dotsql.ui.row_style', 'marker');
+        return (string) config('tql.ui.row_style', 'marker');
     }
 
     public static function mouseRowOffset(): int
     {
-        return (int) config('dotsql.ui.mouse_row_offset', 0);
+        return (int) config('tql.ui.mouse_row_offset', 0);
     }
 
     public static function mouseColumnOffset(): int
     {
-        return (int) config('dotsql.ui.mouse_column_offset', 0);
+        return (int) config('tql.ui.mouse_column_offset', 0);
     }
 
     public static function sidebarWidth(): int
     {
-        return max(8, (int) config('dotsql.ui.sidebar_width', self::SIDEBAR));
+        return max(8, (int) config('tql.ui.sidebar_width', self::SIDEBAR));
     }
 
     public const CHROME = 7;

@@ -17,7 +17,7 @@ class SqlExporter
 
     public function directory(): string
     {
-        $path = (string) (config('dotsql.ui.export_path') ?: Paths::configDirectory().'/exports');
+        $path = (string) (config('tql.ui.export_path') ?: Paths::configDirectory().'/exports');
 
         if (! is_dir($path)) {
             mkdir($path, 0700, true);
@@ -212,7 +212,7 @@ class SqlExporter
 
     private function header(Connection $connection, string $table): string
     {
-        return "-- dotsql export\n".
+        return "-- tql export\n".
             "-- connection: {$connection->name} ({$connection->driver})\n".
             "-- table: {$table}\n".
             '-- exported: '.date('c')."\n\n";

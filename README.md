@@ -1,4 +1,4 @@
-# dotsql
+# tql
 
 A database client for the terminal, built with Laravel Zero, Laravel Prompts and Laravel MCP.
 
@@ -9,7 +9,7 @@ either of them runs is recorded in one shared history.
 ## Running it
 
 ```bash
-php dotsql
+php tql
 ```
 
 `browse` is the default command.
@@ -18,16 +18,16 @@ To skip the connection list and open a SQLite file straight away, point it at
 the file:
 
 ```bash
-dotsql test.sqlite          # same as: dotsql open test.sqlite
-dotsql ~/Sites/app/db.sqlite
-dotsql test.sqlite --save=scratch   # and remember it in the connection list
+tql test.sqlite          # same as: tql open test.sqlite
+tql ~/Sites/app/db.sqlite
+tql test.sqlite --save=scratch   # and remember it in the connection list
 ```
 
 The file is not added to your saved connections unless you pass `--save`, so
 poking at a one-off database does not clutter the list. A first argument that
 exists on disk, contains a `/`, or ends in `.sqlite`, `.sqlite3` or `.db` is
-treated as a path rather than a command name. On first run dotsql creates `~/.config/dotsql/`
-containing `dotsql.sqlite` (connections and query history) and `key` (the
+treated as a path rather than a command name. On first run tql creates `~/.config/tql/`
+containing `tql.sqlite` (connections and query history) and `key` (the
 encryption key), both `0600`.
 
 ## Keys
@@ -137,9 +137,9 @@ SSH.
 From the command line, which is the scriptable way:
 
 ```bash
-dotsql export prod orders --limit=1000 --sql=./orders.sql
-dotsql export prod --sql=./prod.sql     # every table, one file
-dotsql export prod --list               # what tables are there
+tql export prod orders --limit=1000 --sql=./orders.sql
+tql export prod --sql=./prod.sql     # every table, one file
+tql export prod --list               # what tables are there
 ```
 
 `--sql` takes a file or a directory; omit it and the file is named
@@ -150,7 +150,7 @@ Inside the interface, `:export` writes what you are looking at to a `.sql` file 
 statements. On a table that is every row, read in chunks so a large table does
 not go through memory at once; after a query it is the rows you have loaded.
 
-Files land in `~/.config/dotsql/exports` (override with `ui.export_path`), named
+Files land in `~/.config/tql/exports` (override with `ui.export_path`), named
 `connection-table-YYYYMMDD-HHMMSS.sql`. The status line reports the row count,
 file size and path.
 
@@ -162,15 +162,15 @@ from one database into another.
 Select a cell and press `e` or `↵`. `↵` saves, `esc` cancels. An empty value
 writes `NULL`.
 
-Editing requires a single-column primary key, which dotsql uses to target the
+Editing requires a single-column primary key, which tql uses to target the
 row. Tables without one are read-only, as are connections flagged `read_only`.
 
 ## MCP
 
-The MCP server is registered as a local (stdio) server named `dotsql`:
+The MCP server is registered as a local (stdio) server named `tql`:
 
 ```bash
-php dotsql mcp:start dotsql
+php tql mcp:start tql
 ```
 
 Tools: list connections, list tables, describe a table, and run a query.
@@ -190,7 +190,7 @@ turn it off.
 ## Storage
 
 Connection passwords are encrypted with Laravel's encrypter using a key at
-`~/.config/dotsql/key`. The key sits beside the database, so this protects
+`~/.config/tql/key`. The key sits beside the database, so this protects
 against casual reading of the file, not against someone with access to your
 account.
 
@@ -205,17 +205,17 @@ connections.
 
 ## Configuration
 
-On first run dotsql writes `~/.config/dotsql/config.toml` containing every
+On first run tql writes `~/.config/tql/config.toml` containing every
 setting at its default, each with a comment. When a later version adds a
 setting, it is appended to your file on the next run — your values and your own
 comments are left alone — and the status line says which ones arrived.
 
-Defaults ship in `config/dotsql.php`. Machine-specific overrides go in
-`~/.config/dotsql/config.toml`, which is merged over them — so settings that
-depend on where dotsql runs stay out of the repo:
+Defaults ship in `config/tql.php`. Machine-specific overrides go in
+`~/.config/tql/config.toml`, which is merged over them — so settings that
+depend on where tql runs stay out of the repo:
 
 ```toml
-# dotsql configuration
+# tql configuration
 # Anything omitted falls back to the shipped defaults.
 
 [ui]
@@ -237,7 +237,7 @@ top_margin = 0
 mouse_row_offset = 1
 ```
 
-A file that cannot be parsed does not stop dotsql — it starts on the defaults
+A file that cannot be parsed does not stop tql — it starts on the defaults
 and reports the problem in the status line.
 
 | Key | Default | Meaning |
@@ -248,7 +248,7 @@ and reports the problem in the status line.
 | `ui.row_style` | `marker` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
 | `ui.top_margin` | 1 | blank rows above the frame |
 | `ui.sidebar_width` | 24 | width of the tables pane |
-| `ui.export_path` | `~/.config/dotsql/exports` | where `:export` writes files |
+| `ui.export_path` | `~/.config/tql/exports` | where `:export` writes files |
 | `ui.mouse_row_offset` | 0 | rows to subtract from reported mouse coordinates |
 | `ui.mouse_column_offset` | 0 | columns to subtract from reported mouse coordinates |
 

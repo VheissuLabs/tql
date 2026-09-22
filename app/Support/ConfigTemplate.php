@@ -103,7 +103,7 @@ class ConfigTemplate
                 'section' => 'ui',
                 'key' => 'export_path',
                 'default' => '""',
-                'comment' => ['Where :export writes files, empty uses ~/.config/dotsql/exports'],
+                'comment' => ['Where :export writes files, empty uses ~/.config/tql/exports'],
             ],
             [
                 'section' => 'ui',
@@ -141,7 +141,7 @@ class ConfigTemplate
 
     public static function render(): string
     {
-        $out = "# dotsql configuration\n".
+        $out = "# tql configuration\n".
             "# Every setting below is the default. Change what you like, delete what you do not.\n";
 
         foreach (static::sections() as $section) {

@@ -10,14 +10,14 @@ it('parses a button press', function () {
 });
 
 it('applies the configured coordinate offset', function () {
-    config(['dotsql.ui.mouse_row_offset' => 1]);
+    config(['tql.ui.mouse_row_offset' => 1]);
 
     $event = Mouse::parse("\e[<0;10;4M");
 
     expect($event['row'])->toBe(3)
         ->and($event['raw_row'])->toBe(4);
 
-    config(['dotsql.ui.mouse_row_offset' => 0]);
+    config(['tql.ui.mouse_row_offset' => 0]);
 
     expect(Mouse::parse("\e[<0;10;4M")['row'])->toBe(4);
 });

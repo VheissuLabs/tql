@@ -11,7 +11,7 @@ use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 use Throwable;
 
-#[Description('List the tables in a dotsql connection.')]
+#[Description('List the tables in a tql connection.')]
 class ListTablesTool extends Tool
 {
     use ResolvesConnections;
@@ -42,7 +42,7 @@ class ListTablesTool extends Tool
     {
         return [
             'connection' => $schema->string()
-                ->description('The dotsql connection name, as returned by the list connections tool.')
+                ->description('The tql connection name, as returned by the list connections tool.')
                 ->required(),
         ];
     }

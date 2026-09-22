@@ -2,7 +2,7 @@
 
 namespace App\Providers;
 
-use App\Mcp\Servers\DotsqlServer;
+use App\Mcp\Servers\TqlServer;
 use App\Support\ConfigFile;
 use App\Support\Paths;
 use Devium\Toml\Toml;
@@ -18,8 +18,8 @@ class AppServiceProvider extends ServiceProvider
         config([
             'app.key' => Paths::ensureKey(),
             'app.cipher' => 'AES-256-CBC',
-            'database.default' => 'dotsql',
-            'database.connections.dotsql' => [
+            'database.default' => 'tql',
+            'database.connections.tql' => [
                 'driver' => 'sqlite',
                 'database' => Paths::ensureDatabase(),
                 'prefix' => '',
@@ -42,13 +42,13 @@ class AppServiceProvider extends ServiceProvider
         $result = ConfigFile::ensure();
 
         if ($result['created']) {
-            config(['dotsql.config_notice' => 'wrote '.Paths::configFile()]);
+            config(['tql.config_notice' => 'wrote '.Paths::configFile()]);
 
             return;
         }
 
         if ($result['added'] !== []) {
-            config(['dotsql.config_notice' => count($result['added']).' new setting'.
+            config(['tql.config_notice' => count($result['added']).' new setting'.
                 (count($result['added']) === 1 ? '' : 's').' added to config.toml: '.implode(', ', $result['added'])]);
         }
     }
@@ -63,10 +63,10 @@ class AppServiceProvider extends ServiceProvider
 
         $moved = [];
 
-        config(['dotsql' => array_replace_recursive(config('dotsql', []), ConfigFile::hoist($user, $moved))]);
+        config(['tql' => array_replace_recursive(config('tql', []), ConfigFile::hoist($user, $moved))]);
 
         if ($moved !== []) {
-            config(['dotsql.config_notice' => 'read '.implode(', ', $moved).
+            config(['tql.config_notice' => 'read '.implode(', ', $moved).
                 ' from the top of config.toml — move them under their [section] to keep them working']);
         }
     }
@@ -81,7 +81,7 @@ class AppServiceProvider extends ServiceProvider
 
                 return is_array($decoded) ? $decoded : [];
             } catch (Throwable $e) {
-                config(['dotsql.config_error' => basename($toml).' could not be read: '.$e->getMessage()]);
+                config(['tql.config_error' => basename($toml).' could not be read: '.$e->getMessage()]);
 
                 return [];
             }
@@ -100,6 +100,6 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        Mcp::local('dotsql', DotsqlServer::class);
+        Mcp::local('tql', TqlServer::class);
     }
 }

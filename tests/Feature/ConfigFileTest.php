@@ -127,7 +127,7 @@ it('creates a section that is missing entirely', function () {
 });
 
 it('covers every shipped default', function () {
-    $shipped = require base_path('config/dotsql.php');
+    $shipped = require base_path('config/tql.php');
     $template = array_column(ConfigTemplate::settings(), 'key');
 
     foreach (['ui', 'theme'] as $section) {

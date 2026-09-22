@@ -12,7 +12,7 @@ use Throwable;
 class ExportCommand extends Command
 {
     protected $signature = 'export
-        {connection : The dotsql connection name}
+        {connection : The tql connection name}
         {table? : The table to export, or every table when omitted}
         {--sql= : Where to write the file, a path or a directory}
         {--limit= : Export at most this many rows per table}
@@ -26,16 +26,16 @@ class ExportCommand extends Command
 
     <fg=yellow>Examples</>
 
-      <fg=green>dotsql export prod orders --limit=1000 --sql=./orders.sql</>
+      <fg=green>tql export prod orders --limit=1000 --sql=./orders.sql</>
           a thousand rows of one table into a named file
 
-      <fg=green>dotsql export prod --sql=./prod.sql</>
+      <fg=green>tql export prod --sql=./prod.sql</>
           every table in the database, into one file
 
-      <fg=green>dotsql export prod orders</>
-          auto-named file in ~/.config/dotsql/exports
+      <fg=green>tql export prod orders</>
+          auto-named file in ~/.config/tql/exports
 
-      <fg=green>dotsql export prod --list</>
+      <fg=green>tql export prod --list</>
           just show which tables are there
 
     <fg=yellow>Notes</>

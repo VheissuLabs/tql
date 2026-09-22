@@ -13,14 +13,14 @@ function withConfigFile(string $contents, callable $assert): void
     file_put_contents($file, $contents);
 
     try {
-        $shipped = require base_path('config/dotsql.php');
-        config(['dotsql' => $shipped, 'dotsql.config_error' => null]);
+        $shipped = require base_path('config/tql.php');
+        config(['tql' => $shipped, 'tql.config_error' => null]);
 
         try {
             $user = Toml::decode((string) file_get_contents($file), true);
-            config(['dotsql' => array_replace_recursive(config('dotsql'), is_array($user) ? $user : [])]);
+            config(['tql' => array_replace_recursive(config('tql'), is_array($user) ? $user : [])]);
         } catch (Throwable $e) {
-            config(['dotsql.config_error' => 'could not be read: '.$e->getMessage()]);
+            config(['tql.config_error' => 'could not be read: '.$e->getMessage()]);
         }
 
         $assert();
@@ -35,8 +35,8 @@ it('reads settings from a toml file', function () {
     sql_position = "bottom"
     sidebar_width = 30
     TOML, function () {
-        expect(config('dotsql.ui.sql_position'))->toBe('bottom')
-            ->and(config('dotsql.ui.sidebar_width'))->toBe(30);
+        expect(config('tql.ui.sql_position'))->toBe('bottom')
+            ->and(config('tql.ui.sidebar_width'))->toBe(30);
     });
 });
 
@@ -45,10 +45,10 @@ it('keeps shipped defaults for anything not mentioned', function () {
     [ui]
     sql_position = "bottom"
     TOML, function () {
-        $shipped = require base_path('config/dotsql.php');
+        $shipped = require base_path('config/tql.php');
 
-        expect(config('dotsql.ui.row_style'))->toBe($shipped['ui']['row_style'])
-            ->and(config('dotsql.ui.sidebar_width'))->toBe($shipped['ui']['sidebar_width']);
+        expect(config('tql.ui.row_style'))->toBe($shipped['ui']['row_style'])
+            ->and(config('tql.ui.sidebar_width'))->toBe($shipped['ui']['sidebar_width']);
     });
 });
 
@@ -60,22 +60,22 @@ it('supports comments', function () {
     # where the editor sits
     sql_position = "bottom"
     TOML, function () {
-        expect(config('dotsql.ui.sql_position'))->toBe('bottom')
-            ->and(config('dotsql.config_error'))->toBeNull();
+        expect(config('tql.ui.sql_position'))->toBe('bottom')
+            ->and(config('tql.config_error'))->toBeNull();
     });
 });
 
 it('reports a broken file instead of crashing', function () {
     withConfigFile("[ui\nsql_position = \"bottom\"\n", function () {
-        expect(config('dotsql.config_error'))->toContain('could not be read')
-            ->and(config('dotsql.ui.sql_position'))->toBe('top');
+        expect(config('tql.config_error'))->toContain('could not be read')
+            ->and(config('tql.ui.sql_position'))->toBe('top');
     });
 });
 
 it('ignores an empty file', function () {
     withConfigFile('', function () {
-        expect(config('dotsql.config_error'))->toBeNull()
-            ->and(config('dotsql.ui.sql_position'))->toBe('top');
+        expect(config('tql.config_error'))->toBeNull()
+            ->and(config('tql.ui.sql_position'))->toBe('top');
     });
 });
 
@@ -85,7 +85,7 @@ it('reads booleans and integers as their own types', function () {
     top_margin = 3
     mouse_row_offset = 0
     TOML, function () {
-        expect(config('dotsql.ui.top_margin'))->toBe(3)
-            ->and(config('dotsql.ui.top_margin'))->toBeInt();
+        expect(config('tql.ui.top_margin'))->toBe(3)
+            ->and(config('tql.ui.top_margin'))->toBeInt();
     });
 });

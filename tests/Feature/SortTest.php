@@ -9,12 +9,12 @@ use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function () {
     Artisan::call('migrate', ['--force' => true]);
-    config(['dotsql.ui.mouse_row_offset' => 0]);
+    config(['tql.ui.mouse_row_offset' => 0]);
 });
 
 function sortable(): Browser
 {
-    $path = sys_get_temp_dir().'/dotsql-sort-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-sort-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -216,7 +216,7 @@ it('says so rather than mangling a query it cannot sort', function () {
 });
 
 it('focuses the sql pane when it is clicked', function () {
-    config(['dotsql.ui.sql_always' => true, 'dotsql.ui.sql_position' => 'bottom']);
+    config(['tql.ui.sql_always' => true, 'tql.ui.sql_position' => 'bottom']);
 
     $browser = sortable();
     $browser->editor->set("select *\nfrom fruit");
@@ -237,7 +237,7 @@ it('focuses the sql pane when it is clicked', function () {
 });
 
 it('focuses the sql pane from a click on its border', function () {
-    config(['dotsql.ui.sql_always' => true, 'dotsql.ui.sql_position' => 'bottom']);
+    config(['tql.ui.sql_always' => true, 'tql.ui.sql_position' => 'bottom']);
 
     $browser = sortable();
 

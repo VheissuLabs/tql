@@ -29,8 +29,8 @@ class ConnectionManager
             );
         }
 
-        // An unsaved connection (dotsql open <file>) has no id yet.
-        $handle = 'dotsql_target_'.($connection->id ?? substr(md5((string) $connection->database), 0, 12));
+        // An unsaved connection (tql open <file>) has no id yet.
+        $handle = 'tql_target_'.($connection->id ?? substr(md5((string) $connection->database), 0, 12));
 
         Config::set("database.connections.{$handle}", $connection->toLaravelConfig());
 

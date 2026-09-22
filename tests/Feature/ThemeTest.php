@@ -9,13 +9,13 @@ use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function () {
     Artisan::call('migrate', ['--force' => true]);
-    config(['dotsql.theme' => ['border' => 'dim', 'focus_border' => 'cyan', 'focus_title' => 'cyan']]);
-    config(['dotsql.ui.mouse_row_offset' => 0]);
+    config(['tql.theme' => ['border' => 'dim', 'focus_border' => 'cyan', 'focus_title' => 'cyan']]);
+    config(['tql.ui.mouse_row_offset' => 0]);
 });
 
 function themed(): Browser
 {
-    $path = sys_get_temp_dir().'/dotsql-theme-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-theme-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -45,7 +45,7 @@ function frameFor(Browser $browser): string
 }
 
 it('paints the focused border with the configured colour', function (string $colour, string $code) {
-    config(['dotsql.theme.focus_border' => $colour, 'dotsql.theme.focus_title' => $colour]);
+    config(['tql.theme.focus_border' => $colour, 'tql.theme.focus_title' => $colour]);
 
     expect(frameFor(themed()))->toContain("\e[{$code}m");
 })->with([
@@ -56,13 +56,13 @@ it('paints the focused border with the configured colour', function (string $col
 ]);
 
 it('falls back to dim for a colour it does not know', function () {
-    config(['dotsql.theme.focus_border' => 'ultraviolet']);
+    config(['tql.theme.focus_border' => 'ultraviolet']);
 
     expect(Theme::border(true))->toBe('dim');
 });
 
 it('uses a different colour for focused and unfocused panes', function () {
-    config(['dotsql.theme.focus_border' => 'green', 'dotsql.theme.border' => 'red']);
+    config(['tql.theme.focus_border' => 'green', 'tql.theme.border' => 'red']);
 
     $frame = frameFor(themed());
 
@@ -71,7 +71,7 @@ it('uses a different colour for focused and unfocused panes', function () {
 });
 
 it('moves the focus colour when the focus moves', function () {
-    config(['dotsql.theme.focus_border' => 'green', 'dotsql.theme.border' => 'dim']);
+    config(['tql.theme.focus_border' => 'green', 'tql.theme.border' => 'dim']);
 
     $browser = themed();
 
@@ -103,7 +103,7 @@ it('does not quit the browser on escape', function () {
 });
 
 it('cycles panes forward with tab and backward with shift+tab', function () {
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 
     $browser = themed();
 
@@ -120,7 +120,7 @@ it('cycles panes forward with tab and backward with shift+tab', function () {
 });
 
 it('includes the sql pane in the cycle when it is always shown', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = themed();
 
@@ -140,9 +140,9 @@ it('includes the sql pane in the cycle when it is always shown', function () {
 
 it('keeps the frame colour off the column ticks and the interior grid', function () {
     config([
-        'dotsql.theme.focus_border' => 'blue',
-        'dotsql.theme.focus_title' => 'blue',
-        'dotsql.theme.grid' => 'gray',
+        'tql.theme.focus_border' => 'blue',
+        'tql.theme.focus_title' => 'blue',
+        'tql.theme.grid' => 'gray',
     ]);
 
     $browser = themed();
@@ -168,7 +168,7 @@ it('keeps the frame colour off the column ticks and the interior grid', function
 });
 
 it('paints the interior grid separately from the border', function () {
-    config(['dotsql.theme.grid' => 'red', 'dotsql.theme.focus_border' => 'blue']);
+    config(['tql.theme.grid' => 'red', 'tql.theme.focus_border' => 'blue']);
 
     $browser = themed();
     $browser->emit('key', "\n");
@@ -185,9 +185,9 @@ it('paints the interior grid separately from the border', function () {
 
 it('tints the whole table with the pane colour when the grid inherits', function () {
     config([
-        'dotsql.theme.grid' => 'inherit',
-        'dotsql.theme.focus_border' => 'blue',
-        'dotsql.theme.border' => 'gray',
+        'tql.theme.grid' => 'inherit',
+        'tql.theme.focus_border' => 'blue',
+        'tql.theme.border' => 'gray',
     ]);
 
     $browser = themed();
@@ -208,7 +208,7 @@ it('tints the whole table with the pane colour when the grid inherits', function
 });
 
 it('tints the cursor block with the configured colour', function () {
-    config(['dotsql.theme.cursor' => 'magenta']);
+    config(['tql.theme.cursor' => 'magenta']);
 
     $browser = themed();
     $browser->emit('key', "\n");
@@ -219,7 +219,7 @@ it('tints the cursor block with the configured colour', function () {
 });
 
 it('tints the selection apart from the cursor', function () {
-    config(['dotsql.theme.cursor' => 'magenta', 'dotsql.theme.selection' => 'green']);
+    config(['tql.theme.cursor' => 'magenta', 'tql.theme.selection' => 'green']);
 
     $frame = frameFor(themed());
 
@@ -231,7 +231,7 @@ it('tints the selection apart from the cursor', function () {
 });
 
 it('leaves the highlight on the terminal colours by default', function () {
-    config(['dotsql.theme.cursor' => 'default', 'dotsql.theme.selection' => 'default']);
+    config(['tql.theme.cursor' => 'default', 'tql.theme.selection' => 'default']);
 
     $frame = frameFor(themed());
 

@@ -10,7 +10,7 @@ beforeEach(function () {
 
 function exportFixture(): array
 {
-    $path = sys_get_temp_dir().'/dotsql-export-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-export-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -40,7 +40,7 @@ it('exports a table to re-importable sql', function () {
 
     $ddl = $pdo->query("select sql from sqlite_master where name='things'")->fetchColumn();
 
-    $target = sys_get_temp_dir().'/dotsql-import-'.uniqid().'.sqlite';
+    $target = sys_get_temp_dir().'/tql-import-'.uniqid().'.sqlite';
     touch($target);
 
     $imported = new PDO('sqlite:'.$target);
@@ -64,7 +64,7 @@ it('writes a header naming the connection and table', function () {
     $result = app(SqlExporter::class)->table($connection, 'things');
     $contents = file_get_contents($result->path);
 
-    expect($contents)->toContain('-- dotsql export')
+    expect($contents)->toContain('-- tql export')
         ->and($contents)->toContain('-- table: things')
         ->and($contents)->toContain($connection->name);
 
@@ -109,7 +109,7 @@ it('exports every table into one file', function () {
     expect($result->rows)->toBe(6)
         ->and($contents)->toContain('-- things')
         ->and($contents)->toContain('-- others')
-        ->and(substr_count($contents, '-- dotsql export'))->toBe(1);
+        ->and(substr_count($contents, '-- tql export'))->toBe(1);
 
     unlink($result->path);
     unlink($path);
@@ -129,7 +129,7 @@ it('honours a row limit', function () {
 it('exports from the console command', function () {
     [$connection, $path] = exportFixture();
 
-    $out = sys_get_temp_dir().'/dotsql-cmd-'.uniqid().'.sql';
+    $out = sys_get_temp_dir().'/tql-cmd-'.uniqid().'.sql';
 
     $this->artisan('export', ['connection' => $connection->name, 'table' => 'things', '--sql' => $out])
         ->assertExitCode(0);

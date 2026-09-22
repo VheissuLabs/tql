@@ -12,7 +12,7 @@ beforeEach(function () {
 
 function viewer(): Browser
 {
-    $path = sys_get_temp_dir().'/dotsql-yank-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-yank-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -228,7 +228,7 @@ it('clears the count after using it', function () {
 });
 
 it('clicks a line in the viewer', function () {
-    config(['dotsql.ui.mouse_row_offset' => 0]);
+    config(['tql.ui.mouse_row_offset' => 0]);
 
     $browser = viewer();
 
@@ -248,7 +248,7 @@ it('clicks a line in the viewer', function () {
 });
 
 it('drags to select lines in the viewer', function () {
-    config(['dotsql.ui.mouse_row_offset' => 0]);
+    config(['tql.ui.mouse_row_offset' => 0]);
 
     $browser = viewer();
 

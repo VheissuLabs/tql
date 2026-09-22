@@ -25,7 +25,7 @@ class Theme
      */
     public static function grid(bool $focused): string
     {
-        return config('dotsql.theme.grid') === 'inherit'
+        return config('tql.theme.grid') === 'inherit'
             ? static::border($focused)
             : static::colour('grid');
     }
@@ -49,7 +49,7 @@ class Theme
 
     public static function colour(string $key, string $fallback = 'dim'): string
     {
-        $value = (string) config('dotsql.theme.'.$key, $fallback);
+        $value = (string) config('tql.theme.'.$key, $fallback);
 
         return in_array($value, self::COLOURS, true) ? $value : $fallback;
     }

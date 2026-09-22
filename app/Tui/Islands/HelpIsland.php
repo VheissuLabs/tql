@@ -108,8 +108,8 @@ class HelpIsland extends Island
                 ':q' => 'quit',
             ],
             'from the shell' => [
-                'export' => 'dotsql export <conn> [table] --sql=',
-                'list' => 'dotsql export <conn> --list',
+                'export' => 'tql export <conn> [table] --sql=',
+                'list' => 'tql export <conn> --list',
             ],
         ];
     }

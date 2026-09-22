@@ -9,7 +9,7 @@ use Laravel\Mcp\Response;
 use Laravel\Mcp\Server\Attributes\Description;
 use Laravel\Mcp\Server\Tool;
 
-#[Description('List every database connection dotsql knows about. Use the returned name with the other dotsql tools.')]
+#[Description('List every database connection tql knows about. Use the returned name with the other tql tools.')]
 class ListConnectionsTool extends Tool
 {
     public function handle(Request $request): Response
@@ -23,7 +23,7 @@ class ListConnectionsTool extends Tool
         ]);
 
         if ($connections->isEmpty()) {
-            return Response::text('No connections are configured in dotsql yet.');
+            return Response::text('No connections are configured in tql yet.');
         }
 
         return Response::text(json_encode($connections, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));

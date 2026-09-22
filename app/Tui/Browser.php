@@ -127,9 +127,9 @@ class Browser extends Prompt
             $this->load();
         }
 
-        if ($error = config('dotsql.config_error')) {
+        if ($error = config('tql.config_error')) {
             $this->status = $error;
-        } elseif ($notice = config('dotsql.config_notice')) {
+        } elseif ($notice = config('tql.config_notice')) {
             $this->status = $notice;
         }
 

@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Artisan;
 
 function sqliteFixture(): string
 {
-    $path = sys_get_temp_dir().'/dotsql-test-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-test-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -343,7 +343,7 @@ it('highlights the selected table in the sidebar', function () {
 });
 
 it('honours the configured top margin and keeps coordinates honest', function (int $margin) {
-    config(['dotsql.ui.top_margin' => $margin]);
+    config(['tql.ui.top_margin' => $margin]);
 
     $browser = browserFor(sqliteFixture());
     $lines = explode("\n", frameOf($browser));
@@ -370,14 +370,14 @@ it('honours the configured top margin and keeps coordinates honest', function (i
     expect($blank)->toBe($margin)
         ->and($browser->sidebar->y)->toBe($drawn);
 
-    config(['dotsql.ui.top_margin' => 1]);
+    config(['tql.ui.top_margin' => 1]);
 })->with([0, 1, 3]);
 
 it('lets a column use the space when nothing competes for it', function () {
     putenv('COLUMNS=160');
     putenv('LINES=24');
 
-    $path = sys_get_temp_dir().'/dotsql-wide-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-wide-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -402,7 +402,7 @@ it('lets a column use the space when nothing competes for it', function () {
 });
 
 it('still truncates when columns compete for width', function () {
-    $path = sys_get_temp_dir().'/dotsql-narrow-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-narrow-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -428,15 +428,15 @@ it('merges a user config file over the shipped defaults', function () {
 
     file_put_contents($file, "<?php return ['ui' => ['mouse_row_offset' => 4]];");
 
-    $shipped = require base_path('config/dotsql.php');
+    $shipped = require base_path('config/tql.php');
 
-    config(['dotsql' => $shipped]);
+    config(['tql' => $shipped]);
 
     $user = require $file;
-    config(['dotsql' => array_replace_recursive(config('dotsql'), $user)]);
+    config(['tql' => array_replace_recursive(config('tql'), $user)]);
 
-    expect(config('dotsql.ui.mouse_row_offset'))->toBe(4)
-        ->and(config('dotsql.ui.top_margin'))->toBe($shipped['ui']['top_margin']);
+    expect(config('tql.ui.mouse_row_offset'))->toBe(4)
+        ->and(config('tql.ui.top_margin'))->toBe($shipped['ui']['top_margin']);
 
     unlink($file);
 });
@@ -470,7 +470,7 @@ it('aligns the status and hotkey lines with the island content', function () {
 });
 
 it('marks the selected row without underlining it', function () {
-    config(['dotsql.ui.row_style' => 'marker']);
+    config(['tql.ui.row_style' => 'marker']);
 
     $browser = browserFor(sqliteFixture());
     $browser->emit('key', 'j');
@@ -482,11 +482,11 @@ it('marks the selected row without underlining it', function () {
     expect($raw)->toContain('▸')
         ->and($raw)->not->toContain("\e[4m");
 
-    config(['dotsql.ui.row_style' => 'marker']);
+    config(['tql.ui.row_style' => 'marker']);
 });
 
 it('supports the other selected row styles', function (string $style, string $expected) {
-    config(['dotsql.ui.row_style' => $style]);
+    config(['tql.ui.row_style' => $style]);
 
     $browser = browserFor(sqliteFixture());
     $browser->emit('key', 'j');
@@ -496,7 +496,7 @@ it('supports the other selected row styles', function (string $style, string $ex
 
     expect($method->invoke($browser))->toContain($expected);
 
-    config(['dotsql.ui.row_style' => 'marker']);
+    config(['tql.ui.row_style' => 'marker']);
 })->with([
     ['underline', "\e[4m"],
     ['bold', "\e[1m"],
@@ -504,7 +504,7 @@ it('supports the other selected row styles', function (string $style, string $ex
 ]);
 
 it('does not jump when a column border is first grabbed', function () {
-    config(['dotsql.ui.mouse_row_offset' => 0]);
+    config(['tql.ui.mouse_row_offset' => 0]);
 
     $browser = browserFor(sqliteFixture());
     frameOf($browser);
@@ -520,7 +520,7 @@ it('does not jump when a column border is first grabbed', function () {
 });
 
 it('keeps the column border under the pointer while dragging', function () {
-    config(['dotsql.ui.mouse_row_offset' => 0]);
+    config(['tql.ui.mouse_row_offset' => 0]);
     putenv('COLUMNS=140');
     putenv('LINES=24');
 
@@ -551,7 +551,7 @@ it('keeps the column border under the pointer while dragging', function () {
 });
 
 it('clamps a column to a minimum width instead of inverting it', function () {
-    config(['dotsql.ui.mouse_row_offset' => 0]);
+    config(['tql.ui.mouse_row_offset' => 0]);
 
     $browser = browserFor(sqliteFixture());
     frameOf($browser);
@@ -589,7 +589,7 @@ it('shows help and lists the commands', function () {
 
 function jsonBrowser(): Browser
 {
-    $path = sys_get_temp_dir().'/dotsql-json-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-json-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -708,7 +708,7 @@ it('lines up the joins in the borders with the separators in the rows', function
 });
 
 it('keeps the row marker out of the cell padding', function () {
-    config(['dotsql.ui.row_style' => 'marker']);
+    config(['tql.ui.row_style' => 'marker']);
 
     $browser = browserFor(sqliteFixture());
     $lines = explode("\n", frameOf($browser));
@@ -886,7 +886,7 @@ it('hides the cursor when the value is read-only', function () {
 });
 
 it('puts the sql pane where the config says', function (string $position, bool $sqlFirst) {
-    config(['dotsql.ui.sql_position' => $position]);
+    config(['tql.ui.sql_position' => $position]);
 
     $browser = browserFor(sqliteFixture());
     $browser->emit('key', 's');
@@ -910,22 +910,22 @@ it('puts the sql pane where the config says', function (string $position, bool $
         ->and($tableAt)->not->toBeNull()
         ->and($sqlAt < $tableAt)->toBe($sqlFirst);
 
-    config(['dotsql.ui.sql_position' => 'top']);
+    config(['tql.ui.sql_position' => 'top']);
 })->with([
     ['top', true],
     ['bottom', false],
 ]);
 
 it('ignores a nonsense sql position', function () {
-    config(['dotsql.ui.sql_position' => 'sideways']);
+    config(['tql.ui.sql_position' => 'sideways']);
 
     expect(Layout::sqlPosition())->toBe('top');
 
-    config(['dotsql.ui.sql_position' => 'top']);
+    config(['tql.ui.sql_position' => 'top']);
 });
 
 it('keeps the sql pane visible when configured to', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = browserFor(sqliteFixture());
 
@@ -941,7 +941,7 @@ it('keeps the sql pane visible when configured to', function () {
     expect($browser->mode)->toBe('browse')
         ->and(frameOf($browser))->toContain('─ SQL ');
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('hides the sql pane by default until s is pressed', function () {
@@ -955,7 +955,7 @@ it('hides the sql pane by default until s is pressed', function () {
 });
 
 it('only shows the editor cursor when the editor has focus', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = browserFor(sqliteFixture());
 
@@ -972,10 +972,10 @@ it('only shows the editor cursor when the editor has focus', function () {
 
     expect($inverses())->toBe($unfocused + 1);
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 it('honours a configured sql height', function () {
-    config(['dotsql.ui.sql_always' => true, 'dotsql.ui.sql_height' => 6]);
+    config(['tql.ui.sql_always' => true, 'tql.ui.sql_height' => 6]);
 
     $browser = browserFor(sqliteFixture());
     $lines = explode("\n", frameOf($browser));
@@ -996,11 +996,11 @@ it('honours a configured sql height', function () {
 
     expect($end - $start + 1)->toBe(6);
 
-    config(['dotsql.ui.sql_always' => false, 'dotsql.ui.sql_height' => 0]);
+    config(['tql.ui.sql_always' => false, 'tql.ui.sql_height' => 0]);
 });
 
 it('shows the query behind the current view', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = browserFor(sqliteFixture());
     $frame = frameOf($browser);
@@ -1008,24 +1008,24 @@ it('shows the query behind the current view', function () {
     expect($frame)->toContain('select * from')
         ->and($frame)->toContain('widgets');
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('does not show the internal extra row in the query', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = browserFor(sqliteFixture());
 
     expect($browser->lastStatement)->toContain('limit '.Browser::PAGE)
         ->and($browser->lastStatement)->not->toContain('limit '.(Browser::PAGE + 1));
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('updates the shown query when you page', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
-    $path = sys_get_temp_dir().'/dotsql-page-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-page-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -1051,11 +1051,11 @@ it('updates the shown query when you page', function () {
     expect($browser->lastStatement)->toContain('offset '.Browser::PAGE);
 
     unlink($path);
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('gives the pane back to your own query when you start typing', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = browserFor(sqliteFixture());
     $browser->emit('key', 's');
@@ -1068,7 +1068,7 @@ it('gives the pane back to your own query when you start typing', function () {
 
     expect($frame)->toContain('select 1');
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('hands you the current query to edit when you press s', function () {
@@ -1113,7 +1113,7 @@ it('runs an edited query against the connection', function () {
 
 function twoTableBrowser(): Browser
 {
-    $path = sys_get_temp_dir().'/dotsql-two-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-two-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -1204,7 +1204,7 @@ it('goes back to the table name when you leave the results', function () {
 });
 
 it('tabs through the sql pane when it is on screen', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = browserFor(sqliteFixture());
     $browser->focus = 'sidebar';
@@ -1223,7 +1223,7 @@ it('tabs through the sql pane when it is on screen', function () {
     expect($browser->mode)->toBe('browse')
         ->and($browser->focus)->toBe('sidebar');
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('tabs between two panes when the sql pane is hidden', function () {
@@ -1241,7 +1241,7 @@ it('tabs between two panes when the sql pane is hidden', function () {
 });
 
 it('leaves the sql pane with tab rather than indenting', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = browserFor(sqliteFixture());
     $browser->emit('key', 's');
@@ -1253,11 +1253,11 @@ it('leaves the sql pane with tab rather than indenting', function () {
     expect($browser->editor->buffer())->toBe($before)
         ->and($browser->mode)->toBe('browse');
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('highlights the query it is showing', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = browserFor(sqliteFixture());
 
@@ -1277,14 +1277,14 @@ it('highlights the query it is showing', function () {
     expect($sqlLine)->toContain("\e[35m")
         ->and($sqlLine)->toContain("\e[36m");
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('gives spare width to the columns that are truncated', function () {
     putenv('COLUMNS=140');
     putenv('LINES=20');
 
-    $path = sys_get_temp_dir().'/dotsql-width-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-width-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -1318,7 +1318,7 @@ it('gives spare width to the columns that are truncated', function () {
 });
 
 it('does not redistribute width while a column is being dragged', function () {
-    config(['dotsql.ui.mouse_row_offset' => 0]);
+    config(['tql.ui.mouse_row_offset' => 0]);
     putenv('COLUMNS=140');
     putenv('LINES=24');
 
@@ -1343,7 +1343,7 @@ it('does not redistribute width while a column is being dragged', function () {
 });
 
 it('keeps an unedited query in step with the table', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
     $browser = twoTableBrowser();
     $browser->emit('key', 's');
@@ -1358,7 +1358,7 @@ it('keeps an unedited query in step with the table', function () {
         ->and($browser->editor->buffer())->toContain('settings')
         ->and($browser->editor->buffer())->toBe($browser->lastStatement);
 
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });
 
 it('resyncs even a query you edited once you browse away', function () {
@@ -1388,9 +1388,9 @@ it('does not overwrite what you are typing', function () {
 });
 
 it('keeps the query in step when paging', function () {
-    config(['dotsql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true]);
 
-    $path = sys_get_temp_dir().'/dotsql-sync-'.uniqid().'.sqlite';
+    $path = sys_get_temp_dir().'/tql-sync-'.uniqid().'.sqlite';
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
@@ -1415,5 +1415,5 @@ it('keeps the query in step when paging', function () {
     expect($browser->editor->buffer())->toContain('offset '.Browser::PAGE);
 
     unlink($path);
-    config(['dotsql.ui.sql_always' => false]);
+    config(['tql.ui.sql_always' => false]);
 });

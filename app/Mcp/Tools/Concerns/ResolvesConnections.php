@@ -21,7 +21,7 @@ trait ResolvesConnections
         $known = Connection::orderBy('name')->pluck('name')->implode(', ');
 
         return Response::error(
-            "There is no dotsql connection named [{$name}]. Known connections: {$known}"
+            "There is no tql connection named [{$name}]. Known connections: {$known}"
         );
     }
 }
