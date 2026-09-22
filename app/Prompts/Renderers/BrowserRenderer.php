@@ -147,6 +147,7 @@ class BrowserRenderer extends Renderer
         $this->hotkey('s', 'SQL');
         $this->hotkey('i', 'View');
         $this->hotkey('e', 'Edit');
+        $this->hotkey('o', 'Sort');
         $this->hotkey('< >', 'Width');
         $this->hotkey('r', 'Reload');
         $this->hotkey('n/p', 'Page');

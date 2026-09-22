@@ -274,3 +274,28 @@ it('keeps the sort marker rather than truncating it away', function () {
     expect(rerender($browser))->toContain('id ▲')
         ->and(rerender($browser))->not->toContain('id…');
 });
+
+it('sorts the column under the cursor with o and cycles it', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+
+    expect($browser->headers[$browser->columnIndex])->toBe('name');
+
+    $browser->emit('key', 'o');
+
+    expect($browser->sortColumn)->toBe('name')
+        ->and($browser->sortDirection)->toBe('asc');
+
+    $browser->emit('key', 'o');
+
+    expect($browser->sortDirection)->toBe('desc');
+
+    $browser->emit('key', 'o');
+
+    expect($browser->sortColumn)->toBe('id');
+});
+
+it('offers the sort key on the hotkey bar', function () {
+    expect(rerender(sortable()))->toContain('o Sort');
+});

@@ -36,7 +36,7 @@ class HelpIsland extends Island
                 '← → / h l' => 'move between columns',
                 'n / p' => 'next or previous page',
                 'r' => 'reload the current table',
-                'o' => 'sort by the column the cursor is on',
+                'o' => 'sort by the column the cursor is on: asc, desc, then back to the primary key',
             ],
             'doing' => [
                 '↵' => 'open a table, or edit the selected value',
