@@ -6,6 +6,16 @@ class Layout
 {
     public const SIDEBAR = 24;
 
+    public static function topMargin(): int
+    {
+        return max(0, (int) config('dotsql.ui.top_margin', 1));
+    }
+
+    public static function sidebarWidth(): int
+    {
+        return max(8, (int) config('dotsql.ui.sidebar_width', self::SIDEBAR));
+    }
+
     public const CHROME = 7;
 
     public const TOP_BORDER_ROWS = 3;

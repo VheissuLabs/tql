@@ -334,3 +334,34 @@ it('highlights the selected table in the sidebar', function () {
 
     throw new Exception("the selected table [{$selected}] is not highlighted");
 });
+
+it('honours the configured top margin and keeps coordinates honest', function (int $margin) {
+    config(['dotsql.ui.top_margin' => $margin]);
+
+    $browser = browserFor(sqliteFixture());
+    $lines = explode("\n", frameOf($browser));
+
+    $blank = 0;
+
+    foreach ($lines as $line) {
+        if (trim($line) !== '') {
+            break;
+        }
+
+        $blank++;
+    }
+
+    $drawn = null;
+
+    foreach ($lines as $index => $line) {
+        if (str_contains($line, 'TABLES')) {
+            $drawn = $index + 1;
+            break;
+        }
+    }
+
+    expect($blank)->toBe($margin)
+        ->and($browser->sidebar->y)->toBe($drawn);
+
+    config(['dotsql.ui.top_margin' => 1]);
+})->with([0, 1, 3]);

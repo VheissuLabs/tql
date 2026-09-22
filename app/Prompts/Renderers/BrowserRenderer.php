@@ -24,7 +24,7 @@ class BrowserRenderer extends Renderer
         $width = max(60, $prompt->terminal()->cols());
         $height = max(12, $prompt->terminal()->lines());
 
-        $top = 2;
+        $top = Layout::topMargin() + 1;
         $prompt->firstBodyRow = $top + 1;
         $frameHeight = max(6, $height - $top - 3);
 
@@ -32,7 +32,7 @@ class BrowserRenderer extends Renderer
 
         $sidebar = new SidebarIsland($prompt->tables, $prompt->tableIndex, $style);
         $sidebar->focused = $prompt->focus === 'sidebar';
-        $sidebar->place(1, $top, Layout::SIDEBAR + 2, $frameHeight);
+        $sidebar->place(1, $top, Layout::sidebarWidth() + 2, $frameHeight);
 
         $rightX = $sidebar->x + $sidebar->width + 1;
         $rightWidth = max(20, $width - $rightX);

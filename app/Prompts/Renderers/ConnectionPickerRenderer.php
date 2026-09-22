@@ -13,17 +13,22 @@ class ConnectionPickerRenderer extends Renderer
 
     public function __invoke(ConnectionPicker $prompt): string
     {
-        $prompt->firstBodyRow = Layout::firstBodyRow(1);
+        $prompt->firstBodyRow = Layout::firstBodyRow(Layout::topMargin());
 
         $width = max(60, $prompt->terminal()->cols());
         $height = max(10, $prompt->terminal()->lines());
 
         $inner = $width - 2;
-        $bodyHeight = max(3, $height - 8);
+        $bodyHeight = max(3, $height - 7 - Layout::topMargin());
 
         $widths = $this->widths($prompt, $inner);
 
-        $this->line('');
+        foreach (range(0, Layout::topMargin()) as $i) {
+            if ($i < Layout::topMargin()) {
+                $this->line('');
+            }
+        }
+
         $this->line($this->rule($prompt, '┌', '┬', '┐', $widths, $inner));
         $this->line($this->headerRow($widths, $inner));
         $this->line($this->rule($prompt, '├', '┼', '┤', $widths, $inner));

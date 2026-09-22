@@ -92,6 +92,15 @@ account.
 Tests use `tests/.scratch` as their config directory and never touch your real
 connections.
 
+## Configuration
+
+`config/dotsql.php`:
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `ui.top_margin` | 1 | blank rows above the frame |
+| `ui.sidebar_width` | 24 | width of the tables pane |
+
 ## Islands
 
 The interface is composed of islands: independent bordered panes that each own
