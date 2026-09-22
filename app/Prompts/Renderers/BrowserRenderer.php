@@ -3,6 +3,12 @@
 namespace App\Prompts\Renderers;
 
 use App\Tui\Browser;
+use App\Tui\Islands\EditorIsland;
+use App\Tui\Islands\Island;
+use App\Tui\Islands\Screen;
+use App\Tui\Islands\SidebarIsland;
+use App\Tui\Islands\Styler;
+use App\Tui\Islands\TableIsland;
 use App\Tui\Layout;
 use Chewie\Concerns\DrawsHotkeys;
 use Laravel\Prompts\Themes\Default\Renderer;
@@ -11,50 +17,66 @@ class BrowserRenderer extends Renderer
 {
     use DrawsHotkeys;
 
-    private const SIDEBAR = Layout::SIDEBAR;
-
     public function __invoke(Browser $prompt): string
     {
         $prompt->firstBodyRow ??= Layout::firstBodyRow(max(2 - $prompt->newLinesWritten(), 0));
 
         $width = max(60, $prompt->terminal()->cols());
-        $height = max(10, $prompt->terminal()->lines());
+        $height = max(12, $prompt->terminal()->lines());
 
-        $available = $width - self::SIDEBAR - 3;
-        $bodyHeight = max(3, $height - 9);
+        $top = $prompt->firstBodyRow - Layout::TOP_BORDER_ROWS;
+        $frameHeight = max(6, $height - $top - 4);
 
-        $widths = $this->columnWidths($prompt, $available);
+        $style = $this->styler();
 
-        $prompt->visibleColumns = count($widths);
-        $prompt->columnHandles = $this->handles($prompt, $widths);
+        $sidebar = new SidebarIsland($prompt->tables, $prompt->tableIndex, fn ($t, $w) => $this->truncate($t, $w));
+        $sidebar->focused = $prompt->focus === 'sidebar';
+        $sidebar->place(1, $top, Layout::SIDEBAR + 2, $frameHeight);
 
-        $this->line($this->rule($prompt, '┌', '┬', '┐', $widths, $available));
-        $this->line($this->headerRow($prompt, $widths, $available));
-        $this->line($this->rule($prompt, '├', '┼', '┤', $widths, $available));
+        $rightX = $sidebar->x + $sidebar->width + 1;
+        $rightWidth = max(20, $width - $rightX);
 
-        $editorHeight = $prompt->mode === 'query' ? min(8, intdiv($bodyHeight, 2)) : 0;
-        $resultHeight = $bodyHeight - $editorHeight;
+        $screen = (new Screen)->add($sidebar);
 
-        $sidebar = $this->sidebar($prompt, $bodyHeight);
-        $rows = $this->dataRows($prompt, $widths, $resultHeight, $available);
+        $tableY = $top;
+        $tableHeight = $frameHeight;
 
-        if ($editorHeight > 0) {
-            $rows = array_merge($this->editorPane($prompt, $editorHeight, $available), $rows);
+        if ($prompt->mode === 'query') {
+            $editorHeight = min(10, max(5, intdiv($frameHeight, 3)));
+
+            $editor = new EditorIsland($prompt->editor);
+            $editor->focused = true;
+            $editor->place($rightX, $top, $rightWidth, $editorHeight);
+
+            $screen->add($editor);
+
+            $tableY = $top + $editorHeight;
+            $tableHeight = $frameHeight - $editorHeight;
         }
 
-        $blank = $this->blankRow($widths, $available);
+        $table = new TableIsland(
+            $prompt->headers,
+            $prompt->rows,
+            $prompt->rowIndex,
+            $prompt->columnIndex,
+            $prompt->widthOverrides,
+            $prompt->editing,
+            $style,
+        );
+        $table->title = $prompt->resultsFromQuery ? 'RESULTS' : ($prompt->currentTable() ?? 'ROWS');
+        $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
+        $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
-        for ($i = 0; $i < $bodyHeight; $i++) {
-            $this->line(
-                $this->dim('│').
-                $this->pad($sidebar[$i] ?? '', self::SIDEBAR).
-                $this->dim('│').
-                $this->pad($rows[$i] ?? $blank, $available).
-                $this->dim('│')
-            );
-        }
+        $screen->add($table);
 
-        $this->line($this->rule($prompt, '└', '┴', '┘', $widths, $available));
+        collect($screen->compose($top + $frameHeight - 1, fn (Island $island) => $this->box($island, $style)))
+            ->each($this->line(...));
+
+        $prompt->sidebar = $sidebar;
+        $prompt->table = $table;
+        $prompt->columnOffset = $table->columnOffset;
+        $prompt->columnHandles = $table->handles();
+
         $this->line($this->status($prompt));
 
         $this->clearHotkeys();
@@ -72,137 +94,37 @@ class BrowserRenderer extends Renderer
         return $this;
     }
 
-    private function rule(Browser $prompt, string $left, string $join, string $right, array $widths, int $available): string
+    private function styler(): Styler
     {
-        $segments = [];
-
-        foreach ($widths as $width) {
-            $segments[] = str_repeat('─', $width + 2);
-        }
-
-        $body = $segments === [] ? '' : implode($join, $segments);
-        $body .= str_repeat('─', max(0, $available - mb_strlen($body)));
-
-        return $this->dim($left.str_repeat('─', self::SIDEBAR).$join.$body.$right);
+        return new Styler(
+            fn (string $t) => $this->dim($t),
+            fn (string $t) => $this->bold($t),
+            fn (string $t) => $this->inverse($t),
+            fn (string $t) => $this->underline($t),
+            fn (string $t, int $w) => $this->truncate($t, $w),
+        );
     }
 
-    private function headerRow(Browser $prompt, array $widths, int $available): string
+    private function box(Island $island, Styler $style): array
     {
-        $cells = [];
+        $inner = $island->innerWidth();
+        $content = $island->content($inner, $island->innerHeight());
 
-        foreach ($prompt->visibleHeaders(count($widths)) as $i => $name) {
-            $absolute = $prompt->columnOffset + $i;
-            $text = ' '.$this->pad($this->truncate($name, $widths[$i]), $widths[$i]).' ';
+        $label = ' '.$island->title.' ';
+        $label = $island->focused ? $this->bold($label) : $this->dim($label);
+        $used = $style->visible($label);
 
-            $cells[] = $absolute === $prompt->columnIndex
-                ? $this->bold($text)
-                : $this->dim($text);
+        $lines = [
+            $this->dim('┌─').$label.$this->dim(str_repeat('─', max(0, $inner - $used - 1)).'┐'),
+        ];
+
+        for ($i = 0; $i < $island->innerHeight(); $i++) {
+            $lines[] = $this->dim('│').$style->pad($content[$i] ?? '', $inner).$this->dim('│');
         }
 
-        $body = $cells === []
-            ? $this->pad('', $available)
-            : $this->pad(implode($this->dim('│'), $cells), $available);
-
-        return $this->dim('│').
-            $this->pad(' '.$this->bold('TABLES'), self::SIDEBAR).
-            $this->dim('│').
-            $body.
-            $this->dim('│');
-    }
-
-    private function dataRows(Browser $prompt, array $widths, int $height, int $available): array
-    {
-        if ($prompt->rows === []) {
-            return [$this->dim(' no rows')];
-        }
-
-        $start = $this->windowStart($prompt->rowIndex, count($prompt->rows), $height);
-
-        $prompt->gridStart = $start;
-
-        $lines = [];
-
-        foreach (array_slice($prompt->rows, $start, $height) as $index => $row) {
-            $selected = ($start + $index) === $prompt->rowIndex && $prompt->focus === 'grid';
-            $cells = [];
-
-            foreach ($prompt->visibleRow($row, count($widths)) as $i => $cell) {
-                $absolute = $prompt->columnOffset + $i;
-
-                $text = $prompt->editingCell($start + $index, $absolute)
-                    ? $this->editBuffer($prompt->editing, $widths[$i])
-                    : $this->truncate((string) $cell, $widths[$i]);
-
-                $padded = ' '.$this->pad($text, $widths[$i]).' ';
-
-                $cells[] = $selected && $absolute === $prompt->columnIndex
-                    ? $this->inverse($padded)
-                    : $padded;
-            }
-
-            $line = implode($this->dim('│'), $cells);
-
-            $lines[] = $selected && $prompt->editing === null
-                ? $this->underline($this->pad($line, $available))
-                : $line;
-        }
+        $lines[] = $this->dim('└'.str_repeat('─', $inner).'┘');
 
         return $lines;
-    }
-
-    private function blankRow(array $widths, int $available): string
-    {
-        if ($widths === []) {
-            return '';
-        }
-
-        $cells = array_map(fn (int $width) => str_repeat(' ', $width + 2), $widths);
-
-        return $this->pad(implode($this->dim('│'), $cells), $available);
-    }
-
-    private function editorPane(Browser $prompt, int $height, int $available): array
-    {
-        $lines = [$this->bold(' SQL').$this->dim('   ctrl+r run    esc back')];
-
-        $buffer = $prompt->editor->lines();
-        $cursorLine = $prompt->editor->cursorLine();
-        $cursorColumn = $prompt->editor->cursorColumn();
-
-        $room = $height - 2;
-        $start = max(0, $cursorLine - $room + 1);
-
-        foreach (array_slice($buffer, $start, $room) as $index => $line) {
-            $actual = $start + $index;
-
-            if ($actual === $cursorLine) {
-                $line = mb_substr($line, 0, $cursorColumn).'█'.mb_substr($line, $cursorColumn);
-            }
-
-            $lines[] = ' '.$this->truncate($line, $available - 2);
-        }
-
-        while (count($lines) < $height - 1) {
-            $lines[] = '';
-        }
-
-        $lines[] = $this->dim(str_repeat('─', $available));
-
-        return array_slice($lines, 0, $height);
-    }
-
-    private function handles(Browser $prompt, array $widths): array
-    {
-        $handles = [];
-        $x = Layout::gridFirstColumn();
-
-        foreach ($widths as $i => $width) {
-            $x += $width + 2;
-            $handles[$prompt->columnOffset + $i] = $x;
-            $x += 1;
-        }
-
-        return $handles;
     }
 
     private function status(Browser $prompt): string
@@ -221,118 +143,5 @@ class BrowserRenderer extends Renderer
         $position = $columns === 0 ? '' : ' · col '.($prompt->columnIndex + 1)."/{$columns}";
 
         return $this->dim(' '.$prompt->connection->name.' · '.($prompt->status ?? '').$position);
-    }
-
-    private function sidebar(Browser $prompt, int $height): array
-    {
-        $lines = [];
-        $start = $this->windowStart($prompt->tableIndex, count($prompt->tables), $height);
-
-        $prompt->sidebarStart = $start;
-
-        foreach (array_slice($prompt->tables, $start, $height) as $index => $table) {
-            $label = $this->truncate($table, self::SIDEBAR - 2);
-
-            $lines[] = ($start + $index) === $prompt->tableIndex
-                ? $this->inverse($this->pad(' '.$label, self::SIDEBAR))
-                : ' '.$this->dim($label);
-        }
-
-        return $lines;
-    }
-
-    private function windowStart(int $cursor, int $total, int $room): int
-    {
-        if ($total <= $room) {
-            return 0;
-        }
-
-        return max(0, min($cursor - intdiv($room, 2), $total - $room));
-    }
-
-    private function allWidths(Browser $prompt, int $available): array
-    {
-        $widths = [];
-
-        foreach ($prompt->headers as $index => $name) {
-            $width = mb_strlen($name);
-
-            foreach ($prompt->rows as $row) {
-                $values = array_values($row);
-                $width = max($width, mb_strlen((string) ($values[$index] ?? '')));
-            }
-
-            $width = $prompt->widthFor($name, min($width, 28));
-
-            if ($prompt->editing !== null && $index === $prompt->columnIndex) {
-                $width = max($width, min(24, $available - 3));
-            }
-
-            $widths[] = max(3, min($width, $available - 3));
-        }
-
-        return $widths;
-    }
-
-    private function scrollToCursor(Browser $prompt, array $all, int $available): int
-    {
-        $offset = min($prompt->columnOffset, $prompt->columnIndex);
-
-        while ($offset < $prompt->columnIndex) {
-            $used = 0;
-
-            for ($i = $offset; $i <= $prompt->columnIndex; $i++) {
-                $used += ($all[$i] ?? 0) + 3;
-            }
-
-            if ($used <= $available) {
-                break;
-            }
-
-            $offset++;
-        }
-
-        return $offset;
-    }
-
-    private function columnWidths(Browser $prompt, int $available): array
-    {
-        $all = $this->allWidths($prompt, $available);
-
-        if ($all === []) {
-            return [];
-        }
-
-        $prompt->columnOffset = $this->scrollToCursor($prompt, $all, $available);
-
-        $widths = [];
-        $used = 0;
-
-        for ($i = $prompt->columnOffset; $i < count($all); $i++) {
-            $cost = $all[$i] + 2 + ($widths === [] ? 0 : 1);
-
-            if ($used + $cost > $available && $widths !== []) {
-                break;
-            }
-
-            $widths[] = $all[$i];
-            $used += $cost;
-        }
-
-        return $widths;
-    }
-
-    private function editBuffer(string $buffer, int $width): string
-    {
-        $text = $buffer.'█';
-
-        return mb_strlen($text) > $width ? mb_substr($text, -$width) : $text;
-    }
-
-    private function pad(string $text, int $width): string
-    {
-        $length = mb_strlen(preg_replace('/\e\[[0-9;]*m/', '', $text));
-
-        return $length > $width ? $text : $text.str_repeat(' ', $width - $length);
     }
 }

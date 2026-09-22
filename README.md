@@ -92,6 +92,19 @@ account.
 Tests use `tests/.scratch` as their config directory and never touch your real
 connections.
 
+## Islands
+
+The interface is composed of islands: independent bordered panes that each own
+a rectangle on screen, render their own content, and answer hit tests for it.
+`Screen` places them and composes the frame row by row.
+
+This matters for correctness, not just layout. Screen geometry lives in one
+place — the island — so clicking asks the island that drew the pixels rather
+than re-deriving coordinates. Every mouse bug in this project came from having
+two copies of that maths.
+
+Adding a pane means adding an island.
+
 ## Notes on the stack
 
 Laravel Zero strips `illuminate/encryption`, so it is required explicitly.

@@ -219,7 +219,7 @@ it('resizes a column by dragging its border', function () {
     $browser = browserFor(sqliteFixture());
     frameOf($browser);
 
-    $row = $browser->firstBodyRow;
+    $row = $browser->table->y + 1;
     $handle = $browser->columnHandles[1];
 
     $browser->emit('key', "\e[<0;{$handle};{$row}M");
@@ -266,26 +266,19 @@ it('does not scroll earlier columns away when moving right', function () {
 
 it('clicks the table the user actually sees in the sidebar', function () {
     $browser = browserFor(sqliteFixture());
-    $frame = frameOf($browser);
+    frameOf($browser);
 
-    $lines = explode("\n", $frame);
-    $expected = [];
+    $sidebar = $browser->sidebar;
 
-    foreach ($lines as $index => $line) {
-        foreach ($browser->tables as $table) {
-            if (str_contains($line, $table) && str_starts_with(ltrim($line, '│ '), $table)) {
-                $expected[$index + 1] ??= $table;
-            }
-        }
-    }
+    expect($sidebar)->not->toBeNull();
 
-    expect($expected)->not->toBeEmpty();
+    foreach ($browser->tables as $index => $table) {
+        $terminalRow = $sidebar->y + 1 + ($index - $sidebar->start);
 
-    foreach ($expected as $terminalRow => $table) {
         $fresh = browserFor(sqliteFixture());
         frameOf($fresh);
 
-        $fresh->emit('key', "\e[<0;10;{$terminalRow}M");
+        $fresh->emit('key', "\e[<0;".($sidebar->x + 2).";{$terminalRow}M");
 
         expect($fresh->tables[$fresh->tableIndex])->toBe($table);
     }
@@ -297,7 +290,7 @@ it('ignores sidebar clicks on the chrome above the first row', function () {
 
     $before = $browser->tableIndex;
 
-    $browser->emit('key', "\e[<0;10;".($browser->firstBodyRow - 1).'M');
+    $browser->emit('key', "\e[<0;10;".($browser->sidebar->y).'M');
 
     expect($browser->tableIndex)->toBe($before);
 });

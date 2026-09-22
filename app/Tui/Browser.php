@@ -7,6 +7,8 @@ use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Tui\Concerns\HandlesMouse;
 use App\Tui\Concerns\RendersSmoothly;
+use App\Tui\Islands\SidebarIsland;
+use App\Tui\Islands\TableIsland;
 use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Laravel\Prompts\Key;
@@ -42,6 +44,10 @@ class Browser extends Prompt
     public array $widthOverrides = [];
 
     public array $columnHandles = [];
+
+    public ?SidebarIsland $sidebar = null;
+
+    public ?TableIsland $table = null;
 
     private ?array $drag = null;
 
@@ -417,7 +423,7 @@ class Browser extends Prompt
 
     private function press(int $column, int $row): bool
     {
-        if ($row === ($this->firstBodyRow ?? Layout::firstBodyRow(2))) {
+        if ($this->table !== null && $row === $this->table->y + 1) {
             $handle = $this->handleNear($column);
 
             if ($handle !== null) {
@@ -466,28 +472,22 @@ class Browser extends Prompt
 
     private function click(int $column, int $row): bool
     {
-        $index = Layout::bodyIndex($row, $this->firstBodyRow ?? Layout::firstBodyRow(2));
-
-        if ($index === null) {
-            return true;
+        if ($this->sidebar !== null && $this->sidebar->containsContent($column, $row)) {
+            return $this->clickSidebar($this->sidebar->localRow($row));
         }
 
-        if (Layout::inSidebar($column)) {
-            return $this->clickSidebar($index);
-        }
-
-        if (Layout::inGrid($column)) {
-            return $this->clickGrid($index);
+        if ($this->table !== null && $this->table->containsContent($column, $row)) {
+            return $this->clickTable($this->table->localRow($row), $this->table->localColumn($column));
         }
 
         return true;
     }
 
-    private function clickSidebar(int $index): bool
+    private function clickSidebar(int $localRow): bool
     {
-        $target = $this->sidebarStart + $index;
+        $target = $this->sidebar?->selectedIndexFor($localRow);
 
-        if ($target < 0 || $target >= count($this->tables)) {
+        if ($target === null) {
             return true;
         }
 
@@ -500,16 +500,22 @@ class Browser extends Prompt
         return true;
     }
 
-    private function clickGrid(int $index): bool
+    private function clickTable(int $localRow, int $localColumn): bool
     {
-        $target = $this->gridStart + $index - Layout::GRID_HEADER_ROWS;
+        $rowIndex = $this->table?->rowIndexFor($localRow);
 
-        if ($target < 0 || $target >= count($this->rows)) {
+        if ($rowIndex === null) {
             return true;
         }
 
         $this->focus = 'grid';
-        $this->rowIndex = $target;
+        $this->rowIndex = $rowIndex;
+
+        $columnIndex = $this->table?->columnIndexFor($localColumn);
+
+        if ($columnIndex !== null) {
+            $this->columnIndex = $columnIndex;
+        }
 
         return true;
     }
