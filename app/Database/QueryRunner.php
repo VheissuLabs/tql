@@ -101,6 +101,41 @@ class QueryRunner
         return $this->connections->resolve($connection)->getQueryGrammar();
     }
 
+    /**
+     * Delete rows by primary key, all or nothing.
+     *
+     * @param  array<int, mixed>  $keyValues
+     */
+    public function delete(Connection $connection, string $table, string $key, array $keyValues): QueryResult
+    {
+        $started = microtime(true);
+
+        if ($keyValues === []) {
+            return new QueryResult(rows: [], durationMs: 0, affected: 0);
+        }
+
+        $db = $this->connections->resolve($connection);
+        $grammar = $db->getQueryGrammar();
+
+        $statement = 'delete from '.$grammar->wrapTable($table).
+            ' where '.$grammar->wrap($key).' in ('.implode(', ', array_fill(0, count($keyValues), '?')).')';
+
+        try {
+            $affected = $db->transaction(fn () => $db->delete($statement, array_values($keyValues)));
+            $duration = (int) ((microtime(true) - $started) * 1000);
+
+            $this->record($connection, $statement, 'tui', true, null, $affected, $duration);
+
+            return new QueryResult(rows: [], durationMs: $duration, affected: $affected, statement: $statement);
+        } catch (Throwable $e) {
+            $duration = (int) ((microtime(true) - $started) * 1000);
+
+            $this->record($connection, $statement, 'tui', false, $e->getMessage(), null, $duration);
+
+            return new QueryResult(rows: [], durationMs: $duration, error: $e->getMessage());
+        }
+    }
+
     public function run(Connection $connection, string $statement, string $source): QueryResult
     {
         $started = microtime(true);

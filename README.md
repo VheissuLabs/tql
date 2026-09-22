@@ -189,6 +189,22 @@ writes `NULL`.
 Editing requires a single-column primary key, which tql uses to target the
 row. Tables without one are read-only, as are connections flagged `read_only`.
 
+## Deleting
+
+`d` marks the row under the cursor and moves down, so a run of rows is `ddd`.
+Nothing is written yet: marked rows are drawn in `theme.deleted` (red by
+default) with a `-` in the gutter, `d` again unmarks, and `u` clears every mark.
+
+`:w` writes them, all in one transaction. Until then the database is untouched.
+
+Marks follow the row, not its position, so sorting or reloading keeps them on
+the rows you picked. Quitting with unwritten marks drops them and tells you,
+rather than either losing them silently or writing something you did not ask
+for — press `:q` again to leave.
+
+A table with no single-column primary key cannot be deleted from, because there
+is no safe way to name the row; it says so rather than guessing.
+
 ## MCP
 
 The MCP server is registered as a local (stdio) server named `tql`:

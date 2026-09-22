@@ -16,6 +16,8 @@ return [
 
         'selection' => 'default',
 
+        'deleted' => 'red',
+
     ],
 
     /*

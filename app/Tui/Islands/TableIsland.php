@@ -26,6 +26,7 @@ class TableIsland extends Island
         private Styler $style,
         private ?string $sortColumn = null,
         private string $sortDirection = 'asc',
+        private array $marked = [],
     ) {}
 
     public function content(int $innerWidth, int $innerHeight): array
@@ -213,9 +214,19 @@ class TableIsland extends Island
                 : $padded;
         }
 
-        $marker = $selected && $style === 'marker' ? ' ▸' : '  ';
+        $pending = in_array($absolute, $this->marked, true);
+
+        $marker = match (true) {
+            $pending => $this->style->colour('deleted', ' -'),
+            $selected && $style === 'marker' => ' ▸',
+            default => '  ',
+        };
 
         $line = $marker.implode($this->style->colour('grid', '│'), $cells);
+
+        if ($pending) {
+            return $this->style->colour('deleted', $this->style->visible($line) === 0 ? $line : $line);
+        }
 
         if (! $selected) {
             return $style === 'dim-others' ? $this->style->dim($line) : $line;

@@ -74,6 +74,8 @@ class HelpIsland extends Island
                 'n / p' => 'next or previous page',
                 'o' => 'sort this column: asc, desc, primary key',
                 'r' => 'reload the table',
+                'd' => 'mark the row for deletion',
+                'u' => 'clear every mark',
                 'ctrl+l' => 'redraw the screen',
             ],
             'doing' => [
@@ -104,6 +106,7 @@ class HelpIsland extends Island
                 ':tables' => 'focus the tables list',
                 ':rows' => 'focus the rows',
                 ':reload' => 'reload the table',
+                ':w' => 'write marked deletions to the database',
                 ':c' => 'back to the connection list',
                 ':q' => 'quit',
             ],

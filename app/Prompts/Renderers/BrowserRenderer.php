@@ -120,6 +120,7 @@ class BrowserRenderer extends Renderer
             $style,
             $prompt->sortColumn,
             $prompt->sortDirection,
+            $prompt->markedRows(),
         );
         $table->columnOffset = $prompt->columnOffset;
         $table->scrollLocked = $prompt->isDragging();
@@ -154,6 +155,7 @@ class BrowserRenderer extends Renderer
         $this->hotkey('i', 'View');
         $this->hotkey('e', 'Edit');
         $this->hotkey('o', 'Sort');
+        $this->hotkey('d', 'Mark');
         $this->hotkey('s', 'SQL');
 
         // Paging is only worth a slot when there is somewhere to page to.
@@ -210,6 +212,7 @@ class BrowserRenderer extends Renderer
                 'gutter' => $this->dim($t),
                 'grid' => $this->paint(Theme::grid($this->painting), $t),
                 'cursor' => $this->highlight(Theme::cursor(), $t),
+                'deleted' => $this->paint(Theme::colour('deleted', 'red'), $t),
                 'selection' => $this->highlight(Theme::selection(), $t),
                 default => $t,
             },

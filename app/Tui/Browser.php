@@ -72,6 +72,14 @@ class Browser extends Prompt
 
     public ?string $queryTable = null;
 
+    /**
+     * Primary key values marked for deletion, not yet written. Keyed by value
+     * so a row keeps its mark across a reload or a re-sort.
+     *
+     * @var array<int, mixed>
+     */
+    public array $pendingDeletes = [];
+
     public ?string $sortColumn = null;
 
     public string $sortDirection = 'asc';
@@ -239,6 +247,8 @@ class Browser extends Prompt
             $key === 'p' => $this->page(-self::PAGE),
             $key === 'r' => $this->reload(),
             $key === 'o' => $this->sortBy($this->headers[$this->columnIndex] ?? null),
+            $key === 'd' => $this->markDelete(),
+            $key === 'u' => $this->unmarkAll(),
             default => true,
         };
     }
@@ -676,6 +686,128 @@ class Browser extends Prompt
         return $this->keyColumn();
     }
 
+    /**
+     * Mark or unmark the row under the cursor. Nothing is written until :w,
+     * so a mis-hit costs a keystroke rather than a row.
+     */
+    private function markDelete(): bool
+    {
+        if ($this->resultsFromQuery) {
+            $this->status = 'query results have no row to delete — open the table itself';
+
+            return true;
+        }
+
+        $key = $this->keyColumn();
+
+        if ($key === null) {
+            $this->status = 'no primary key on this table, so a row cannot be deleted safely';
+
+            return true;
+        }
+
+        $value = $this->raw[$this->rowIndex][$key] ?? null;
+
+        if ($value === null) {
+            return true;
+        }
+
+        $at = array_search($value, $this->pendingDeletes, false);
+
+        if ($at === false) {
+            $this->pendingDeletes[] = $value;
+        } else {
+            unset($this->pendingDeletes[$at]);
+            $this->pendingDeletes = array_values($this->pendingDeletes);
+        }
+
+        $this->moveDown();
+
+        $this->status = $this->pendingStatus();
+
+        return true;
+    }
+
+    private function unmarkAll(): bool
+    {
+        if ($this->pendingDeletes === []) {
+            return true;
+        }
+
+        $this->pendingDeletes = [];
+        $this->status = 'marks cleared';
+
+        return true;
+    }
+
+    private function pendingStatus(): string
+    {
+        $count = count($this->pendingDeletes);
+
+        return $count === 0
+            ? 'marks cleared'
+            : $count.' row'.($count === 1 ? '' : 's').' marked for deletion · :w writes · u clears';
+    }
+
+    /**
+     * Row indexes currently marked, for the renderer.
+     *
+     * @return array<int, int>
+     */
+    public function markedRows(): array
+    {
+        $key = $this->keyColumn();
+
+        if ($key === null || $this->pendingDeletes === []) {
+            return [];
+        }
+
+        $marked = [];
+
+        foreach ($this->raw as $index => $row) {
+            if (in_array($row[$key] ?? null, $this->pendingDeletes, false)) {
+                $marked[] = $index;
+            }
+        }
+
+        return $marked;
+    }
+
+    public function writePending(): bool
+    {
+        if ($this->pendingDeletes === []) {
+            $this->status = 'nothing to write';
+
+            return true;
+        }
+
+        $table = $this->currentTable();
+        $key = $this->keyColumn();
+
+        if ($table === null || $key === null) {
+            return true;
+        }
+
+        $count = count($this->pendingDeletes);
+
+        $result = $this->runner->delete($this->connection, $table, $key, $this->pendingDeletes);
+
+        if ($result->failed()) {
+            $this->status = $result->error;
+
+            return true;
+        }
+
+        $this->pendingDeletes = [];
+
+        $this->rowIndex = 0;
+        $this->load(keepCursor: true);
+
+        $this->status = 'deleted '.$count.' row'.($count === 1 ? '' : 's');
+
+        return true;
+    }
+
     private function keyColumn(): ?string
     {
         $table = $this->currentTable();
@@ -975,6 +1107,16 @@ class Browser extends Prompt
 
     private function quit(string $exit = 'quit'): bool
     {
+        if ($this->pendingDeletes !== [] && $exit === 'quit') {
+            $count = count($this->pendingDeletes);
+
+            $this->pendingDeletes = [];
+            $this->status = $count.' unwritten mark'.($count === 1 ? '' : 's').
+                ' dropped — :q again to quit, or u then :q';
+
+            return true;
+        }
+
         $this->exit = $exit;
         $this->state = 'submit';
 
@@ -1021,6 +1163,7 @@ class Browser extends Prompt
             'tables' => $this->focusOn('sidebar'),
             'rows' => $this->focusOn('grid'),
             'r', 'reload' => $this->reload(),
+            'w', 'write' => $this->writePending(),
             'sql' => $this->openQuery(),
             'export', 'export sql' => $this->export(),
             default => $this->unknownCommand($command),

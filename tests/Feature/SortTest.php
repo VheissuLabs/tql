@@ -393,3 +393,118 @@ it('accepts a pasted path on the command line', function () {
 
     expect($browser->command)->toBe('export ~/Code/tql/out.sql');
 });
+
+it('marks a row for deletion without writing it', function () {
+    $browser = sortable();
+
+    expect($browser->pendingDeletes)->toBe([]);
+
+    $browser->emit('key', 'd');
+
+    expect($browser->pendingDeletes)->toHaveCount(1)
+        ->and($browser->rows)->toHaveCount(3)
+        ->and($browser->status)->toContain('1 row marked for deletion');
+
+    // Still in the database.
+    expect(array_column($browser->raw, 'name'))->toHaveCount(3);
+});
+
+it('moves down after marking so you can mark a run of rows', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+    $browser->emit('key', 'd');
+
+    expect($browser->pendingDeletes)->toHaveCount(2)
+        ->and($browser->markedRows())->toBe([0, 1]);
+});
+
+it('unmarks a row you mark twice', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+    $browser->emit('key', 'k');
+    $browser->emit('key', 'd');
+
+    expect($browser->pendingDeletes)->toBe([]);
+});
+
+it('clears every mark with u', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+    $browser->emit('key', 'd');
+    $browser->emit('key', 'u');
+
+    expect($browser->pendingDeletes)->toBe([])
+        ->and($browser->status)->toBe('marks cleared');
+});
+
+it('writes the marked rows on :w', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+
+    $gone = $browser->raw[0]['name'];
+
+    $browser->emit('key', ':');
+    $browser->emit('key', 'w');
+    $browser->emit('key', "\n");
+
+    expect($browser->pendingDeletes)->toBe([])
+        ->and($browser->status)->toContain('deleted 1 row')
+        ->and(array_column($browser->raw, 'name'))->not->toContain($gone)
+        ->and($browser->raw)->toHaveCount(2);
+});
+
+it('says so when there is nothing to write', function () {
+    $browser = sortable();
+
+    $browser->emit('key', ':');
+    $browser->emit('key', 'w');
+    $browser->emit('key', "\n");
+
+    expect($browser->status)->toBe('nothing to write');
+});
+
+it('keeps a mark on the right row when the sort changes', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+
+    $marked = $browser->pendingDeletes[0];
+
+    $browser->sortBy('name');
+
+    expect($browser->pendingDeletes)->toBe([$marked])
+        ->and($browser->markedRows())->toHaveCount(1);
+});
+
+it('will not mark a row in query results', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select 1 as one');
+    $browser->emit('key', QueryEditor::RUN);
+    $browser->emit('key', "\e");
+
+    $browser->emit('key', 'd');
+
+    expect($browser->pendingDeletes)->toBe([])
+        ->and($browser->status)->toContain('no row to delete');
+});
+
+it('drops unwritten marks before quitting rather than losing them silently', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+    $browser->emit('key', 'q');
+
+    expect($browser->state)->not->toBe('submit')
+        ->and($browser->pendingDeletes)->toBe([])
+        ->and($browser->status)->toContain('dropped');
+
+    $browser->emit('key', 'q');
+
+    expect($browser->state)->toBe('submit');
+});

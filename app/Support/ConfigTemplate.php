@@ -61,6 +61,12 @@ class ConfigTemplate
                 ],
             ],
             [
+                'section' => 'theme',
+                'key' => 'deleted',
+                'default' => '"red"',
+                'comment' => ['Colour of a row marked for deletion, before :w writes it'],
+            ],
+            [
                 'section' => 'icons',
                 'key' => 'mysql',
                 'default' => '""',
