@@ -46,7 +46,9 @@ class BrowserRenderer extends Renderer
 
         $sidebar = new SidebarIsland($prompt->visibleTables(), $prompt->tableIndex, $style, $prompt->filter);
         $sidebar->focused = $prompt->focus === 'sidebar';
-        $sidebar->title = $sidebar->heading();
+        $sidebar->title = $prompt->connection->driver === 'sqlite'
+            ? $sidebar->heading()
+            : trim($sidebar->heading().'  ·  '.$prompt->connection->activeDatabase());
         $sidebar->place(1, $top, Layout::sidebarWidth() + 2, $frameHeight);
 
         $rightX = $sidebar->x + $sidebar->width + 1;
@@ -140,6 +142,25 @@ class BrowserRenderer extends Renderer
 
             $screen->overlay($this->backdrop($ask, $width));
             $screen->overlay($ask);
+        }
+
+        if ($prompt->databasePicker !== null) {
+            $databases = new PickerIsland($prompt->databasePicker, $style);
+            $databases->focused = true;
+            $databases->modal = true;
+
+            $databasesWidth = min($width - 4, PickerIsland::WIDTH);
+            $databasesHeight = $databases->rows();
+
+            $databases->place(
+                (int) (($width - $databasesWidth) / 2) + 1,
+                $top + (int) (($frameHeight - $databasesHeight) / 2),
+                $databasesWidth,
+                $databasesHeight,
+            );
+
+            $screen->overlay($this->backdrop($databases, $width));
+            $screen->overlay($databases);
         }
 
         if ($prompt->linkPicker !== null) {
@@ -352,6 +373,10 @@ class BrowserRenderer extends Renderer
         $this->hotkey('a', 'Ask');
         $this->hotkey('f', 'Filter');
         $this->hotkey('t', 'Structure');
+
+        if ($prompt->connection->driver !== 'sqlite') {
+            $this->hotkey('b', 'Database');
+        }
         $this->hotkey('s', 'SQL');
 
         // Paging is only worth a slot when there is somewhere to page to.

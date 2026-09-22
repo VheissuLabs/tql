@@ -91,6 +91,7 @@ class HelpIsland extends Island
                 '/' => 'filter the tables list',
                 'f' => 'filter the rows: column, operator, value',
                 't' => 'structure: columns, types, keys and indexes',
+                'b' => 'switch database on this server',
                 'L' => 'follow a link: the key under the cursor, or what points here',
                 'esc / ctrl+o' => 'go back where you followed from',
                 '↵ in a filter' => 'open a list you can type to narrow',

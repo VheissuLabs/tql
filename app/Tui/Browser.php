@@ -181,6 +181,13 @@ class Browser extends Prompt
             $this->load();
         }
 
+        // A server connection with no database named opens on the list of
+        // them, since there is nothing else it could usefully show.
+        if ($this->tables === [] && $connection->driver !== 'sqlite'
+            && trim((string) $connection->activeDatabase()) === '') {
+            $this->openDatabases();
+        }
+
         if ($error = config('tql.config_error')) {
             $this->status = $error;
         } elseif ($notice = config('tql.config_notice')) {
@@ -219,6 +226,7 @@ class Browser extends Prompt
             $this->filterForm?->picker === null ? '' : 'picker',
             $this->linkPicker === null ? '' : 'links',
             $this->document === null ? '' : count($this->document->lines()),
+            $this->databasePicker === null ? '' : 'databases',
         ]);
     }
 
@@ -316,6 +324,12 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->databasePicker !== null) {
+            $this->handleDatabasePickerKey($key);
+
+            return;
+        }
+
         if ($this->linkPicker !== null) {
             $this->handleLinkPickerKey($key);
 
@@ -374,6 +388,7 @@ class Browser extends Prompt
             $key === 'a' => $this->openQuestion(),
             $key === 'f' => $this->openFilters(),
             $key === 't' => $this->toggleStructure(),
+            $key === 'b' => $this->openDatabases(),
             $key === 'L' => $this->followLink(),
             $key === self::BACK => $this->jumpBack(),
             $key === Key::ESCAPE => $this->escape(),
@@ -634,6 +649,9 @@ class Browser extends Prompt
 
     /** The list open for choosing which way to follow a row. */
     public ?Picker $linkPicker = null;
+
+    /** The list of databases on this server, while it is open. */
+    public ?Picker $databasePicker = null;
 
     /** @var array<string, array{table: string, column: string, references: string}> */
     private array $linkChoices = [];
@@ -1743,6 +1761,87 @@ class Browser extends Prompt
         $this->state = 'submit';
 
         return false;
+    }
+
+    /**
+     * A server holds many databases. Switching is a reconnection, not a
+     * query, so everything on screen is rebuilt from the new one.
+     */
+    public function openDatabases(): bool
+    {
+        if ($this->connection->driver === 'sqlite') {
+            $this->status = 'a sqlite connection is one file';
+
+            return true;
+        }
+
+        $databases = $this->runner->databases($this->connection);
+
+        if ($databases === []) {
+            $this->status = 'no databases to switch to';
+
+            return true;
+        }
+
+        $this->databasePicker = new Picker(
+            'DATABASE',
+            $databases,
+            (string) $this->connection->activeDatabase(),
+        );
+
+        return true;
+    }
+
+    private function handleDatabasePickerKey(string $key): void
+    {
+        $picker = $this->databasePicker;
+
+        match (true) {
+            $key === Key::ESCAPE, $key === 'q' => $this->databasePicker = null,
+            in_array($key, [Key::UP, Key::UP_ARROW], true) => $picker->move(-1),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW], true) => $picker->move(1),
+            $key === Key::ENTER => $this->useDatabase(),
+            default => $picker->type($key),
+        };
+    }
+
+    private function useDatabase(): void
+    {
+        $chosen = $this->databasePicker?->selected();
+
+        $this->databasePicker = null;
+
+        if ($chosen === null || $chosen === $this->connection->activeDatabase()) {
+            return;
+        }
+
+        // Held on the instance, not the record: opening a connection saves it
+        // to record last used, and that must not persist a session choice.
+        $this->connection->sessionDatabase = $chosen;
+
+        $this->jumps = [];
+        $this->filters = null;
+        $this->filter = null;
+        $this->sortColumn = null;
+        $this->offset = 0;
+        $this->pendingDeletes = [];
+        $this->pendingEdits = [];
+
+        $this->tables = $this->runner->tables($this->connection);
+        $this->tableIndex = 0;
+
+        if ($this->tables === []) {
+            $this->headers = [];
+            $this->rows = [];
+            $this->raw = [];
+            $this->status = $chosen.' has no tables';
+
+            return;
+        }
+
+        $this->load();
+
+        $this->status = 'using '.$chosen;
     }
 
     private function toggleStructure(): bool

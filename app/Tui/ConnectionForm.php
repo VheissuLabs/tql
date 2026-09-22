@@ -416,6 +416,10 @@ class ConnectionForm
             return 'none';
         }
 
+        if ($key === 'database' && ($this->values[$key] ?? '') === '' && $this->driver() !== 'sqlite') {
+            return 'ask on connect';
+        }
+
         if ($key === SshSettings::TOGGLE) {
             return $this->overSsh() ? 'yes' : 'no';
         }

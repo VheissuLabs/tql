@@ -57,6 +57,22 @@ screenshot.
 **Read only** refuses every write on that connection: no edits, no marks, no
 `:w`.
 
+## Several databases on one server
+
+MySQL, Postgres and SQL Server connections are a server, not a single database.
+Press **`b`** to list the databases on that server and switch to one; the tables
+pane titles itself with the database you are in.
+
+Leave the **Database** field empty on a server connection and tql asks on
+connect, opening the list as soon as it is in.
+
+The switch lasts for the session only — it is never written back to the saved
+connection, so the connection still opens on its own database next time. It
+also drops the current filter, sort and any pending edits, since none of them
+mean anything in another database.
+
+A SQLite connection is one file, so `b` says as much and does nothing.
+
 ## Databases behind SSH
 
 A connection can reach its database through an SSH tunnel. Set **SSH host** on
@@ -162,6 +178,7 @@ encryption key), both `0600`.
 | `n` / `p` | next or previous page (100 rows) |
 | `r` | reload the current table |
 | `o` | sort by the column the cursor is on |
+| `b` | switch database on this server |
 | `s` | open the SQL editor |
 | `:` | command line — `:q`, `:tables`, `:rows`, `:reload`, `:sql` |
 | `q` / `esc` | quit |
