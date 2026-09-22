@@ -459,6 +459,10 @@ file in the export directory. Answer that last one with a folder and it names
 the file for you; `--sql` skips the question. Piped or with `--no-interaction` it
 never asks — it says what it needed and stops with a non-zero exit.
 
+Save one somewhere else — `~/Downloads`, say — and that becomes the folder the
+next export is offered in. `ui.export_path` in the config overrides it, and if
+the remembered folder is gone tql falls back to its own.
+
 `--sql` takes a file or a directory; omit it and the file is named
 automatically in the export directory, after the database, the table and the
 time — `karlm_v2-users-20260922-231302.sql`, or `karlm_v2-20260922-231302.sql`

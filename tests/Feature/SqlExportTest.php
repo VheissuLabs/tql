@@ -2,10 +2,14 @@
 
 use App\Database\SqlExporter;
 use App\Models\Connection;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function () {
     Artisan::call('migrate', ['--force' => true]);
+
+    Setting::query()->delete();
+    config(['tql.ui.export_path' => null]);
 });
 
 function exportFixture(): array
@@ -310,4 +314,43 @@ it('has no database to choose on sqlite', function () {
         ->assertExitCode(1);
 
     unlink($path);
+});
+
+it('offers the folder the last export went to', function () {
+    [$connection, $path] = exportFixture();
+
+    $folder = sys_get_temp_dir().'/tql-downloads-'.uniqid();
+    mkdir($folder);
+
+    $exporter = app(SqlExporter::class);
+
+    expect($exporter->directory())->not->toBe($folder);
+
+    $result = $exporter->table($connection, 'things', $folder.'/by-hand.sql');
+
+    expect($exporter->directory())->toBe($folder)
+        ->and(dirname($exporter->filename($connection)))->toBe($folder);
+
+    unlink($result->path);
+    rmdir($folder);
+    unlink($path);
+});
+
+it('forgets a remembered folder that has gone away', function () {
+    $folder = sys_get_temp_dir().'/tql-gone-'.uniqid();
+
+    Setting::write(SqlExporter::REMEMBERED, $folder);
+
+    expect(app(SqlExporter::class)->directory())->not->toBe($folder);
+});
+
+it('lets the config say where exports go', function () {
+    $folder = sys_get_temp_dir().'/tql-configured-'.uniqid();
+
+    Setting::write(SqlExporter::REMEMBERED, sys_get_temp_dir());
+    config(['tql.ui.export_path' => $folder]);
+
+    expect(app(SqlExporter::class)->directory())->toBe($folder);
+
+    rmdir($folder);
 });

@@ -3,6 +3,7 @@
 namespace App\Database;
 
 use App\Models\Connection;
+use App\Models\Setting;
 use App\Support\Paths;
 use PDO;
 use RuntimeException;
@@ -15,15 +16,41 @@ class SqlExporter
 
     public function __construct(private ConnectionManager $connections) {}
 
+    public const REMEMBERED = 'export_directory';
+
+    /**
+     * Where an unnamed export goes: what the config says, else wherever the
+     * last one was saved, else tql's own folder. Taking the trouble to save
+     * something in ~/Downloads is worth remembering.
+     */
     public function directory(): string
     {
-        $path = (string) (config('tql.ui.export_path') ?: Paths::configDirectory().'/exports');
+        $remembered = Setting::read(self::REMEMBERED);
+
+        $path = (string) (
+            config('tql.ui.export_path')
+            ?: ($remembered !== null && is_dir($remembered) ? $remembered : null)
+            ?: Paths::configDirectory().'/exports'
+        );
 
         if (! is_dir($path)) {
             mkdir($path, 0700, true);
         }
 
         return $path;
+    }
+
+    /**
+     * Keep the folder an export was written to, whether tql chose it or the
+     * user typed it, so the next one is offered in the same place.
+     */
+    private function remember(string $path): void
+    {
+        $directory = dirname($path);
+
+        if ($directory !== Setting::read(self::REMEMBERED)) {
+            Setting::write(self::REMEMBERED, $directory);
+        }
     }
 
     /**
@@ -68,6 +95,8 @@ class SqlExporter
         foreach ($tables as $table) {
             $rows += $this->appendTable($connection, $table, $path, $limit);
         }
+
+        $this->remember($path);
 
         return new ExportResult(
             path: $path,
@@ -145,6 +174,8 @@ class SqlExporter
 
         fclose($handle);
 
+        $this->remember($path);
+
         return new ExportResult(
             path: $path,
             rows: $written,
@@ -190,6 +221,8 @@ class SqlExporter
         $this->flush($handle, $wrappedTable, $wrappedColumns, $buffer);
 
         fclose($handle);
+
+        $this->remember($path);
 
         return new ExportResult(
             path: $path,
