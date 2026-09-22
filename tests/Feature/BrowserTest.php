@@ -931,3 +931,72 @@ it('ignores a nonsense sql position', function () {
 
     config(['dotsql.ui.sql_position' => 'top']);
 });
+
+it('keeps the sql pane visible when configured to', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = browserFor(sqliteFixture());
+
+    expect($browser->mode)->toBe('browse')
+        ->and(frameOf($browser))->toContain('─ SQL ');
+
+    $browser->emit('key', 's');
+
+    expect($browser->mode)->toBe('query');
+
+    $browser->emit('key', "\e");
+
+    expect($browser->mode)->toBe('browse')
+        ->and(frameOf($browser))->toContain('─ SQL ');
+
+    config(['dotsql.ui.sql_always' => false]);
+});
+
+it('hides the sql pane by default until s is pressed', function () {
+    $browser = browserFor(sqliteFixture());
+
+    expect(frameOf($browser))->not->toContain('─ SQL ');
+
+    $browser->emit('key', 's');
+
+    expect(frameOf($browser))->toContain('─ SQL ');
+});
+
+it('only shows the editor cursor when the editor has focus', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = browserFor(sqliteFixture());
+
+    expect(frameOf($browser))->not->toContain('█');
+
+    $browser->emit('key', 's');
+
+    expect(frameOf($browser))->toContain('█');
+
+    config(['dotsql.ui.sql_always' => false]);
+});
+
+it('honours a configured sql height', function () {
+    config(['dotsql.ui.sql_always' => true, 'dotsql.ui.sql_height' => 6]);
+
+    $browser = browserFor(sqliteFixture());
+    $lines = explode("\n", frameOf($browser));
+
+    $start = null;
+    $end = null;
+
+    foreach ($lines as $index => $line) {
+        if (str_contains($line, 'SQL')) {
+            $start = $index;
+        }
+
+        if ($start !== null && $index > $start && str_contains($line, '└')) {
+            $end = $index;
+            break;
+        }
+    }
+
+    expect($end - $start + 1)->toBe(6);
+
+    config(['dotsql.ui.sql_always' => false, 'dotsql.ui.sql_height' => 0]);
+});

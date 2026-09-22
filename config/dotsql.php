@@ -10,6 +10,10 @@ return [
 
         'sql_position' => 'top',
 
+        'sql_always' => false,
+
+        'sql_height' => 0,
+
         'export_path' => null,
 
         'sidebar_width' => 24,

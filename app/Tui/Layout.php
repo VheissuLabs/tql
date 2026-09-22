@@ -16,6 +16,22 @@ class Layout
         return config('dotsql.ui.sql_position') === 'bottom' ? 'bottom' : 'top';
     }
 
+    public static function sqlAlways(): bool
+    {
+        return (bool) config('dotsql.ui.sql_always', false);
+    }
+
+    public static function sqlHeight(int $frameHeight): int
+    {
+        $configured = (int) config('dotsql.ui.sql_height', 0);
+
+        if ($configured > 0) {
+            return max(3, min($configured, $frameHeight - 5));
+        }
+
+        return min(10, max(5, intdiv($frameHeight, 3)));
+    }
+
     public static function rowStyle(): string
     {
         return (string) config('dotsql.ui.row_style', 'marker');

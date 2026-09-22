@@ -8,7 +8,10 @@ class EditorIsland extends Island
 {
     public string $title = 'SQL';
 
-    public function __construct(private QueryEditor $editor) {}
+    public function __construct(
+        private QueryEditor $editor,
+        private bool $showCursor = true,
+    ) {}
 
     public function content(int $innerWidth, int $innerHeight): array
     {
@@ -21,7 +24,7 @@ class EditorIsland extends Island
         $out = [];
 
         foreach (array_slice($lines, $start, $innerHeight) as $index => $line) {
-            if ($start + $index === $cursorLine) {
+            if ($this->showCursor && $start + $index === $cursorLine) {
                 $line = mb_substr($line, 0, $cursorColumn).'█'.mb_substr($line, $cursorColumn);
             }
 

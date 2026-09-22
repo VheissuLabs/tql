@@ -169,6 +169,12 @@ depend on where dotsql runs stay out of the repo:
 # Where the SQL editor sits when you press s: "top" or "bottom"
 sql_position = "bottom"
 
+# Keep the SQL editor on screen rather than only after pressing s
+sql_always = true
+
+# How many rows it takes, 0 picks a third of the frame
+sql_height = 8
+
 # Blank rows above the frame
 top_margin = 0
 
@@ -183,6 +189,8 @@ and reports the problem in the status line.
 | Key | Default | Meaning |
 | --- | --- | --- |
 | `ui.sql_position` | `top` | `top` or `bottom` — where the SQL editor sits |
+| `ui.sql_always` | `false` | keep the SQL editor on screen instead of only after `s` |
+| `ui.sql_height` | 0 | rows for the SQL editor, 0 picks a third of the frame |
 | `ui.row_style` | `marker` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
 | `ui.top_margin` | 1 | blank rows above the frame |
 | `ui.sidebar_width` | 24 | width of the tables pane |

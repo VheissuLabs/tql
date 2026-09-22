@@ -44,12 +44,12 @@ class BrowserRenderer extends Renderer
         $tableY = $top;
         $tableHeight = $frameHeight;
 
-        if ($prompt->mode === 'query') {
-            $editorHeight = min(10, max(5, intdiv($frameHeight, 3)));
+        if ($prompt->mode === 'query' || Layout::sqlAlways()) {
+            $editorHeight = Layout::sqlHeight($frameHeight);
             $tableHeight = $frameHeight - $editorHeight;
 
-            $editor = new EditorIsland($prompt->editor);
-            $editor->focused = true;
+            $editor = new EditorIsland($prompt->editor, $prompt->mode === 'query');
+            $editor->focused = $prompt->mode === 'query';
 
             if (Layout::sqlPosition() === 'bottom') {
                 $tableY = $top;
