@@ -69,6 +69,10 @@ class Browser extends Prompt
 
     public ?string $editing = null;
 
+    public bool $debugMouse = false;
+
+    public ?array $lastMouse = null;
+
     public ?int $firstBodyRow = null;
 
     public int $sidebarStart = 0;
@@ -237,6 +241,14 @@ class Browser extends Prompt
         }
 
         return min($width, 28);
+    }
+
+    private function toggleMouseDebug(): bool
+    {
+        $this->debugMouse = ! $this->debugMouse;
+        $this->status = $this->debugMouse ? 'mouse debug on — click anything' : 'mouse debug off';
+
+        return true;
     }
 
     private function toggleInspect(): bool
@@ -442,6 +454,16 @@ class Browser extends Prompt
 
     private function onMouse(array $event): void
     {
+        if ($this->debugMouse && $event['pressed'] && $event['button'] === Mouse::LEFT) {
+            $this->lastMouse = $event + [
+                'sidebar' => $this->sidebar?->containsContent($event['column'], $event['row']) ?? false,
+                'table' => $this->table?->containsContent($event['column'], $event['row']) ?? false,
+                'sidebarY' => $this->sidebar?->y,
+                'tableY' => $this->table?->y,
+                'localRow' => $this->sidebar?->localRow($event['row']),
+            ];
+        }
+
         if ($this->editing !== null) {
             return;
         }
@@ -614,6 +636,7 @@ class Browser extends Prompt
             'rows' => $this->focusOn('grid'),
             'r', 'reload' => $this->reload(),
             'sql' => $this->openQuery(),
+            'mouse' => $this->toggleMouseDebug(),
             default => $this->unknownCommand($command),
         };
     }

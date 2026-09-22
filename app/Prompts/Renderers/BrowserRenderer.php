@@ -149,6 +149,16 @@ class BrowserRenderer extends Renderer
             return ' :'.$prompt->command.'█';
         }
 
+        if ($prompt->debugMouse && $prompt->lastMouse !== null) {
+            $m = $prompt->lastMouse;
+
+            return ' '.$this->bold('mouse').$this->dim(sprintf(
+                '  reported row=%d col=%d   sidebar island y=%s (row %s of it)   table island y=%s   hit=%s',
+                $m['row'], $m['column'], $m['sidebarY'] ?? '?', $m['localRow'] ?? '?', $m['tableY'] ?? '?',
+                $m['sidebar'] ? 'sidebar' : ($m['table'] ? 'table' : 'nothing')
+            ));
+        }
+
         if ($prompt->editing !== null) {
             $column = $prompt->headers[$prompt->columnIndex] ?? '?';
 
