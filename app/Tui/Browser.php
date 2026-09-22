@@ -51,6 +51,8 @@ class Browser extends Prompt
         if ($this->tables !== []) {
             $this->load();
         }
+
+        $this->on('key', fn (string $key) => $this->onKey($key));
     }
 
     public function value(): mixed
@@ -73,15 +75,17 @@ class Browser extends Prompt
         return array_slice(array_values($row), $this->columnOffset, $count);
     }
 
-    protected function handleKeyPress(string $key): ?bool
+    public function onKey(string $key): void
     {
         if ($this->command !== null) {
-            return $this->handleCommandKey($key);
+            $this->handleCommandKey($key);
+
+            return;
         }
 
-        return match (true) {
+        match (true) {
             $key === ':' => $this->openCommandLine(),
-            $key === 'q', $key === Key::ESCAPE => false,
+            $key === 'q', $key === Key::ESCAPE => $this->quit(),
             $key === Key::TAB => $this->toggleFocus(),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->moveUp(),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->moveDown(),
@@ -94,6 +98,13 @@ class Browser extends Prompt
         };
     }
 
+    private function quit(): bool
+    {
+        $this->state = 'submit';
+
+        return false;
+    }
+
     private function openCommandLine(): bool
     {
         $this->command = '';
@@ -101,7 +112,7 @@ class Browser extends Prompt
         return true;
     }
 
-    private function handleCommandKey(string $key): ?bool
+    private function handleCommandKey(string $key): bool
     {
         if ($key === Key::ESCAPE) {
             $this->command = null;
@@ -110,7 +121,7 @@ class Browser extends Prompt
         }
 
         if ($key === Key::ENTER) {
-            return $this->runCommand(trim($this->command ?? ''));
+            return (bool) $this->runCommand(trim($this->command ?? ''));
         }
 
         if (in_array($key, [Key::BACKSPACE, Key::CTRL_H], true)) {
@@ -126,12 +137,12 @@ class Browser extends Prompt
         return true;
     }
 
-    private function runCommand(string $command): ?bool
+    private function runCommand(string $command): bool
     {
         $this->command = null;
 
         return match ($command) {
-            'q', 'q!', 'quit' => false,
+            'q', 'q!', 'quit' => $this->quit(),
             'tables' => $this->focusOn('sidebar'),
             'rows' => $this->focusOn('grid'),
             default => $this->unknownCommand($command),
