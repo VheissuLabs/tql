@@ -33,7 +33,7 @@ class ValueEditorIsland extends Island
             $label = $this->style->colour('gutter', str_pad((string) ($number + 1), $gutter, ' ', STR_PAD_LEFT));
 
             $body = $number === $cursorLine
-                ? mb_substr($line, 0, $cursorColumn).'█'.mb_substr($line, $cursorColumn)
+                ? mb_substr($line, 0, $cursorColumn).'▏'.mb_substr($line, $cursorColumn)
                 : $line;
 
             $out[] = ' '.$label.' '.$this->render($body, $room);

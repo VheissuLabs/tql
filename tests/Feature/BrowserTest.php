@@ -918,3 +918,19 @@ it('refuses to save invalid json', function () {
     expect($browser->mode)->toBe('edit')
         ->and($browser->status)->toContain('not valid json');
 });
+
+it('shows a cursor in the value editor', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+
+    $frame = frameOf($browser);
+
+    expect($frame)->toContain('▏');
+
+    $before = mb_strpos($frame, '▏');
+
+    $browser->emit('key', "\x1b[B");
+
+    expect(mb_strpos(frameOf($browser), '▏'))->not->toBe($before);
+});

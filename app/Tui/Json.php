@@ -34,32 +34,49 @@ class Json
 
     public static function tokenise(string $line): array
     {
+        $pattern = '/("(?:\\\\.|[^"\\\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|\b(true|false|null)\b|([\[\]{},:])/';
+
         $tokens = [];
-        $pattern = '/("(?:\\\\.|[^"\\\\])*")(\s*:)?|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)|(true|false|null)|([\[\]{},:])|(\s+)/';
+        $offset = 0;
 
-        preg_match_all($pattern, $line, $matches, PREG_SET_ORDER);
+        if (preg_match_all($pattern, $line, $matches, PREG_SET_ORDER | PREG_OFFSET_CAPTURE)) {
+            foreach ($matches as $match) {
+                $start = $match[0][1];
 
-        foreach ($matches as $match) {
-            if (($match[1] ?? '') !== '') {
-                $isKey = ($match[2] ?? '') !== '';
-
-                $tokens[] = [$isKey ? 'key' : 'string', $match[1]];
-
-                if ($isKey) {
-                    $tokens[] = ['punctuation', $match[2]];
+                if ($start > $offset) {
+                    $tokens[] = ['plain', substr($line, $offset, $start - $offset)];
                 }
 
-                continue;
-            }
+                $tokens = array_merge($tokens, static::classify($match));
 
-            $tokens[] = match (true) {
-                ($match[3] ?? '') !== '' => ['number', $match[3]],
-                ($match[4] ?? '') !== '' => ['literal', $match[4]],
-                ($match[5] ?? '') !== '' => ['punctuation', $match[5]],
-                default => ['plain', $match[6] ?? ''],
-            };
+                $offset = $start + strlen($match[0][0]);
+            }
+        }
+
+        if ($offset < strlen($line)) {
+            $tokens[] = ['plain', substr($line, $offset)];
         }
 
         return $tokens;
+    }
+
+    private static function classify(array $match): array
+    {
+        $value = fn (int $group) => ($match[$group][0] ?? '') !== '' ? $match[$group][0] : null;
+
+        if ($string = $value(1)) {
+            $colon = $value(2);
+
+            return $colon === null
+                ? [['string', $string]]
+                : [['key', $string], ['punctuation', $colon]];
+        }
+
+        return match (true) {
+            ($number = $value(3)) !== null => [['number', $number]],
+            ($literal = $value(4)) !== null => [['literal', $literal]],
+            ($punctuation = $value(5)) !== null => [['punctuation', $punctuation]],
+            default => [['plain', $match[0][0]]],
+        };
     }
 }

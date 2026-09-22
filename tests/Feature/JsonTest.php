@@ -106,3 +106,30 @@ it('keeps json previews on one line', function () {
 
     expect($rows[0]['payload'])->not->toContain("\n");
 });
+
+it('never drops characters while tokenising', function (string $line) {
+    $rebuilt = implode('', array_column(Json::tokenise($line), 1));
+
+    expect($rebuilt)->toBe($line);
+})->with([
+    '    "email": "karl@example.com",',
+    '{',
+    '}',
+    '    "a": 1,',
+    '    "a": 1▏,',
+    '▏{',
+    'not json at all',
+    '  trailing spaces   ',
+    '    "url": "https://example.com"',
+    '    "emoji": "🎉 café",',
+    '',
+    '   ',
+    'truely',
+    'nullable',
+]);
+
+it('does not highlight words that merely start with a literal', function () {
+    $types = array_column(Json::tokenise('"truely": "nullable"'), 0);
+
+    expect($types)->not->toContain('literal');
+});
