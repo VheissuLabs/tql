@@ -282,7 +282,7 @@ class ExportCommand extends Command
 
         $answer = trim(text(
             label: 'Save it where?',
-            default: $suggested,
+            default: Paths::shorten($suggested),
             hint: 'a file, or a folder to have it named for you',
             validate: fn (string $value) => is_dir($dir = dirname(Paths::expand(trim($value) ?: $suggested)))
                 ? null

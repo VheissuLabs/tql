@@ -30,7 +30,16 @@ class SqlExporter
     {
         $slug = fn (string $v) => strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $v) ?: 'export');
 
-        return $this->directory().'/'.$slug($connection->name).'-'.$slug($table).'-'.date('Ymd-His').'.sql';
+        // Named for the database rather than the connection: the file is going
+        // to be read back into a database, and "mysql-dev" says nothing about
+        // what is in it.
+        $subject = $connection->driver === 'sqlite'
+            ? pathinfo((string) $connection->database, PATHINFO_FILENAME)
+            : (string) $connection->activeDatabase();
+
+        $subject = $slug($subject ?: $connection->name);
+
+        return $this->directory().'/'.$subject.'-'.$slug($table).'-'.date('Ymd-His').'.sql';
     }
 
     public function tables(Connection $connection, array $tables, ?string $path = null, ?int $limit = null): ExportResult

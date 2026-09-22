@@ -86,15 +86,32 @@ it('exports an empty table without writing insert statements', function () {
     unlink($path);
 });
 
-it('names exports after the connection, table and time', function () {
+it('names exports after the database, table and time', function () {
     [$connection, $path] = exportFixture();
 
+    // A sqlite connection is a file, so the file is the database.
     $result = app(SqlExporter::class)->table($connection, 'things');
 
-    expect(basename($result->path))->toMatch('/^export[a-z0-9]+-things-\d{8}-\d{6}\.sql$/');
+    expect(basename($result->path))
+        ->toBe(str_replace('.sqlite', '', basename($path)).'-things-'.date('Ymd-His').'.sql');
 
     unlink($result->path);
     unlink($path);
+});
+
+it('names exports after the database in use on a server', function () {
+    $connection = new Connection([
+        'name' => 'MySql Dev', 'driver' => 'mysql', 'host' => 'h',
+        'port' => 3306, 'database' => 'karlm_v2',
+    ]);
+
+    expect(basename(app(SqlExporter::class)->filename($connection, 'all')))
+        ->toStartWith('karlm-v2-all-');
+
+    $connection->sessionDatabase = 'other_db';
+
+    expect(basename(app(SqlExporter::class)->filename($connection, 'users')))
+        ->toStartWith('other-db-users-');
 });
 
 it('exports every table into one file', function () {

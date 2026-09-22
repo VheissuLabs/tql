@@ -21,6 +21,18 @@ class Paths
             : $path;
     }
 
+    /**
+     * The other direction: ~ back in, so a path reads at a glance.
+     */
+    public static function shorten(string $path): string
+    {
+        $home = (string) (getenv('HOME') ?: '');
+
+        return $home !== '' && str_starts_with($path, $home.'/')
+            ? '~'.substr($path, strlen($home))
+            : $path;
+    }
+
     public static function database(): string
     {
         return static::configDirectory().'/tql.sqlite';
