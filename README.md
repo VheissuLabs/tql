@@ -12,7 +12,21 @@ either of them runs is recorded in one shared history.
 php dotsql
 ```
 
-`browse` is the default command. On first run dotsql creates `~/.config/dotsql/`
+`browse` is the default command.
+
+To skip the connection list and open a SQLite file straight away, point it at
+the file:
+
+```bash
+dotsql test.sqlite          # same as: dotsql open test.sqlite
+dotsql ~/Sites/app/db.sqlite
+dotsql test.sqlite --save=scratch   # and remember it in the connection list
+```
+
+The file is not added to your saved connections unless you pass `--save`, so
+poking at a one-off database does not clutter the list. A first argument that
+exists on disk, contains a `/`, or ends in `.sqlite`, `.sqlite3` or `.db` is
+treated as a path rather than a command name. On first run dotsql creates `~/.config/dotsql/`
 containing `dotsql.sqlite` (connections and query history) and `key` (the
 encryption key), both `0600`.
 

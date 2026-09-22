@@ -33,7 +33,7 @@ $app = require_once __DIR__.'/bootstrap/app.php';
 $kernel = $app->make(Illuminate\Contracts\Console\Kernel::class);
 
 $status = $kernel->handle(
-    $input = new Symfony\Component\Console\Input\ArgvInput,
+    $input = new Symfony\Component\Console\Input\ArgvInput(App\Support\Argv::rewrite($_SERVER['argv'])),
     new Symfony\Component\Console\Output\ConsoleOutput
 );
 
