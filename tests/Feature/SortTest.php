@@ -721,3 +721,20 @@ it('marks nothing when the query you ran has no order by', function () {
 
     expect(rerender($browser))->not->toContain('▲');
 });
+
+it('yanks the value under the cursor with y', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'y');
+
+    expect($browser->status)->toContain('yanked name');
+});
+
+it('yanks the row as an object with Y', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'Y');
+
+    expect($browser->status)->toContain('yanked row');
+});

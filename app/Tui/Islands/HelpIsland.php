@@ -74,6 +74,8 @@ class HelpIsland extends Island
                 'n / p' => 'next or previous page',
                 'o' => 'sort this column: asc, desc, primary key',
                 'r' => 'reload the table',
+                'y' => 'yank this value',
+                'Y' => 'yank the row as an object',
                 'd' => 'mark the row for deletion',
                 'u' => 'clear every mark',
                 'ctrl+l' => 'redraw the screen',

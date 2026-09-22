@@ -373,6 +373,8 @@ class Browser extends Prompt
             $key === 'L' => $this->followLink(),
             $key === self::BACK => $this->jumpBack(),
             $key === Key::ESCAPE => $this->escape(),
+            $key === 'y' => $this->yankCell(),
+            $key === 'Y' => $this->yankRow(),
             $key === 'd' => $this->markDelete(),
             $key === 'u' => $this->unmarkAll(),
             default => true,
@@ -1111,6 +1113,49 @@ class Browser extends Prompt
      * Mark or unmark the row under the cursor. Nothing is written until :w,
      * so a mis-hit costs a keystroke rather than a row.
      */
+    private function yankCell(): bool
+    {
+        $value = $this->cellValue();
+
+        if ($value === null && $this->raw === []) {
+            return true;
+        }
+
+        return $this->yanked(
+            $value === null ? 'NULL' : (string) $value,
+            $this->cellColumn(),
+        );
+    }
+
+    /**
+     * The row as an object, ready to paste into a test or an issue.
+     */
+    private function yankRow(): bool
+    {
+        $row = $this->raw[$this->rowIndex] ?? null;
+
+        if ($row === null) {
+            return true;
+        }
+
+        return $this->yanked(
+            (string) json_encode(
+                $this->readable($row),
+                JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE,
+            ),
+            'row',
+        );
+    }
+
+    private function yanked(string $text, string $what): bool
+    {
+        $where = Clipboard::copy($text) ? 'system' : 'terminal';
+
+        $this->status = "yanked {$what} to the {$where} clipboard";
+
+        return true;
+    }
+
     private function markDelete(): bool
     {
         if ($this->resultsFromQuery) {
