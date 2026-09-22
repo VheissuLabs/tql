@@ -1108,8 +1108,31 @@ it('runs an edited query against the connection', function () {
         ->and($browser->rows[0]['name'])->toBe('beta');
 });
 
+function twoTableBrowser(): Browser
+{
+    $path = sys_get_temp_dir().'/dotsql-two-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table events (id integer primary key, name text)');
+    $pdo->exec('create table settings (id integer primary key, team text)');
+    $pdo->exec("insert into events (name) values ('one')");
+    $pdo->exec("insert into settings (team) values ('notarydash')");
+
+    $connection = Connection::create([
+        'name' => 'two'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+    $browser->tableIndex = array_search('events', $browser->tables, true);
+    frameOf($browser);
+    $browser->emit('key', "\n");
+
+    return $browser;
+}
+
 it('moves the sidebar to the table a query selects from', function () {
-    $browser = jsonBrowser();
+    $browser = twoTableBrowser();
 
     expect($browser->currentTable())->toBe('events');
 
@@ -1121,7 +1144,7 @@ it('moves the sidebar to the table a query selects from', function () {
 });
 
 it('handles quoted table names', function () {
-    $browser = jsonBrowser();
+    $browser = twoTableBrowser();
 
     $browser->emit('key', 's');
     $browser->editor->set('select * from "settings" limit 10');
@@ -1131,7 +1154,7 @@ it('handles quoted table names', function () {
 });
 
 it('leaves the sidebar alone for a query with no known table', function () {
-    $browser = jsonBrowser();
+    $browser = twoTableBrowser();
     $before = $browser->currentTable();
 
     $browser->emit('key', 's');
