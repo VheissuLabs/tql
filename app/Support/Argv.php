@@ -2,10 +2,12 @@
 
 namespace App\Support;
 
+use App\Database\Dsn;
+
 class Argv
 {
     /**
-     * Let `tql some.sqlite` mean `tql open some.sqlite`.
+     * Let `tql some.sqlite` or `tql mysql://…` mean `tql open …`.
      *
      * Laravel Zero reads the first argument as a command name, so without
      * this a path is met with "command not found". A file that exists on
@@ -34,8 +36,11 @@ class Argv
      */
     private static function isPath(string $argument): bool
     {
-        return is_file($argument)
+        // The scheme check comes first: is_file() on "mysql://…" sends PHP
+        // looking for a stream wrapper and warning when it cannot find one.
+        return Dsn::looksLikeOne($argument)
             || str_contains($argument, '/')
-            || preg_match('/\.(sqlite3?|db)$/i', $argument) === 1;
+            || preg_match('/\.(sqlite3?|db)$/i', $argument) === 1
+            || is_file($argument);
     }
 }

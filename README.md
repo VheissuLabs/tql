@@ -23,6 +23,24 @@ tql ~/Sites/app/db.sqlite
 tql test.sqlite --save=scratch   # and remember it in the connection list
 ```
 
+A connection string works the same way:
+
+```bash
+tql 'mysql://user:pw@db.example.com:3306/shop'
+tql 'postgres://user:pw@host/shop?name=Staging'
+```
+
+`mysql`, `mariadb`, `pgsql`, `postgres`, `postgresql`, `sqlsrv`, `mssql` and
+`sqlite` schemes are understood. The default port is filled in per driver,
+credentials are percent-decoded, and `?name=` sets the label shown in the
+title bar.
+
+**A connection string on the command line goes into your shell history.** For
+anything with a real password, run it once with `--save=name` and use the
+connection list from then on, where the password is encrypted at rest. Prefixing
+the command with a space keeps it out of history in zsh if `HIST_IGNORE_SPACE`
+is set.
+
 The file is not added to your saved connections unless you pass `--save`, so
 poking at a one-off database does not clutter the list. A first argument that
 exists on disk, contains a `/`, or ends in `.sqlite`, `.sqlite3` or `.db` is
