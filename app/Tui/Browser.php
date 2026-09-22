@@ -147,6 +147,14 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->mode === 'help') {
+            if (in_array($key, [Key::ESCAPE, '?', 'q'], true)) {
+                $this->mode = 'browse';
+            }
+
+            return;
+        }
+
         if ($this->mode === 'inspect') {
             if (in_array($key, [Key::ESCAPE, 'i', 'q'], true)) {
                 $this->mode = 'browse';
@@ -186,6 +194,7 @@ class Browser extends Prompt
             $key === '=' => $this->resetWidth(),
             $key === 's' => $this->openQuery(),
             $key === 'i' => $this->toggleInspect(),
+            $key === '?' => $this->toggleHelp(),
             $key === 'e' => $this->startEditing(),
             $key === Key::ENTER => $this->activate(),
             $key === 'n' => $this->page(self::PAGE),
@@ -272,6 +281,13 @@ class Browser extends Prompt
     {
         $this->debugMouse = ! $this->debugMouse;
         $this->status = $this->debugMouse ? 'mouse debug on — click anything' : 'mouse debug off';
+
+        return true;
+    }
+
+    private function toggleHelp(): bool
+    {
+        $this->mode = $this->mode === 'help' ? 'browse' : 'help';
 
         return true;
     }

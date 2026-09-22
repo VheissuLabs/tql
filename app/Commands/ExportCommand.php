@@ -20,6 +20,31 @@ class ExportCommand extends Command
 
     protected $description = 'Export a table, or a whole database, to re-importable SQL';
 
+    protected $help = <<<'HELP'
+    Writes rows as <fg=cyan>insert</> statements you can replay into another database.
+    Data only — no schema, so the target table must already exist.
+
+    <fg=yellow>Examples</>
+
+      <fg=green>dotsql export prod orders --limit=1000 --sql=./orders.sql</>
+          a thousand rows of one table into a named file
+
+      <fg=green>dotsql export prod --sql=./prod.sql</>
+          every table in the database, into one file
+
+      <fg=green>dotsql export prod orders</>
+          auto-named file in ~/.config/dotsql/exports
+
+      <fg=green>dotsql export prod --list</>
+          just show which tables are there
+
+    <fg=yellow>Notes</>
+
+      --sql takes a file path or a directory.
+      --limit applies per table, so it bounds a whole-database export too.
+      Rows are read in chunks, so a large table does not go through memory at once.
+    HELP;
+
     public function __construct(
         private ConnectionManager $connections,
         private QueryRunner $runner,

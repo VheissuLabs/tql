@@ -6,6 +6,7 @@ use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\Islands\CellIsland;
 use App\Tui\Islands\EditorIsland;
+use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\Island;
 use App\Tui\Islands\Screen;
 use App\Tui\Islands\SidebarIsland;
@@ -56,6 +57,16 @@ class BrowserRenderer extends Renderer
             $tableHeight = $frameHeight - $editorHeight;
         }
 
+        if ($prompt->mode === 'help') {
+            $help = new HelpIsland($style);
+            $help->focused = true;
+            $help->place($rightX, $top, $rightWidth, $frameHeight);
+
+            $screen->add($help);
+
+            $tableHeight = 0;
+        }
+
         if ($prompt->mode === 'inspect') {
             $cell = new CellIsland($prompt->cellColumn(), $prompt->cellText(), $style);
             $cell->focused = true;
@@ -84,7 +95,9 @@ class BrowserRenderer extends Renderer
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
-        $screen->add($table);
+        if ($prompt->mode !== 'help') {
+            $screen->add($table);
+        }
 
         collect($screen->compose($top + $frameHeight - 1, fn (Island $island) => $this->box($island, $style)))
             ->each($this->line(...));
@@ -105,6 +118,7 @@ class BrowserRenderer extends Renderer
         $this->hotkey('< >', 'Width');
         $this->hotkey('r', 'Reload');
         $this->hotkey('n/p', 'Page');
+        $this->hotkey('?', 'Help');
         $this->hotkey(':q', 'Quit');
 
         collect($this->hotkeys())
@@ -174,6 +188,10 @@ class BrowserRenderer extends Renderer
         if ($prompt->mode === 'inspect') {
             return ' '.$this->bold('inspecting '.$prompt->cellColumn()).
                 $this->dim('   '.mb_strlen($prompt->cellText()).' characters    esc closes');
+        }
+
+        if ($prompt->mode === 'help') {
+            return ' '.$this->bold('help').$this->dim('   ? or esc closes');
         }
 
         $columns = count($prompt->headers);

@@ -606,3 +606,22 @@ it('clamps a column to a minimum width instead of inverting it', function () {
 
     expect($browser->widthOverrides['name'])->toBe(3);
 });
+
+it('shows help and lists the commands', function () {
+    $browser = browserFor(sqliteFixture());
+
+    $browser->emit('key', '?');
+
+    expect($browser->mode)->toBe('help');
+
+    $frame = frameOf($browser);
+
+    expect($frame)->toContain('HELP')
+        ->and($frame)->toContain(':export')
+        ->and($frame)->toContain('drag')
+        ->and(substr_count($frame, 'HELP'))->toBe(1);
+
+    $browser->emit('key', '?');
+
+    expect($browser->mode)->toBe('browse');
+});
