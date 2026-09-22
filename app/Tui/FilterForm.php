@@ -46,9 +46,11 @@ class FilterForm
         if ($this->conditions === []) {
             $this->add();
 
-            // Start on the column you were looking at, ready to type a value:
-            // that is the filter you meant nine times out of ten.
+            // Start on the column you were looking at, already typing: the
+            // column and operator are guesses, and the value never is. Escape
+            // steps back into the form to change them.
             $this->cell = self::VALUE;
+            $this->startEditing();
         }
     }
 

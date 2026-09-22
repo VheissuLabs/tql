@@ -47,11 +47,16 @@ class FilterIsland extends Island
 
         $editing = $this->form->editor !== null && $here && $this->form->cell === FilterForm::VALUE;
 
-        $value = $filter->needsValue()
-            ? ($editing
-                ? $this->withCursor($this->form->editor->buffer(), $this->form->editor->cursor())
-                : ($filter->value === '' ? '…' : $filter->value))
-            : '';
+        $room = max(4, $width - 44);
+
+        // Fit the plain text first. Truncating afterwards would cut through
+        // the cursor's escape sequence and the terminal draws the pieces.
+        $value = match (true) {
+            ! $filter->needsValue() => '',
+            $editing => $this->typing($room),
+            $filter->value === '' => '…',
+            default => $this->style->truncate($filter->value, $room),
+        };
 
         return $this->style->dim($joiner)
             .$this->cell($filter->column, $here && $this->form->cell === FilterForm::COLUMN, 18)
@@ -60,12 +65,32 @@ class FilterIsland extends Island
             .' '
             // While typing, the cursor marks the spot; highlighting the cell
             // as well would wrap the cursor's own inverse in another one.
-            .$this->cell($value, $here && $this->form->cell === FilterForm::VALUE && ! $editing, max(4, $width - 44));
+            .$this->cell($value, $here && $this->form->cell === FilterForm::VALUE && ! $editing, $room);
+    }
+
+    /**
+     * The value being typed, windowed to the room available and with the
+     * cursor drawn last so nothing cuts through it.
+     */
+    private function typing(int $room): string
+    {
+        $text = $this->form->editor->buffer();
+        $cursor = $this->form->editor->cursor();
+
+        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        // Scroll the value so the cursor stays in view.
+        $start = max(0, $cursor - $room + 1);
+
+        return $this->withCursor(
+            implode('', array_slice($chars, $start, $room)),
+            $cursor - $start,
+        );
     }
 
     private function cell(string $text, bool $focused, int $width): string
     {
-        $shown = $this->style->pad($this->style->truncate($text, $width), $width);
+        $shown = $this->style->pad($text, $width);
 
         return $focused ? $this->style->colour('selection', $shown) : $this->style->dim($shown);
     }
@@ -86,7 +111,7 @@ class FilterIsland extends Island
     private function hint(): string
     {
         if ($this->form->editor !== null) {
-            return '↵ keeps it    esc drops it';
+            return 'ctrl+s applies    esc goes back to the form';
         }
 
         return match ($this->form->cell) {

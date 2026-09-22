@@ -57,6 +57,9 @@ function apply(Browser $browser, Filter ...$conditions): void
 {
     $browser->emit('key', 'f');
 
+    // The modal opens ready to type; step out before replacing the conditions.
+    $browser->emit('key', "\e");
+
     $browser->filterForm->conditions = array_values($conditions);
 
     $browser->emit('key', Browser::SAVE);
@@ -88,6 +91,7 @@ it('combines conditions with or', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
     $browser->filterForm->conditions = [
         new Filter('name', 'is', 'Bo'),
         new Filter('name', 'is', 'Ada'),
@@ -158,6 +162,7 @@ it('cycles the column and the operator with the arrows', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
 
     $form = $browser->filterForm;
 
@@ -185,6 +190,7 @@ it('adds and removes conditions', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
 
     expect($browser->filterForm->conditions)->toHaveCount(1);
 
@@ -201,6 +207,7 @@ it('keeps at least one condition to edit', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
     $browser->emit('key', '-');
     $browser->emit('key', '-');
 
@@ -211,6 +218,7 @@ it('has no value cell for an operator that takes none', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
 
     $form = $browser->filterForm;
     $form->current()->operator = 'is empty';
@@ -252,6 +260,7 @@ it('opens a type-to-filter list on the column cell', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
@@ -267,6 +276,7 @@ it('filters the list as you type and picks on enter', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
@@ -284,6 +294,7 @@ it('opens the operator list on the operator cell', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
 
@@ -302,6 +313,10 @@ it('leaves the list alone on escape', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
+    $browser->emit('key', "\e[Z");
+    $browser->emit('key', "\e[Z");
+
     $was = $browser->filterForm->current()->column;
 
     $browser->emit('key', "\n");
@@ -316,6 +331,7 @@ it('wraps around the ends of the list', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
@@ -337,6 +353,7 @@ it('goes back to the top when the list changes under you', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
@@ -356,6 +373,7 @@ it('says when nothing matches', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\e[Z");
     $browser->emit('key', "\n");
@@ -374,6 +392,7 @@ it('moves back through the cells with shift+tab', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
+    $browser->emit('key', "\e");
 
     $form = $browser->filterForm;
 
@@ -392,9 +411,6 @@ it('can get back to the column after typing a value', function () {
     $browser = filtered();
 
     $browser->emit('key', 'f');
-    $browser->emit('key', "\t");
-    $browser->emit('key', "\t");
-    $browser->emit('key', "\n");
     $browser->emit('key', 'Karl');
     $browser->emit('key', "\n");
 
@@ -448,4 +464,66 @@ it('goes back before clearing a filter it arrived with', function () {
     $browser->emit('key', "\e");
 
     expect($browser->filters)->toBeNull();
+});
+
+it('opens ready to type a value', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'l');
+
+    expect($browser->headers[$browser->columnIndex])->toBe('name');
+
+    $browser->emit('key', 'f');
+
+    $form = $browser->filterForm;
+
+    // Column and operator are guessed; the value never is.
+    expect($form->current()->column)->toBe('name')
+        ->and($form->current()->operator)->toBe('contains')
+        ->and($form->cell)->toBe(FilterForm::VALUE)
+        ->and($form->editor)->not->toBeNull();
+
+    $browser->emit('key', 'Karl');
+    $browser->emit('key', Browser::SAVE);
+
+    expect(names($browser))->toBe(['Karl', 'Karla']);
+});
+
+it('steps back into the form on escape rather than closing', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+
+    expect($browser->filterForm->editor)->not->toBeNull();
+
+    $browser->emit('key', "\e");
+
+    expect($browser->filterForm)->not->toBeNull()
+        ->and($browser->filterForm->editor)->toBeNull();
+
+    $browser->emit('key', "\e");
+
+    expect($browser->filterForm)->toBeNull();
+});
+
+it('never cuts through an escape sequence while typing', function () {
+    $browser = filtered();
+
+    $browser->emit('key', 'f');
+    $browser->emit('key', str_repeat('long value ', 8));
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+
+    $frame = $render->invoke($browser);
+
+    // Every escape sequence in the frame is complete.
+    preg_match_all('/\e\[[0-9;]*[a-zA-Z]?/', $frame, $matches);
+
+    foreach ($matches[0] as $sequence) {
+        expect($sequence)->toMatch('/\e\[[0-9;]*[a-zA-Z]$/');
+    }
+
+    // And the cursor is still on screen with the text scrolled to it.
+    expect($frame)->toContain("\e[7m");
 });
