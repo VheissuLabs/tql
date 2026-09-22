@@ -50,7 +50,11 @@ class BrowseCommand extends Command
 
             $this->connections->touch($connection);
 
-            (new Browser($connection, $this->runner, $this->formatter))->prompt();
+            $exit = (new Browser($connection, $this->runner, $this->formatter))->prompt();
+
+            if ($exit !== 'connections') {
+                return self::SUCCESS;
+            }
         }
     }
 

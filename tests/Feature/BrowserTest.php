@@ -111,13 +111,14 @@ it('edits a cell and writes it to the database', function () {
     $browser->emit('key', 'l');
     $browser->emit('key', 'e');
 
-    expect($browser->editing)->toBe('beta');
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->cellEditor->buffer())->toBe('beta');
 
     foreach (str_split('-edited') as $char) {
         $browser->emit('key', $char);
     }
 
-    $browser->emit('key', "\n");
+    $browser->emit('key', "\x04");
 
     $rows = (new PDO('sqlite:'.$path))->query('select id, name from widgets order by id')->fetchAll(PDO::FETCH_ASSOC);
 
@@ -138,7 +139,8 @@ it('leaves the database alone when an edit is cancelled', function () {
 
     $name = (new PDO('sqlite:'.$path))->query('select name from widgets where id = 2')->fetchColumn();
 
-    expect($browser->editing)->toBeNull()
+    expect($browser->cellEditor)->toBeNull()
+        ->and($browser->mode)->toBe('browse')
         ->and($name)->toBe('beta');
 });
 
@@ -152,7 +154,7 @@ it('refuses to edit a table with no single-column primary key', function () {
 
     $browser->emit('key', 'e');
 
-    expect($browser->editing)->toBeNull()
+    expect($browser->mode)->toBe('browse')
         ->and($browser->status)->toContain('no single-column primary key');
 });
 
@@ -165,7 +167,7 @@ it('refuses to edit a read-only connection', function () {
 
     $browser->emit('key', 'e');
 
-    expect($browser->editing)->toBeNull()
+    expect($browser->mode)->toBe('browse')
         ->and($browser->status)->toContain('read-only');
 });
 
@@ -863,4 +865,56 @@ it('says so when there is nothing to inspect', function () {
         ->and($browser->status)->toContain('nothing to inspect');
 
     unlink($path);
+});
+
+it('quits the application on :q', function () {
+    $browser = browserFor(sqliteFixture());
+
+    $browser->emit('key', ':');
+    $browser->emit('key', 'q');
+    $browser->emit('key', "\n");
+
+    expect($browser->state)->toBe('submit')
+        ->and($browser->value())->toBe('quit');
+});
+
+it('returns to the connection list on :c', function () {
+    $browser = browserFor(sqliteFixture());
+
+    foreach (str_split(':c') as $char) {
+        $browser->emit('key', $char);
+    }
+
+    $browser->emit('key', "\n");
+
+    expect($browser->state)->toBe('submit')
+        ->and($browser->value())->toBe('connections');
+});
+
+it('opens a plain value with the cursor at the end', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+
+    expect($browser->cellEditor->cursor())->toBe(mb_strlen($browser->cellEditor->buffer()));
+});
+
+it('opens json with the cursor at the top', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+
+    expect($browser->editingJson)->toBeTrue()
+        ->and($browser->cellEditor->cursor())->toBe(0);
+});
+
+it('refuses to save invalid json', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+    $browser->emit('key', 'x');
+    $browser->emit('key', "\x04");
+
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->status)->toContain('not valid json');
 });

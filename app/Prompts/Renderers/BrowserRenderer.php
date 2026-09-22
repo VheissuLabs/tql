@@ -13,6 +13,7 @@ use App\Tui\Islands\Screen;
 use App\Tui\Islands\SidebarIsland;
 use App\Tui\Islands\Styler;
 use App\Tui\Islands\TableIsland;
+use App\Tui\Islands\ValueEditorIsland;
 use App\Tui\Layout;
 use Chewie\Concerns\DrawsHotkeys;
 use Laravel\Prompts\Themes\Default\Renderer;
@@ -68,6 +69,21 @@ class BrowserRenderer extends Renderer
             $tableHeight = 0;
         }
 
+        if ($prompt->mode === 'edit' && $prompt->cellEditor !== null) {
+            $editor = new ValueEditorIsland(
+                $prompt->cellColumn(),
+                $prompt->cellEditor,
+                $prompt->editingJson,
+                $style,
+            );
+            $editor->focused = true;
+            $editor->place(1, $top, $width, $frameHeight);
+
+            $screen = (new Screen)->add($editor);
+
+            $tableHeight = 0;
+        }
+
         if ($prompt->mode === 'inspect' && $prompt->cellIsJson()) {
             $json = new JsonIsland($prompt->cellColumn(), $prompt->cellText(), $style);
             $json->focused = true;
@@ -106,7 +122,11 @@ class BrowserRenderer extends Renderer
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
-        if ($prompt->mode !== 'help' && ! ($prompt->mode === 'inspect' && $prompt->cellIsJson())) {
+        $modal = $prompt->mode === 'help'
+            || $prompt->mode === 'edit'
+            || ($prompt->mode === 'inspect' && $prompt->cellIsJson());
+
+        if (! $modal) {
             $screen->add($table);
         }
 
@@ -223,10 +243,11 @@ class BrowserRenderer extends Renderer
             ));
         }
 
-        if ($prompt->editing !== null) {
+        if ($prompt->mode === 'edit') {
             $column = $prompt->headers[$prompt->columnIndex] ?? '?';
 
-            return ' '.$this->bold("editing {$column}").$this->dim('   ↵ save    esc cancel');
+            return ' '.$this->bold("editing {$column}").
+                $this->dim('   ctrl+s or ctrl+d saves    esc cancels'.($prompt->editingJson ? '    json is validated on save' : ''));
         }
 
         if ($prompt->mode === 'inspect') {

@@ -37,7 +37,7 @@ class HelpIsland extends Island
             ],
             'doing' => [
                 '↵' => 'open a table, or edit the selected cell',
-                'e' => 'edit the selected cell',
+                'e' => 'edit the selected cell in a modal (ctrl+s saves)',
                 'i' => 'read the selected cell in full, json pretty printed',
                 's' => 'open the SQL editor (ctrl+r runs it)',
                 '< >' => 'narrow or widen the selected column',
@@ -55,7 +55,8 @@ class HelpIsland extends Island
                 ':rows' => 'focus the rows',
                 ':reload' => 'reload the current table',
                 ':mouse' => 'show raw click coordinates for debugging',
-                ':q' => 'quit',
+                ':c' => 'back to the connection list',
+                ':q' => 'quit dotsql',
             ],
             'from the shell' => [
                 'export' => 'dotsql export <connection> [table] --limit= --sql=',

@@ -68,7 +68,13 @@ class Browser extends Prompt
 
     public ?string $command = null;
 
+    public string $exit = 'connections';
+
     public ?string $editing = null;
+
+    public ?QueryEditor $cellEditor = null;
+
+    public bool $editingJson = false;
 
     public bool $debugMouse = false;
 
@@ -115,7 +121,7 @@ class Browser extends Prompt
 
     public function value(): mixed
     {
-        return null;
+        return $this->exit;
     }
 
     public function currentTable(): ?string
@@ -176,7 +182,7 @@ class Browser extends Prompt
             return;
         }
 
-        if ($this->editing !== null) {
+        if ($this->mode === 'edit') {
             $this->handleEditKey($key);
 
             return;
@@ -400,17 +406,13 @@ class Browser extends Prompt
 
     private function startEditing(): bool
     {
-        if ($this->focus !== 'grid') {
+        if ($this->raw === []) {
             return true;
         }
 
         if ($this->connection->read_only) {
             $this->status = 'this connection is marked read-only';
 
-            return true;
-        }
-
-        if ($this->raw === []) {
             return true;
         }
 
@@ -426,9 +428,21 @@ class Browser extends Prompt
             return true;
         }
 
-        $value = $this->cellValue();
+        $this->focus = 'grid';
 
-        $this->editing = $value === null ? '' : (string) $value;
+        $value = $this->cellValue();
+        $text = $value === null ? '' : (string) $value;
+
+        $this->editingJson = Json::looksLikeJson($text);
+
+        $this->cellEditor = new QueryEditor;
+        $this->cellEditor->set($this->editingJson ? Json::pretty($text) : $text);
+
+        if ($this->editingJson) {
+            $this->cellEditor->toStart();
+        }
+
+        $this->mode = 'edit';
 
         return true;
     }
@@ -436,33 +450,38 @@ class Browser extends Prompt
     private function handleEditKey(string $key): void
     {
         if ($key === Key::ESCAPE) {
-            $this->editing = null;
+            $this->cellEditor = null;
+            $this->mode = 'browse';
             $this->status = 'edit cancelled';
 
             return;
         }
 
-        if ($key === Key::ENTER) {
+        if (in_array($key, ["\x13", Key::CTRL_D], true)) {
             $this->commitEdit();
 
             return;
         }
 
-        if (in_array($key, [Key::BACKSPACE, Key::CTRL_H], true)) {
-            $this->editing = mb_substr($this->editing, 0, -1);
-
-            return;
-        }
-
-        if (mb_strlen($key) === 1 && ! ctype_cntrl($key)) {
-            $this->editing .= $key;
-        }
+        $this->cellEditor?->handle($key);
     }
 
     private function commitEdit(): void
     {
-        $value = $this->editing;
-        $this->editing = null;
+        $value = $this->cellEditor?->buffer() ?? '';
+
+        if ($this->editingJson && ! Json::looksLikeJson($value)) {
+            $this->status = 'not valid json — fix it or press esc to cancel';
+
+            return;
+        }
+
+        if ($this->editingJson) {
+            $value = json_encode(json_decode($value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        $this->cellEditor = null;
+        $this->mode = 'browse';
 
         $key = $this->keyColumn();
         $column = $this->headers[$this->columnIndex] ?? null;
@@ -657,8 +676,9 @@ class Browser extends Prompt
         return true;
     }
 
-    private function quit(): bool
+    private function quit(string $exit = 'quit'): bool
     {
+        $this->exit = $exit;
         $this->state = 'submit';
 
         return false;
@@ -702,6 +722,7 @@ class Browser extends Prompt
 
         return match ($command) {
             'q', 'q!', 'quit' => $this->quit(),
+            'c', 'connections' => $this->quit('connections'),
             'tables' => $this->focusOn('sidebar'),
             'rows' => $this->focusOn('grid'),
             'r', 'reload' => $this->reload(),
