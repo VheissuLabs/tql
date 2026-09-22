@@ -14,7 +14,8 @@ class ConnectionForm
 
     public bool $editing = false;
 
-    public string $buffer = '';
+    /** The field being typed into, so it has a real cursor. */
+    public ?QueryEditor $editor = null;
 
     /** @var array<string, string> */
     public array $values = [];
@@ -122,20 +123,9 @@ class ConnectionForm
         return $this->creating ? ['driver' => 'Driver'] + $fields : $fields;
     }
 
-    /**
-     * Save and Cancel are rows you can move to and press enter on, so there
-     * is always a way through the form without a modifier key.
-     */
-    public const ACTIONS = ['save', 'cancel'];
-
     public function keys(): array
     {
-        return array_merge(array_keys($this->fields()), self::ACTIONS);
-    }
-
-    public function onAction(): bool
-    {
-        return in_array($this->currentKey(), self::ACTIONS, true);
+        return array_keys($this->fields());
     }
 
     public function currentKey(): string
@@ -151,29 +141,36 @@ class ConnectionForm
     public function start(): void
     {
         $this->editing = true;
-        $this->buffer = $this->values[$this->currentKey()] ?? '';
+
+        $this->editor = new QueryEditor(multiline: false);
+        $this->editor->set($this->values[$this->currentKey()] ?? '');
+        $this->editor->toEnd();
     }
 
     public function commit(): void
     {
-        $this->values[$this->currentKey()] = $this->buffer;
+        if ($this->editor !== null) {
+            $this->values[$this->currentKey()] = $this->editor->buffer();
+        }
+
         $this->editing = false;
+        $this->editor = null;
     }
 
     public function abandon(): void
     {
         $this->editing = false;
-        $this->buffer = '';
+        $this->editor = null;
     }
 
-    public function type(string $text): void
+    public function buffer(): string
     {
-        $this->buffer .= $text;
+        return $this->editor?->buffer() ?? '';
     }
 
-    public function backspace(): void
+    public function cursor(): int
     {
-        $this->buffer = mb_substr($this->buffer, 0, -1);
+        return $this->editor?->cursorColumn() ?? 0;
     }
 
     /**
@@ -183,7 +180,7 @@ class ConnectionForm
     public function display(string $key): string
     {
         if ($this->editing && $key === $this->currentKey()) {
-            return $this->buffer;
+            return $this->buffer();
         }
 
         $value = $this->values[$key] ?? '';

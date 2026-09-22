@@ -3,6 +3,7 @@
 putenv('XDG_CONFIG_HOME='.__DIR__.'/.scratch');
 putenv('NO_ALT_SCREEN=1');
 putenv('NO_MOUSE=1');
+putenv('NO_TTY_SETUP=1');
 
 use Tests\TestCase;
 

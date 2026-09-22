@@ -189,6 +189,25 @@ writes `NULL`.
 Editing requires a single-column primary key, which tql uses to target the
 row. Tables without one are read-only, as are connections flagged `read_only`.
 
+## Connections
+
+The first screen lists your saved connections.
+
+| key | what it does |
+| --- | --- |
+| `↵` | open it |
+| `e` | edit it in place |
+| `n` | add one |
+| `d` | mark it for deletion |
+| `u` | clear every mark |
+| `:w` | write the marked deletions |
+
+Adding and editing happen in a modal over the list, never by dropping out to a
+prompt sequence. `↑↓` picks a field, `↵` edits it with a real cursor (arrows,
+home, end, backspace, delete, paste), `ctrl+s` saves and `esc` cancels. Nothing
+is written until you save. The driver is cycled with `← →` and only offers
+drivers your PHP build actually has.
+
 ## Deleting
 
 `d` marks the row under the cursor and moves down, so a run of rows is `ddd`.

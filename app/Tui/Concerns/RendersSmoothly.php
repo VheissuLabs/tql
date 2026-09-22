@@ -34,6 +34,10 @@ trait RendersSmoothly
 
         $this->flowControlDisabled = true;
 
+        if (getenv('NO_TTY_SETUP')) {
+            return;
+        }
+
         if (function_exists('stream_isatty') && @stream_isatty(STDIN)) {
             @shell_exec('stty -ixon -ixoff < /dev/tty 2>/dev/null');
         }

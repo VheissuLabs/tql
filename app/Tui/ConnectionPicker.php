@@ -34,6 +34,14 @@ class ConnectionPicker extends Prompt
 
     public ?ConnectionForm $form = null;
 
+    /**
+     * Connection ids marked for deletion. Same as the grid: nothing goes until
+     * :w, so a stray d costs a keystroke rather than a saved connection.
+     *
+     * @var array<int, int>
+     */
+    public array $pendingDeletes = [];
+
     private ?string $choice = null;
 
     public function __construct(public Collection $connections)
@@ -65,6 +73,7 @@ class ConnectionPicker extends Prompt
     {
         return $this->connections
             ->map(fn (Connection $c) => [
+                'id' => $c->id,
                 'name' => $c->name,
                 'driver' => $c->driver,
                 'where' => $c->describe(),
@@ -95,9 +104,11 @@ class ConnectionPicker extends Prompt
 
         match (true) {
             $key === ':' => $this->openCommandLine(),
-            $key === 'q', $key === Key::ESCAPE => $this->finish('quit'),
+            $key === 'q', $key === Key::ESCAPE => $this->quit(),
             $key === 'n' => $this->create(),
             $key === 'e' => $this->edit(),
+            $key === 'd' => $this->markDelete(),
+            $key === 'u' => $this->unmarkAll(),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->move(-1),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->move(1),
             $key === Key::ENTER => $this->select(),
@@ -138,6 +149,68 @@ class ConnectionPicker extends Prompt
         return $this->select();
     }
 
+    private function markDelete(): bool
+    {
+        $connection = $this->connections->values()->get($this->index);
+
+        if ($connection === null) {
+            return true;
+        }
+
+        $at = array_search($connection->id, $this->pendingDeletes, true);
+
+        if ($at === false) {
+            $this->pendingDeletes[] = $connection->id;
+        } else {
+            unset($this->pendingDeletes[$at]);
+            $this->pendingDeletes = array_values($this->pendingDeletes);
+        }
+
+        $this->move(1);
+
+        $count = count($this->pendingDeletes);
+
+        $this->status = $count === 0
+            ? 'marks cleared'
+            : $count.' marked for deletion · :w writes · u clears';
+
+        return true;
+    }
+
+    private function unmarkAll(): bool
+    {
+        $this->pendingDeletes = [];
+        $this->status = 'marks cleared';
+
+        return true;
+    }
+
+    public function writePending(): bool
+    {
+        if ($this->pendingDeletes === []) {
+            $this->status = 'nothing to write';
+
+            return true;
+        }
+
+        $count = count($this->pendingDeletes);
+
+        Connection::whereIn('id', $this->pendingDeletes)->delete();
+
+        $this->pendingDeletes = [];
+        $this->connections = Connection::orderByDesc('last_used_at')->orderBy('name')->get();
+        $this->index = max(0, min($this->index, $this->connections->count() - 1));
+
+        $this->status = 'deleted '.$count.' connection'.($count === 1 ? '' : 's');
+
+        return true;
+    }
+
+    public function isMarked(int $id): bool
+    {
+        return in_array($id, $this->pendingDeletes, true);
+    }
+
     private function create(): bool
     {
         $this->form = new ConnectionForm(new Connection(['driver' => 'sqlite']), creating: true);
@@ -164,21 +237,6 @@ class ConnectionPicker extends Prompt
 
         if ($form->editing) {
             $this->handleFieldKey($form, $key);
-
-            return;
-        }
-
-        if ($form->onAction()) {
-            match (true) {
-                $key === Key::ESCAPE, $key === 'q' => $this->closeForm('nothing changed'),
-                $key === self::SAVE => $this->saveForm(),
-                in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->move(-1),
-                in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->move(1),
-                $key === Key::ENTER => $form->currentKey() === 'save'
-                    ? $this->saveForm()
-                    : $this->closeForm('nothing changed'),
-                default => true,
-            };
 
             return;
         }
@@ -231,17 +289,9 @@ class ConnectionPicker extends Prompt
             return;
         }
 
-        if (in_array($key, [Key::BACKSPACE, Key::CTRL_H, "\x7f"], true)) {
-            $form->backspace();
-
-            return;
-        }
-
-        $text = Input::text($key);
-
-        if ($text !== '') {
-            $form->type($text);
-        }
+        // Everything else is ordinary line editing: arrows, home, end,
+        // backspace, delete and typing, cursor and all.
+        $form->editor?->handle($key);
     }
 
     private function saveForm(): void
@@ -316,8 +366,9 @@ class ConnectionPicker extends Prompt
             $this->command = null;
 
             return match ($command) {
-                'q', 'q!', 'quit' => $this->finish('quit'),
-                'new' => $this->finish('new'),
+                'q', 'q!', 'quit' => $this->quit(),
+                'w', 'write' => $this->writePending(),
+                'new' => $this->create(),
                 default => $this->unknown($command),
             };
         }
@@ -328,11 +379,28 @@ class ConnectionPicker extends Prompt
             return true;
         }
 
-        if (mb_strlen($key) === 1 && ! ctype_cntrl($key)) {
-            $this->command .= $key;
-        }
+        $this->command .= Input::text($key);
 
         return true;
+    }
+
+    /**
+     * Unwritten marks are dropped and said out loud rather than being lost in
+     * silence or written on the way out.
+     */
+    private function quit(): bool
+    {
+        if ($this->pendingDeletes !== []) {
+            $count = count($this->pendingDeletes);
+
+            $this->pendingDeletes = [];
+            $this->status = $count.' unwritten mark'.($count === 1 ? '' : 's').
+                ' dropped — quit again to leave';
+
+            return true;
+        }
+
+        return $this->finish('quit');
     }
 
     private function unknown(string $command): bool

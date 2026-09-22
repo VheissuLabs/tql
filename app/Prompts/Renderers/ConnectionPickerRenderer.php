@@ -59,7 +59,7 @@ class ConnectionPickerRenderer extends Renderer
 
         $this->line($this->fit($this->dim($prompt->form !== null
             ? ' ↑↓ Move    ↵ Select'
-            : ' ↑↓ Move    ↵ Open    e Edit    n New    :q Quit'), $width));
+            : ' ↑↓ Move    ↵ Open    e Edit    n New    d Mark    :w Write    :q Quit'), $width));
         $this->line($this->fit($this->status($prompt), $width));
 
         return $this;
@@ -113,7 +113,7 @@ class ConnectionPickerRenderer extends Renderer
             $shown = $this->truncate($form->display($key), $value);
 
             if ($focused && $form->editing) {
-                $shown .= "\e[7m \e[27m";
+                $shown = $this->withCursor($shown, $form->cursor());
             }
 
             if ($key === 'driver' && $focused) {
@@ -129,32 +129,36 @@ class ConnectionPickerRenderer extends Renderer
 
         $rows[] = $this->row('', $inner);
 
-        foreach (ConnectionForm::ACTIONS as $action) {
-            $focused = $form->currentKey() === $action;
-            $text = $action === 'save' ? 'Save' : 'Cancel';
-
-            $rows[] = $this->row(
-                '  '.($focused ? $this->bold($this->paint(Theme::title(true), '▸ '.$text)) : $this->dim('  '.$text)),
-                $inner,
-            );
-        }
-
-        $rows[] = $this->row('', $inner);
-
         $rows[] = $this->row('  '.$this->dim($form->error !== null
             ? $this->paint('red', $form->error)
             : match (true) {
                 // Say what the row under the cursor does. Save and Cancel are
                 // rows of their own, so repeating them here is noise.
                 $form->editing => '↵ keeps it    esc drops it',
-                $form->onAction() => '↵ chooses',
-                $form->currentKey() === 'driver' => '← → changes the driver',
-                default => '↵ changes it',
+                $form->currentKey() === 'driver' => '← → driver    ctrl+s save    esc cancel',
+                default => '↵ change    ctrl+s save    esc cancel',
             }), $inner);
 
         $rows[] = $edge('└'.str_repeat('─', $inner).'┘');
 
         return $rows;
+    }
+
+    /**
+     * Render the character under the cursor in inverse rather than inserting
+     * a block, which would shift everything after it along by one.
+     */
+    private function withCursor(string $text, int $at): string
+    {
+        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+
+        if ($at >= count($chars)) {
+            return $text."\e[7m \e[27m";
+        }
+
+        $chars[$at] = "\e[7m".$chars[$at]."\e[27m";
+
+        return implode('', $chars);
     }
 
     private function row(string $content, int $inner): string
@@ -280,12 +284,13 @@ class ConnectionPickerRenderer extends Renderer
 
         foreach (array_slice($rows, $start, $height) as $offset => $row) {
             $selected = ($start + $offset) === $prompt->index;
+            $marked = $prompt->isMarked((int) $row['id']);
             $values = [$row['name'], $row['where'], $row['used']];
             $cells = [];
 
             foreach ($widths as $i => $width) {
                 if ($i === 0) {
-                    $cells[] = $this->nameCell($row['driver'], (string) $values[0], $width, $selected);
+                    $cells[] = $this->nameCell($row['driver'], (string) $values[0], $width, $selected, $marked);
 
                     continue;
                 }
@@ -298,9 +303,13 @@ class ConnectionPickerRenderer extends Renderer
             // A selected row is built without any colour of its own: an escape
             // sequence inside the span would reset the highlight partway and
             // tear it at the column separators.
-            $lines[] = $selected
+            $line = $selected
                 ? $this->highlight($this->pad(implode('│', $cells), $inner))
                 : implode($grid, $cells);
+
+            $lines[] = $marked && ! $selected
+                ? $this->paint(Theme::colour('deleted', 'red'), $this->strip($line))
+                : $line;
         }
 
         return $lines;
@@ -311,10 +320,15 @@ class ConnectionPickerRenderer extends Renderer
      * column of its own. Shape carries the meaning as well as colour, so it
      * still reads without colour.
      */
-    private function nameCell(string $driver, string $name, int $width, bool $selected): string
+    private function nameCell(string $driver, string $name, int $width, bool $selected, bool $marked = false): string
     {
         $icon = $this->driverIcon($driver);
-        $marker = Layout::rowStyle() === 'marker' && $selected ? '▸' : ' ';
+
+        $marker = match (true) {
+            $marked => '-',
+            Layout::rowStyle() === 'marker' && $selected => '▸',
+            default => ' ',
+        };
         $label = $this->pad($this->truncate($name, $width - 4), $width - 4);
 
         return ' '.$marker.' '
@@ -365,6 +379,11 @@ class ConnectionPickerRenderer extends Renderer
         $visible = mb_strlen((string) preg_replace('/\e\[[0-9;]*m/', '', $line));
 
         return $visible <= $width ? $line : $this->truncate($line, $width);
+    }
+
+    private function strip(string $text): string
+    {
+        return (string) preg_replace('/\e\[[0-9;]*m/', '', $text);
     }
 
     private function pad(string $text, int $width): string

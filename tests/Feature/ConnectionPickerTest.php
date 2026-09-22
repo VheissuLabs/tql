@@ -403,7 +403,7 @@ it('accepts a pasted value in a form field', function () {
     $picker->emit('key', "\n");
     $picker->emit('key', 'Cloud - lunar');
 
-    expect($picker->form->buffer)->toBe('Cloud - lunar');
+    expect($picker->form->buffer())->toBe('Cloud - lunar');
 
     $picker->emit('key', "\n");
 
@@ -418,43 +418,7 @@ it('flattens a multi-line paste into a single line field', function () {
     $picker->emit('key', "\n");
     $picker->emit('key', "first\nsecond");
 
-    expect($picker->form->buffer)->toBe('first second');
-});
-
-it('saves from a row you can select, not only ctrl+s', function () {
-    $picker = picker();
-
-    $picker->emit('key', 'n');
-    $picker->form->values['name'] = 'by enter';
-    $picker->form->values['database'] = '/tmp/by-enter.sqlite';
-
-    while (! $picker->form->onAction()) {
-        $picker->emit('key', 'j');
-    }
-
-    expect($picker->form->currentKey())->toBe('save');
-
-    $picker->emit('key', "\n");
-
-    expect($picker->form)->toBeNull()
-        ->and(Connection::where('name', 'by enter')->exists())->toBeTrue();
-});
-
-it('cancels from the cancel row', function () {
-    $picker = picker();
-
-    $picker->emit('key', 'n');
-    $picker->form->values['name'] = 'never saved';
-    $picker->form->values['database'] = '/tmp/never.sqlite';
-
-    while ($picker->form->currentKey() !== 'cancel') {
-        $picker->emit('key', 'j');
-    }
-
-    $picker->emit('key', "\n");
-
-    expect($picker->form)->toBeNull()
-        ->and(Connection::where('name', 'never saved')->exists())->toBeFalse();
+    expect($picker->form->buffer())->toBe('first second');
 });
 
 it('saves what you are typing without committing the field first', function () {
@@ -477,46 +441,85 @@ it('saves what you are typing without committing the field first', function () {
         ->and(Connection::where('name', 'typed then saved')->exists())->toBeTrue();
 });
 
-it('shows the save and cancel rows in the modal', function () {
+it('moves the cursor inside a field instead of typing the key', function () {
     $picker = picker();
 
-    $picker->emit('key', 'n');
+    $picker->emit('key', 'e');
+    $picker->emit('key', "\n");
+    // Editing starts on the existing value with the cursor at the end.
+    expect($picker->form->buffer())->toBe('first')
+        ->and($picker->form->cursor())->toBe(5);
 
-    $plain = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker));
+    $picker->emit('key', "\e[D");
+    $picker->emit('key', "\e[D");
 
-    expect($plain)->toContain('Save')
-        ->and($plain)->toContain('Cancel');
+    expect($picker->form->cursor())->toBe(3)
+        ->and($picker->form->buffer())->toBe('first');
+
+    $picker->emit('key', 'X');
+
+    expect($picker->form->buffer())->toBe('firXst');
 });
 
-it('does not repeat save and cancel in the hint line', function () {
+it('backspaces at the cursor, not only at the end', function () {
     $picker = picker();
 
-    $picker->emit('key', 'n');
+    $picker->emit('key', 'e');
+    $picker->emit('key', "\n");
+    $picker->emit('key', "\e[D");
+    $picker->emit('key', "\x7f");
 
-    $plain = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker));
-
-    expect(substr_count($plain, 'Save'))->toBe(1)
-        ->and(substr_count($plain, 'Cancel'))->toBe(1)
-        ->and($plain)->not->toContain('ctrl+s save')
-        ->and($plain)->not->toContain('esc cancel');
+    // "first", cursor between s and t, backspace removes the s.
+    expect($picker->form->buffer())->toBe('firt');
 });
 
-it('says what the row under the cursor does', function () {
+it('marks a connection for deletion without removing it', function () {
     $picker = picker();
 
-    $picker->emit('key', 'n');
+    $picker->emit('key', 'd');
 
-    $hint = fn () => preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker));
+    expect($picker->pendingDeletes)->toHaveCount(1)
+        ->and(Connection::count())->toBe(2)
+        ->and($picker->status)->toContain('marked for deletion');
+});
 
-    expect($hint())->toContain('changes the driver');
+it('writes marked connection deletions on :w', function () {
+    $picker = picker();
 
-    $picker->form->move(1);
+    $gone = $picker->connections->first()->name;
 
-    expect($hint())->toContain('changes it');
+    $picker->emit('key', 'd');
+    $picker->emit('key', ':');
+    $picker->emit('key', 'w');
+    $picker->emit('key', "\n");
 
-    while (! $picker->form->onAction()) {
-        $picker->form->move(1);
-    }
+    expect(Connection::where('name', $gone)->exists())->toBeFalse()
+        ->and(Connection::count())->toBe(1)
+        ->and($picker->pendingDeletes)->toBe([])
+        ->and($picker->connections)->toHaveCount(1);
+});
 
-    expect($hint())->toContain('chooses');
+it('unmarks a connection you mark twice', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'd');
+    $picker->emit('key', 'k');
+    $picker->emit('key', 'd');
+
+    expect($picker->pendingDeletes)->toBe([]);
+});
+
+it('drops unwritten connection marks before quitting', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'd');
+    $picker->emit('key', 'q');
+
+    expect($picker->value())->toBeNull()
+        ->and($picker->pendingDeletes)->toBe([])
+        ->and($picker->status)->toContain('dropped');
+
+    $picker->emit('key', 'q');
+
+    expect($picker->value())->toBe('quit');
 });

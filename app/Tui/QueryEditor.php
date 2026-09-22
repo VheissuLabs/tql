@@ -12,6 +12,12 @@ class QueryEditor
 
     private int $cursor = 0;
 
+    /**
+     * A single-line editor flattens pasted newlines instead of smuggling one
+     * into a value that has to stay on one line, like a host or a name.
+     */
+    public function __construct(private bool $multiline = true) {}
+
     public function buffer(): string
     {
         return $this->buffer;
@@ -115,7 +121,7 @@ class QueryEditor
 
     private function type(string $key): void
     {
-        $text = Input::text($key, newlines: true);
+        $text = Input::text($key, newlines: $this->multiline);
 
         if ($text !== '') {
             $this->insert($text);
