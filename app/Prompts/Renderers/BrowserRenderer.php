@@ -36,8 +36,9 @@ class BrowserRenderer extends Renderer
 
         $style = $this->styler();
 
-        $sidebar = new SidebarIsland($prompt->tables, $prompt->tableIndex, $style);
+        $sidebar = new SidebarIsland($prompt->visibleTables(), $prompt->tableIndex, $style, $prompt->filter);
         $sidebar->focused = $prompt->focus === 'sidebar';
+        $sidebar->title = $sidebar->heading();
         $sidebar->place(1, $top, Layout::sidebarWidth() + 2, $frameHeight);
 
         $rightX = $sidebar->x + $sidebar->width + 1;
@@ -345,6 +346,10 @@ class BrowserRenderer extends Renderer
     {
         if ($prompt->command !== null) {
             return ' :'.$prompt->command.$this->paint(Theme::cursor(), '█');
+        }
+
+        if ($prompt->filtering) {
+            return ' /'.$prompt->filter.$this->paint(Theme::cursor(), '█');
         }
 
         if ($prompt->mode === 'edit') {

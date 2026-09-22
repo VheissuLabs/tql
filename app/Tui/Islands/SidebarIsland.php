@@ -12,6 +12,7 @@ class SidebarIsland extends Island
         private array $tables,
         private int $selected,
         private Styler $style,
+        private ?string $filter = null,
     ) {}
 
     public function content(int $innerWidth, int $innerHeight): array
@@ -19,6 +20,10 @@ class SidebarIsland extends Island
         $this->start = $this->window($this->selected, count($this->tables), $innerHeight);
 
         $lines = [];
+
+        if ($this->tables === []) {
+            return [$this->style->dim(' nothing matches')];
+        }
 
         foreach (array_slice($this->tables, $this->start, $innerHeight) as $index => $table) {
             $label = ' '.$this->style->truncate($table, $innerWidth - 2);
@@ -29,6 +34,13 @@ class SidebarIsland extends Island
         }
 
         return $lines;
+    }
+
+    public function heading(): string
+    {
+        return $this->filter === null || $this->filter === ''
+            ? 'TABLES'
+            : 'TABLES /'.$this->filter;
     }
 
     public function selectedIndexFor(int $localRow): ?int

@@ -32,6 +32,11 @@ class Browser extends Prompt
 
     public int $tableIndex = 0;
 
+    /** Live filter on the tables list, or null when not filtering. */
+    public ?string $filter = null;
+
+    public bool $filtering = false;
+
     public array $headers = [];
 
     public array $rows = [];
@@ -162,7 +167,27 @@ class Browser extends Prompt
 
     public function currentTable(): ?string
     {
-        return $this->tables[$this->tableIndex] ?? null;
+        return $this->visibleTables()[$this->tableIndex] ?? null;
+    }
+
+    /**
+     * The tables the sidebar is showing. Indexes everywhere are into this
+     * list, so filtering does not quietly select a different table.
+     *
+     * @return array<int, string>
+     */
+    public function visibleTables(): array
+    {
+        if ($this->filter === null || $this->filter === '') {
+            return $this->tables;
+        }
+
+        $needle = mb_strtolower($this->filter);
+
+        return array_values(array_filter(
+            $this->tables,
+            fn (string $table) => str_contains(mb_strtolower($table), $needle),
+        ));
     }
 
     public function visibleHeaders(int $count): array
@@ -218,6 +243,12 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->filtering) {
+            $this->handleFilterKey($key);
+
+            return;
+        }
+
         if ($this->command !== null) {
             $this->handleCommandKey($key);
 
@@ -247,6 +278,7 @@ class Browser extends Prompt
             $key === 'p' => $this->page(-self::PAGE),
             $key === 'r' => $this->reload(),
             $key === 'o' => $this->sortBy($this->headers[$this->columnIndex] ?? null),
+            $key === '/' => $this->openFilter(),
             $key === 'd' => $this->markDelete(),
             $key === 'u' => $this->unmarkAll(),
             default => true,
@@ -1129,6 +1161,69 @@ class Browser extends Prompt
         return false;
     }
 
+    private function openFilter(): bool
+    {
+        $this->filtering = true;
+        $this->filter ??= '';
+        $this->focus = 'sidebar';
+        $this->status = 'filtering tables · ↵ keeps it · esc clears it';
+
+        return true;
+    }
+
+    private function handleFilterKey(string $key): void
+    {
+        if ($key === Key::ESCAPE) {
+            $this->filtering = false;
+            $this->filter = null;
+            $this->status = null;
+            $this->reselect();
+
+            return;
+        }
+
+        if ($key === Key::ENTER) {
+            $this->filtering = false;
+            $this->status = $this->filter === '' ? null : 'filtered by "'.$this->filter.'"';
+
+            return;
+        }
+
+        if (in_array($key, [Key::BACKSPACE, Key::CTRL_H], true)) {
+            $this->filter = mb_substr((string) $this->filter, 0, -1);
+            $this->reselect();
+
+            return;
+        }
+
+        $text = Input::text($key);
+
+        if ($text !== '') {
+            $this->filter .= $text;
+            $this->reselect();
+        }
+    }
+
+    /**
+     * Keep the cursor on a table that still exists after the filter changes,
+     * and follow it into the grid so the two panes never disagree.
+     */
+    private function reselect(): void
+    {
+        $visible = $this->visibleTables();
+
+        if ($visible === []) {
+            return;
+        }
+
+        $this->tableIndex = min($this->tableIndex, count($visible) - 1);
+
+        $this->offset = 0;
+        $this->pendingDeletes = [];
+        $this->sortColumn = null;
+        $this->load();
+    }
+
     private function openCommandLine(): bool
     {
         $this->command = '';
@@ -1226,7 +1321,7 @@ class Browser extends Prompt
     private function moveDown(): bool
     {
         if ($this->focus === 'sidebar') {
-            return $this->selectTable(min(count($this->tables) - 1, $this->tableIndex + 1));
+            return $this->selectTable(min(count($this->visibleTables()) - 1, $this->tableIndex + 1));
         }
 
         $this->rowIndex = min(max(0, count($this->rows) - 1), $this->rowIndex + 1);
