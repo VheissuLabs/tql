@@ -19,6 +19,7 @@
         "php": "^8.3",
         "illuminate/database": "^13.0",
         "illuminate/encryption": "^13.32",
+        "joetannenbaum/chewie": "^0.1.11",
         "laravel-zero/foundation": "^13.23",
         "laravel-zero/framework": "^13.0",
         "laravel/mcp": "^1.0"
