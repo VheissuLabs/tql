@@ -67,6 +67,12 @@ class ConfigTemplate
                 'comment' => ['Colour of a row marked for deletion, before :w writes it'],
             ],
             [
+                'section' => 'theme',
+                'key' => 'edited',
+                'default' => '"yellow"',
+                'comment' => ['Colour of a row you have edited, before :w writes it'],
+            ],
+            [
                 'section' => 'icons',
                 'key' => 'mysql',
                 'default' => '""',

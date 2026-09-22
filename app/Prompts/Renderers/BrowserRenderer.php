@@ -113,7 +113,7 @@ class BrowserRenderer extends Renderer
 
         $table = new TableIsland(
             $prompt->headers,
-            $prompt->rows,
+            $prompt->rowsWithEdits(),
             $prompt->rowIndex,
             $prompt->columnIndex,
             $prompt->widthOverrides,
@@ -122,6 +122,7 @@ class BrowserRenderer extends Renderer
             $prompt->sortColumn,
             $prompt->sortDirection,
             $prompt->markedRows(),
+            $prompt->editedRows(),
         );
         $table->columnOffset = $prompt->columnOffset;
         $table->scrollLocked = $prompt->isDragging();
@@ -214,6 +215,7 @@ class BrowserRenderer extends Renderer
                 'grid' => $this->paint(Theme::grid($this->painting), $t),
                 'cursor' => $this->highlight(Theme::cursor(), $t),
                 'marked' => $this->highlight(Theme::colour('deleted', 'red'), $t),
+                'edited' => $this->highlight(Theme::colour('edited', 'yellow'), $t),
                 'selection' => $this->highlight(Theme::selection(), $t),
                 default => $t,
             },

@@ -85,6 +85,14 @@ class Browser extends Prompt
      */
     public array $pendingDeletes = [];
 
+    /**
+     * Edits waiting on :w, as [primary key value => [column => value]]. Held
+     * rather than written so an edit is as undoable as a mark.
+     *
+     * @var array<string, array<string, mixed>>
+     */
+    public array $pendingEdits = [];
+
     public ?string $sortColumn = null;
 
     public string $sortDirection = 'asc';
@@ -689,24 +697,9 @@ class Browser extends Prompt
             return;
         }
 
-        $result = $this->runner->update(
-            $this->connection,
-            $this->currentTable(),
-            $column,
-            $key,
-            $row[$key] ?? null,
-            $value === '' ? null : $value,
-        );
+        $this->pendingEdits[(string) ($row[$key] ?? '')][$column] = $value === '' ? null : $value;
 
-        if ($result->failed()) {
-            $this->status = 'save failed: '.$result->error;
-
-            return;
-        }
-
-        $this->reload();
-
-        $this->status = "saved {$column} ({$result->affected} row".($result->affected === 1 ? '' : 's').')';
+        $this->status = $this->pendingStatus();
     }
 
     /**
@@ -768,23 +761,92 @@ class Browser extends Prompt
 
     private function unmarkAll(): bool
     {
-        if ($this->pendingDeletes === []) {
+        if ($this->pendingDeletes === [] && $this->pendingEdits === []) {
             return true;
         }
 
         $this->pendingDeletes = [];
-        $this->status = 'marks cleared';
+        $this->pendingEdits = [];
+        $this->status = 'pending changes dropped';
 
         return true;
     }
 
     private function pendingStatus(): string
     {
-        $count = count($this->pendingDeletes);
+        $deletes = count($this->pendingDeletes);
+        $edits = count($this->pendingEdits);
 
-        return $count === 0
-            ? 'marks cleared'
-            : $count.' row'.($count === 1 ? '' : 's').' marked for deletion · :w writes · u clears';
+        if ($deletes === 0 && $edits === 0) {
+            return 'nothing pending';
+        }
+
+        $parts = [];
+
+        if ($edits > 0) {
+            $parts[] = $edits.' row'.($edits === 1 ? '' : 's').' edited';
+        }
+
+        if ($deletes > 0) {
+            $parts[] = $deletes.' marked for deletion';
+        }
+
+        return implode(' · ', $parts).' · :w writes · u clears';
+    }
+
+    /**
+     * Row indexes with an unwritten edit, for the renderer.
+     *
+     * @return array<int, int>
+     */
+    public function editedRows(): array
+    {
+        $key = $this->keyColumn();
+
+        if ($key === null || $this->pendingEdits === []) {
+            return [];
+        }
+
+        $edited = [];
+
+        foreach ($this->raw as $index => $row) {
+            if (isset($this->pendingEdits[(string) ($row[$key] ?? '')])) {
+                $edited[] = $index;
+            }
+        }
+
+        return $edited;
+    }
+
+    /**
+     * The rows as they will look once written, so the grid shows what you
+     * typed rather than what is still on disk.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function rowsWithEdits(): array
+    {
+        $key = $this->keyColumn();
+
+        if ($key === null || $this->pendingEdits === []) {
+            return $this->rows;
+        }
+
+        $rows = $this->rows;
+
+        foreach ($this->raw as $index => $row) {
+            $edits = $this->pendingEdits[(string) ($row[$key] ?? '')] ?? null;
+
+            if ($edits === null) {
+                continue;
+            }
+
+            foreach ($edits as $column => $value) {
+                $rows[$index][$column] = $this->formatter->rows([[$column => $value]])[0][$column];
+            }
+        }
+
+        return $rows;
     }
 
     /**
@@ -813,7 +875,7 @@ class Browser extends Prompt
 
     public function writePending(): bool
     {
-        if ($this->pendingDeletes === []) {
+        if ($this->pendingDeletes === [] && $this->pendingEdits === []) {
             $this->status = 'nothing to write';
 
             return true;
@@ -826,22 +888,54 @@ class Browser extends Prompt
             return true;
         }
 
-        $count = count($this->pendingDeletes);
+        $edits = count($this->pendingEdits);
+        $deletes = count($this->pendingDeletes);
 
-        $result = $this->runner->delete($this->connection, $table, $key, $this->pendingDeletes);
+        foreach ($this->pendingEdits as $keyValue => $columns) {
+            foreach ($columns as $column => $value) {
+                $result = $this->runner->update(
+                    $this->connection,
+                    $table,
+                    $column,
+                    $key,
+                    $keyValue,
+                    $value,
+                );
 
-        if ($result->failed()) {
-            $this->status = $result->error;
+                if ($result->failed()) {
+                    $this->status = 'write failed: '.$result->error;
 
-            return true;
+                    return true;
+                }
+            }
+        }
+
+        if ($deletes > 0) {
+            $result = $this->runner->delete($this->connection, $table, $key, $this->pendingDeletes);
+
+            if ($result->failed()) {
+                $this->status = $result->error;
+
+                return true;
+            }
         }
 
         $this->pendingDeletes = [];
+        $this->pendingEdits = [];
 
-        $this->rowIndex = 0;
         $this->load(keepCursor: true);
 
-        $this->status = 'deleted '.$count.' row'.($count === 1 ? '' : 's');
+        $written = [];
+
+        if ($edits > 0) {
+            $written[] = $edits.' row'.($edits === 1 ? '' : 's').' updated';
+        }
+
+        if ($deletes > 0) {
+            $written[] = $deletes.' deleted';
+        }
+
+        $this->status = 'wrote '.implode(' · ', $written);
 
         return true;
     }
@@ -1145,12 +1239,13 @@ class Browser extends Prompt
 
     private function quit(string $exit = 'quit'): bool
     {
-        if ($this->pendingDeletes !== [] && $exit === 'quit') {
-            $count = count($this->pendingDeletes);
+        if (($this->pendingDeletes !== [] || $this->pendingEdits !== []) && $exit === 'quit') {
+            $count = count($this->pendingDeletes) + count($this->pendingEdits);
 
             $this->pendingDeletes = [];
-            $this->status = $count.' unwritten mark'.($count === 1 ? '' : 's').
-                ' dropped — :q again to quit, or u then :q';
+            $this->pendingEdits = [];
+            $this->status = $count.' unwritten change'.($count === 1 ? '' : 's').
+                ' dropped — :q again to quit';
 
             return true;
         }
@@ -1341,6 +1436,7 @@ class Browser extends Prompt
         // Marks name rows by primary key, so they mean nothing in another
         // table — and writing them there would delete the wrong rows.
         $this->pendingDeletes = [];
+        $this->pendingEdits = [];
 
         $this->sortColumn = null;
         $this->sortDirection = 'asc';

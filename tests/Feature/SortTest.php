@@ -411,7 +411,7 @@ it('marks a row for deletion without writing it', function () {
 
     expect($browser->pendingDeletes)->toHaveCount(1)
         ->and($browser->rows)->toHaveCount(3)
-        ->and($browser->status)->toContain('1 row marked for deletion');
+        ->and($browser->status)->toContain('1 marked for deletion');
 
     // Still in the database.
     expect(array_column($browser->raw, 'name'))->toHaveCount(3);
@@ -445,7 +445,7 @@ it('clears every mark with u', function () {
     $browser->emit('key', 'u');
 
     expect($browser->pendingDeletes)->toBe([])
-        ->and($browser->status)->toBe('marks cleared');
+        ->and($browser->status)->toBe('pending changes dropped');
 });
 
 it('writes the marked rows on :w', function () {
@@ -460,7 +460,7 @@ it('writes the marked rows on :w', function () {
     $browser->emit('key', "\n");
 
     expect($browser->pendingDeletes)->toBe([])
-        ->and($browser->status)->toContain('deleted 1 row')
+        ->and($browser->status)->toContain('1 deleted')
         ->and(array_column($browser->raw, 'name'))->not->toContain($gone)
         ->and($browser->raw)->toHaveCount(2);
 });
@@ -607,4 +607,84 @@ it('no longer puts a dash in the gutter', function () {
     $browser->emit('key', 'd');
 
     expect(rerender($browser))->not->toContain(' -');
+});
+
+it('holds an edit until :w and shows it in yellow', function () {
+    config(['tql.theme.edited' => 'yellow']);
+
+    $browser = sortable();
+
+    $browser->emit('key', 'e');
+    $browser->emit('key', "\x7f");
+    $browser->emit('key', 'X');
+    $browser->emit('key', "\x04");
+
+    expect($browser->pendingEdits)->toHaveCount(1)
+        ->and($browser->editedRows())->toBe([0])
+        ->and($browser->status)->toContain('1 row edited');
+
+    // The grid shows what you typed, not what is still on disk.
+    expect(rerender($browser))->toContain('X');
+
+    $edited = collect(explode("\n", rerenderRaw($browser)))
+        ->first(fn (string $line) => str_contains($line, "\e[33m\e[7m"));
+
+    expect($edited)->not->toBeNull();
+});
+
+it('writes a pending edit on :w', function () {
+    $browser = sortable();
+
+    $before = $browser->raw[0]['id'];
+
+    // Edit the name, not the primary key.
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+    $browser->emit('key', "\x7f");
+    $browser->emit('key', 'Z');
+    $browser->emit('key', "\x04");
+
+    $browser->emit('key', ':');
+    $browser->emit('key', 'w');
+    $browser->emit('key', "\n");
+
+    expect($browser->pendingEdits)->toBe([])
+        ->and($browser->status)->toContain('1 row updated');
+
+    $row = collect($browser->raw)->firstWhere('id', $before);
+
+    expect($row['name'])->toBe('cherrZ');
+});
+
+it('drops a pending edit with u', function () {
+    $browser = sortable();
+
+    $was = $browser->raw[0]['name'];
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+    $browser->emit('key', 'Q');
+    $browser->emit('key', "\x04");
+
+    expect($browser->pendingEdits)->toHaveCount(1);
+
+    $browser->emit('key', 'u');
+
+    expect($browser->pendingEdits)->toBe([])
+        ->and($browser->rowsWithEdits()[0]['name'])->toBe($was);
+});
+
+it('counts edits and deletions together', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+    $browser->emit('key', 'Q');
+    $browser->emit('key', "\x04");
+    $browser->emit('key', 'h');
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'd');
+
+    expect($browser->status)->toContain('1 row edited')
+        ->and($browser->status)->toContain('1 marked for deletion');
 });

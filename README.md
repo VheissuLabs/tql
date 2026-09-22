@@ -208,6 +208,26 @@ home, end, backspace, delete, paste), `ctrl+s` saves and `esc` cancels. Nothing
 is written until you save. The driver is cycled with `← →` and only offers
 drivers your PHP build actually has.
 
+## Pending changes
+
+Nothing you do to a row reaches the database until you ask for it.
+
+| key | what it does |
+| --- | --- |
+| `e` | edit the value; `ctrl+s` keeps the edit, pending |
+| `d` | mark the row for deletion, and move down |
+| `u` | drop every pending change |
+| `:w` | write them all |
+
+Edited rows are highlighted in `theme.edited` (yellow) and show the value you
+typed rather than what is still on disk. Rows marked for deletion are
+highlighted in `theme.deleted` (red). The status line counts both.
+
+Changes are keyed by primary key, so sorting, filtering or reloading keeps them
+on the rows you picked, and they are dropped when you change table — a mark
+means nothing in a table where that id is a different row. Quitting with
+unwritten changes drops them and says so; `:q` again leaves.
+
 ## Deleting
 
 `d` marks the row under the cursor and moves down, so a run of rows is `ddd`.

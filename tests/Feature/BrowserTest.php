@@ -122,6 +122,11 @@ it('edits a cell and writes it to the database', function () {
 
     $browser->emit('key', "\x04");
 
+    // An edit is pending until :w, the same as a deletion.
+    $browser->emit('key', ':');
+    $browser->emit('key', 'w');
+    $browser->emit('key', "\n");
+
     $rows = (new PDO('sqlite:'.$path))->query('select id, name from widgets order by id')->fetchAll(PDO::FETCH_ASSOC);
 
     expect($rows[1]['name'])->toBe('beta-edited')

@@ -18,6 +18,8 @@ return [
 
         'deleted' => 'red',
 
+        'edited' => 'yellow',
+
     ],
 
     /*

@@ -27,6 +27,7 @@ class TableIsland extends Island
         private ?string $sortColumn = null,
         private string $sortDirection = 'asc',
         private array $marked = [],
+        private array $edited = [],
     ) {}
 
     public function content(int $innerWidth, int $innerHeight): array
@@ -210,19 +211,22 @@ class TableIsland extends Island
 
             $padded = ' '.$this->style->pad($text, $width).' ';
 
-            $cells[] = $selected && $column === $this->columnIndex && ! $pending
+            $cells[] = $selected && $column === $this->columnIndex
+                && ! $pending && ! in_array($absolute, $this->edited, true)
                 ? $this->cursorCell($text, $width)
                 : $padded;
         }
 
-        // A marked row is drawn as one bar, so it is built without colour of
+        $changed = in_array($absolute, $this->edited, true);
+
+        // A pending row is drawn as one bar, so it is built without colour of
         // its own: an escape sequence inside the span would tear the
         // highlight at the first column separator.
-        if ($pending) {
+        if ($pending || $changed) {
             $marker = $selected && $style === 'marker' ? ' ▸' : '  ';
 
             return $this->style->colour(
-                'marked',
+                $pending ? 'marked' : 'edited',
                 $this->style->pad($marker.implode('│', $cells), $innerWidth),
             );
         }
