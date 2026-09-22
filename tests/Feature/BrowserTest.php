@@ -574,7 +574,7 @@ it('keeps the column border under the pointer while dragging', function () {
 
     $misses = 0;
 
-    foreach ([$handle + 8, $handle + 16, $handle - 6, $handle + 3] as $target) {
+    foreach ([$handle + 8, $handle + 16, $handle + 3, $handle + 30] as $target) {
         $browser->emit('key', "\e[<32;{$target};{$row}M");
         frameOf($browser);
 
@@ -587,4 +587,22 @@ it('keeps the column border under the pointer while dragging', function () {
     putenv('LINES');
 
     expect($misses)->toBe(0);
+});
+
+it('clamps a column to a minimum width instead of inverting it', function () {
+    config(['dotsql.ui.mouse_row_offset' => 0]);
+
+    $browser = browserFor(sqliteFixture());
+    frameOf($browser);
+
+    $row = $browser->table->y + 1;
+    $handle = $browser->columnHandles[1];
+
+    $browser->emit('key', "\e[<0;{$handle};{$row}M");
+    frameOf($browser);
+
+    $browser->emit('key', "\e[<32;1;{$row}M");
+    frameOf($browser);
+
+    expect($browser->widthOverrides['name'])->toBe(3);
 });

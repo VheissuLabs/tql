@@ -545,7 +545,7 @@ class Browser extends Prompt
             return;
         }
 
-        $width = max(3, min(200, $column - $start - 1));
+        $width = max(3, min(200, $column - $start - 2));
 
         $this->widthOverrides[$this->drag['column']] = $width;
 
