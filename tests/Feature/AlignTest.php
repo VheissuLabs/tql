@@ -439,7 +439,8 @@ it('draws an opaque backdrop behind a modal', function () {
     $lines = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser)));
 
     // Find the modal's own rows, then check the row just above its top border
-    // has been blanked where the modal sits rather than showing the panes.
+    // belongs to the backdrop — blank, or the ring drawn around it — rather
+    // than showing the panes through.
     $top = null;
 
     foreach ($lines as $index => $line) {
@@ -457,7 +458,10 @@ it('draws an opaque backdrop behind a modal', function () {
     putenv('COLUMNS');
     putenv('LINES');
 
-    expect(trim($above))->toBe('');
+    expect($above)->toMatch('/^[\s─┌┐└┘│]*$/u');
+
+    // And the ring keeps its distance from the modal on the sides.
+    expect(mb_substr($lines[$top + 1], $at - 2, 2))->toBe('  ');
 });
 
 it('repaints when a modal opens or closes', function () {

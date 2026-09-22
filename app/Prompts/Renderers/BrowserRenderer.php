@@ -100,7 +100,7 @@ class BrowserRenderer extends Renderer
 
             $bar->modal = true;
 
-            $screen->overlay($this->backdrop($bar, $width));
+            $screen->overlay($this->backdrop($bar, $width, $top, $frameHeight));
             $screen->overlay($bar);
 
             if ($prompt->filterForm->picker !== null) {
@@ -119,7 +119,7 @@ class BrowserRenderer extends Renderer
 
                 $list->modal = true;
 
-                $screen->overlay($this->backdrop($list, $width));
+                $screen->overlay($this->backdrop($list, $width, $top, $frameHeight));
                 $screen->overlay($list);
             }
         }
@@ -140,7 +140,7 @@ class BrowserRenderer extends Renderer
 
             $ask->modal = true;
 
-            $screen->overlay($this->backdrop($ask, $width));
+            $screen->overlay($this->backdrop($ask, $width, $top, $frameHeight));
             $screen->overlay($ask);
         }
 
@@ -159,7 +159,7 @@ class BrowserRenderer extends Renderer
                 $databasesHeight,
             );
 
-            $screen->overlay($this->backdrop($databases, $width));
+            $screen->overlay($this->backdrop($databases, $width, $top, $frameHeight));
             $screen->overlay($databases);
         }
 
@@ -273,7 +273,7 @@ class BrowserRenderer extends Renderer
 
             $structure->modal = true;
 
-            $screen->overlay($this->backdrop($structure, $width));
+            $screen->overlay($this->backdrop($structure, $width, $top, $frameHeight));
             $screen->overlay($structure);
 
             $prompt->structureHidden = $structure->hidden;
@@ -295,7 +295,7 @@ class BrowserRenderer extends Renderer
 
             $help->modal = true;
 
-            $screen->overlay($this->backdrop($help, $width));
+            $screen->overlay($this->backdrop($help, $width, $top, $frameHeight));
             $screen->overlay($help);
 
             $prompt->helpIsland = $help;
@@ -416,15 +416,21 @@ class BrowserRenderer extends Renderer
      * An opaque margin around a modal, so the panes do not show through at
      * its edges and it reads as something on top rather than part of the grid.
      */
-    private function backdrop(Island $island, int $width): BackdropIsland
+    private function backdrop(Island $island, int $width, int $top, int $frameHeight): BackdropIsland
     {
         $backdrop = new BackdropIsland;
 
+        // One column of air, then the ring: the modal's own border and the
+        // backdrop's must not end up touching. Kept inside the frame, since a
+        // ring with its bottom edge cut off reads as a mistake.
+        $first = max($top, $island->y - 2);
+        $last = min($top + $frameHeight - 1, $island->y + $island->height + 1);
+
         $backdrop->place(
-            max(1, $island->x - 2),
-            max(1, $island->y - 1),
-            min($width, $island->width + 4),
-            $island->height + 2,
+            max(1, $island->x - 3),
+            $first,
+            min($width, $island->width + 6),
+            max($island->height, $last - $first + 1),
         );
 
         return $backdrop;
@@ -578,6 +584,15 @@ class BrowserRenderer extends Renderer
 
     private function topBorder(Island $island, Styler $style, int $inner, array $joins): string
     {
+        $color = Theme::border($island->focused, $island->modal);
+
+        // No title, no gap to hold it: an unbroken line across the top.
+        if ($island->title === '') {
+            return $this->paint($color, '┌')
+                .$this->run($this->borderChars($inner, $joins, '┬'), '┬', $color)
+                .$this->paint($color, '┐');
+        }
+
         $label = ' '.$island->title.' ';
         $plain = $style->visible($label);
 
@@ -585,9 +600,7 @@ class BrowserRenderer extends Renderer
             ? $this->bold($this->paint(Theme::title(true, $island->modal), $label))
             : $this->paint(Theme::title(false, $island->modal), $label);
 
-        $edge = fn (string $text) => $this->paint(Theme::border($island->focused, $island->modal), $text);
-
-        $color = Theme::border($island->focused, $island->modal);
+        $edge = fn (string $text) => $this->paint($color, $text);
 
         $tail = array_slice(
             $this->borderChars($inner, $joins, '┬'),
