@@ -310,7 +310,12 @@ class Browser extends Prompt
     private function openQuery(): bool
     {
         $this->mode = 'query';
-        $this->status = 'ctrl+r runs the query · esc returns';
+
+        if ($this->editor->isEmpty() && $this->lastStatement !== null) {
+            $this->editor->set($this->lastStatement);
+        }
+
+        $this->status = 'ctrl+r runs it · esc returns · edit it and run it again';
 
         return true;
     }

@@ -1075,3 +1075,43 @@ it('gives the pane back to your own query when you start typing', function () {
 
     config(['dotsql.ui.sql_always' => false]);
 });
+
+it('hands you the current query to edit when you press s', function () {
+    $browser = browserFor(sqliteFixture());
+
+    expect($browser->lastStatement)->toContain('select * from');
+
+    $browser->emit('key', 's');
+
+    expect($browser->editor->buffer())->toBe($browser->lastStatement);
+});
+
+it('does not clobber a query you were already writing', function () {
+    $browser = browserFor(sqliteFixture());
+
+    $browser->emit('key', 's');
+
+    foreach (str_split(' extra') as $char) {
+        $browser->emit('key', $char);
+    }
+
+    $typed = $browser->editor->buffer();
+
+    $browser->emit('key', "\e");
+    $browser->emit('key', 's');
+
+    expect($browser->editor->buffer())->toBe($typed);
+});
+
+it('runs an edited query against the connection', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', 's');
+
+    $browser->editor->set("select name from widgets where name = 'beta'");
+    $browser->emit('key', QueryEditor::RUN);
+
+    expect($browser->resultsFromQuery)->toBeTrue()
+        ->and($browser->headers)->toBe(['name'])
+        ->and($browser->rows)->toHaveCount(1)
+        ->and($browser->rows[0]['name'])->toBe('beta');
+});

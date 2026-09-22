@@ -54,8 +54,9 @@ are looking at, and updates as you change table or page:
 └──────────────────────────────────────────────────┘
 ```
 
-Press `s` and the pane becomes yours to type in; clear it and the running query
-comes back.
+Press `s` and that statement is handed to you to edit — change the `limit`, add
+a `where`, press `ctrl+r`, and the grid shows your version. Clear the pane and
+the running query comes back.
 
 ## Running SQL
 
