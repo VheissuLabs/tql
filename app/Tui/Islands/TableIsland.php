@@ -187,6 +187,40 @@ class TableIsland extends Island
             $used += $cost;
         }
 
+        return $this->grow($widths, $available);
+    }
+
+    private function grow(array $widths, int $available): array
+    {
+        $leftover = $available - $this->total($widths);
+
+        if ($leftover <= 0 || $widths === []) {
+            return $widths;
+        }
+
+        foreach ($widths as $i => $width) {
+            $name = $this->headers[$this->columnOffset + $i] ?? null;
+
+            if ($name === null || isset($this->overrides[$name])) {
+                continue;
+            }
+
+            $wanted = $this->naturalWidth($name) - $width;
+
+            if ($wanted <= 0) {
+                continue;
+            }
+
+            $give = min($wanted, $leftover);
+
+            $widths[$i] += $give;
+            $leftover -= $give;
+
+            if ($leftover <= 0) {
+                break;
+            }
+        }
+
         return $widths;
     }
 

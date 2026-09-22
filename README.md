@@ -24,6 +24,7 @@ encryption key), both `0600`.
 | `↑ ↓` / `j k` | move the cursor |
 | `← →` / `h l` | move between columns |
 | `↵` | open a table, or edit the selected cell |
+| `i` | inspect the selected cell in full, wrapped |
 | `e` | edit the selected cell |
 | `< >` | narrow or widen the selected column |
 | `=` | reset the column width |
@@ -45,6 +46,13 @@ Press `s` (or `:sql`) for the SQL editor, which opens above the results.
 `ctrl+r` runs what you have typed, `esc` returns to browsing. Results replace
 the grid and are read-only, since they have no primary key to write back
 through — open a table to edit.
+
+## Reading long values
+
+Columns take the width they need when nothing competes for it, and leftover
+space is handed back to the visible columns. When a value is still too long,
+`i` opens it in full in its own pane, wrapped, with its length in the status
+line. `esc` closes it.
 
 ## Editing
 

@@ -4,6 +4,7 @@ namespace App\Prompts\Renderers;
 
 use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
+use App\Tui\Islands\CellIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\Island;
 use App\Tui\Islands\Screen;
@@ -55,6 +56,19 @@ class BrowserRenderer extends Renderer
             $tableHeight = $frameHeight - $editorHeight;
         }
 
+        if ($prompt->mode === 'inspect') {
+            $cell = new CellIsland($prompt->cellColumn(), $prompt->cellText(), $style);
+            $cell->focused = true;
+
+            $cellHeight = min(12, max(5, intdiv($frameHeight, 2)));
+            $cell->place($rightX, $top, $rightWidth, $cellHeight);
+
+            $screen->add($cell);
+
+            $tableY = $top + $cellHeight;
+            $tableHeight = $frameHeight - $cellHeight;
+        }
+
         $table = new TableIsland(
             $prompt->headers,
             $prompt->rows,
@@ -84,6 +98,7 @@ class BrowserRenderer extends Renderer
         $this->hotkey('tab', 'Pane');
         $this->hotkey('↑↓←→', 'Move');
         $this->hotkey('s', 'SQL');
+        $this->hotkey('i', 'Inspect');
         $this->hotkey('e', 'Edit');
         $this->hotkey('< >', 'Width');
         $this->hotkey('r', 'Reload');
@@ -138,6 +153,11 @@ class BrowserRenderer extends Renderer
             $column = $prompt->headers[$prompt->columnIndex] ?? '?';
 
             return ' '.$this->bold("editing {$column}").$this->dim('   ↵ save    esc cancel');
+        }
+
+        if ($prompt->mode === 'inspect') {
+            return ' '.$this->bold('inspecting '.$prompt->cellColumn()).
+                $this->dim('   '.mb_strlen($prompt->cellText()).' characters    esc closes');
         }
 
         $columns = count($prompt->headers);

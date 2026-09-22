@@ -142,6 +142,14 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->mode === 'inspect') {
+            if (in_array($key, [Key::ESCAPE, 'i', 'q'], true)) {
+                $this->mode = 'browse';
+            }
+
+            return;
+        }
+
         if ($this->mode === 'query') {
             $this->handleQueryKey($key);
 
@@ -172,6 +180,7 @@ class Browser extends Prompt
             $key === '>' => $this->resize(4),
             $key === '=' => $this->resetWidth(),
             $key === 's' => $this->openQuery(),
+            $key === 'i' => $this->toggleInspect(),
             $key === 'e' => $this->startEditing(),
             $key === Key::ENTER => $this->activate(),
             $key === 'n' => $this->page(self::PAGE),
@@ -228,6 +237,42 @@ class Browser extends Prompt
         }
 
         return min($width, 28);
+    }
+
+    private function toggleInspect(): bool
+    {
+        if ($this->mode === 'inspect') {
+            $this->mode = 'browse';
+
+            return true;
+        }
+
+        if ($this->focus !== 'grid' || $this->raw === []) {
+            return true;
+        }
+
+        $this->mode = 'inspect';
+
+        return true;
+    }
+
+    public function cellColumn(): string
+    {
+        return $this->headers[$this->columnIndex] ?? '';
+    }
+
+    public function cellText(): string
+    {
+        $row = $this->raw[$this->rowIndex] ?? null;
+        $column = $this->headers[$this->columnIndex] ?? null;
+
+        if ($row === null || $column === null) {
+            return '';
+        }
+
+        $value = $row[$column] ?? null;
+
+        return $value === null ? 'NULL' : (string) $value;
     }
 
     private function openQuery(): bool

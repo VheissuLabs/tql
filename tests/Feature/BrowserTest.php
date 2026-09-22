@@ -414,3 +414,48 @@ it('still truncates when columns compete for width', function () {
 
     expect(frameOf($browser))->toContain('…');
 });
+
+it('inspects the selected cell in full', function () {
+    $path = sys_get_temp_dir().'/dotsql-inspect-'.uniqid().'.sqlite';
+    touch($path);
+
+    $long = 'a very long value that will certainly be truncated in the grid because it keeps going';
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table notes (id integer primary key, body text)');
+    $pdo->exec("insert into notes (body) values ('{$long}')");
+
+    $connection = Connection::create([
+        'name' => 'inspect'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+    $browser->tableIndex = array_search('notes', $browser->tables, true);
+    frameOf($browser);
+    $browser->emit('key', "\n");
+    $browser->emit('key', 'l');
+
+    expect($browser->cellColumn())->toBe('body')
+        ->and($browser->cellText())->toBe($long);
+
+    $browser->emit('key', 'i');
+
+    expect($browser->mode)->toBe('inspect');
+
+    $frame = frameOf($browser);
+
+    expect($frame)->toContain('keeps going');
+
+    $browser->emit('key', "\e");
+
+    expect($browser->mode)->toBe('browse');
+});
+
+it('does not open the inspector from the sidebar', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->focus = 'sidebar';
+
+    $browser->emit('key', 'i');
+
+    expect($browser->mode)->toBe('browse');
+});
