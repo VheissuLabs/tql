@@ -29,6 +29,16 @@ class ConfigTemplate
                 'comment' => ['Colour of the title of the pane you are in'],
             ],
             [
+                'section' => 'theme',
+                'key' => 'grid',
+                'default' => '"dim"',
+                'comment' => [
+                    'Colour of the grid inside a table: the column separators',
+                    'and the rule under the header. Kept apart from the border',
+                    'so a bright focus colour does not bleed into the rows.',
+                ],
+            ],
+            [
                 'section' => 'ui',
                 'key' => 'sql_position',
                 'default' => '"top"',

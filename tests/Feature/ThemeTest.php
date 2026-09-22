@@ -18,7 +18,10 @@ function themed(): Browser
     $path = sys_get_temp_dir().'/dotsql-theme-'.uniqid().'.sqlite';
     touch($path);
 
-    (new PDO('sqlite:'.$path))->exec('create table t (id integer primary key)');
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table t (id integer primary key, name text, payload text)');
+    $pdo->exec('insert into t (name, payload) values (\'one\', \'{"a":1}\')');
+    $pdo->exec('insert into t (name, payload) values (\'two\', \'{"b":2}\')');
 
     $connection = Connection::create([
         'name' => 'theme'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
@@ -133,4 +136,49 @@ it('includes the sql pane in the cycle when it is always shown', function () {
     $browser->emit('key', "\t");
 
     expect($browser->mode)->toBe('query');
+});
+
+it('keeps the frame colour off the column ticks and the interior grid', function () {
+    config([
+        'dotsql.theme.focus_border' => 'blue',
+        'dotsql.theme.focus_title' => 'blue',
+        'dotsql.theme.grid' => 'gray',
+    ]);
+
+    $browser = themed();
+    $browser->emit('key', "\n");
+
+    $frame = frameFor($browser);
+
+    // Every column tick on a border row is grid-coloured, never frame-coloured.
+    foreach (explode("\n", $frame) as $line) {
+        foreach (['┬', '┴'] as $tick) {
+            if (! str_contains($line, $tick)) {
+                continue;
+            }
+
+            expect($line)->toContain("\e[90m".$tick);
+        }
+    }
+
+    // And the frame colour never immediately precedes a tick.
+    expect($frame)->not->toContain("\e[34m┬")
+        ->and($frame)->not->toContain("\e[34m┴")
+        ->and($frame)->not->toContain("\e[34m│ ");
+});
+
+it('paints the interior grid separately from the border', function () {
+    config(['dotsql.theme.grid' => 'red', 'dotsql.theme.focus_border' => 'blue']);
+
+    $browser = themed();
+    $browser->emit('key', "\n");
+
+    $frame = frameFor($browser);
+
+    expect($frame)->toContain("\e[31m│");
+
+    $rule = collect(explode("\n", $frame))->first(fn (string $line) => str_contains($line, '┼'));
+
+    expect($rule)->not->toBeNull()
+        ->and($rule)->toMatch('/\e\[31m[─┼]*┼/');
 });

@@ -170,7 +170,7 @@ class TableIsland extends Island
                 : $this->style->dim($text);
         }
 
-        return implode($this->style->dim('│'), $cells);
+        return implode($this->style->colour('grid', '│'), $cells);
     }
 
     private function rule(int $innerWidth): string
@@ -179,14 +179,14 @@ class TableIsland extends Island
 
         $body = str_repeat('─', self::GUTTER).implode('┼', $segments);
 
-        return $this->style->dim($body.str_repeat('─', max(0, $innerWidth - mb_strlen($body))));
+        return $this->style->colour('grid', $body.str_repeat('─', max(0, $innerWidth - mb_strlen($body))));
     }
 
     private function blankLine(): string
     {
         $cells = array_map(fn (int $w) => str_repeat(' ', $w + 2), $this->widths);
 
-        return implode($this->style->dim('│'), $cells);
+        return implode($this->style->colour('grid', '│'), $cells);
     }
 
     private function rowLine(array $row, int $absolute, int $innerWidth): string
@@ -213,7 +213,7 @@ class TableIsland extends Island
 
         $marker = $selected && $style === 'marker' ? ' ▸' : '  ';
 
-        $line = $marker.implode($this->style->dim('│'), $cells);
+        $line = $marker.implode($this->style->colour('grid', '│'), $cells);
 
         if (! $selected) {
             return $style === 'dim-others' ? $this->style->dim($line) : $line;

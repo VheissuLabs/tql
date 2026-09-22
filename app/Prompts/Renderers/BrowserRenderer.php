@@ -173,6 +173,7 @@ class BrowserRenderer extends Renderer
                 'literal' => $this->magenta($t),
                 'punctuation' => $this->dim($t),
                 'gutter' => $this->dim($t),
+                'grid' => $this->paint(Theme::grid(), $t),
                 default => $t,
             },
         );
@@ -196,7 +197,9 @@ class BrowserRenderer extends Renderer
             $lines[] = $edge($edges[0]).$style->pad($content[$i] ?? '', $inner).$edge($edges[1]);
         }
 
-        $lines[] = $edge('└'.$this->border($inner, $joins, '┴').'┘');
+        $colour = Theme::border($island->focused);
+
+        $lines[] = $edge('└').$this->border($inner, $joins, '┴', $colour).$edge('┘');
 
         return $lines;
     }
@@ -229,13 +232,25 @@ class BrowserRenderer extends Renderer
 
         $edge = fn (string $text) => $this->paint(Theme::border($island->focused), $text);
 
-        $rule = $this->border($inner, $joins, '┬');
-        $tail = mb_substr($rule, min($inner, $plain + 1));
+        $colour = Theme::border($island->focused);
 
-        return $edge('┌─').$label.$edge($tail.'┐');
+        $tail = array_slice(
+            $this->borderChars($inner, $joins, '┬'),
+            min($inner, $plain + 1),
+        );
+
+        return $edge('┌─').$label.$this->run($tail, '┬', $colour).$edge('┐');
     }
 
-    private function border(int $inner, array $joins, string $join): string
+    private function border(int $inner, array $joins, string $join, string $colour): string
+    {
+        return $this->run($this->borderChars($inner, $joins, $join), $join, $colour);
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private function borderChars(int $inner, array $joins, string $join): array
     {
         $chars = array_fill(0, max(0, $inner), '─');
 
@@ -245,7 +260,32 @@ class BrowserRenderer extends Renderer
             }
         }
 
-        return implode('', $chars);
+        return $chars;
+    }
+
+    /**
+     * Paint a border row so the column ticks carry the grid colour and the
+     * rule between them carries the frame colour, without a colour code on
+     * every single character.
+     */
+    private function run(array $chars, string $join, string $colour): string
+    {
+        $out = '';
+        $buffer = '';
+        $grid = Theme::grid();
+
+        foreach ($chars as $char) {
+            if ($char === $join) {
+                $out .= ($buffer === '' ? '' : $this->paint($colour, $buffer)).$this->paint($grid, $join);
+                $buffer = '';
+
+                continue;
+            }
+
+            $buffer .= $char;
+        }
+
+        return $out.($buffer === '' ? '' : $this->paint($colour, $buffer));
     }
 
     private function status(Browser $prompt): string

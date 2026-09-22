@@ -19,6 +19,11 @@ class Theme
         return $focused ? static::colour('focus_title') : static::colour('border');
     }
 
+    public static function grid(): string
+    {
+        return static::colour('grid');
+    }
+
     public static function colour(string $key): string
     {
         $value = (string) config('dotsql.theme.'.$key, 'dim');

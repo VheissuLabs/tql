@@ -10,6 +10,8 @@ return [
 
         'focus_title' => 'cyan',
 
+        'grid' => 'dim',
+
     ],
 
     'ui' => [
