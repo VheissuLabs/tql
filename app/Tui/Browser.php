@@ -27,9 +27,17 @@ class Browser extends Prompt
 
     public array $rows = [];
 
+    public array $raw = [];
+
     public int $rowIndex = 0;
 
+    public int $columnIndex = 0;
+
     public int $columnOffset = 0;
+
+    public int $visibleColumns = 1;
+
+    public array $widthOverrides = [];
 
     public int $offset = 0;
 
@@ -38,6 +46,8 @@ class Browser extends Prompt
     public ?string $status = null;
 
     public ?string $command = null;
+
+    public ?string $editing = null;
 
     public ?int $firstBodyRow = null;
 
@@ -94,10 +104,24 @@ class Browser extends Prompt
         return array_slice(array_values($row), $this->columnOffset, $count);
     }
 
+    public function editingCell(int $rowIndex, int $absoluteColumn): bool
+    {
+        return $this->editing !== null
+            && $this->focus === 'grid'
+            && $rowIndex === $this->rowIndex
+            && $absoluteColumn === $this->columnIndex;
+    }
+
     public function onKey(string $key): void
     {
         if ($event = Mouse::parse($key)) {
             $this->onMouse($event);
+
+            return;
+        }
+
+        if ($this->editing !== null) {
+            $this->handleEditKey($key);
 
             return;
         }
@@ -114,18 +138,177 @@ class Browser extends Prompt
             $key === Key::TAB => $this->toggleFocus(),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->moveUp(),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->moveDown(),
-            in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $this->scrollColumns(-1),
-            in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l'], true) => $this->scrollColumns(1),
+            in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $this->moveColumn(-1),
+            in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l'], true) => $this->moveColumn(1),
+            $key === '<' => $this->resize(-4),
+            $key === '>' => $this->resize(4),
+            $key === '=' => $this->resetWidth(),
+            $key === 'e' => $this->startEditing(),
             $key === Key::ENTER => $this->activate(),
             $key === 'n' => $this->page(self::PAGE),
             $key === 'p' => $this->page(-self::PAGE),
+            $key === 'r' => $this->reload(),
             default => true,
         };
     }
 
+    public function widthFor(string $column, int $automatic): int
+    {
+        return $this->widthOverrides[$column] ?? $automatic;
+    }
+
+    private function resize(int $by): bool
+    {
+        if ($this->focus !== 'grid' || $this->headers === []) {
+            return true;
+        }
+
+        $column = $this->headers[$this->columnIndex] ?? null;
+
+        if ($column === null) {
+            return true;
+        }
+
+        $current = $this->widthOverrides[$column] ?? $this->naturalWidth($column);
+
+        $this->widthOverrides[$column] = max(3, min(120, $current + $by));
+
+        $this->status = "{$column} width {$this->widthOverrides[$column]}";
+
+        return true;
+    }
+
+    private function resetWidth(): bool
+    {
+        $column = $this->headers[$this->columnIndex] ?? null;
+
+        if ($column !== null) {
+            unset($this->widthOverrides[$column]);
+            $this->status = "{$column} width reset";
+        }
+
+        return true;
+    }
+
+    private function naturalWidth(string $column): int
+    {
+        $width = mb_strlen($column);
+
+        foreach ($this->rows as $row) {
+            $width = max($width, mb_strlen((string) ($row[$column] ?? '')));
+        }
+
+        return min($width, 28);
+    }
+
+    private function startEditing(): bool
+    {
+        if ($this->focus !== 'grid') {
+            return true;
+        }
+
+        if ($this->connection->read_only) {
+            $this->status = 'this connection is marked read-only';
+
+            return true;
+        }
+
+        if ($this->raw === []) {
+            return true;
+        }
+
+        if ($this->keyColumn() === null) {
+            $this->status = 'cannot edit: '.$this->currentTable().' has no single-column primary key';
+
+            return true;
+        }
+
+        $value = $this->cellValue();
+
+        $this->editing = $value === null ? '' : (string) $value;
+
+        return true;
+    }
+
+    private function handleEditKey(string $key): void
+    {
+        if ($key === Key::ESCAPE) {
+            $this->editing = null;
+            $this->status = 'edit cancelled';
+
+            return;
+        }
+
+        if ($key === Key::ENTER) {
+            $this->commitEdit();
+
+            return;
+        }
+
+        if (in_array($key, [Key::BACKSPACE, Key::CTRL_H], true)) {
+            $this->editing = mb_substr($this->editing, 0, -1);
+
+            return;
+        }
+
+        if (mb_strlen($key) === 1 && ! ctype_cntrl($key)) {
+            $this->editing .= $key;
+        }
+    }
+
+    private function commitEdit(): void
+    {
+        $value = $this->editing;
+        $this->editing = null;
+
+        $key = $this->keyColumn();
+        $column = $this->headers[$this->columnIndex] ?? null;
+        $row = $this->raw[$this->rowIndex] ?? null;
+
+        if ($key === null || $column === null || $row === null) {
+            $this->status = 'nothing to save';
+
+            return;
+        }
+
+        $result = $this->runner->update(
+            $this->connection,
+            $this->currentTable(),
+            $column,
+            $key,
+            $row[$key] ?? null,
+            $value === '' ? null : $value,
+        );
+
+        if ($result->failed()) {
+            $this->status = 'save failed: '.$result->error;
+
+            return;
+        }
+
+        $this->reload();
+
+        $this->status = "saved {$column} ({$result->affected} row".($result->affected === 1 ? '' : 's').')';
+    }
+
+    private function keyColumn(): ?string
+    {
+        $table = $this->currentTable();
+
+        return $table === null ? null : $this->runner->primaryKey($this->connection, $table);
+    }
+
+    private function cellValue(): mixed
+    {
+        $row = $this->raw[$this->rowIndex] ?? null;
+        $column = $this->headers[$this->columnIndex] ?? null;
+
+        return $row === null || $column === null ? null : ($row[$column] ?? null);
+    }
+
     private function onMouse(array $event): void
     {
-        if (! $event['pressed']) {
+        if (! $event['pressed'] || $this->editing !== null) {
             return;
         }
 
@@ -234,6 +417,7 @@ class Browser extends Prompt
             'q', 'q!', 'quit' => $this->quit(),
             'tables' => $this->focusOn('sidebar'),
             'rows' => $this->focusOn('grid'),
+            'r', 'reload' => $this->reload(),
             default => $this->unknownCommand($command),
         };
     }
@@ -281,9 +465,21 @@ class Browser extends Prompt
         return true;
     }
 
-    private function scrollColumns(int $by): bool
+    private function moveColumn(int $by): bool
     {
-        $this->columnOffset = max(0, min(max(0, count($this->headers) - 1), $this->columnOffset + $by));
+        if ($this->headers === []) {
+            return true;
+        }
+
+        $this->columnIndex = max(0, min(count($this->headers) - 1, $this->columnIndex + $by));
+
+        if ($this->columnIndex < $this->columnOffset) {
+            $this->columnOffset = $this->columnIndex;
+        }
+
+        if ($this->columnIndex >= $this->columnOffset + $this->visibleColumns) {
+            $this->columnOffset = $this->columnIndex - $this->visibleColumns + 1;
+        }
 
         return true;
     }
@@ -294,9 +490,11 @@ class Browser extends Prompt
             $this->offset = 0;
             $this->load();
             $this->focus = 'grid';
+
+            return true;
         }
 
-        return true;
+        return $this->startEditing();
     }
 
     private function page(int $by): bool
@@ -309,6 +507,19 @@ class Browser extends Prompt
 
         $this->offset = $next;
         $this->load();
+
+        return true;
+    }
+
+    private function reload(): bool
+    {
+        $row = $this->rowIndex;
+        $column = $this->columnIndex;
+
+        $this->load();
+
+        $this->rowIndex = min($row, max(0, count($this->rows) - 1));
+        $this->columnIndex = min($column, max(0, count($this->headers) - 1));
 
         return true;
     }
@@ -327,13 +538,16 @@ class Browser extends Prompt
             $this->status = $result->error;
             $this->headers = [];
             $this->rows = [];
+            $this->raw = [];
 
             return;
         }
 
         $this->headers = $result->headers();
+        $this->raw = $result->rows;
         $this->rows = $this->formatter->rows($result->rows);
         $this->rowIndex = 0;
+        $this->columnIndex = 0;
         $this->columnOffset = 0;
         $this->status = "{$result->count()} rows · {$result->durationMs}ms";
     }

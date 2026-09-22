@@ -48,6 +48,9 @@ class BrowserRenderer extends Renderer
         $this->hotkey('↑↓', 'Move');
         $this->hotkey('←→', 'Columns');
         $this->hotkey('↵', 'Open');
+        $this->hotkey('e', 'Edit');
+        $this->hotkey('< >', 'Width');
+        $this->hotkey('r', 'Reload');
         $this->hotkey('n/p', 'Page');
         $this->hotkey(':q', 'Quit');
 
@@ -91,6 +94,12 @@ class BrowserRenderer extends Renderer
             return ' :'.$prompt->command.'█';
         }
 
+        if ($prompt->editing !== null) {
+            $column = $prompt->headers[$prompt->columnIndex] ?? '?';
+
+            return ' '.$this->bold("editing {$column}").$this->dim('  ↵ save    esc cancel');
+        }
+
         $columns = count($prompt->headers);
         $position = $columns === 0 ? '' : ' · col '.($prompt->columnOffset + 1)."/{$columns}";
 
@@ -125,10 +134,16 @@ class BrowserRenderer extends Renderer
         $widths = $this->columnWidths($prompt, $width);
         $visible = count($widths);
 
+        $prompt->visibleColumns = $visible;
+
         $header = [];
 
         foreach ($prompt->visibleHeaders($visible) as $i => $name) {
-            $header[] = $this->pad($this->truncate($name, $widths[$i]), $widths[$i]);
+            $label = $this->pad($this->truncate($name, $widths[$i]), $widths[$i]);
+
+            $header[] = ($prompt->columnOffset + $i) === $prompt->columnIndex && $prompt->focus === 'grid'
+                ? $this->underline($label)
+                : $label;
         }
 
         $headerLine = implode('  ', $header);
@@ -146,18 +161,37 @@ class BrowserRenderer extends Renderer
         foreach (array_slice($prompt->rows, $start, $room) as $index => $row) {
             $cells = [];
 
+            $selected = ($start + $index) === $prompt->rowIndex && $prompt->focus === 'grid';
+
             foreach ($prompt->visibleRow($row, $visible) as $i => $cell) {
-                $cells[] = $this->pad($this->truncate((string) $cell, $widths[$i]), $widths[$i]);
+                $absolute = $prompt->columnOffset + $i;
+
+                if ($prompt->editingCell($start + $index, $absolute)) {
+                    $cells[] = $this->pad($this->editBuffer($prompt->editing, $widths[$i]), $widths[$i]);
+
+                    continue;
+                }
+
+                $text = $this->pad($this->truncate((string) $cell, $widths[$i]), $widths[$i]);
+
+                $cells[] = $selected && $absolute === $prompt->columnIndex
+                    ? $this->underline($text)
+                    : $text;
             }
 
             $text = implode('  ', $cells);
 
-            $lines[] = ($start + $index) === $prompt->rowIndex && $prompt->focus === 'grid'
-                ? $this->inverse($this->pad($text, $width))
-                : $text;
+            $lines[] = $selected ? $this->inverse($this->pad($text, $width)) : $text;
         }
 
         return $lines;
+    }
+
+    private function editBuffer(string $buffer, int $width): string
+    {
+        $text = $buffer.'█';
+
+        return mb_strlen($text) > $width ? mb_substr($text, -$width) : $text;
     }
 
     private function windowStart(int $cursor, int $total, int $room): int
@@ -182,7 +216,11 @@ class BrowserRenderer extends Renderer
                 $width = max($width, mb_strlen((string) ($values[$prompt->columnOffset + $index] ?? '')));
             }
 
-            $width = min($width, 28);
+            $width = $prompt->widthFor($name, min($width, 28));
+
+            if ($prompt->editing !== null && ($prompt->columnOffset + $index) === $prompt->columnIndex) {
+                $width = max($width, min(24, $available - 2));
+            }
 
             if ($used + $width + 2 > $available && $widths !== []) {
                 break;
