@@ -173,19 +173,20 @@ class Browser extends Prompt
 
         $this->editor = new QueryEditor;
 
-        $this->tables = $this->runner->tables($this->connection);
+        // A server connection with no database named opens on the list of
+        // them: asking the server for tables first would answer with every
+        // table in every schema on it, which is nobody's idea of a table list.
+        $undecided = $connection->driver !== 'sqlite'
+            && trim((string) $connection->activeDatabase()) === '';
+
+        $this->tables = $undecided ? [] : $this->runner->tables($this->connection);
 
         $this->createAltScreen();
 
-        if ($this->tables !== []) {
-            $this->load();
-        }
-
-        // A server connection with no database named opens on the list of
-        // them, since there is nothing else it could usefully show.
-        if ($this->tables === [] && $connection->driver !== 'sqlite'
-            && trim((string) $connection->activeDatabase()) === '') {
+        if ($undecided) {
             $this->openDatabases();
+        } elseif ($this->tables !== []) {
+            $this->load();
         }
 
         if ($error = config('tql.config_error')) {

@@ -15,8 +15,22 @@ class QueryRunner
     {
         return array_map(
             fn ($table) => is_array($table) ? $table['name'] : $table->name,
-            $this->connections->resolve($connection)->getSchemaBuilder()->getTables()
+            $this->connections->resolve($connection)->getSchemaBuilder()->getTables($this->schema($connection))
         );
+    }
+
+    /**
+     * MySQL asks for tables across every schema on the server unless it is
+     * told which one, so the database is the schema there. Postgres and SQL
+     * Server already answer within the database they are connected to.
+     */
+    private function schema(Connection $connection): ?string
+    {
+        if (! in_array($connection->driver, ['mysql', 'mariadb'], true)) {
+            return null;
+        }
+
+        return trim((string) $connection->activeDatabase()) ?: null;
     }
 
     public function columns(Connection $connection, string $table): array
