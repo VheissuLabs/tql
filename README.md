@@ -6,6 +6,17 @@ The same engine drives two faces: a full-screen terminal interface for you, and 
 MCP server for an AI agent. Both call the same `QueryRunner`, and every statement
 either of them runs is recorded in one shared history.
 
+## A database to try it on
+
+The sample database used in development is [Chinook](https://github.com/lerocha/chinook-database),
+which is not committed — a database file changes every time you edit a row, and
+a repository that reports itself modified after every demo is no use.
+
+```bash
+curl -L -o chinook.db https://github.com/lerocha/chinook-database/raw/master/ChinookDatabase/DataSources/Chinook_Sqlite.sqlite
+tql chinook.db
+```
+
 ## Running it
 
 ```bash
