@@ -919,18 +919,31 @@ it('refuses to save invalid json', function () {
         ->and($browser->status)->toContain('not valid json');
 });
 
-it('shows a cursor in the value editor', function () {
+it('shows a cursor in the value editor without shifting the text', function () {
     $browser = jsonBrowser();
     $browser->emit('key', 'l');
     $browser->emit('key', 'e');
 
-    $frame = frameOf($browser);
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
 
-    expect($frame)->toContain('▏');
+    expect($method->invoke($browser))->toContain("\e[7m");
 
-    $before = mb_strpos($frame, '▏');
+    $indent = function (string $frame, int $line) {
+        $rows = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $frame));
+        $row = $rows[$line] ?? '';
+
+        return mb_strpos($row, '"');
+    };
+
+    $before = frameOf($browser);
 
     $browser->emit('key', "\x1b[B");
+    $browser->emit('key', "\x1b[B");
 
-    expect(mb_strpos(frameOf($browser), '▏'))->not->toBe($before);
+    $after = frameOf($browser);
+
+    foreach ([3, 4, 5] as $line) {
+        expect($indent($after, $line))->toBe($indent($before, $line));
+    }
 });

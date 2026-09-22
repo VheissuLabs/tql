@@ -32,41 +32,40 @@ class ValueEditorIsland extends Island
         foreach (array_slice($lines, $start, $innerHeight, true) as $number => $line) {
             $label = $this->style->colour('gutter', str_pad((string) ($number + 1), $gutter, ' ', STR_PAD_LEFT));
 
-            $body = $number === $cursorLine
-                ? mb_substr($line, 0, $cursorColumn).'▏'.mb_substr($line, $cursorColumn)
-                : $line;
-
-            $out[] = ' '.$label.' '.$this->render($body, $room);
+            $out[] = ' '.$label.' '.$this->render(
+                $line,
+                $room,
+                $number === $cursorLine ? $cursorColumn : null,
+            );
         }
 
         return $out;
     }
 
-    private function render(string $line, int $width): string
+    private function render(string $line, int $width, ?int $cursor): string
     {
-        if (! $this->json) {
-            return mb_substr($line, 0, $width);
-        }
+        $tokens = $this->json ? Json::tokenise($line) : [['plain', $line]];
 
         $rendered = '';
         $used = 0;
 
-        foreach (Json::tokenise($line) as [$type, $text]) {
-            $length = mb_strlen($text);
+        foreach ($tokens as [$type, $text]) {
+            foreach (preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $char) {
+                if ($used >= $width) {
+                    return $rendered;
+                }
 
-            if ($used + $length > $width) {
-                $text = mb_substr($text, 0, max(0, $width - $used));
-                $length = mb_strlen($text);
+                $painted = $type === 'plain' ? $char : $this->style->colour($type, $char);
+
+                $rendered .= $used === $cursor ? $this->style->inverse($char) : $painted;
+                $used++;
             }
-
-            if ($length === 0) {
-                continue;
-            }
-
-            $rendered .= $type === 'plain' ? $text : $this->style->colour($type, $text);
-            $used += $length;
         }
 
-        return $rendered === '' ? mb_substr($line, 0, $width) : $rendered;
+        if ($cursor !== null && $cursor >= $used && $used < $width) {
+            $rendered .= $this->style->inverse(' ');
+        }
+
+        return $rendered;
     }
 }
