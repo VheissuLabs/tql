@@ -495,3 +495,51 @@ function captureAligned(): BufferedConsoleOutput
 
     return $output;
 }
+
+it('rings the row inspector, and leaves it plain when the config says so', function () {
+    putenv('COLUMNS=140');
+    putenv('LINES=40');
+
+    $render = function (bool $ring): array {
+        config(['tql.ui.modal_ring' => $ring]);
+
+        $browser = aligned();
+
+        widths($browser);
+        $browser->emit('key', "\n");
+        $browser->emit('key', 'i');
+
+        $method = new ReflectionMethod($browser, 'renderTheme');
+        $method->setAccessible(true);
+
+        return explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser)));
+    };
+
+    // Look just outside the modal's own top-left corner, where a ring would be.
+    $corner = function (array $lines, int $rows): string {
+        foreach ($lines as $index => $line) {
+            if (str_contains($line, 'RECORD')) {
+                $at = mb_strpos($lines[$index], '┌');
+
+                return mb_substr($lines[$index - $rows] ?? '', $at - 3, 4);
+            }
+        }
+
+        return '';
+    };
+
+    $ringed = $render(true);
+    $plain = $render(false);
+
+    // The ring sits two rows above the box: its corner, then a blank row.
+    expect($corner($ringed, 2))->toStartWith('┌')
+        ->and($corner($ringed, 1))->toBe('│   ')
+        // Without it the backdrop is padding, and nothing shows through.
+        ->and($corner($plain, 1))->toBe('    ')
+        ->and($corner($plain, 2))->toBe('    ');
+
+    config(['tql.ui.modal_ring' => true]);
+
+    putenv('COLUMNS');
+    putenv('LINES');
+});

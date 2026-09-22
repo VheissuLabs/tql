@@ -227,15 +227,9 @@ class BrowserRenderer extends Renderer
 
             // An opaque backdrop first, with a margin, so the panes do not
             // show through the gap between the boxes.
-            $backdrop = new BackdropIsland;
-            $backdrop->place(
-                max(1, $x - 2),
-                max($top, $y - 1),
-                min($width, $boxWidth + 4),
-                $total + 2,
+            $screen->overlay(
+                $this->backdropAround($x, $y, $boxWidth, $total, $width, $top, $frameHeight),
             );
-
-            $screen->overlay($backdrop);
 
             foreach ($boxes as [$box, $height]) {
                 $box->modal = true;
@@ -418,24 +412,44 @@ class BrowserRenderer extends Renderer
      */
     private function backdrop(Island $island, int $width, int $top, int $frameHeight): BackdropIsland
     {
+        return $this->backdropAround(
+            $island->x, $island->y, $island->width, $island->height, $width, $top, $frameHeight,
+        );
+    }
+
+    /**
+     * The opaque area behind a modal, around a rectangle rather than around an
+     * island: the row inspector is two boxes under one backdrop.
+     *
+     * One column of air, then the ring, so the modal's own border and the
+     * backdrop's do not end up touching. Kept inside the frame, since a ring
+     * with its bottom edge cut off reads as a mistake. Without the ring the
+     * backdrop is the padding alone.
+     */
+    private function backdropAround(
+        int $x,
+        int $y,
+        int $boxWidth,
+        int $boxHeight,
+        int $width,
+        int $top,
+        int $frameHeight,
+    ): BackdropIsland {
         $ring = Layout::modalRing();
 
         $backdrop = new BackdropIsland($ring);
 
-        // One column of air, then the ring: the modal's own border and the
-        // backdrop's must not end up touching. Kept inside the frame, since a
-        // ring with its bottom edge cut off reads as a mistake. Without the
-        // ring the backdrop is the padding alone.
         $pad = $ring ? 3 : 2;
+        $margin = $ring ? 2 : 1;
 
-        $first = max($top, $island->y - ($ring ? 2 : 1));
-        $last = min($top + $frameHeight - 1, $island->y + $island->height - 1 + ($ring ? 2 : 1));
+        $first = max($top, $y - $margin);
+        $last = min($top + $frameHeight - 1, $y + $boxHeight - 1 + $margin);
 
         $backdrop->place(
-            max(1, $island->x - $pad),
+            max(1, $x - $pad),
             $first,
-            min($width, $island->width + ($pad * 2)),
-            max($island->height, $last - $first + 1),
+            min($width, $boxWidth + ($pad * 2)),
+            max($boxHeight, $last - $first + 1),
         );
 
         return $backdrop;
