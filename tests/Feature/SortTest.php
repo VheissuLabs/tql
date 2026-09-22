@@ -508,3 +508,70 @@ it('drops unwritten marks before quitting rather than losing them silently', fun
 
     expect($browser->state)->toBe('submit');
 });
+
+it('marks several rows in a row', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+    $browser->emit('key', 'd');
+    $browser->emit('key', 'd');
+
+    expect($browser->pendingDeletes)->toHaveCount(3)
+        ->and($browser->markedRows())->toBe([0, 1, 2]);
+});
+
+it('marks rows apart from each other', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'd');
+
+    expect($browser->pendingDeletes)->toHaveCount(2)
+        ->and($browser->markedRows())->toBe([0, 2]);
+});
+
+it('marks the last row without unmarking it', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'j');
+
+    expect($browser->rowIndex)->toBe(2);
+
+    $browser->emit('key', 'd');
+
+    expect($browser->pendingDeletes)->toHaveCount(1);
+
+    // Nowhere left to advance to, so a second d toggles the same row off.
+    $browser->emit('key', 'd');
+
+    expect($browser->pendingDeletes)->toBe([]);
+});
+
+it('marks the row you are looking at, not the table under the sidebar cursor', function () {
+    $browser = sortable();
+
+    $browser->focus = 'sidebar';
+    $table = $browser->currentTable();
+
+    $browser->emit('key', 'd');
+
+    expect($browser->focus)->toBe('grid')
+        ->and($browser->currentTable())->toBe($table)
+        ->and($browser->pendingDeletes)->toHaveCount(1);
+});
+
+it('forgets marks when you change table', function () {
+    $browser = sortable();
+
+    $browser->emit('key', 'd');
+
+    expect($browser->pendingDeletes)->toHaveCount(1);
+
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+
+    expect($browser->pendingDeletes)->toBe([])
+        ->and($browser->currentTable())->toBe('veg');
+});

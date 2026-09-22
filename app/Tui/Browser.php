@@ -706,6 +706,10 @@ class Browser extends Prompt
             return true;
         }
 
+        if ($this->focus !== 'grid') {
+            $this->focus = 'grid';
+        }
+
         $value = $this->raw[$this->rowIndex][$key] ?? null;
 
         if ($value === null) {
@@ -721,7 +725,9 @@ class Browser extends Prompt
             $this->pendingDeletes = array_values($this->pendingDeletes);
         }
 
-        $this->moveDown();
+        // Advance the grid cursor directly. moveDown() moves whichever pane
+        // has focus, which on the sidebar would change table instead.
+        $this->rowIndex = min(count($this->rows) - 1, $this->rowIndex + 1);
 
         $this->status = $this->pendingStatus();
 
@@ -1236,6 +1242,11 @@ class Browser extends Prompt
 
         $this->tableIndex = $index;
         $this->offset = 0;
+
+        // Marks name rows by primary key, so they mean nothing in another
+        // table — and writing them there would delete the wrong rows.
+        $this->pendingDeletes = [];
+
         $this->sortColumn = null;
         $this->sortDirection = 'asc';
         $this->load();
