@@ -97,6 +97,16 @@ trait RendersSmoothly
         }
     }
 
+    /**
+     * Clear the frame's own rows, in place.
+     *
+     * Not \e[H: that is the top of the screen, and the frame does not always
+     * start there — inside a multiplexer pane the row above belongs to
+     * something else, and homing the cursor walks the whole app up into it.
+     * Going up by the taller of the two frames from where the cursor already
+     * is clears the stale row a growing frame would otherwise leave behind,
+     * without moving the app.
+     */
     private function clearIfAsked(): void
     {
         if (! $this->repaint) {
@@ -105,9 +115,12 @@ trait RendersSmoothly
 
         $this->repaint = false;
 
-        // Home, then erase down: the same shape of redraw Prompts does, but
-        // from the top rather than from a line count that may be stale.
-        static::output()->write("\e[H\e[J");
+        $previous = $this->prevFrame === '' ? 1 : count(explode(PHP_EOL, $this->prevFrame));
+        $next = count(explode(PHP_EOL, $this->renderTheme()));
+
+        $this->moveCursorToColumn(1);
+        $this->moveCursorUp(min($this->terminal()->lines(), max($previous, $next)) - 1);
+        $this->eraseDown();
 
         $this->prevFrame = '';
     }

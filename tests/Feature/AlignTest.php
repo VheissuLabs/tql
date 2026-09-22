@@ -246,8 +246,9 @@ it('repaints the whole screen when the terminal is resized', function () {
     putenv('COLUMNS');
     putenv('LINES');
 
-    // Home then erase down, inside the synchronized block so it is not seen.
-    expect($written)->toContain("\e[?2026h\e[H\e[J");
+    // Back to the top of the frame, then erase down, inside the synchronized
+    // block so it is not seen.
+    expect($written)->toMatch('/\e\[\?2026h\e\[1G\e\[\d+A\e\[J/');
 });
 
 it('redraws on ctrl+l', function () {
@@ -263,7 +264,7 @@ it('redraws on ctrl+l', function () {
     $browser->emit('key', "\x0c");
     $render->invoke($browser);
 
-    expect($output->fetch())->toContain("\e[H\e[J")
+    expect($output->fetch())->toMatch('/\e\[1G\e\[\d+A\e\[J/')
         ->and($browser->status)->toBe('redrawn');
 });
 
@@ -478,7 +479,12 @@ it('repaints when a modal opens or closes', function () {
     $browser->emit('key', '?');
     $render->invoke($browser);
 
-    expect($output->fetch())->toContain("\e[H\e[J");
+    $written = $output->fetch();
+
+    expect($written)->toMatch('/\e\[1G\e\[\d+A\e\[J/')
+        // Never home the cursor: in a multiplexer pane the screen's top row is
+        // not the frame's, and the whole app walks up into it.
+        ->and($written)->not->toContain("\e[H");
 });
 
 function captureAligned(): BufferedConsoleOutput
