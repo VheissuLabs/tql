@@ -31,6 +31,7 @@ class HelpIsland extends Island
             'moving' => [
                 'tab' => 'cycle panes: tables, rows, and SQL when shown',
                 'shift+tab' => 'cycle panes the other way',
+                'ctrl+l' => 'redraw the screen when something else has messed it up',
                 '↑ ↓ / j k' => 'move the cursor',
                 '← → / h l' => 'move between columns',
                 'n / p' => 'next or previous page',

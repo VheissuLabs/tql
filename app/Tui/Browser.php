@@ -182,6 +182,15 @@ class Browser extends Prompt
             return;
         }
 
+        // ctrl+l, the usual way out of a terminal that has been left dirty by
+        // a resize, a notification, or anything else writing over the frame.
+        if ($key === "\x0c") {
+            $this->repaint();
+            $this->status = 'redrawn';
+
+            return;
+        }
+
         if ($this->mode === 'help') {
             if (in_array($key, [Key::ESCAPE, '?', 'q'], true)) {
                 $this->mode = 'browse';

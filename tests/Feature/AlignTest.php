@@ -5,6 +5,8 @@ use App\Models\Connection;
 use App\Tui\Browser;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
+use Laravel\Prompts\Output\BufferedConsoleOutput;
+use Laravel\Prompts\Prompt;
 
 beforeEach(function () {
     Artisan::call('migrate', ['--force' => true]);
@@ -17,15 +19,31 @@ function aligned(): Browser
     touch($path);
 
     $pdo = new PDO('sqlite:'.$path);
-    $pdo->exec('create table events (id integer primary key, name text, payload text)');
-    $pdo->exec("insert into events (name, payload) values ('user.signed_up', '{\"a\":1}')");
-    $pdo->exec("insert into events (name, payload) values ('order.placed', '{\"b\":2}')");
+    $pdo->exec('create table events (id integer primary key, name text, payload text, created_at text)');
+
+    foreach ([
+        ['user.signed_up', '{"user":{"id":42,"email":"karl@notarydash.com","plan":"pro"}}'],
+        ['order.placed', '{"order":{"id":"ord_8812","total":149.99,"currency":"usd"}}'],
+        ['webhook.failed', '{"endpoint":"https://example.com/hooks/notarydash","status":500}'],
+    ] as [$name, $payload]) {
+        $pdo->prepare('insert into events (name, payload, created_at) values (?, ?, ?)')
+            ->execute([$name, $payload, '2026-09-22T15:11:32+00:00']);
+    }
 
     $connection = Connection::create([
         'name' => 'align'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
     ]);
 
     return new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+}
+
+function captureOutput(): BufferedConsoleOutput
+{
+    $output = new BufferedConsoleOutput;
+
+    Prompt::setOutput($output);
+
+    return $output;
 }
 
 function widths(Browser $browser): array
@@ -116,4 +134,135 @@ it('pads the cursor block by a column either side', function () {
     expect($cell)->toStartWith(' ')
         ->and($cell)->toEndWith(' ')
         ->and(trim($cell))->toBe('1');
+});
+
+it('never renders taller than the terminal with the sql pane on', function (int $lines, bool $query) {
+    config(['dotsql.ui.sql_always' => true]);
+    putenv('COLUMNS=200');
+    putenv("LINES={$lines}");
+
+    $browser = aligned();
+
+    widths($browser);
+    $browser->emit('key', "\n");
+
+    if ($query) {
+        $browser->emit('key', 's');
+    }
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    $rows = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser)));
+
+    putenv('COLUMNS');
+    putenv('LINES');
+    config(['dotsql.ui.sql_always' => false]);
+
+    expect(count($rows))->toBeLessThanOrEqual($lines);
+})->with([[24, false], [30, false], [33, false], [40, false], [24, true], [33, true], [60, true]]);
+
+it('never renders wider than the terminal at any width', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $over = [];
+
+    foreach (range(120, 220, 2) as $cols) {
+        putenv("COLUMNS={$cols}");
+        putenv('LINES=40');
+
+        $browser = aligned();
+
+        $method = new ReflectionMethod($browser, 'renderTheme');
+        $method->setAccessible(true);
+        $method->invoke($browser);
+        $browser->emit('key', "\n");
+
+        foreach (['browse', 'query'] as $state) {
+            if ($state === 'query') {
+                $browser->emit('key', 's');
+            }
+
+            foreach (explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser))) as $line) {
+                if (mb_strlen($line) > $cols) {
+                    $over[] = $cols.' '.$state.': '.mb_strlen($line).' > '.$cols.' :: '.trim($line);
+                }
+            }
+        }
+    }
+
+    putenv('COLUMNS');
+    putenv('LINES');
+    config(['dotsql.ui.sql_always' => false]);
+
+    expect($over)->toBe([]);
+});
+
+it('does not change height when the sql pane takes focus', function (int $lines) {
+    config(['dotsql.ui.sql_always' => true, 'dotsql.ui.sql_position' => 'bottom', 'dotsql.ui.sql_height' => 0]);
+    putenv('COLUMNS=135');
+    putenv("LINES={$lines}");
+
+    $browser = aligned();
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+    $method->invoke($browser);
+    $browser->emit('key', "\n");
+
+    $before = substr_count($method->invoke($browser), "\n");
+
+    $browser->emit('key', 's');
+
+    $after = substr_count($method->invoke($browser), "\n");
+
+    putenv('COLUMNS');
+    putenv('LINES');
+    config(['dotsql.ui.sql_always' => false, 'dotsql.ui.sql_position' => 'top', 'dotsql.ui.sql_height' => 0]);
+
+    expect($after)->toBe($before);
+})->with([20, 24, 30, 33, 36, 40, 50]);
+
+it('repaints the whole screen when the terminal is resized', function () {
+    putenv('COLUMNS=120');
+    putenv('LINES=30');
+
+    $browser = aligned();
+    $output = captureOutput();
+
+    $render = new ReflectionMethod($browser, 'render');
+    $render->setAccessible(true);
+    $render->invoke($browser);
+
+    $output->fetch();
+
+    putenv('COLUMNS=160');
+    putenv('LINES=40');
+
+    $render->invoke($browser);
+
+    $written = $output->fetch();
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    // The clear-and-home that stops the old frame's top row being orphaned.
+    expect($written)->toContain("\e[2J\e[H");
+});
+
+it('redraws on ctrl+l', function () {
+    $browser = aligned();
+    $output = captureOutput();
+
+    $render = new ReflectionMethod($browser, 'render');
+    $render->setAccessible(true);
+    $render->invoke($browser);
+
+    $output->fetch();
+
+    $browser->emit('key', "\x0c");
+    $render->invoke($browser);
+
+    expect($output->fetch())->toContain("\e[2J\e[H")
+        ->and($browser->status)->toBe('redrawn');
 });
