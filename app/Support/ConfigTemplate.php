@@ -190,6 +190,12 @@ class ConfigTemplate
             ],
             [
                 'section' => 'ui',
+                'key' => 'double_click_ms',
+                'default' => '400',
+                'comment' => ['How close two clicks must be to open the editor'],
+            ],
+            [
+                'section' => 'ui',
                 'key' => 'mouse_row_offset',
                 'default' => '0',
                 'comment' => [

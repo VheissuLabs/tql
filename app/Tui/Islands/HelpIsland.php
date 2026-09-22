@@ -98,6 +98,7 @@ class HelpIsland extends Island
             ],
             'mouse' => [
                 'click' => 'select a table, row or cell',
+                'double click' => 'edit the cell',
                 'header' => 'sort by that column',
                 'drag' => 'a header border resizes the column',
                 'wheel' => 'scroll the focused pane',

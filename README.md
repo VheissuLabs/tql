@@ -277,6 +277,7 @@ Nothing you do to a row reaches the database until you ask for it.
 | key | what it does |
 | --- | --- |
 | `e` | edit the value; `ctrl+s` keeps the edit, pending |
+| double click | the same, with the mouse |
 | `d` | mark the row for deletion, and move down |
 | `u` | drop every pending change |
 | `:w` | write them all |

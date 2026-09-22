@@ -1,7 +1,57 @@
 <?php
 
+use App\Database\QueryRunner;
+use App\Models\Connection;
+use App\Tui\Browser;
 use App\Tui\Layout;
 use App\Tui\Mouse;
+use App\Tui\RowFormatter;
+use Illuminate\Support\Facades\Artisan;
+
+function clickable(): Browser
+{
+    Artisan::call('migrate', ['--force' => true]);
+    config(['tql.ui.mouse_row_offset' => 0, 'tql.ui.sql_always' => false]);
+
+    $path = sys_get_temp_dir().'/tql-click-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table widgets (id integer primary key, name text)');
+
+    foreach (['alpha', 'beta', 'gamma'] as $name) {
+        $pdo->prepare('insert into widgets (name) values (?)')->execute([$name]);
+    }
+
+    $connection = Connection::create([
+        'name' => 'click'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+    $render->invoke($browser);
+
+    $browser->emit('key', "\n");
+    $render->invoke($browser);
+
+    return $browser;
+}
+
+/**
+ * A click on the cell at the given row and column of the grid.
+ */
+function cellAt(Browser $browser, int $row, int $column): string
+{
+    $table = $browser->table;
+
+    // Two rows of chrome: the header and the rule under it.
+    $y = $table->y + 1 + 2 + $row;
+    $x = ($table->cellStart($column) ?? $table->x) + 2;
+
+    return sprintf("\e[<0;%d;%dM", $x, $y);
+}
 
 it('parses a button press', function () {
     expect(Mouse::parse("\e[<0;10;4M"))->toMatchArray([
@@ -63,4 +113,59 @@ it('returns null for rows above the body', function () {
 it('shifts the body row with the frame padding', function () {
     expect(Layout::firstBodyRow(2) - Layout::firstBodyRow(0))->toBe(2)
         ->and(Layout::firstBodyRow(0))->toBe(Layout::TOP_BORDER_ROWS + 1);
+});
+
+it('opens the editor on a double click', function () {
+    $browser = clickable();
+
+    $cell = cellAt($browser, 1, 1);
+
+    $browser->emit('key', $cell);
+
+    expect($browser->mode)->toBe('browse')
+        ->and($browser->rowIndex)->toBe(1);
+
+    $browser->emit('key', $cell);
+
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->cellEditor)->not->toBeNull();
+});
+
+it('does not open the editor on two slow clicks', function () {
+    config(['tql.ui.double_click_ms' => 0]);
+
+    $browser = clickable();
+    $cell = cellAt($browser, 1, 1);
+
+    $browser->emit('key', $cell);
+    $browser->emit('key', $cell);
+
+    expect($browser->mode)->toBe('browse');
+
+    config(['tql.ui.double_click_ms' => 400]);
+});
+
+it('does not open the editor on two clicks in different cells', function () {
+    $browser = clickable();
+
+    $browser->emit('key', cellAt($browser, 1, 1));
+    $browser->emit('key', cellAt($browser, 2, 1));
+
+    expect($browser->mode)->toBe('browse')
+        ->and($browser->rowIndex)->toBe(2);
+});
+
+it('treats three clicks as one double click, not two', function () {
+    $browser = clickable();
+    $cell = cellAt($browser, 1, 1);
+
+    $browser->emit('key', $cell);
+    $browser->emit('key', $cell);
+
+    expect($browser->mode)->toBe('edit');
+
+    $browser->emit('key', "\e");
+    $browser->emit('key', $cell);
+
+    expect($browser->mode)->toBe('browse');
 });

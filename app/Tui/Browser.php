@@ -44,6 +44,9 @@ class Browser extends Prompt
 
     public ?string $asking = null;
 
+    /** @var array{row: int, column: int, at: float}|null */
+    private ?array $lastClick = null;
+
     public bool $filtering = false;
 
     public array $headers = [];
@@ -1173,6 +1176,35 @@ class Browser extends Prompt
         if ($columnIndex !== null) {
             $this->columnIndex = $columnIndex;
         }
+
+        if ($this->isDoubleClick($rowIndex, $this->columnIndex)) {
+            return $this->startEditing();
+        }
+
+        return true;
+    }
+
+    /**
+     * A second click on the same cell, soon enough. Terminals report two plain
+     * presses rather than a double-click event, so the timing is ours to keep.
+     */
+    private function isDoubleClick(int $row, int $column): bool
+    {
+        $now = microtime(true);
+        $last = $this->lastClick;
+
+        $this->lastClick = ['row' => $row, 'column' => $column, 'at' => $now];
+
+        if ($last === null || $last['row'] !== $row || $last['column'] !== $column) {
+            return false;
+        }
+
+        if (($now - $last['at']) * 1000 > Layout::doubleClickMs()) {
+            return false;
+        }
+
+        // Clear it, so three clicks are not two double clicks.
+        $this->lastClick = null;
 
         return true;
     }

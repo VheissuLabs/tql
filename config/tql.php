@@ -89,6 +89,8 @@ return [
 
         'sidebar_width' => 24,
 
+        'double_click_ms' => env('TQL_DOUBLE_CLICK_MS', 400),
+
         'mouse_row_offset' => env('TQL_MOUSE_ROW_OFFSET', 0),
 
         'mouse_column_offset' => env('TQL_MOUSE_COLUMN_OFFSET', 0),

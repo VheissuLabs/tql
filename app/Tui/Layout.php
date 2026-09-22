@@ -37,6 +37,11 @@ class Layout
         return (string) config('tql.ui.row_style', 'marker');
     }
 
+    public static function doubleClickMs(): int
+    {
+        return (int) config('tql.ui.double_click_ms', 400);
+    }
+
     public static function mouseRowOffset(): int
     {
         return (int) config('tql.ui.mouse_row_offset', 0);
