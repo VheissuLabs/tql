@@ -4,9 +4,22 @@ use App\Tui\Layout;
 use App\Tui\Mouse;
 
 it('parses a button press', function () {
-    expect(Mouse::parse("\e[<0;10;4M"))->toBe([
+    expect(Mouse::parse("\e[<0;10;4M"))->toMatchArray([
         'button' => 0, 'column' => 10, 'row' => 4, 'pressed' => true,
     ]);
+});
+
+it('applies the configured coordinate offset', function () {
+    config(['dotsql.ui.mouse_row_offset' => 1]);
+
+    $event = Mouse::parse("\e[<0;10;4M");
+
+    expect($event['row'])->toBe(3)
+        ->and($event['raw_row'])->toBe(4);
+
+    config(['dotsql.ui.mouse_row_offset' => 0]);
+
+    expect(Mouse::parse("\e[<0;10;4M")['row'])->toBe(4);
 });
 
 it('parses a release as not pressed', function () {

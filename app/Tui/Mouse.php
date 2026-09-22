@@ -22,8 +22,10 @@ class Mouse
 
         return [
             'button' => (int) $matches[1],
-            'column' => (int) $matches[2],
-            'row' => (int) $matches[3],
+            'column' => (int) $matches[2] - Layout::mouseColumnOffset(),
+            'row' => (int) $matches[3] - Layout::mouseRowOffset(),
+            'raw_column' => (int) $matches[2],
+            'raw_row' => (int) $matches[3],
             'pressed' => $matches[4] === 'M',
         ];
     }

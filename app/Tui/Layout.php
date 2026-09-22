@@ -11,6 +11,16 @@ class Layout
         return max(0, (int) config('dotsql.ui.top_margin', 1));
     }
 
+    public static function mouseRowOffset(): int
+    {
+        return (int) config('dotsql.ui.mouse_row_offset', 0);
+    }
+
+    public static function mouseColumnOffset(): int
+    {
+        return (int) config('dotsql.ui.mouse_column_offset', 0);
+    }
+
     public static function sidebarWidth(): int
     {
         return max(8, (int) config('dotsql.ui.sidebar_width', self::SIDEBAR));

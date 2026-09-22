@@ -153,8 +153,8 @@ class BrowserRenderer extends Renderer
             $m = $prompt->lastMouse;
 
             return ' '.$this->bold('mouse').$this->dim(sprintf(
-                '  row=%d col=%d  hit=%s  SELECTED=%s  (was %s)  rowIndex=%s',
-                $m['row'], $m['column'],
+                '  raw row=%d → row=%d (offset %d)  col=%d  hit=%s  SELECTED=%s  (was %s)  rowIndex=%s',
+                $m['raw_row'] ?? $m['row'], $m['row'], Layout::mouseRowOffset(), $m['column'],
                 $m['sidebar'] ? 'sidebar' : ($m['table'] ? 'table' : 'nothing'),
                 $m['selected'] ?? '?', $m['before'] ?? '?', $m['rowIndex'] ?? '?'
             ));

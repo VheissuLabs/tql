@@ -108,6 +108,13 @@ connections.
 | --- | --- | --- |
 | `ui.top_margin` | 1 | blank rows above the frame |
 | `ui.sidebar_width` | 24 | width of the tables pane |
+| `ui.mouse_row_offset` | 0 | rows to subtract from reported mouse coordinates |
+| `ui.mouse_column_offset` | 0 | columns to subtract from reported mouse coordinates |
+
+Set `mouse_row_offset` to `1` when running inside a multiplexer whose own chrome
+(a tab bar, for instance) occupies rows above the pane and whose mouse
+coordinates are not translated. `:mouse` inside the app shows the raw and
+adjusted coordinates side by side so the right value is obvious.
 
 ## Islands
 
