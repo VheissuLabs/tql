@@ -51,52 +51,45 @@ class EditorIsland extends Island
         $inverse = fn (string $t) => $this->style?->colour('cursor', $t) ?? $t;
         $paint = fn (string $type, string $t) => $this->style?->colour($type, $t) ?? $t;
 
+        $chars = $this->characters($line);
+
+        // Scroll the line so the caret is always on screen. Without this a
+        // statement that exactly fills the pane pushes its own cursor off
+        // the right edge and it disappears.
+        $shift = $cursor === null ? 0 : max(0, $cursor - $width + 1);
+
         $rendered = '';
         $used = 0;
 
-        $tokens = Sql::tokenise($line);
+        foreach (array_slice($chars, $shift, $width) as $index => [$type, $char]) {
+            $rendered .= $shift + $index === $cursor
+                ? $inverse($char)
+                : ($type === 'plain' ? $char : $paint($type, $char));
 
-        foreach ($tokens as [$type, $text]) {
-            $length = mb_strlen($text);
-
-            $containsCursor = $cursor !== null && $cursor >= $used && $cursor < $used + $length;
-
-            if (! $containsCursor) {
-                $room = $width - $used;
-
-                if ($room <= 0) {
-                    return $rendered;
-                }
-
-                if ($length > $room) {
-                    $text = mb_substr($text, 0, $room);
-                    $length = $room;
-                }
-
-                $rendered .= $type === 'plain' ? $text : $paint($type, $text);
-                $used += $length;
-
-                continue;
-            }
-
-            foreach (preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $char) {
-                if ($used >= $width) {
-                    return $rendered;
-                }
-
-                $rendered .= $used === $cursor
-                    ? $inverse($char)
-                    : ($type === 'plain' ? $char : $paint($type, $char));
-
-                $used++;
-            }
+            $used++;
         }
 
-        if ($cursor !== null && $cursor >= $used && $used < $width) {
+        if ($cursor !== null && $cursor >= $shift + $used && $used < $width) {
             $rendered .= $inverse(' ');
         }
 
         return $rendered;
+    }
+
+    /**
+     * @return array<int, array{0: string, 1: string}>
+     */
+    private function characters(string $line): array
+    {
+        $chars = [];
+
+        foreach (Sql::tokenise($line) as [$type, $text]) {
+            foreach (preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [] as $char) {
+                $chars[] = [$type, $char];
+            }
+        }
+
+        return $chars;
     }
 
     private function showRunning(int $innerWidth, int $innerHeight): array

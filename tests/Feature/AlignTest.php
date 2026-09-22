@@ -78,3 +78,42 @@ it('runs the selection to the full inner width of its pane', function () {
 
     expect(mb_strlen($match[1]))->toBe($browser->sidebar->innerWidth());
 });
+
+it('keeps the editor caret visible on a line that fills the pane', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = aligned();
+
+    widths($browser);
+    $browser->emit('key', "\n");
+    $browser->emit('key', 's');
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    $browser->editor->set(str_repeat('a', 400));
+    $browser->editor->toEnd();
+
+    expect($method->invoke($browser))->toContain("\e[7m");
+
+    config(['dotsql.ui.sql_always' => false]);
+});
+
+it('pads the cursor block by a column either side', function () {
+    $browser = aligned();
+
+    widths($browser);
+    $browser->emit('key', "\n");
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    preg_match_all('/\e\[7m(.*?)\e\[27m/', $method->invoke($browser), $matches);
+
+    // The first is the selected table in the sidebar; the cell cursor is next.
+    $cell = $matches[1][1];
+
+    expect($cell)->toStartWith(' ')
+        ->and($cell)->toEndWith(' ')
+        ->and(trim($cell))->toBe('1');
+});

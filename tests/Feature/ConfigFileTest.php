@@ -136,3 +136,36 @@ it('covers every shipped default', function () {
         }
     }
 });
+
+it('reads settings written above the first section header', function () {
+    $hoisted = ConfigFile::hoist([
+        'mouse_row_offset' => 1,
+        'sidebar_width' => 40,
+        'ui' => ['sql_position' => 'bottom'],
+    ]);
+
+    expect($hoisted)->toBe([
+        'ui' => [
+            'sql_position' => 'bottom',
+            'sidebar_width' => 40,
+            'mouse_row_offset' => 1,
+        ],
+    ]);
+});
+
+it('prefers the sectioned value when a key appears in both places', function () {
+    $moved = [];
+
+    $hoisted = ConfigFile::hoist([
+        'mouse_row_offset' => 1,
+        'ui' => ['mouse_row_offset' => 3],
+    ], $moved);
+
+    expect($hoisted['ui']['mouse_row_offset'])->toBe(3)
+        ->and($hoisted)->not->toHaveKey('mouse_row_offset')
+        ->and($moved)->toBe([]);
+});
+
+it('leaves a key it does not recognise where it is', function () {
+    expect(ConfigFile::hoist(['something_else' => 1]))->toBe(['something_else' => 1]);
+});

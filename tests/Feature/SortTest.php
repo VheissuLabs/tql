@@ -50,10 +50,10 @@ function rerender(Browser $browser): string
     return preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser));
 }
 
-it('sorts ascending then descending then clears', function () {
+it('sorts ascending then descending then back to the primary key', function () {
     $browser = sortable();
 
-    expect($browser->sortColumn)->toBeNull();
+    expect($browser->sortColumn)->toBe('id');
 
     $browser->sortBy('name');
 
@@ -68,7 +68,7 @@ it('sorts ascending then descending then clears', function () {
 
     $browser->sortBy('name');
 
-    expect($browser->sortColumn)->toBeNull()
+    expect($browser->sortColumn)->toBe('id')
         ->and(array_column($browser->rows, 'name'))->toBe(['cherry', 'apple', 'banana']);
 });
 
@@ -98,13 +98,14 @@ it('puts the order by into the query it shows', function () {
 
     $browser->sortBy('qty');
 
-    expect($browser->lastStatement)->not->toContain('order by');
+    expect($browser->lastStatement)->toContain('order by')
+        ->and($browser->lastStatement)->toContain('"id" asc');
 });
 
 it('marks the sorted column in the header', function () {
     $browser = sortable();
 
-    expect(rerender($browser))->not->toContain('▲');
+    expect(rerender($browser))->toContain('id ▲');
 
     $browser->sortBy('name');
 
@@ -150,14 +151,14 @@ it('goes back to the first page when the sort changes', function () {
     expect($browser->offset)->toBe(0);
 });
 
-it('forgets the sort when you change table', function () {
+it('goes back to the primary key when you change table', function () {
     $browser = sortable();
     $browser->sortBy('name');
 
     $browser->focus = 'sidebar';
     $browser->emit('key', 'j');
 
-    expect($browser->sortColumn)->toBeNull();
+    expect($browser->sortColumn)->toBe('id');
 });
 
 it('sorts query results by rewriting the statement it shows', function () {
@@ -209,7 +210,7 @@ it('says so rather than mangling a query it cannot sort', function () {
 
     $browser->sortBy('name');
 
-    expect($browser->sortColumn)->toBeNull()
+    expect($browser->sortColumn)->toBe('id')
         ->and($browser->editor->buffer())->toBe('select name from fruit union select name from veg')
         ->and($browser->status)->toContain('too complex to sort');
 });
@@ -247,4 +248,29 @@ it('focuses the sql pane from a click on its border', function () {
     $browser->emit('key', sprintf("\e[<0;%d;%dM", $island->x, $island->y));
 
     expect($browser->mode)->toBe('query');
+});
+
+it('sorts by the primary key before you touch anything', function () {
+    $browser = sortable();
+
+    expect($browser->sortColumn)->toBe('id')
+        ->and($browser->sortDirection)->toBe('asc')
+        ->and($browser->lastStatement)->toContain('order by "id" asc')
+        ->and(rerender($browser))->toContain('id ▲');
+});
+
+it('leaves the sort alone on a table with no primary key', function () {
+    $browser = sortable();
+
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+
+    expect($browser->sortColumn)->toBe('id');
+});
+
+it('keeps the sort marker rather than truncating it away', function () {
+    $browser = sortable();
+
+    expect(rerender($browser))->toContain('id ▲')
+        ->and(rerender($browser))->not->toContain('id…');
 });

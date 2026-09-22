@@ -61,7 +61,14 @@ class AppServiceProvider extends ServiceProvider
             return;
         }
 
-        config(['dotsql' => array_replace_recursive(config('dotsql', []), $user)]);
+        $moved = [];
+
+        config(['dotsql' => array_replace_recursive(config('dotsql', []), ConfigFile::hoist($user, $moved))]);
+
+        if ($moved !== []) {
+            config(['dotsql.config_notice' => 'read '.implode(', ', $moved).
+                ' from the top of config.toml — move them under their [section] to keep them working']);
+        }
     }
 
     private function readUserConfig(): array

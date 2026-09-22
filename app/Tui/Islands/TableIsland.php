@@ -145,7 +145,9 @@ class TableIsland extends Island
 
     public function naturalWidth(string $column): int
     {
-        $width = mb_strlen($column);
+        // The sort marker lives in the header, so the column has to be wide
+        // enough to hold it or it is the first thing truncation eats.
+        $width = mb_strlen($column) + ($column === $this->sortColumn ? 2 : 0);
 
         foreach ($this->rows as $row) {
             $width = max($width, mb_strlen((string) ($row[$column] ?? '')));
@@ -207,7 +209,7 @@ class TableIsland extends Island
             $padded = ' '.$this->style->pad($text, $width).' ';
 
             $cells[] = $selected && $column === $this->columnIndex
-                ? $this->style->colour('cursor', $padded)
+                ? $this->cursorCell($text, $width)
                 : $padded;
         }
 
@@ -229,6 +231,20 @@ class TableIsland extends Island
             'bold' => $this->style->bold($line),
             default => $line,
         };
+    }
+
+    /**
+     * Highlight the value, not the column. Padding the block out to the full
+     * width makes the cursor look far bigger than the thing it is on.
+     */
+    private function cursorCell(string $text, int $width): string
+    {
+        $visible = max(1, $this->style->visible($text));
+
+        // A column of padding either side, so the block frames the value
+        // rather than sitting tight against it.
+        return $this->style->colour('cursor', ' '.($text === '' ? ' ' : $text).' ')
+            .str_repeat(' ', max(0, $width - $visible));
     }
 
     private function editBuffer(string $buffer, int $width): string

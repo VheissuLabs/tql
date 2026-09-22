@@ -123,6 +123,17 @@ class ConfigTemplate
         ];
     }
 
+    public static function sectionFor(string $key): ?string
+    {
+        foreach (static::settings() as $setting) {
+            if ($setting['key'] === $key) {
+                return $setting['section'];
+            }
+        }
+
+        return null;
+    }
+
     public static function sections(): array
     {
         return array_values(array_unique(array_column(static::settings(), 'section')));

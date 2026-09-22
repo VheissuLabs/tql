@@ -641,6 +641,15 @@ class Browser extends Prompt
         $this->status = "saved {$column} ({$result->affected} row".($result->affected === 1 ? '' : 's').')';
     }
 
+    /**
+     * Rows already arrive in primary key order, so say so: the header gets its
+     * marker and the SQL pane shows the order by that is really running.
+     */
+    private function defaultSort(): ?string
+    {
+        return $this->keyColumn();
+    }
+
     private function keyColumn(): ?string
     {
         $table = $this->currentTable();
@@ -894,7 +903,7 @@ class Browser extends Prompt
             if ($this->sortDirection === 'asc') {
                 $this->sortDirection = 'desc';
             } else {
-                $this->sortColumn = null;
+                $this->sortColumn = $this->defaultSort();
                 $this->sortDirection = 'asc';
             }
         } else {
@@ -1144,6 +1153,8 @@ class Browser extends Prompt
         if ($table === null) {
             return;
         }
+
+        $this->sortColumn ??= $this->defaultSort();
 
         $result = $this->runner->rows(
             $this->connection,
