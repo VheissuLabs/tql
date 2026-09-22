@@ -253,3 +253,43 @@ it('does not ask where when --sql says so', function () {
     unlink($out);
     unlink($path);
 });
+
+it('will not export from a server without a database', function () {
+    Connection::query()->delete();
+
+    Connection::create([
+        'name' => 'server', 'driver' => 'mysql', 'host' => '127.0.0.1',
+        'port' => 3306, 'database' => '', 'username' => 'root',
+    ]);
+
+    // It says so before trying to connect, so a scripted run fails fast.
+    $this->artisan('export', ['connection' => 'server', '--no-interaction' => true])
+        ->expectsOutputToContain('is a server, not a database')
+        ->assertExitCode(1);
+});
+
+it('takes the database off the command line', function () {
+    Connection::query()->delete();
+
+    $connection = Connection::create([
+        'name' => 'server', 'driver' => 'mysql', 'host' => '127.0.0.1',
+        'port' => 1, 'database' => '', 'username' => 'root',
+    ]);
+
+    // Unreachable, so it gets as far as the handshake and no further — but the
+    // database it would have used is settled by then.
+    $this->artisan('export', ['connection' => 'server', '--database' => 'shop', '--no-interaction' => true])
+        ->assertExitCode(1);
+
+    expect($connection->fresh()->database)->toBe('');
+});
+
+it('has no database to choose on sqlite', function () {
+    [$connection, $path] = exportFixture();
+
+    $this->artisan('export', ['connection' => $connection->name, '--database' => 'nope', '--no-interaction' => true])
+        ->expectsOutputToContain('one file')
+        ->assertExitCode(1);
+
+    unlink($path);
+});

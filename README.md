@@ -445,7 +445,12 @@ tql export                           # asks which connection, then which table
 tql export prod orders --limit=1000 --sql=./orders.sql
 tql export prod --sql=./prod.sql     # every table, one file
 tql export prod --list               # what tables are there
+tql export prod --database=shop      # pick the database on a server connection
 ```
+
+A connection that names a server rather than a database asks which one first,
+or takes `--database=`; without either it stops and says so rather than
+exporting every schema on the box.
 
 Name a connection and it goes straight through; name nothing and it asks three
 questions — which connection (most recently used first), which table (the whole

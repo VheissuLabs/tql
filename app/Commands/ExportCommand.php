@@ -20,6 +20,7 @@ class ExportCommand extends Command
         {connection? : The tql connection name, asked for when left out}
         {table? : The table to export, or every table when omitted}
         {--sql= : Where to write the file, a path or a directory}
+        {--database= : Which database on the server, for a connection that names none}
         {--limit= : Export at most this many rows per table}
         {--list : List the tables in the connection and stop}';
 
@@ -74,9 +75,21 @@ class ExportCommand extends Command
             return self::FAILURE;
         }
 
+        // Asked before connecting, so a scripted run is told what it is
+        // missing without waiting on a handshake first.
+        $ask = $this->namedDatabase($connection);
+
+        if ($ask === null) {
+            return self::FAILURE;
+        }
+
         if ($failure = $this->connections->test($connection)) {
             $this->error($failure);
 
+            return self::FAILURE;
+        }
+
+        if ($ask && ! $this->askDatabase($connection)) {
             return self::FAILURE;
         }
 
@@ -194,6 +207,68 @@ class ExportCommand extends Command
      *
      * @param  string[]  $available
      */
+    /**
+     * Settle the database before connecting, as far as that can be done.
+     *
+     * Returns whether the server still has to be asked for its list, or null
+     * when there is nothing to be done about it here.
+     */
+    private function namedDatabase(Connection $connection): ?bool
+    {
+        $named = $this->option('database');
+
+        if ($connection->driver === 'sqlite') {
+            if ($named !== null) {
+                $this->error('A sqlite connection is one file; --database means nothing to it.');
+
+                return null;
+            }
+
+            return false;
+        }
+
+        if ($named !== null) {
+            $connection->sessionDatabase = $named;
+
+            return false;
+        }
+
+        if (trim((string) $connection->activeDatabase()) !== '') {
+            return false;
+        }
+
+        if (! $this->input->isInteractive()) {
+            $this->error("[{$connection->name}] is a server, not a database.");
+            $this->line('  name one with <fg=green>--database=</>.');
+
+            return null;
+        }
+
+        return true;
+    }
+
+    /**
+     * Which database on the server, once it is there to be asked.
+     */
+    private function askDatabase(Connection $connection): bool
+    {
+        $databases = $this->runner->databases($connection);
+
+        if ($databases === []) {
+            $this->error('That server offered no databases.');
+
+            return false;
+        }
+
+        $connection->sessionDatabase = select(
+            label: 'Which database?',
+            options: array_combine($databases, $databases),
+            scroll: 15,
+        );
+
+        return true;
+    }
+
     /**
      * Where to write it, offering the auto-named file as the answer.
      *
