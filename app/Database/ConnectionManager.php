@@ -1,0 +1,56 @@
+<?php
+
+namespace App\Database;
+
+use App\Models\Connection;
+use Illuminate\Database\Connection as IlluminateConnection;
+use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\DB;
+use PDO;
+use RuntimeException;
+
+class ConnectionManager
+{
+    public function available(string $driver): bool
+    {
+        return in_array($driver, PDO::getAvailableDrivers(), true);
+    }
+
+    public function drivers(): array
+    {
+        return PDO::getAvailableDrivers();
+    }
+
+    public function resolve(Connection $connection): IlluminateConnection
+    {
+        if (! $this->available($connection->driver)) {
+            throw new RuntimeException(
+                "The [{$connection->driver}] PDO driver is not available in this PHP build."
+            );
+        }
+
+        $handle = 'dotsql_target_'.$connection->id;
+
+        Config::set("database.connections.{$handle}", $connection->toLaravelConfig());
+
+        DB::purge($handle);
+
+        return DB::connection($handle);
+    }
+
+    public function test(Connection $connection): ?string
+    {
+        try {
+            $this->resolve($connection)->getPdo();
+
+            return null;
+        } catch (\Throwable $e) {
+            return $e->getMessage();
+        }
+    }
+
+    public function touch(Connection $connection): void
+    {
+        $connection->forceFill(['last_used_at' => now()])->save();
+    }
+}
