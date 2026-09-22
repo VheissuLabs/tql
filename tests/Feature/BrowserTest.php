@@ -5,6 +5,7 @@ use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Support\Paths;
 use App\Tui\Browser;
+use App\Tui\QueryEditor;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
 
@@ -154,8 +155,9 @@ it('refuses to edit a table with no single-column primary key', function () {
 
     $browser->emit('key', 'e');
 
-    expect($browser->mode)->toBe('browse')
-        ->and($browser->status)->toContain('no single-column primary key');
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->editable)->toBeFalse()
+        ->and($browser->readOnlyReason)->toContain('no single-column primary key');
 });
 
 it('refuses to edit a read-only connection', function () {
@@ -167,8 +169,9 @@ it('refuses to edit a read-only connection', function () {
 
     $browser->emit('key', 'e');
 
-    expect($browser->mode)->toBe('browse')
-        ->and($browser->status)->toContain('read-only');
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->editable)->toBeFalse()
+        ->and($browser->readOnlyReason)->toContain('read-only');
 });
 
 function frameOf(Browser $browser): string
@@ -418,42 +421,6 @@ it('still truncates when columns compete for width', function () {
     expect(frameOf($browser))->toContain('…');
 });
 
-it('inspects the selected cell in full', function () {
-    $path = sys_get_temp_dir().'/dotsql-inspect-'.uniqid().'.sqlite';
-    touch($path);
-
-    $long = 'a very long value that will certainly be truncated in the grid because it keeps going';
-
-    $pdo = new PDO('sqlite:'.$path);
-    $pdo->exec('create table notes (id integer primary key, body text)');
-    $pdo->exec("insert into notes (body) values ('{$long}')");
-
-    $connection = Connection::create([
-        'name' => 'inspect'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
-    ]);
-
-    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
-    $browser->tableIndex = array_search('notes', $browser->tables, true);
-    frameOf($browser);
-    $browser->emit('key', "\n");
-    $browser->emit('key', 'l');
-
-    expect($browser->cellColumn())->toBe('body')
-        ->and($browser->cellText())->toBe($long);
-
-    $browser->emit('key', 'i');
-
-    expect($browser->mode)->toBe('inspect');
-
-    $frame = frameOf($browser);
-
-    expect($frame)->toContain('keeps going');
-
-    $browser->emit('key', "\e");
-
-    expect($browser->mode)->toBe('browse');
-});
-
 it('merges a user config file over the shipped defaults', function () {
     $directory = Paths::ensureDirectory();
     $file = Paths::configFile();
@@ -643,79 +610,6 @@ function jsonBrowser(): Browser
     return $browser;
 }
 
-it('detects a json column', function () {
-    $browser = jsonBrowser();
-    $browser->emit('key', 'l');
-
-    expect($browser->cellColumn())->toBe('payload')
-        ->and($browser->cellIsJson())->toBeTrue();
-
-    $browser->emit('key', 'l');
-
-    expect($browser->cellColumn())->toBe('plain')
-        ->and($browser->cellIsJson())->toBeFalse();
-});
-
-it('inspects json with line numbers and highlighting', function () {
-    $browser = jsonBrowser();
-    $browser->emit('key', 'l');
-    $browser->emit('key', 'i');
-
-    $method = new ReflectionMethod($browser, 'renderTheme');
-    $method->setAccessible(true);
-    $raw = $method->invoke($browser);
-    $plain = preg_replace('/\e\[[0-9;]*m/', '', $raw);
-
-    expect($plain)->toContain('json')
-        ->and($plain)->toContain('  1 ')
-        ->and($plain)->toContain('  2 ')
-        ->and($raw)->toContain("\e[36m")
-        ->and($raw)->toContain("\e[32m")
-        ->and($raw)->toContain("\e[33m")
-        ->and($raw)->toContain("\e[35m");
-});
-
-it('hides the grid while inspecting json', function () {
-    $browser = jsonBrowser();
-    $browser->emit('key', 'l');
-    $browser->emit('key', 'i');
-
-    expect(frameOf($browser))->not->toContain('TABLES');
-});
-
-it('scrolls through a long json document', function () {
-    $browser = jsonBrowser();
-    $browser->emit('key', 'l');
-    $browser->emit('key', 'i');
-
-    expect($browser->inspectOffset)->toBe(0);
-
-    $browser->emit('key', 'j');
-    $browser->emit('key', 'j');
-
-    expect($browser->inspectOffset)->toBe(2);
-
-    $browser->emit('key', 'k');
-
-    expect($browser->inspectOffset)->toBe(1);
-
-    $browser->emit('key', 'p');
-
-    expect($browser->inspectOffset)->toBe(0);
-});
-
-it('uses the plain inspector for non-json values', function () {
-    $browser = jsonBrowser();
-    $browser->emit('key', 'l');
-    $browser->emit('key', 'l');
-    $browser->emit('key', 'i');
-
-    $frame = frameOf($browser);
-
-    expect($frame)->toContain('just a string')
-        ->and($frame)->toContain('TABLES');
-});
-
 it('loads the table as the sidebar cursor moves', function () {
     $browser = browserFor(sqliteFixture());
     $browser->focus = 'sidebar';
@@ -836,37 +730,6 @@ it('keeps the row marker out of the cell padding', function () {
     throw new Exception('no marker found in the frame');
 });
 
-it('inspects from the sidebar without needing to enter the grid first', function () {
-    $browser = browserFor(sqliteFixture());
-    $browser->focus = 'sidebar';
-
-    $browser->emit('key', 'i');
-
-    expect($browser->mode)->toBe('inspect')
-        ->and($browser->focus)->toBe('grid');
-});
-
-it('says so when there is nothing to inspect', function () {
-    $path = sys_get_temp_dir().'/dotsql-empty-'.uniqid().'.sqlite';
-    touch($path);
-
-    (new PDO('sqlite:'.$path))->exec('create table blanks (id integer primary key)');
-
-    $connection = Connection::create([
-        'name' => 'empty'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
-    ]);
-
-    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
-    frameOf($browser);
-    $browser->emit('key', "\n");
-    $browser->emit('key', 'i');
-
-    expect($browser->mode)->toBe('browse')
-        ->and($browser->status)->toContain('nothing to inspect');
-
-    unlink($path);
-});
-
 it('quits the application on :q', function () {
     $browser = browserFor(sqliteFixture());
 
@@ -946,4 +809,47 @@ it('shows a cursor in the value editor without shifting the text', function () {
     foreach ([3, 4, 5] as $line) {
         expect($indent($after, $line))->toBe($indent($before, $line));
     }
+});
+
+it('opens a value read-only when it cannot be written back', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 's');
+
+    foreach (str_split('select 1 as one') as $char) {
+        $browser->emit('key', $char);
+    }
+
+    $browser->emit('key', QueryEditor::RUN);
+    $browser->emit('key', "\e");
+    $browser->emit('key', 'e');
+
+    expect($browser->mode)->toBe('edit')
+        ->and($browser->editable)->toBeFalse()
+        ->and($browser->readOnlyReason)->toContain('query results');
+
+    expect(frameOf($browser))->toContain('read-only');
+});
+
+it('ignores typing in a read-only value but still scrolls', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 's');
+
+    foreach (str_split('select 1 as one') as $char) {
+        $browser->emit('key', $char);
+    }
+
+    $browser->emit('key', QueryEditor::RUN);
+    $browser->emit('key', "\e");
+    $browser->emit('key', 'e');
+
+    $before = $browser->cellEditor->buffer();
+
+    $browser->emit('key', 'z');
+    $browser->emit('key', 'z');
+
+    expect($browser->cellEditor->buffer())->toBe($before);
+
+    $browser->emit('key', "\e");
+
+    expect($browser->mode)->toBe('browse');
 });

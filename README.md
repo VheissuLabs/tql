@@ -24,8 +24,7 @@ encryption key), both `0600`.
 | `↑ ↓` / `j k` | move the cursor |
 | `← →` / `h l` | move between columns |
 | `↵` | open a table, or edit the selected cell |
-| `i` | inspect the selected cell in full, wrapped |
-| `e` | edit the selected cell |
+| `e` | open the selected value full screen |
 | `< >` | narrow or widen the selected column |
 | `=` | reset the column width |
 | `n` / `p` | next or previous page (100 rows) |
@@ -57,12 +56,17 @@ closes.
 Detection is by parsing, not by column type, so JSON stored in a `text` column
 is recognised too.
 
-## Reading long values
+## Opening a value
 
-Columns take the width they need when nothing competes for it, and leftover
-space is handed back to the visible columns. When a value is still too long,
-`i` opens it in full in its own pane, wrapped, with its length in the status
-line. `esc` closes it.
+`e` opens the value under the cursor full screen. JSON is pretty printed with
+line numbers and syntax highlighting; anything else is shown as it is.
+
+Where the value can be written back — a real table row with a single-column
+primary key, on a connection that is not read-only — it is editable in place:
+`ctrl+s` saves, `esc` closes. JSON is validated before it is written.
+
+Where it cannot, the same view opens read-only and the title and status say
+why, rather than the key doing nothing.
 
 ## Exporting
 

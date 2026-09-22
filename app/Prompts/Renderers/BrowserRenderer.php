@@ -4,11 +4,9 @@ namespace App\Prompts\Renderers;
 
 use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
-use App\Tui\Islands\CellIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\Island;
-use App\Tui\Islands\JsonIsland;
 use App\Tui\Islands\Screen;
 use App\Tui\Islands\SidebarIsland;
 use App\Tui\Islands\Styler;
@@ -71,7 +69,7 @@ class BrowserRenderer extends Renderer
 
         if ($prompt->mode === 'edit' && $prompt->cellEditor !== null) {
             $editor = new ValueEditorIsland(
-                $prompt->cellColumn(),
+                $prompt->cellColumn().($prompt->editable ? '' : '  ·  read-only'),
                 $prompt->cellEditor,
                 $prompt->editingJson,
                 $style,
@@ -82,29 +80,6 @@ class BrowserRenderer extends Renderer
             $screen = (new Screen)->add($editor);
 
             $tableHeight = 0;
-        }
-
-        if ($prompt->mode === 'inspect' && $prompt->cellIsJson()) {
-            $json = new JsonIsland($prompt->cellColumn(), $prompt->cellText(), $style);
-            $json->focused = true;
-            $json->offset = $prompt->inspectOffset;
-            $json->place(1, $top, $width, $frameHeight);
-
-            $screen = (new Screen)->add($json);
-
-            $prompt->inspectOffset = $json->offset;
-            $tableHeight = 0;
-        } elseif ($prompt->mode === 'inspect') {
-            $cell = new CellIsland($prompt->cellColumn(), $prompt->cellText(), $style);
-            $cell->focused = true;
-
-            $cellHeight = min(12, max(5, intdiv($frameHeight, 2)));
-            $cell->place($rightX, $top, $rightWidth, $cellHeight);
-
-            $screen->add($cell);
-
-            $tableY = $top + $cellHeight;
-            $tableHeight = $frameHeight - $cellHeight;
         }
 
         $table = new TableIsland(
@@ -122,9 +97,7 @@ class BrowserRenderer extends Renderer
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
-        $modal = $prompt->mode === 'help'
-            || $prompt->mode === 'edit'
-            || ($prompt->mode === 'inspect' && $prompt->cellIsJson());
+        $modal = $prompt->mode === 'help' || $prompt->mode === 'edit';
 
         if (! $modal) {
             $screen->add($table);
@@ -144,8 +117,7 @@ class BrowserRenderer extends Renderer
         $this->hotkey('tab', 'Pane');
         $this->hotkey('↑↓←→', 'Move');
         $this->hotkey('s', 'SQL');
-        $this->hotkey('i', 'Inspect');
-        $this->hotkey('e', 'Edit');
+        $this->hotkey('e', 'Open value');
         $this->hotkey('< >', 'Width');
         $this->hotkey('r', 'Reload');
         $this->hotkey('n/p', 'Page');
@@ -246,16 +218,13 @@ class BrowserRenderer extends Renderer
         if ($prompt->mode === 'edit') {
             $column = $prompt->headers[$prompt->columnIndex] ?? '?';
 
+            if (! $prompt->editable) {
+                return ' '.$this->bold("viewing {$column}").
+                    $this->dim('   read-only: '.$prompt->readOnlyReason.'    ↑↓ scrolls    esc closes');
+            }
+
             return ' '.$this->bold("editing {$column}").
-                $this->dim('   ctrl+s or ctrl+d saves    esc cancels'.($prompt->editingJson ? '    json is validated on save' : ''));
-        }
-
-        if ($prompt->mode === 'inspect') {
-            $suffix = $prompt->cellIsJson()
-                ? '   json · ↑↓ scroll · n/p page · esc closes'
-                : '   '.mb_strlen($prompt->cellText()).' characters    esc closes';
-
-            return ' '.$this->bold('inspecting '.$prompt->cellColumn()).$this->dim($suffix);
+                $this->dim('   ctrl+s saves    esc cancels'.($prompt->editingJson ? '    json is validated' : ''));
         }
 
         if ($prompt->mode === 'help') {

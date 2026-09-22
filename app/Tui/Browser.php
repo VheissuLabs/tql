@@ -76,11 +76,13 @@ class Browser extends Prompt
 
     public bool $editingJson = false;
 
+    public bool $editable = false;
+
+    public ?string $readOnlyReason = null;
+
     public bool $debugMouse = false;
 
     public ?array $lastMouse = null;
-
-    public int $inspectOffset = 0;
 
     public ?int $firstBodyRow = null;
 
@@ -163,19 +165,6 @@ class Browser extends Prompt
             return;
         }
 
-        if ($this->mode === 'inspect') {
-            match (true) {
-                in_array($key, [Key::ESCAPE, 'i', 'q'], true) => $this->mode = 'browse',
-                in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->inspectOffset++,
-                in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->inspectOffset = max(0, $this->inspectOffset - 1),
-                $key === 'n' => $this->inspectOffset += 10,
-                $key === 'p' => $this->inspectOffset = max(0, $this->inspectOffset - 10),
-                default => null,
-            };
-
-            return;
-        }
-
         if ($this->mode === 'query') {
             $this->handleQueryKey($key);
 
@@ -206,7 +195,7 @@ class Browser extends Prompt
             $key === '>' => $this->resize(4),
             $key === '=' => $this->resetWidth(),
             $key === 's' => $this->openQuery(),
-            $key === 'i' => $this->toggleInspect(),
+            $key === 'i' => $this->startEditing(),
             $key === '?' => $this->toggleHelp(),
             $key === 'e' => $this->startEditing(),
             $key === Key::ENTER => $this->activate(),
@@ -305,51 +294,6 @@ class Browser extends Prompt
         return true;
     }
 
-    private function toggleInspect(): bool
-    {
-        if ($this->mode === 'inspect') {
-            $this->mode = 'browse';
-
-            return true;
-        }
-
-        if ($this->raw === []) {
-            $this->status = 'nothing to inspect — this table has no rows';
-
-            return true;
-        }
-
-        $this->focus = 'grid';
-        $this->mode = 'inspect';
-        $this->inspectOffset = 0;
-
-        return true;
-    }
-
-    public function cellColumn(): string
-    {
-        return $this->headers[$this->columnIndex] ?? '';
-    }
-
-    public function cellIsJson(): bool
-    {
-        return Json::looksLikeJson($this->cellText());
-    }
-
-    public function cellText(): string
-    {
-        $row = $this->raw[$this->rowIndex] ?? null;
-        $column = $this->headers[$this->columnIndex] ?? null;
-
-        if ($row === null || $column === null) {
-            return '';
-        }
-
-        $value = $row[$column] ?? null;
-
-        return $value === null ? 'NULL' : (string) $value;
-    }
-
     private function openQuery(): bool
     {
         $this->mode = 'query';
@@ -407,28 +351,14 @@ class Browser extends Prompt
     private function startEditing(): bool
     {
         if ($this->raw === []) {
-            return true;
-        }
-
-        if ($this->connection->read_only) {
-            $this->status = 'this connection is marked read-only';
-
-            return true;
-        }
-
-        if ($this->resultsFromQuery) {
-            $this->status = 'query results are read-only — open a table to edit';
-
-            return true;
-        }
-
-        if ($this->keyColumn() === null) {
-            $this->status = 'cannot edit: '.$this->currentTable().' has no single-column primary key';
+            $this->status = 'nothing to open — this table has no rows';
 
             return true;
         }
 
         $this->focus = 'grid';
+        $this->readOnlyReason = $this->whyReadOnly();
+        $this->editable = $this->readOnlyReason === null;
 
         $value = $this->cellValue();
         $text = $value === null ? '' : (string) $value;
@@ -447,9 +377,30 @@ class Browser extends Prompt
         return true;
     }
 
+    public function cellColumn(): string
+    {
+        return $this->headers[$this->columnIndex] ?? '';
+    }
+
+    private function whyReadOnly(): ?string
+    {
+        return match (true) {
+            $this->connection->read_only => 'this connection is marked read-only',
+            $this->resultsFromQuery => 'query results have no row to write back to',
+            $this->keyColumn() === null => $this->currentTable().' has no single-column primary key',
+            default => null,
+        };
+    }
+
     private function handleEditKey(string $key): void
     {
-        if ($key === Key::ESCAPE) {
+        if (! $this->editable && ! in_array($key, [Key::ESCAPE, 'q'], true)) {
+            $this->scrollOrIgnore($key);
+
+            return;
+        }
+
+        if ($key === Key::ESCAPE || (! $this->editable && $key === 'q')) {
             $this->cellEditor = null;
             $this->mode = 'browse';
             $this->status = 'edit cancelled';
@@ -466,8 +417,21 @@ class Browser extends Prompt
         $this->cellEditor?->handle($key);
     }
 
+    private function scrollOrIgnore(string $key): void
+    {
+        match (true) {
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->cellEditor?->handle(Key::DOWN),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->cellEditor?->handle(Key::UP),
+            default => null,
+        };
+    }
+
     private function commitEdit(): void
     {
+        if (! $this->editable) {
+            return;
+        }
+
         $value = $this->cellEditor?->buffer() ?? '';
 
         if ($this->editingJson && ! Json::looksLikeJson($value)) {
