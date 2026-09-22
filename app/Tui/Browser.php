@@ -208,6 +208,7 @@ class Browser extends Prompt
             $key === ':' => $this->openCommandLine(),
             $key === 'q' => $this->quit(),
             $key === Key::TAB => $this->toggleFocus(),
+            $key === Key::SHIFT_TAB => $this->toggleFocus(-1),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->moveUp(),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->moveDown(),
             in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $this->moveColumn(-1),
@@ -331,8 +332,8 @@ class Browser extends Prompt
 
     private function handleQueryKey(string $key): void
     {
-        if ($key === Key::TAB) {
-            $this->toggleFocus();
+        if ($key === Key::TAB || $key === Key::SHIFT_TAB) {
+            $this->toggleFocus($key === Key::SHIFT_TAB ? -1 : 1);
 
             return;
         }
@@ -953,26 +954,24 @@ class Browser extends Prompt
         return true;
     }
 
-    private function toggleFocus(): bool
+    private function toggleFocus(int $step = 1): bool
     {
-        if ($this->mode === 'query') {
-            $this->mode = 'browse';
-            $this->focus = 'sidebar';
+        $panes = Layout::sqlAlways() || $this->mode === 'query'
+            ? ['sidebar', 'grid', 'sql']
+            : ['sidebar', 'grid'];
 
-            return true;
-        }
+        $current = $this->mode === 'query' ? 'sql' : $this->focus;
+        $at = array_search($current, $panes, true);
+        $at = $at === false ? 0 : $at;
 
-        if ($this->focus === 'sidebar') {
-            $this->focus = 'grid';
+        $next = $panes[($at + $step + count($panes)) % count($panes)];
 
-            return true;
-        }
-
-        if (Layout::sqlAlways()) {
+        if ($next === 'sql') {
             return $this->openQuery();
         }
 
-        $this->focus = 'sidebar';
+        $this->mode = 'browse';
+        $this->focus = $next;
 
         return true;
     }

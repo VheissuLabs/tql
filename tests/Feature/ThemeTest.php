@@ -98,3 +98,39 @@ it('does not quit the browser on escape', function () {
 
     expect($browser->state)->not->toBe('submit');
 });
+
+it('cycles panes forward with tab and backward with shift+tab', function () {
+    config(['dotsql.ui.sql_always' => false]);
+
+    $browser = themed();
+
+    expect($browser->focus)->toBe('sidebar');
+
+    $browser->emit('key', "\t");
+    expect($browser->focus)->toBe('grid');
+
+    $browser->emit('key', "\e[Z");
+    expect($browser->focus)->toBe('sidebar');
+
+    $browser->emit('key', "\e[Z");
+    expect($browser->focus)->toBe('grid');
+});
+
+it('includes the sql pane in the cycle when it is always shown', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = themed();
+
+    $browser->emit('key', "\e[Z");
+
+    expect($browser->mode)->toBe('query');
+
+    $browser->emit('key', "\e[Z");
+
+    expect($browser->mode)->toBe('browse')
+        ->and($browser->focus)->toBe('grid');
+
+    $browser->emit('key', "\t");
+
+    expect($browser->mode)->toBe('query');
+});

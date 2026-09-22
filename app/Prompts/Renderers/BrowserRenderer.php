@@ -135,6 +135,7 @@ class BrowserRenderer extends Renderer
 
         $this->clearHotkeys();
         $this->hotkey('tab', 'Pane');
+        $this->hotkey('⇧tab', 'Back');
         $this->hotkey('↑↓←→', 'Move');
         $this->hotkey('s', 'SQL');
         $this->hotkey('i', 'View');
