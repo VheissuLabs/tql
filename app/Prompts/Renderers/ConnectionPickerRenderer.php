@@ -58,7 +58,7 @@ class ConnectionPickerRenderer extends Renderer
         }
 
         $this->line($this->fit($this->dim($prompt->form !== null
-            ? ' ↑↓ Field    ↵ Change    ctrl+s Save    esc Cancel'
+            ? ' ↑↓ Move    ↵ Select'
             : ' ↑↓ Move    ↵ Open    e Edit    n New    :q Quit'), $width));
         $this->line($this->fit($this->status($prompt), $width));
 
@@ -144,10 +144,12 @@ class ConnectionPickerRenderer extends Renderer
         $rows[] = $this->row('  '.$this->dim($form->error !== null
             ? $this->paint('red', $form->error)
             : match (true) {
+                // Say what the row under the cursor does. Save and Cancel are
+                // rows of their own, so repeating them here is noise.
                 $form->editing => '↵ keeps it    esc drops it',
-                $form->onAction() => '↵ chooses    ↑↓ moves',
-                $form->currentKey() === 'driver' => '← → driver    ctrl+s save    esc cancel',
-                default => '↵ change    ctrl+s save    esc cancel',
+                $form->onAction() => '↵ chooses',
+                $form->currentKey() === 'driver' => '← → changes the driver',
+                default => '↵ changes it',
             }), $inner);
 
         $rows[] = $edge('└'.str_repeat('─', $inner).'┘');

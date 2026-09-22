@@ -487,3 +487,36 @@ it('shows the save and cancel rows in the modal', function () {
     expect($plain)->toContain('Save')
         ->and($plain)->toContain('Cancel');
 });
+
+it('does not repeat save and cancel in the hint line', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    $plain = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker));
+
+    expect(substr_count($plain, 'Save'))->toBe(1)
+        ->and(substr_count($plain, 'Cancel'))->toBe(1)
+        ->and($plain)->not->toContain('ctrl+s save')
+        ->and($plain)->not->toContain('esc cancel');
+});
+
+it('says what the row under the cursor does', function () {
+    $picker = picker();
+
+    $picker->emit('key', 'n');
+
+    $hint = fn () => preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker));
+
+    expect($hint())->toContain('changes the driver');
+
+    $picker->form->move(1);
+
+    expect($hint())->toContain('changes it');
+
+    while (! $picker->form->onAction()) {
+        $picker->form->move(1);
+    }
+
+    expect($hint())->toContain('chooses');
+});
