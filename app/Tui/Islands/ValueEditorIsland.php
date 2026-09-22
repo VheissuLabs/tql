@@ -50,17 +50,23 @@ class ValueEditorIsland extends Island
                 ? ($this->showCursor ? ' ' : $this->style->bold('▸'))
                 : ' ';
 
-            $body = $this->render(
-                $line,
-                $room,
-                $this->showCursor && $number === $cursorLine ? $cursorColumn : null,
-            );
-
             $selected = $this->selection !== []
                 && $number >= $this->selection[0]
                 && $number <= $this->selection[1];
 
-            $out[] = $here.$label.' '.($selected ? $this->style->inverse($this->style->pad($body, $room)) : $body);
+            if ($selected) {
+                $out[] = $here.$label.' '.$this->style->inverse(
+                    $this->style->pad(mb_substr($line, 0, $room), $room)
+                );
+
+                continue;
+            }
+
+            $out[] = $here.$label.' '.$this->render(
+                $line,
+                $room,
+                $this->showCursor && $number === $cursorLine ? $cursorColumn : null,
+            );
         }
 
         return $out;

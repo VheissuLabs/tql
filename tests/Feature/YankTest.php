@@ -270,3 +270,39 @@ it('drags to select lines in the viewer', function () {
     expect($to - $from)->toBe(2)
         ->and($browser->visualAnchor)->not->toBeNull();
 });
+
+it('drops syntax colours on selected lines', function () {
+    $browser = viewer();
+
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'V');
+    $browser->emit('key', 'j');
+
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    $selected = [];
+    $unselected = [];
+
+    foreach (explode("\n", $method->invoke($browser)) as $line) {
+        if (! str_contains($line, '│')) {
+            continue;
+        }
+
+        if (str_contains($line, "\e[7m")) {
+            $selected[] = $line;
+        } elseif (preg_match('/\d/', $line)) {
+            $unselected[] = $line;
+        }
+    }
+
+    expect($selected)->not->toBeEmpty();
+
+    foreach ($selected as $line) {
+        expect($line)->not->toMatch('/\e\[3[0-9]m/');
+    }
+
+    $coloured = array_filter($unselected, fn ($l) => preg_match('/\e\[3[0-9]m/', $l));
+
+    expect($coloured)->not->toBeEmpty();
+});
