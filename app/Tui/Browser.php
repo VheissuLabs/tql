@@ -59,6 +59,8 @@ class Browser extends Prompt
 
     public bool $hasMore = false;
 
+    public ?string $lastStatement = null;
+
     public string $mode = 'browse';
 
     public QueryEditor $editor;
@@ -355,6 +357,7 @@ class Browser extends Prompt
         $this->columnOffset = 0;
         $this->hasMore = false;
         $this->resultsFromQuery = true;
+        $this->lastStatement = $result->statement;
 
         $this->status = "{$result->count()} rows · {$result->durationMs}ms";
     }
@@ -994,6 +997,9 @@ class Browser extends Prompt
         }
 
         $this->resultsFromQuery = false;
+        $this->lastStatement = $result->statement === null
+            ? null
+            : preg_replace('/\blimit \d+/i', 'limit '.self::PAGE, $result->statement);
         $this->headers = $result->headers();
         $this->raw = $rows;
         $this->rows = $this->formatter->rows($rows);

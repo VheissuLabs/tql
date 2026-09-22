@@ -9,6 +9,7 @@ class QueryResult
         public readonly int $durationMs,
         public readonly ?string $error = null,
         public readonly ?int $affected = null,
+        public readonly ?string $statement = null,
     ) {}
 
     public function failed(): bool

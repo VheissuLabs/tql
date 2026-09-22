@@ -98,13 +98,14 @@ class QueryRunner
             return new QueryResult(
                 rows: array_map(fn ($row) => (array) $row, $rows),
                 durationMs: $duration,
+                statement: $statement,
             );
         } catch (Throwable $e) {
             $duration = (int) ((microtime(true) - $started) * 1000);
 
             $this->record($connection, $statement, $source, false, $e->getMessage(), null, $duration);
 
-            return new QueryResult(rows: [], durationMs: $duration, error: $e->getMessage());
+            return new QueryResult(rows: [], durationMs: $duration, error: $e->getMessage(), statement: $statement);
         }
     }
 

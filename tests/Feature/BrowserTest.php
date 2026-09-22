@@ -1000,3 +1000,78 @@ it('honours a configured sql height', function () {
 
     config(['dotsql.ui.sql_always' => false, 'dotsql.ui.sql_height' => 0]);
 });
+
+it('shows the query behind the current view', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = browserFor(sqliteFixture());
+    $frame = frameOf($browser);
+
+    expect($frame)->toContain('showing')
+        ->and($frame)->toContain('select * from')
+        ->and($frame)->toContain('widgets')
+        ->and($frame)->toContain('press s to write your own');
+
+    config(['dotsql.ui.sql_always' => false]);
+});
+
+it('does not show the internal extra row in the query', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = browserFor(sqliteFixture());
+
+    expect($browser->lastStatement)->toContain('limit '.Browser::PAGE)
+        ->and($browser->lastStatement)->not->toContain('limit '.(Browser::PAGE + 1));
+
+    config(['dotsql.ui.sql_always' => false]);
+});
+
+it('updates the shown query when you page', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $path = sys_get_temp_dir().'/dotsql-page-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table many (id integer primary key, v text)');
+    $statement = $pdo->prepare('insert into many (v) values (?)');
+
+    foreach (range(1, Browser::PAGE + 20) as $i) {
+        $statement->execute(['row '.$i]);
+    }
+
+    $connection = Connection::create([
+        'name' => 'page'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+    frameOf($browser);
+    $browser->emit('key', "\n");
+
+    expect($browser->lastStatement)->toContain('offset 0');
+
+    $browser->emit('key', 'n');
+
+    expect($browser->lastStatement)->toContain('offset '.Browser::PAGE);
+
+    unlink($path);
+    config(['dotsql.ui.sql_always' => false]);
+});
+
+it('gives the pane back to your own query when you start typing', function () {
+    config(['dotsql.ui.sql_always' => true]);
+
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', 's');
+
+    foreach (str_split('select 1') as $char) {
+        $browser->emit('key', $char);
+    }
+
+    $frame = frameOf($browser);
+
+    expect($frame)->toContain('select 1')
+        ->and($frame)->not->toContain('press s to write your own');
+
+    config(['dotsql.ui.sql_always' => false]);
+});

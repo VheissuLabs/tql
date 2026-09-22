@@ -40,6 +40,23 @@ column border in the header row to resize it**, as you would in a spreadsheet.
 Column widths you set are remembered per column name, so several columns keep
 their sizes at once and survive paging and switching tables.
 
+## Seeing the query behind the view
+
+With `ui.sql_always` on, the SQL pane shows the statement that produced what you
+are looking at, and updates as you change table or page:
+
+```
+┌─ SQL ────────────────────────────────────────────┐
+│ showing                                          │
+│ select * from "tracks" limit 100 offset 100      │
+│                                                  │
+│ press s to write your own                        │
+└──────────────────────────────────────────────────┘
+```
+
+Press `s` and the pane becomes yours to type in; clear it and the running query
+comes back.
+
 ## Running SQL
 
 Press `s` (or `:sql`) for the SQL editor, which opens above the results.
