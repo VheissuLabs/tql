@@ -56,6 +56,20 @@ class Keys
         return mb_strlen($name) === 1 ? $name : null;
     }
 
+    public static function glyph(string $key): string
+    {
+        return match ($key) {
+            Key::UP, Key::UP_ARROW => '↑',
+            Key::DOWN, Key::DOWN_ARROW => '↓',
+            Key::LEFT, Key::LEFT_ARROW => '←',
+            Key::RIGHT, Key::RIGHT_ARROW => '→',
+            Key::ENTER => '↵',
+            Key::SHIFT_TAB => '⇧tab',
+            Key::BACKSPACE => '⌫',
+            default => self::spell($key),
+        };
+    }
+
     /**
      * How a key is written, for help and for a config file.
      */

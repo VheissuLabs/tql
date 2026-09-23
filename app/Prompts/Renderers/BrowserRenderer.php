@@ -269,8 +269,10 @@ class BrowserRenderer extends Renderer
             $help = new HelpIsland($style, $prompt->helpOffset);
             $help->focused = true;
 
-            $this->modal($width, $top, $frameHeight, min($width - 4, HelpIsland::WIDTH))
-                ->add($help, min($frameHeight - 2, $help->naturalHeight() + 2))
+            $helpWidth = $help->widthFor($width - 4);
+
+            $this->modal($width, $top, $frameHeight, $helpWidth)
+                ->add($help, min($frameHeight - 2, $help->naturalHeight($helpWidth - 2) + 2))
                 ->onto($screen);
 
             $prompt->helpIsland = $help;

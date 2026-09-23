@@ -585,15 +585,9 @@ it('shows help and lists the commands', function () {
 
     expect($frame)->toContain('HELP')
         ->and($frame)->toContain('tab')
-        ->and(substr_count($frame, 'HELP'))->toBe(1);
-
-    // The help is longer than the modal, so the later sections need scrolling.
-    $browser->emit('key', 'G');
-
-    $bottom = frameOf($browser);
-
-    expect($bottom)->toContain(':export')
-        ->and($bottom)->not->toBe($frame);
+        ->and(substr_count($frame, 'HELP'))->toBe(1)
+        ->and($frame)->toContain(':export')
+        ->and($browser->helpIsland->hidden)->toBe(0);
 
     $browser->emit('key', '?');
 
@@ -1536,3 +1530,24 @@ it('does not relight a status that says the same thing', function () {
     expect($browser->status)->toBe($first)
         ->and($browser->statusFresh)->toBeFalse();
 });
+
+it('fits every line of help without cutting it, and names the arrow keys', function (int $columns) {
+    putenv("COLUMNS={$columns}");
+
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', '?');
+
+    $frame = frameOf($browser);
+    $island = $browser->helpIsland;
+
+    putenv('COLUMNS');
+
+    $inside = collect(explode("\n", $frame))
+        ->slice($island->y, $island->innerHeight())
+        ->map(fn (string $line) => mb_substr($line, $island->x, $island->innerWidth()));
+
+    expect($inside->filter(fn (string $line) => str_contains($line, '…'))->all())->toBe([])
+        ->and($inside->implode("\n"))->not->toContain('OA')
+        ->and($inside->implode("\n"))->toContain('←↓↑→ / hjkl  move')
+        ->and($inside->implode("\n"))->toContain('dbl click    edit the cell');
+})->with([80, 130]);
