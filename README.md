@@ -90,12 +90,15 @@ interface is the wrong shape for.
 
 ```bash
 tql open ~/Code/app/database/database.sqlite
-tql open "mysql://root@127.0.0.1:3306/shop" --tag=local
+tql open "mysql://root@127.0.0.1:3306/shop" --name="Shop" --tag=local
 tql open "$DATABASE_URL" --peek          # use it without saving it
 ```
 
 `open` takes a SQLite path or a `mysql://`, `pgsql://` or `sqlsrv://` string,
-remembers it under `--tag` or the database name, and drops you straight into it.
+remembers it under `--name` or the database name, and drops you straight into
+it. `--tag` is what the connection *is* — `production`, `staging`, `dev` or
+`local` — and decides the color it wears. See
+[Tags and read only](#tags-and-read-only).
 
 `export` asks for whatever you leave out — connection, database, table and where
 to save — so `tql export` on its own is a four-question wizard, and
@@ -298,7 +301,7 @@ open a SQLite file straight away, point tql at the file:
 ```bash
 tql test.sqlite          # same as: tql open test.sqlite
 tql ~/Sites/app/db.sqlite
-tql test.sqlite --tag=scratch    # and call it "scratch" in the list
+tql test.sqlite --name=scratch   # and call it "scratch" in the list
 ```
 
 A connection string works the same way:
@@ -314,10 +317,10 @@ credentials are percent-decoded, and `?name=` sets the label shown in the
 title bar.
 
 Anything you open is **remembered**, so you only ever paste a connection string
-once. `--tag=` names it in the list; without one it is named after the file, or
+once. `--name=` names it in the list; without one it is named after the file, or
 `database on host`. `--peek` opens without remembering, for a database you are
 only glancing at. Re-opening somewhere you already have saved reuses that
-connection rather than making a second, and `--tag=` on it is a rename. Names
+connection rather than making a second, and `--name=` on it is a rename. Names
 are unique, so a second `database.sqlite` becomes `database.sqlite (2)`.
 
 **A connection string on the command line goes into your shell history.** Paste

@@ -2,6 +2,7 @@
 
 namespace App\Commands;
 
+use App\Connections\Tag;
 use App\Database\ConnectionManager;
 use App\Database\Dsn;
 use App\Database\QueryRunner;
@@ -16,7 +17,8 @@ class OpenCommand extends Command
 {
     protected $signature = 'open
         {path : a SQLite file, or a mysql:// pgsql:// sqlsrv:// connection string}
-        {--tag= : what to call it in the connection list}
+        {--name= : what to call it in the connection list}
+        {--tag= : what it is: production, staging, dev or local}
         {--peek : open it without remembering it}';
 
     protected $description = 'Open a database by path or connection string';
@@ -31,9 +33,31 @@ class OpenCommand extends Command
 
     public function handle(): int
     {
+        if (! $this->taggable()) {
+            return self::FAILURE;
+        }
+
         $path = (string) $this->argument('path');
 
         return Dsn::looksLikeOne($path) ? $this->openDsn($path) : $this->openFile($path);
+    }
+
+    /**
+     * A tag is a fixed set, so a typo is worth saying out loud rather than
+     * saving a connection tagged "prodction" that wears no color.
+     */
+    private function taggable(): bool
+    {
+        $tag = $this->option('tag');
+
+        if ($tag === null || Tag::parse($tag) !== null) {
+            return true;
+        }
+
+        error("[{$tag}] is not a tag. Try ".implode(', ', array_column(Tag::cases(), 'value')).'.');
+        $this->line('  <fg=green>--name=</> is what you are looking for to call it something.');
+
+        return false;
     }
 
     private function openDsn(string $dsn): int
@@ -103,20 +127,29 @@ class OpenCommand extends Command
         $name = $attributes['name'];
         unset($attributes['name']);
 
+        $called = $this->option('name');
         $tag = $this->option('tag');
         $existing = static::matching($attributes);
 
         if ($existing !== null) {
-            // Re-tagging an existing connection renames it rather than making
-            // a second one pointing at the same database.
-            if ($tag !== null && $tag !== $existing->name) {
-                $existing->forceFill(['name' => static::freeName($tag)])->save();
+            // Naming an existing connection renames it rather than making a
+            // second one pointing at the same database.
+            if ($called !== null && $called !== $existing->name) {
+                $existing->forceFill(['name' => static::freeName($called)])->save();
+            }
+
+            if ($tag !== null) {
+                $existing->forceFill(['tag' => Tag::value($tag)])->save();
             }
 
             return $existing;
         }
 
-        $attributes['name'] = $tag ?: $name;
+        $attributes['name'] = $called ?: $name;
+
+        if ($tag !== null) {
+            $attributes['tag'] = Tag::value($tag);
+        }
 
         // Remembered by default: the point of opening by connection string is
         // to not have to find it again.
