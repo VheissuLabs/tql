@@ -217,11 +217,9 @@ class ConnectionPickerRenderer extends Renderer
             }
 
             $focused = $key === $form->currentKey();
-            $shown = $this->truncate($form->display($key), $value);
-
-            if ($focused && $form->editing) {
-                $shown = $this->withCursor($shown, $form->cursor());
-            }
+            $shown = $focused && $form->editing
+                ? $this->typing($form->display($key), $form->cursor(), $value)
+                : $this->truncate($form->display($key), $value);
 
             if ($focused && $form->choices($key) !== null) {
                 $shown = '← '.$shown.' →';
@@ -257,6 +255,19 @@ class ConnectionPickerRenderer extends Renderer
         $rows[] = $edge('└'.str_repeat('─', $inner).'┘');
 
         return $rows;
+    }
+
+    private function typing(string $text, int $at, int $width): string
+    {
+        $chars = preg_split('//u', $text, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $start = max(0, $at - $width + 1);
+        $visible = array_slice($chars, $start, $width);
+
+        if ($start > 0) {
+            $visible[0] = '…';
+        }
+
+        return $this->withCursor(implode('', $visible), $at - $start);
     }
 
     /**

@@ -705,3 +705,69 @@ it('runs the highlight the full width of the list', function () {
         ->and(mb_strlen($span))->toBeGreaterThan(40)
         ->and(mb_substr($span, -1))->toBe(' ');
 });
+
+function sqlitePathForm(ConnectionPicker $picker): void
+{
+    $picker->emit('key', 'n');
+
+    while ($picker->form->currentKey() !== 'database') {
+        $picker->form->move(1);
+    }
+}
+
+it('scrolls a long path while it is typed, so the end and the cursor stay in view', function () {
+    $picker = picker();
+    sqlitePathForm($picker);
+
+    $picker->emit('key', "\n");
+    $picker->emit('key', '~/code/kmstools-lunar/database/database-for-the-lunar-project.sqlite');
+
+    $lines = explode("\n", pickerFrame($picker));
+    $plain = array_map(fn (string $line) => preg_replace('/\e\[[0-9;]*m/', '', $line), $lines);
+
+    $top = collect($plain)->search(fn (string $line) => str_contains($line, 'NEW CONNECTION'));
+    $row = collect($plain)->search(fn (string $line) => str_contains($line, 'Path'));
+    $right = mb_strrpos($plain[$top], '┐');
+
+    expect($plain[$row])->toMatch('/Path\s+…\S*lunar-project\.sqlite/')
+        ->and($lines[$row])->toContain("sqlite\e[7m \e[27m")
+        ->and(mb_substr($plain[$row], $right, 1))->toBe('│');
+});
+
+it('saves a relative sqlite path as an absolute one, from where tql was started', function () {
+    $dir = sys_get_temp_dir().'/tql-relative-'.uniqid();
+    mkdir($dir.'/database', 0777, true);
+    touch($dir.'/database/database.sqlite');
+
+    $was = getcwd();
+    chdir($dir);
+
+    $picker = picker();
+    $picker->emit('key', 'n');
+    $picker->form->values['name'] = 'relative';
+    $picker->form->values['database'] = 'database/database.sqlite';
+    $picker->emit('key', ConnectionPicker::SAVE);
+
+    chdir($was);
+
+    expect(Connection::where('name', 'relative')->value('database'))->toBe(realpath($dir.'/database/database.sqlite'));
+});
+
+it('saves a sqlite path under ~ with the home directory in place', function () {
+    $home = sys_get_temp_dir().'/tql-home-'.uniqid();
+    mkdir($home.'/code', 0777, true);
+    touch($home.'/code/lunar.sqlite');
+
+    $was = getenv('HOME');
+    putenv("HOME={$home}");
+
+    $picker = picker();
+    $picker->emit('key', 'n');
+    $picker->form->values['name'] = 'home';
+    $picker->form->values['database'] = '~/code/lunar.sqlite';
+    $picker->emit('key', ConnectionPicker::SAVE);
+
+    putenv("HOME={$was}");
+
+    expect(Connection::where('name', 'home')->value('database'))->toBe(realpath($home.'/code/lunar.sqlite'));
+});
