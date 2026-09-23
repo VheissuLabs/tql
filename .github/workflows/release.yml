@@ -95,12 +95,16 @@ jobs:
 
       # The interpreter only changes when the extension list or the PHP version
       # does, so it is worth keeping between releases.
+      - name: Name the interpreter for what goes into it
+        id: interpreter
+        run: echo "key=micro-${{ matrix.asset }}-${{ matrix.runner }}-php${PHP_VERSION}-$(printf '%s' "$EXTENSIONS" | shasum -a 256 | cut -c1-16)" >> "$GITHUB_OUTPUT"
+
       - name: Cache the interpreter
         id: cache
         uses: actions/cache@v4
         with:
           path: buildroot/bin/micro.sfx
-          key: micro-${{ matrix.asset }}-${{ matrix.runner }}-php${{ env.PHP_VERSION }}-${{ env.EXTENSIONS }}
+          key: ${{ steps.interpreter.outputs.key }}
 
       - name: Build the interpreter
         if: steps.cache.outputs.cache-hit != 'true'
