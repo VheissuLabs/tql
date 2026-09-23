@@ -14,6 +14,25 @@ setting you never touch follows the application instead of freezing at the value
 it had the day you installed it. A file that cannot be parsed does not stop tql:
 it starts on the defaults and says so in the status line.
 
+## Keeping it yours
+
+The shape of the file is tql's: which sections exist, and the order the settings
+come in. What is in it is yours — the values, which settings you keep, and any
+comment you write.
+
+```bash
+tql config           # where it is, and whether it is in order
+tql config --tidy    # put it back in order, keeping all of that
+```
+
+`--tidy` reorders and nothing else. Values, your own comments, sections tql has
+never heard of: all carried across, and a comment written above a setting moves
+with it. It writes a `.bak` beside the file first.
+
+**A setting you delete stays deleted.** The first line records the version the
+file was written for, and only settings that shipped after that are ever added
+back. Deleting something to take the default is a decision, not an accident.
+
 **Every key belongs to a section.** A key written above the first `[section]`
 belongs to no section, is never read, and is a genuinely confusing afternoon —
 tql notices and tells you which ones.

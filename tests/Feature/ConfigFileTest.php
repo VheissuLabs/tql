@@ -2,6 +2,7 @@
 
 use App\Support\ConfigFile;
 use App\Support\ConfigTemplate;
+use App\Support\ConfigTidy;
 use App\Support\Paths;
 use Devium\Toml\Toml;
 
@@ -168,4 +169,71 @@ it('prefers the sectioned value when a key appears in both places', function () 
 
 it('leaves a key it does not recognise where it is', function () {
     expect(ConfigFile::hoist(['something_else' => 1]))->toBe(['something_else' => 1]);
+});
+
+it('puts the settings back in template order, keeping the values', function () {
+    $scrambled = <<<'TOML'
+    # tql configuration 0.4.0
+
+    [ai]
+
+    # mine
+    key = "secret"
+    provider = "auto"
+
+    [ui]
+    sidebar_width = 40
+
+    # Where the SQL editor sits: "top" or "bottom"
+    sql_position = "bottom"
+    TOML;
+
+    $moved = [];
+    $tidied = ConfigTidy::apply($scrambled, $moved);
+
+    $order = fn (string $key) => mb_strpos($tidied, $key."\n") ?: mb_strpos($tidied, $key.' ');
+
+    expect($order('sql_position'))->toBeLessThan($order('sidebar_width'))
+        ->and($order('[ui]'))->toBeLessThan($order('[ai]'))
+        ->and($order('provider'))->toBeLessThan($order('key'))
+        // The value and the comment the user wrote travel with the setting.
+        ->and($tidied)->toContain('key = "secret"')
+        ->and($tidied)->toContain('# mine')
+        ->and($moved)->not->toBeEmpty();
+});
+
+it('moves a setting written above the first section into it', function () {
+    $loose = "# tql configuration 0.4.0\nmouse_row_offset = 1\n\n[ui]\nsidebar_width = 40\n";
+
+    $tidied = ConfigTidy::apply($loose);
+
+    expect(mb_strpos($tidied, 'mouse_row_offset'))->toBeGreaterThan(mb_strpos($tidied, '[ui]'));
+});
+
+it('keeps a section it has never heard of', function () {
+    $extra = "# tql configuration 0.4.0\n\n[ui]\nsidebar_width = 40\n\n[mine]\nwhatever = true\n";
+
+    $tidied = ConfigTidy::apply($extra);
+
+    expect($tidied)->toContain('[mine]')->toContain('whatever = true');
+});
+
+it('only adds settings newer than the file says it is', function () {
+    withoutConfigFile(function (string $file) {
+        file_put_contents($file, "# tql configuration 0.4.0\n\n[ui]\nsidebar_width = 40\n");
+
+        // sidebar_width is the only [ui] setting here; the rest shipped at
+        // 0.3.0, so they were deleted on purpose and stay deleted.
+        expect(ConfigFile::ensure()['added'])->toBe([])
+            ->and(file_get_contents($file))->not->toContain('sql_position');
+    });
+});
+
+it('offers everything once to a file with no version in it', function () {
+    withoutConfigFile(function (string $file) {
+        file_put_contents($file, "[ui]\nsidebar_width = 40\n");
+
+        expect(ConfigFile::ensure()['added'])->toContain('sql_position')
+            ->and(file_get_contents($file))->toContain('# tql configuration '.ConfigTemplate::VERSION);
+    });
 });

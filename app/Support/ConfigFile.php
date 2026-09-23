@@ -20,9 +20,18 @@ class ConfigFile
         return ['created' => false, 'added' => static::topUp($file)];
     }
 
+    /**
+     * Add settings that arrived after this file was last written.
+     *
+     * Not every setting the file is missing: the file says it was written for
+     * a version, and anything that shipped at or before that version and is
+     * not there was deleted on purpose. The header says "delete what you do
+     * not" and it has to mean it.
+     */
     private static function topUp(string $file): array
     {
         $contents = (string) file_get_contents($file);
+        $since = static::writtenFor($contents);
         $added = [];
 
         foreach (ConfigTemplate::settings() as $setting) {
@@ -30,15 +39,47 @@ class ConfigFile
                 continue;
             }
 
+            // An unversioned file predates the marker, so tql has no idea what
+            // was deleted and offers everything once.
+            if ($since !== null && version_compare($setting['since'], $since, '<=')) {
+                continue;
+            }
+
             $contents = static::insert($contents, $setting);
             $added[] = $setting['key'];
         }
 
-        if ($added !== []) {
-            file_put_contents($file, $contents);
+        $stamped = static::stamp($contents);
+
+        if ($added !== [] || $stamped !== $contents) {
+            file_put_contents($file, $stamped);
         }
 
         return $added;
+    }
+
+    /**
+     * The version in the file's first line, if it has one.
+     */
+    public static function writtenFor(string $contents): ?string
+    {
+        return preg_match('/^#\s*tql configuration\s+([0-9]+\.[0-9]+\.[0-9]+)/m', $contents, $match) === 1
+            ? $match[1]
+            : null;
+    }
+
+    /**
+     * Record the version the file has now been brought up to.
+     */
+    private static function stamp(string $contents): string
+    {
+        $line = '# tql configuration '.ConfigTemplate::VERSION;
+
+        if (preg_match('/^#\s*tql configuration(\s+[0-9.]+)?\s*$/m', $contents) === 1) {
+            return (string) preg_replace('/^#\s*tql configuration(\s+[0-9.]+)?\s*$/m', $line, $contents, 1);
+        }
+
+        return $line."\n".$contents;
     }
 
     /**

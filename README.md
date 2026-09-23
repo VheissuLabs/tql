@@ -1,5 +1,7 @@
 # tql
 
+![tql browsing a database](docs/tql.jpg)
+
 A database client for the terminal, built with Laravel Zero, Laravel Prompts and
 Laravel MCP.
 
@@ -98,6 +100,7 @@ interface is the wrong shape for.
 | `tql` | the interface: pick a connection and browse |
 | `tql open <path-or-dsn>` | open a database by path or connection string, saving it |
 | `tql export [connection] [table]` | write rows out as re-importable SQL |
+| `tql config` | where the config file is; `--tidy` puts it back in order |
 | `tql mcp:start tql` | run the MCP server on stdio, for an agent |
 
 ```bash
