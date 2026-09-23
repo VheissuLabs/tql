@@ -355,7 +355,7 @@ it('floats the help over the panes instead of interleaving with them', function 
 
     // The modal is there, and so is what it is floating over.
     expect($plain)->toContain('HELP')
-        ->and($plain)->toContain('TABLES')
+        ->and($plain)->toMatch('/^┌─ /m')
         ->and($plain)->toContain('SQL');
 
     // Every row is still exactly one terminal width, so nothing is doubled up.

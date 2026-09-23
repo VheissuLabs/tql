@@ -77,7 +77,7 @@ it('moves the focus colour when the focus moves', function () {
 
     $sidebarEdge = function (Browser $browser) {
         foreach (explode("\n", frameFor($browser)) as $line) {
-            if (str_contains(preg_replace('/\e\[[0-9;]*m/', '', $line), 'TABLES')) {
+            if (str_starts_with(preg_replace('/\e\[[0-9;]*m/', '', $line), '┌─ ')) {
                 return str_starts_with($line, "\e[32m");
             }
         }
@@ -202,7 +202,7 @@ it('tints the whole table with the pane colour when the grid inherits', function
 
     // ...and the unfocused sidebar keeps the resting colour.
     $sidebar = collect(explode("\n", $frame))
-        ->first(fn (string $line) => str_contains(preg_replace('/\e\[[0-9;]*m/', '', $line), 'TABLES'));
+        ->first(fn (string $line) => str_starts_with(preg_replace('/\e\[[0-9;]*m/', '', $line), '┌─ '));
 
     expect($sidebar)->toStartWith("\e[90m");
 });

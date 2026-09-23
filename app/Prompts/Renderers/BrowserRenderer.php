@@ -50,9 +50,9 @@ class BrowserRenderer extends Renderer
 
         $sidebar = new SidebarIsland($prompt->visibleTables(), $prompt->tableIndex, $style, $prompt->filter);
         $sidebar->focused = $prompt->focus === 'sidebar';
-        $sidebar->title = $prompt->connection->driver === 'sqlite'
-            ? $sidebar->heading()
-            : trim($sidebar->heading().'  ·  '.$prompt->connection->activeDatabase());
+        $sidebar->title = $sidebar->heading($prompt->connection->driver === 'sqlite'
+            ? basename((string) $prompt->connection->database)
+            : (string) $prompt->connection->activeDatabase(), Layout::sidebarWidth() - 4);
         $sidebar->place(1, $top, Layout::sidebarWidth() + 2, $frameHeight);
 
         $rightX = $sidebar->x + $sidebar->width + 1;
@@ -551,7 +551,7 @@ class BrowserRenderer extends Renderer
                 .$this->paint($color, '┐');
         }
 
-        $label = ' '.$island->title.' ';
+        $label = ' '.$style->truncate($island->title, max(1, $inner - 4)).' ';
         $plain = $style->visible($label);
 
         $label = $island->focused

@@ -5,6 +5,8 @@ use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Support\Paths;
 use App\Tui\Browser;
+use App\Tui\Islands\SidebarIsland;
+use App\Tui\Islands\Styler;
 use App\Tui\Layout;
 use App\Tui\QueryEditor;
 use App\Tui\RowFormatter;
@@ -316,7 +318,7 @@ it('draws each island exactly where it claims to be', function () {
     $sidebarRow = null;
 
     foreach ($lines as $index => $line) {
-        if (str_contains($line, 'TABLES')) {
+        if (str_starts_with($line, '┌─ ')) {
             $sidebarRow = $index + 1;
             break;
         }
@@ -367,7 +369,7 @@ it('honours the configured top margin and keeps coordinates honest', function (i
     $drawn = null;
 
     foreach ($lines as $index => $line) {
-        if (str_contains($line, 'TABLES')) {
+        if (str_starts_with($line, '┌─ ')) {
             $drawn = $index + 1;
             break;
         }
@@ -893,7 +895,7 @@ it('edits a value in a modal over the grid, sized to the value', function () {
         ->and($island->modal)->toBeTrue()
         ->and($island->width)->toBeLessThan($browser->terminal()->cols())
         ->and($island->innerHeight())->toBe(1)
-        ->and($frame)->toContain('TABLES')
+        ->and($frame)->toMatch('/^┌─ /m')
         ->and($frame)->toContain('events');
 });
 
@@ -1551,3 +1553,32 @@ it('fits every line of help without cutting it, and names the arrow keys', funct
         ->and($inside->implode("\n"))->toContain('←↓↑→ / hjkl  move')
         ->and($inside->implode("\n"))->toContain('dbl click    edit the cell');
 })->with([80, 130]);
+
+it('keeps a long pane title inside its own border', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->filter = 'widgets_and_everything_else_that_matches';
+
+    $lines = explode("\n", frameOf($browser));
+    $top = collect($lines)->first(fn (string $line) => str_starts_with($line, '┌─ '));
+    $body = collect($lines)->first(fn (string $line) => str_starts_with($line, '│'));
+
+    expect(mb_strpos($top, '┐'))->toBe(mb_strpos($body, '│', 1))
+        ->and($top)->toContain('…');
+});
+
+it('titles the table list with the database it is showing', function () {
+    $path = sqliteFixture();
+    $browser = browserFor($path);
+
+    $top = collect(explode("\n", frameOf($browser)))->first(fn (string $line) => str_starts_with($line, '┌─ '));
+
+    expect($top)->toContain(mb_substr(basename($path), 0, 12))
+        ->and($top)->not->toContain('TABLES');
+
+    $style = new Styler(fn ($t) => $t, fn ($t) => $t, fn ($t) => $t, fn ($t) => $t, fn (string $t, int $w) => mb_strlen($t) > $w ? mb_substr($t, 0, $w - 1).'…' : $t);
+
+    expect((new SidebarIsland([], 0, $style))->heading('wordpress', 22))->toBe('wordpress')
+        ->and((new SidebarIsland([], 0, $style))->heading('', 22))->toBe('TABLES')
+        ->and((new SidebarIsland([], 0, $style, 'options'))->heading('wordpress', 22))->toBe('wordpress /options')
+        ->and((new SidebarIsland([], 0, $style, 'options'))->heading('a_database_with_a_long_name', 22))->toBe('a_database_w… /options');
+});

@@ -88,7 +88,7 @@ it('shows the filter in the sidebar title and the status line', function () {
 
     $frame = frame($browser);
 
-    expect($frame)->toContain('TABLES /inv')
+    expect($frame)->toMatch('/^┌─ \\S+ \\/inv /m')
         ->and($frame)->toContain('/inv');
 });
 

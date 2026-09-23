@@ -233,7 +233,7 @@ it('floats over the grid rather than taking the screen', function () {
     $frame = preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser));
 
     // The panes are still there behind it.
-    expect($frame)->toContain('TABLES')
+    expect($frame)->toMatch('/^┌─ /m')
         ->and($frame)->toContain('┌─ RECORD')
         ->and($frame)->toContain('events');
 });

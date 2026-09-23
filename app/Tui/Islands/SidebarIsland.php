@@ -36,11 +36,12 @@ class SidebarIsland extends Island
         return $lines;
     }
 
-    public function heading(): string
+    public function heading(string $name = '', int $room = PHP_INT_MAX): string
     {
-        return $this->filter === null || $this->filter === ''
-            ? 'TABLES'
-            : 'TABLES /'.$this->filter;
+        $name = trim($name) === '' ? 'TABLES' : $name;
+        $filter = $this->filter === null || $this->filter === '' ? '' : ' /'.$this->filter;
+
+        return $this->style->truncate($name, max(4, $room - mb_strlen($filter))).$filter;
     }
 
     public function selectedIndexFor(int $localRow): ?int
