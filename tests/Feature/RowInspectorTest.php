@@ -414,7 +414,7 @@ it('leaves a join table alone when it carries data of its own', function () {
     expect(implode("\n", inspectorLines($browser)))->toContain('order_lines  ·  has many  (1)');
 });
 
-it('keeps a related row readable across the screen', function () {
+it('clamps a long column instead of dropping it', function () {
     $browser = relatedBrowser(<<<'SQL'
         create table authors (id integer primary key, name text);
         create table books (
@@ -422,27 +422,26 @@ it('keeps a related row readable across the screen', function () {
             author_id integer references authors(id),
             title text,
             blurb text,
-            isbn text,
-            pages integer,
-            price real,
-            edition text,
-            printing integer,
-            binding text
+            isbn text
         );
         insert into authors (name) values ('Ursula');
-        insert into books (author_id, title, blurb, isbn, pages, price, edition, printing, binding)
-            values (1, 'The Dispossessed', 'A very long description of the book that would push every other column off the side of the screen', '978', 341, 9.99, 'first', 2, 'paper');
+        insert into books (author_id, title, blurb, isbn)
+            values (1, 'The Dispossessed', 'A very long description of the book that would push every other column off the side of the screen', '978');
     SQL, 'authors');
 
     $text = implode("\n", inspectorLines($browser));
 
-    // The prose is dropped, the rest is capped, and the heading says so.
-    expect($text)->toContain('books  ·  has many  (1)  ·  6 of 9 columns')
+    // Every column is there; the prose is cut with an ellipsis, and i on the
+    // row in the table opens the whole value.
+    expect($text)->toContain('blurb')
+        ->and($text)->toContain('isbn')
         ->and($text)->toContain('The Dispossessed')
-        ->and($text)->not->toContain('push every other column');
+        ->and($text)->toContain('…')
+        ->and($text)->not->toContain('off the side of the screen')
+        ->and($text)->not->toContain('columns');
 });
 
-it('shows every column when the row is narrow enough', function () {
+it('leaves a narrow related row alone', function () {
     $browser = relatedBrowser(<<<'SQL'
         create table teams (id integer primary key, name text);
         create table players (id integer primary key, team_id integer references teams(id), name text, number integer);
@@ -453,6 +452,6 @@ it('shows every column when the row is narrow enough', function () {
     $text = implode("\n", inspectorLines($browser));
 
     expect($text)->toContain('players  ·  has many  (1)')
-        ->and($text)->not->toContain('columns')
-        ->and($text)->toContain('Ada');
+        ->and($text)->toContain('Ada')
+        ->and($text)->not->toContain('…');
 });

@@ -668,9 +668,9 @@ list of timestamps, so tql shows `actors · has many through film_actor` with
 the actors in it. A join table that carries data of its own — a quantity, a
 price — is a table in its own right and is shown as one.
 
-A related row is a glance, not the table: columns of prose are left out, the
-rest is capped at six, and the heading says `6 of 10 columns` when it is holding
-some back.
+Every column of a related row is shown, each clamped to 24 characters with an
+`…` where it was cut — nothing is dropped, so the row you are reading is the row
+that is there. `i` on the row in its own table opens the whole of it.
 
 Relations are found by following foreign keys both ways.
 `ui.inspect_related` caps how many rows are loaded (10 by default, 0 turns it

@@ -84,16 +84,8 @@ class RowDocument
                 ? ''
                 : '  '.($total !== null && $total > $shown ? "({$shown} of {$total})" : "({$shown})");
 
-            // Say when the row is wider than what is on screen, so a missing
-            // column is something tql told you about rather than a surprise.
-            [$showing, $has] = $one
-                ? [0, 0]
-                : $this->columnsShown($relation['rows'], $relation['hide'] ?? []);
-
-            $columns = $showing !== 0 && $showing < $has ? "  ·  {$showing} of {$has} columns" : '';
-
             $lines[] = [
-                'text' => '  '.$this->marker($key).' '.$table.'  ·  '.$kind.$count.$columns,
+                'text' => '  '.$this->marker($key).' '.$table.'  ·  '.$kind.$count,
                 'fold' => $key,
                 'section' => self::RELATED,
                 'heading' => false,
@@ -192,74 +184,19 @@ class RowDocument
         return $lines;
     }
 
-    /** How many columns a related collection shows before it stops. */
-    private const COLUMNS = 6;
+    /** How wide a column of a related collection is allowed to get. */
+    private const CELL = 24;
 
-    /**
-     * Which columns of a related table are worth reading across a row.
-     *
-     * The ids are noise the inspector exists to remove; a column of prose is
-     * worse, because it pushes everything else off the side. What is left is
-     * capped, because a related record is a glance, not the table.
-     *
-     * @param  array<int, array<string, mixed>>  $rows
-     * @param  array<int, string>  $hide
-     * @return array<int, string>
-     */
-    private function chosenColumns(array $rows, array $hide = []): array
+    private function collection(array $rows, array $hide = []): array
     {
+        // The id joining back to this row, and the ids pointing at other
+        // tables, are the noise the inspector exists to get rid of. Everything
+        // else stays: a column is clamped, never dropped, and i on the row
+        // opens the whole value.
         $columns = array_values(array_filter(
             array_keys($rows[0] ?? []),
             fn (string $column) => ! in_array($column, $hide, true),
         ));
-
-        if (count($columns) <= self::COLUMNS) {
-            return $columns;
-        }
-
-        $short = array_values(array_filter(
-            $columns,
-            fn (string $column) => $this->widest($rows, $column) <= 30,
-        ));
-
-        // Everything is prose: keep the first few rather than nothing.
-        $keep = count($short) >= 2 ? $short : $columns;
-
-        return array_slice($keep, 0, self::COLUMNS);
-    }
-
-    /**
-     * @param  array<int, array<string, mixed>>  $rows
-     */
-    private function widest(array $rows, string $column): int
-    {
-        return max(array_map(
-            fn (array $row) => mb_strlen($this->value($row[$column] ?? null)),
-            $rows,
-        ) ?: [0]);
-    }
-
-    /**
-     * How many columns the table has that are worth reading, and how many are
-     * being shown, so a heading can say when it is holding some back.
-     *
-     * @param  array<int, array<string, mixed>>  $rows
-     * @param  array<int, string>  $hide
-     * @return array{0: int, 1: int}
-     */
-    public function columnsShown(array $rows, array $hide = []): array
-    {
-        $all = array_values(array_filter(
-            array_keys($rows[0] ?? []),
-            fn (string $column) => ! in_array($column, $hide, true),
-        ));
-
-        return [count($this->chosenColumns($rows, $hide)), count($all)];
-    }
-
-    private function collection(array $rows, array $hide = []): array
-    {
-        $columns = $this->chosenColumns($rows, $hide);
 
         if ($columns === []) {
             return [];
@@ -268,7 +205,7 @@ class RowDocument
         $widths = [];
 
         foreach ($columns as $column) {
-            $widths[$column] = min(28, max(
+            $widths[$column] = min(self::CELL, max(
                 mb_strlen((string) $column),
                 ...array_map(fn (array $row) => mb_strlen($this->value($row[$column] ?? null)), $rows),
             ));
