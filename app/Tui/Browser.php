@@ -1017,7 +1017,7 @@ class Browser extends Prompt
      */
     public function onAddedRow(): bool
     {
-        return $this->pendingInserts !== [] && $this->rowIndex >= $this->firstAddedRow();
+        return $this->rowIndex < count($this->pendingInserts);
     }
 
     private function handleEditKey(string $key): void
@@ -1217,7 +1217,7 @@ class Browser extends Prompt
         // A row that is not in the table yet has no key to edit by: the value
         // goes into the row waiting to be inserted.
         if ($this->onAddedRow()) {
-            $at = $this->rowIndex - $this->firstAddedRow();
+            $at = $this->rowIndex;
 
             $this->pendingInserts[$at][$column] = $value === '' ? null : $value;
             $this->raw[$this->rowIndex][$column] = $value === '' ? null : $value;
@@ -1469,10 +1469,13 @@ class Browser extends Prompt
             return true;
         }
 
-        $this->pendingInserts[] = [];
-        $this->appendPendingRows();
+        // On top, where you are already looking, rather than at the end of a
+        // hundred rows you would have to walk to.
+        array_unshift($this->pendingInserts, []);
 
-        $this->rowIndex = count($this->rows) - 1;
+        $this->load(keepCursor: true);
+
+        $this->rowIndex = 0;
         $this->columnIndex = $this->firstFillable();
         $this->focus = 'grid';
 
@@ -1498,19 +1501,19 @@ class Browser extends Prompt
     }
 
     /**
-     * Put the unwritten rows back on the end of the grid, after a load.
+     * Put the unwritten rows back on top of the grid, after a load.
      */
     private function appendPendingRows(): void
     {
-        foreach ($this->pendingInserts as $values) {
+        foreach (array_reverse($this->pendingInserts) as $values) {
             $row = array_fill_keys($this->headers, null);
 
             foreach ($values as $column => $value) {
                 $row[$column] = $value;
             }
 
-            $this->raw[] = $row;
-            $this->rows[] = $this->addedRow($row);
+            array_unshift($this->raw, $row);
+            array_unshift($this->rows, $this->addedRow($row));
         }
     }
 
@@ -1538,15 +1541,8 @@ class Browser extends Prompt
     }
 
     /**
-     * Where the added rows start in the grid, since they sit on the end.
-     */
-    public function firstAddedRow(): int
-    {
-        return count($this->rows) - count($this->pendingInserts);
-    }
-
-    /**
-     * Row indexes that are not in the table yet, for the renderer.
+     * Row indexes that are not in the table yet, for the renderer. They are
+     * the first rows in the grid, newest first.
      *
      * @return array<int, int>
      */
@@ -1554,7 +1550,7 @@ class Browser extends Prompt
     {
         return $this->pendingInserts === []
             ? []
-            : range($this->firstAddedRow(), count($this->rows) - 1);
+            : range(0, count($this->pendingInserts) - 1);
     }
 
     /**

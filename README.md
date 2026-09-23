@@ -757,7 +757,8 @@ drivers your PHP build actually has.
 
 ## Adding a row
 
-`N` puts an empty row on the end of the grid. It is a row like any other — `e`
+`N` puts an empty row on top of the grid, where you are already looking rather
+than a hundred rows down. It is a row like any other — `e`
 fills a column, `↵` keeps it — except that it is not in the table yet, so it is
 drawn in the added colour and nothing has happened until `:w`.
 

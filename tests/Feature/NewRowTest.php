@@ -55,6 +55,8 @@ it('adds a row, fills it in and writes it', function () {
 
     expect($browser->pendingInserts)->toHaveCount(1)
         ->and($browser->onAddedRow())->toBeTrue()
+        // On top, where you are already looking.
+        ->and($browser->rowIndex)->toBe(0)
         // It starts on the first column the database is not filling in itself.
         ->and($browser->headers[$browser->columnIndex])->toBe('name');
 
@@ -79,7 +81,7 @@ it('shows an untouched column as blank rather than NULL', function () {
 
     $browser->emit('key', 'N');
 
-    $added = $browser->rows[$browser->firstAddedRow()];
+    $added = $browser->rows[0];
 
     expect($added['qty'])->toBe('')
         ->and($added['id'])->toBe('');
@@ -107,7 +109,7 @@ it('keeps an unwritten row through a reload', function () {
     $browser->emit('key', 'r');
 
     expect($browser->pendingInserts)->toHaveCount(1)
-        ->and($browser->rows[$browser->firstAddedRow()]['name'])->toBe('beta');
+        ->and($browser->rows[0]['name'])->toBe('beta');
 });
 
 it('refuses on a read-only connection', function () {
@@ -145,4 +147,27 @@ it('adds to a table with no primary key', function () {
 
     expect(rowsOf($browser))->toHaveCount(2)
         ->and($browser->status)->toContain('1 row added');
+});
+
+it('puts the newest row on top', function () {
+    $browser = adding();
+
+    $browser->emit('key', 'N');
+    $browser->emit('key', 'e');
+    typeInto($browser, 'first');
+    $browser->emit('key', "\n");
+
+    $browser->emit('key', 'N');
+    $browser->emit('key', 'e');
+    typeInto($browser, 'second');
+    $browser->emit('key', "\n");
+
+    expect($browser->rows[0]['name'])->toBe('second')
+        ->and($browser->rows[1]['name'])->toBe('first')
+        ->and($browser->rows[2]['name'])->toBe('alpha')
+        ->and($browser->addedRows())->toBe([0, 1]);
+
+    write($browser);
+
+    expect(array_column(rowsOf($browser), 'name'))->toBe(['alpha', 'second', 'first']);
 });
