@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Ssh\Settings as SshSettings;
+use App\Support\Paths;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use PDO;
@@ -71,7 +72,9 @@ class Connection extends Model
 
         // The connectors read $config['database'] directly, so the key has to
         // be there even when the connection string carried no database name.
-        $config['database'] = (string) $this->activeDatabase();
+        $config['database'] = $this->driver === 'sqlite'
+            ? Paths::expand((string) $this->activeDatabase())
+            : (string) $this->activeDatabase();
 
         return array_merge($config, $this->sslConfig());
     }

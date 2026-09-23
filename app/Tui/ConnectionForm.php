@@ -6,6 +6,7 @@ use App\Connections\Tag;
 use App\Models\Connection;
 use App\Ssh\Settings as SshSettings;
 use App\Support\KeyFiles;
+use App\Support\Paths;
 
 /**
  * The edit modal's state. Values live here until saved, so cancelling costs
@@ -451,6 +452,10 @@ class ConnectionForm
 
         if ($this->driver() === 'sqlite' && trim($this->values['database'] ?? '') === '') {
             return 'A path to the .sqlite file is required.';
+        }
+
+        if ($this->driver() === 'sqlite') {
+            $this->values['database'] = Paths::resolve($this->values['database']);
         }
 
         $taken = Connection::where('name', $this->values['name'])

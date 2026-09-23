@@ -16,9 +16,20 @@ class Paths
      */
     public static function expand(string $path): string
     {
-        return str_starts_with($path, '~/')
+        return $path === '~' || str_starts_with($path, '~/')
             ? (string) getenv('HOME').substr($path, 1)
             : $path;
+    }
+
+    public static function resolve(string $path, ?string $from = null): string
+    {
+        $path = static::expand(trim($path));
+
+        if (! str_starts_with($path, '/')) {
+            $path = rtrim($from ?? (string) getcwd(), '/').'/'.$path;
+        }
+
+        return realpath($path) ?: $path;
     }
 
     /**
