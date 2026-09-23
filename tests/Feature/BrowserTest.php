@@ -9,6 +9,7 @@ use App\Tui\Layout;
 use App\Tui\QueryEditor;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
+use Laravel\Prompts\Key;
 
 function sqliteFixture(): string
 {
@@ -885,16 +886,45 @@ it('opens editable with e where editing is possible', function () {
         ->and($browser->readOnlyReason)->toBeNull();
 });
 
+it('edits a value in a modal over the grid, sized to the value', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+
+    $frame = frameOf($browser);
+    $island = $browser->valueIsland;
+
+    expect($browser->mode)->toBe('edit')
+        ->and($island->modal)->toBeTrue()
+        ->and($island->width)->toBeLessThan($browser->terminal()->cols())
+        ->and($island->innerHeight())->toBe(1)
+        ->and($frame)->toContain('TABLES')
+        ->and($frame)->toContain('events');
+});
+
+it('widens the value editor for a long line, up to the frame', function () {
+    $browser = jsonBrowser();
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
+    $browser->emit('key', 'e');
+
+    foreach (mb_str_split(str_repeat('x', 400)) as $char) {
+        $browser->emit('key', $char);
+    }
+
+    frameOf($browser);
+
+    expect($browser->valueIsland->width)->toBe($browser->terminal()->cols() - 4);
+});
+
 it('hides the cursor when the value is read-only', function () {
     $browser = jsonBrowser();
     $browser->emit('key', 'l');
     $browser->emit('key', 'I');
 
-    $method = new ReflectionMethod($browser, 'renderTheme');
-    $method->setAccessible(true);
-
     expect($browser->editable)->toBeFalse()
-        ->and($method->invoke($browser))->not->toContain("\e[7m");
+        ->and(editorShown($browser))->not->toContain("\e[7m");
 });
 
 it('puts the sql pane where the config says', function (string $position, bool $sqlFirst) {
@@ -1238,6 +1268,22 @@ it('tabs through the sql pane when it is on screen', function () {
 
     config(['tql.ui.sql_always' => false]);
 });
+
+it('moves from the table list to the grid with the right arrow', function (string $key) {
+    $browser = browserFor(sqliteFixture());
+    $browser->focus = 'sidebar';
+    $browser->columnIndex = 0;
+
+    $browser->emit('key', $key);
+
+    expect($browser->focus)->toBe('grid')
+        ->and($browser->columnIndex)->toBe(0);
+
+    $browser->emit('key', $key);
+
+    expect($browser->focus)->toBe('grid')
+        ->and($browser->columnIndex)->toBe(1);
+})->with([Key::RIGHT_ARROW, 'l']);
 
 it('tabs between two panes when the sql pane is hidden', function () {
     $browser = browserFor(sqliteFixture());

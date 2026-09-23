@@ -490,3 +490,17 @@ it('lays a related row out to the width it has', function () {
     // The same row, laid out to two different terminals.
     expect($blurb(200))->toBeGreaterThan($blurb(100));
 });
+
+it('lines the types up after a long or non-ascii value', function () {
+    $browser = relatedBrowser("
+        create table film (film_id integer primary key, description blob sub_type text, city text);
+        insert into film (description, city) values ('".str_repeat('A Action-Packed Tale ', 5)."', 'São Paulo')
+    ");
+
+    $lines = collect(inspectorLines($browser))->map(fn (string $l) => ltrim($l));
+    $typeAt = fn (string $column, string $type) => mb_strpos($lines->first(fn ($l) => str_starts_with($l, $column)), $type);
+
+    expect($lines->first(fn ($l) => str_starts_with($l, 'description')))->toContain('…  blob sub_type text')
+        ->and($typeAt('description', 'blob'))->toBe($typeAt('film_id', 'integer'))
+        ->and($typeAt('city', 'text'))->toBe($typeAt('film_id', 'integer'));
+});

@@ -390,7 +390,7 @@ class Browser extends Prompt
         if ($event = Mouse::parse($key)) {
             // A terminal can keep reporting the mouse after we asked it to
             // stop, so honour the setting here as well as at the escape code.
-            if (Layout::mouse()) {
+            if (Layout::mouse() && $this->recordForm === null) {
                 $this->onMouse($event);
             }
 
@@ -411,6 +411,12 @@ class Browser extends Prompt
         if ($key === "\x0c") {
             $this->repaint();
             $this->status = 'redrawn';
+
+            return;
+        }
+
+        if ($this->recordForm !== null) {
+            $this->handleRecordFormKey($key);
 
             return;
         }
@@ -489,7 +495,7 @@ class Browser extends Prompt
             'move_up' => $this->moveUp(),
             'move_down' => $this->moveDown(),
             'move_left' => $this->moveColumn(-1),
-            'move_right' => $this->moveColumn(1),
+            'move_right' => $this->focus === 'sidebar' ? $this->toggleFocus() : $this->moveColumn(1),
             'narrow' => $this->resize(-4),
             'widen' => $this->resize(4),
             'reset_width' => $this->resetWidth(),
@@ -498,6 +504,7 @@ class Browser extends Prompt
             'view_value' => $this->startEditing(readOnly: true),
             'help' => $this->toggleHelp(),
             'edit_value' => $this->startEditing(),
+            'edit_row' => $this->openRecord(),
             'activate' => $this->activate(),
             'next_page' => $this->page(self::PAGE),
             'previous_page' => $this->page(-self::PAGE),
@@ -754,6 +761,8 @@ class Browser extends Prompt
     public bool $inspectingRow = false;
 
     public ?RowDocument $document = null;
+
+    public ?RecordForm $recordForm = null;
 
     public int $documentLine = 0;
 
@@ -1325,7 +1334,12 @@ class Browser extends Prompt
         if ($this->onAddedRow()) {
             $at = $this->rowIndex;
 
-            $this->pendingInserts[$at][$column] = $value === '' ? null : $value;
+            if ($value === '') {
+                unset($this->pendingInserts[$at][$column]);
+            } else {
+                $this->pendingInserts[$at][$column] = $value;
+            }
+
             $this->raw[$this->rowIndex][$column] = $value === '' ? null : $value;
             $this->rows[$this->rowIndex] = $this->addedRow($this->raw[$this->rowIndex]);
 
@@ -1549,12 +1563,6 @@ class Browser extends Prompt
         return $rows;
     }
 
-    /**
-     * Add an empty row to the end of the grid, unwritten.
-     *
-     * It is a row like any other until :w: you fill it in with e, and u drops
-     * it. Nothing reaches the database until you say so.
-     */
     private function newRow(): bool
     {
         if ($this->resultsFromQuery) {
@@ -1575,30 +1583,195 @@ class Browser extends Prompt
             return true;
         }
 
-        // On top, where you are already looking, rather than at the end of a
-        // hundred rows you would have to walk to.
-        array_unshift($this->pendingInserts, []);
+        $table = (string) $this->currentTable();
 
-        $this->load(keepCursor: true);
+        $this->recordForm = RecordForm::adding(
+            $table,
+            $this->columnsOf($table),
+            $this->connection->driver,
+            $this->generatedColumns(),
+            $this->suggestKey($this->requiredColumns()),
+        );
 
-        $this->rowIndex = 0;
-        $this->focus = 'grid';
-
-        $required = $this->requiredColumns();
-        $given = $this->suggestKey($required);
-
-        // Start where there is something to type, which is past anything the
-        // database fills in and past anything tql just filled in.
-        $this->columnIndex = $this->firstFillable(array_keys($given));
-
-        $required = array_values(array_diff($required, array_keys($given)));
-
-        $this->status = 'new row · '
-            .($given === [] ? '' : key($given).' '.reset($given).' · ')
-            .($required === [] ? '' : implode(', ', $required).' to fill in · ')
-            .'e fills a column · :w writes it · u drops it';
+        $this->status = null;
 
         return true;
+    }
+
+    private function openRecord(): bool
+    {
+        if ($this->raw === []) {
+            $this->status = 'nothing to open — this table has no rows';
+
+            return true;
+        }
+
+        $reason = $this->whyReadOnly();
+
+        if ($reason !== null) {
+            $this->status = $reason;
+
+            return true;
+        }
+
+        $table = (string) $this->currentTable();
+        $columns = $this->columnsOf($table);
+
+        if ($this->onAddedRow()) {
+            $this->recordForm = RecordForm::pending(
+                $table,
+                $columns,
+                $this->connection->driver,
+                $this->generatedColumns(),
+                $this->pendingInserts[$this->rowIndex],
+                $this->rowIndex,
+            );
+        } else {
+            $key = (string) $this->keyColumn();
+            $row = $this->raw[$this->rowIndex];
+
+            $this->recordForm = RecordForm::editing(
+                $table,
+                $columns,
+                array_merge($row, $this->pendingEdits[(string) ($row[$key] ?? '')] ?? []),
+                $key,
+            );
+        }
+
+        $at = array_search($this->headers[$this->columnIndex] ?? null, array_column($this->recordForm->fields(), 'name'), true);
+        $this->recordForm->jump($at === false ? 0 : $at);
+
+        $this->focus = 'grid';
+        $this->status = null;
+
+        return true;
+    }
+
+    private function generatedColumns(): array
+    {
+        return array_values(array_filter($this->headers, $this->filledByDatabase(...)));
+    }
+
+    private function handleRecordFormKey(string $key): void
+    {
+        $form = $this->recordForm;
+
+        if ($form->editor !== null) {
+            $this->handleRecordFieldKey($form, $key);
+
+            return;
+        }
+
+        if ($key !== Key::ESCAPE) {
+            $form->discarding = false;
+        }
+
+        match (true) {
+            $key === Key::ESCAPE => $this->closeRecord(),
+            $key === self::SAVE => $this->saveRecord(),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k', Key::SHIFT_TAB], true) => $form->move(-1),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j', Key::TAB], true) => $form->move(1),
+            $key === 'g' => $form->jump(0),
+            $key === 'G' => $form->jump(PHP_INT_MAX),
+            in_array($key, [Key::ENTER, 'e'], true) => $form->start(),
+            $key === Key::CTRL_N => $form->setNull(),
+            in_array($key, [Key::BACKSPACE, Key::CTRL_H, Key::DELETE], true) => $form->reset(),
+            default => null,
+        };
+    }
+
+    private function handleRecordFieldKey(RecordForm $form, string $key): void
+    {
+        if ($key === Key::ESCAPE) {
+            $form->abandon();
+
+            return;
+        }
+
+        if ($key === "\x14") {
+            $form->now();
+
+            return;
+        }
+
+        if ($key === self::SAVE) {
+            $this->saveRecord();
+
+            return;
+        }
+
+        if (in_array($key, self::NEWLINE, true)) {
+            $form->expanded = true;
+            $form->type(Key::ENTER);
+
+            return;
+        }
+
+        $inline = ! $form->expanded;
+
+        $step = match (true) {
+            in_array($key, [Key::ENTER, Key::TAB, Key::CTRL_D], true) => 1,
+            $key === Key::SHIFT_TAB => -1,
+            $inline && in_array($key, [Key::DOWN, Key::DOWN_ARROW], true) => 1,
+            $inline && in_array($key, [Key::UP, Key::UP_ARROW], true) => -1,
+            default => null,
+        };
+
+        if ($step === null) {
+            $form->type($key);
+
+            return;
+        }
+
+        if ($form->keep()) {
+            $form->move($step);
+        }
+    }
+
+    private function closeRecord(): void
+    {
+        $form = $this->recordForm;
+
+        if ($form->dirty() && ! $form->discarding) {
+            $form->discarding = true;
+
+            return;
+        }
+
+        $this->recordForm = null;
+        $this->status = $form->dirty() ? 'row thrown away' : null;
+    }
+
+    private function saveRecord(): void
+    {
+        $form = $this->recordForm;
+
+        if (! $form->keep()) {
+            return;
+        }
+
+        $values = $form->values();
+        $this->recordForm = null;
+        $this->focus = 'grid';
+
+        if ($form->insertAt !== null) {
+            $this->pendingInserts[$form->insertAt] = $values;
+            $this->load(keepCursor: true);
+        } elseif ($form->adds()) {
+            array_unshift($this->pendingInserts, $values);
+            $this->load(keepCursor: true);
+            $this->rowIndex = 0;
+        } elseif ($values === []) {
+            $this->status = 'nothing changed';
+
+            return;
+        } else {
+            foreach ($values as $column => $value) {
+                $this->pendingEdits[(string) $form->keyValue][$column] = $value;
+            }
+        }
+
+        $this->status = $this->pendingStatus();
     }
 
     /**
@@ -1637,13 +1810,7 @@ class Browser extends Prompt
             return [];
         }
 
-        $next = (int) ($result->rows[0]['highest'] ?? 0) + 1;
-
-        $this->pendingInserts[0][$key] = $next;
-        $this->raw[0][$key] = $next;
-        $this->rows[0] = $this->addedRow($this->raw[0]);
-
-        return [$key => (string) $next];
+        return [$key => (string) ((int) ($result->rows[0]['highest'] ?? 0) + 1)];
     }
 
     /**
@@ -1668,23 +1835,6 @@ class Browser extends Prompt
         }
 
         return false;
-    }
-
-    /**
-     * The column to start on: the first one the database will not fill in
-     * itself. An auto-increment key is the database's to give; a key that is
-     * not auto-increment is yours, and starting past it is how you end up
-     * being told about it by a constraint.
-     */
-    private function firstFillable(array $given = []): int
-    {
-        foreach ($this->headers as $index => $column) {
-            if (! $this->filledByDatabase($column) && ! in_array($column, $given, true)) {
-                return $index;
-            }
-        }
-
-        return 0;
     }
 
     /**
@@ -1763,8 +1913,14 @@ class Browser extends Prompt
                 $row[$column] = $value;
             }
 
+            $display = $this->addedRow($row);
+
+            foreach (array_keys(array_filter($values, fn (mixed $value) => $value === null)) as $column) {
+                $display[$column] = $this->formatter->rows([[$column => null]])[0][$column];
+            }
+
             array_unshift($this->raw, $row);
-            array_unshift($this->rows, $this->addedRow($row));
+            array_unshift($this->rows, $display);
         }
     }
 
@@ -1852,10 +2008,7 @@ class Browser extends Prompt
         $adds = count($this->pendingInserts);
 
         foreach ($this->pendingInserts as $values) {
-            $result = $this->runner->insert($this->connection, $table, array_filter(
-                $values,
-                fn (mixed $value) => $value !== null,
-            ));
+            $result = $this->runner->insert($this->connection, $table, $values);
 
             if ($result->failed()) {
                 return $this->fail($result->error, [

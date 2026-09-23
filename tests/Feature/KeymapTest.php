@@ -81,7 +81,7 @@ it('drives the grid with the rebound key', function () {
     $browser->emit('key', "\e");
     $browser->emit('key', "\x0e");
 
-    expect($browser->pendingInserts)->toHaveCount(1);
+    expect($browser->recordForm)->not->toBeNull();
 });
 
 it('shows the rebound key in help and on the hotkey bar', function () {

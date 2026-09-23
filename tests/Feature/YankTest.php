@@ -141,12 +141,7 @@ it('does not yank from an editable value', function () {
 it('marks the current line in the viewer', function () {
     $browser = viewer();
 
-    $frame = function () use ($browser) {
-        $method = new ReflectionMethod($browser, 'renderTheme');
-        $method->setAccessible(true);
-
-        return preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser));
-    };
+    $frame = fn () => preg_replace('/\e\[[0-9;]*m/', '', editorShown($browser));
 
     $lineOf = function (string $frame) {
         foreach (explode("\n", $frame) as $index => $line) {
@@ -173,9 +168,7 @@ it('does not mark lines while editing, where the text cursor shows instead', fun
     $browser->emit('key', "\e");
     $browser->emit('key', 'e');
 
-    $method = new ReflectionMethod($browser, 'renderTheme');
-    $method->setAccessible(true);
-    $raw = $method->invoke($browser);
+    $raw = editorShown($browser);
 
     expect(preg_replace('/\e\[[0-9;]*m/', '', $raw))->not->toContain('▸')
         ->and($raw)->toContain("\e[7m");

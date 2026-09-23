@@ -39,6 +39,8 @@ it('opens a modal when the database refuses a write', function () {
     $browser = refusing();
 
     $browser->emit('key', 'N');
+    $browser->emit('key', "\x13");
+    $browser->columnIndex = 1;
     $browser->emit('key', 'e');
 
     foreach (mb_str_split('Grace') as $character) {

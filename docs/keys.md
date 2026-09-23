@@ -12,12 +12,13 @@ does where it does not. **They can be changed** — see [Rebinding](#rebinding).
 | --- | --- |
 | `tab` / `shift+tab` | next or previous pane |
 | `↑ ↓` / `j k` | move the cursor |
-| `← →` / `h l` | move between columns |
+| `← →` / `h l` | move between columns; `→` from the table list moves to the grid |
 | `n` / `p` | next or previous page, 100 rows |
 | `↵` | open the table, or edit the cell |
 | `i` | inspect the row: its fields and its related records |
-| `I` | view just this value, full screen, read only |
+| `I` | view just this value in a modal, read only |
 | `e` | edit the value |
+| `E` | edit the whole row in a form |
 | `o` | sort by this column: ascending, descending, primary key |
 | `r` | reload the table |
 | `b` | switch database on this server |
@@ -29,7 +30,7 @@ does where it does not. **They can be changed** — see [Rebinding](#rebinding).
 | `a` | ask for a query in plain english |
 | `s` | the SQL editor |
 | `y` / `Y` | yank this value, or the whole row as an object |
-| `N` | add a row: `e` fills it in, `:w` writes it |
+| `N` | add a row, in a form; `:w` writes it |
 | `d` / `u` | mark the row for deletion, or clear every mark |
 | `,` `.` or `<` `>` | narrow or widen the column |
 | `=` | reset the column width |
@@ -115,6 +116,23 @@ keybind = shift+enter=csi:13;2u
 
 `now()` typed into a cell means the same as `ctrl+t`. Both write UTC unless
 `[ui] time_zone` says otherwise, and the status line names the zone.
+
+### Inside a row form
+
+`N` opens one for a new row, `E` for the row under the cursor.
+
+| Key | Action |
+| --- | --- |
+| `↑ ↓` / `j k` / `tab` | move between fields |
+| `g` / `G` | the first or last field |
+| `↵` / `e` | start typing; json and long values open in the value editor |
+| `ctrl+n` | set the field to `NULL` |
+| `⌫` | put the field back the way it was |
+| `ctrl+s` | keep the row, pending, from anywhere |
+| `esc` | cancel — twice, if you changed something |
+
+While typing, `↵` or `tab` keeps the field and moves on, `shift+tab` moves back,
+`ctrl+t` types the time and `esc` puts the field back.
 
 ## Filtering rows
 
@@ -217,6 +235,7 @@ of is ignored and the default stands.
 | `inspect_row` | `i` | inspect the row |
 | `view_value` | `I` | view just this value |
 | `edit_value` | `e` | edit the value |
+| `edit_row` | `E` | edit the row in a form |
 | `sort_column` | `o` | sort this column |
 | `mark_delete` | `d` | mark the row for deletion |
 | `clear_marks` | `u` | drop every pending change |

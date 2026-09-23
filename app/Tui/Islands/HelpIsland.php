@@ -76,7 +76,7 @@ class HelpIsland extends Island
                 'new_row', 'mark_delete', 'clear_marks', 'redraw',
             ]),
             'doing' => $this->keysFor([
-                'activate', 'inspect_row', 'view_value', 'edit_value', 'sql', 'ask',
+                'activate', 'inspect_row', 'view_value', 'edit_value', 'edit_row', 'sql', 'ask',
                 'filter_tables', 'filter_rows', 'structure', 'databases',
                 'follow_link', 'jump_back', 'narrow', 'reset_width', 'help', 'quit',
             ]),

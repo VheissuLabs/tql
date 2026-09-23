@@ -5,6 +5,7 @@ putenv('NO_ALT_SCREEN=1');
 putenv('NO_MOUSE=1');
 putenv('NO_TTY_SETUP=1');
 
+use App\Tui\Browser;
 use Tests\TestCase;
 
 /*
@@ -47,7 +48,13 @@ expect()->extend('toBeOne', function () {
 |
 */
 
-function something(): void
+function editorShown(Browser $browser): string
 {
-    // ..
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+    $render->invoke($browser);
+
+    $island = $browser->valueIsland;
+
+    return implode("\n", $island->content($island->innerWidth(), $island->innerHeight()));
 }

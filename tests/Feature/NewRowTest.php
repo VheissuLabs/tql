@@ -34,6 +34,19 @@ function typeInto(Browser $browser, string $text): void
     }
 }
 
+function keepField(Browser $browser, string $text): void
+{
+    $browser->emit('key', "\n");
+    typeInto($browser, $text);
+    $browser->emit('key', "\n");
+}
+
+function blankRow(Browser $browser): void
+{
+    $browser->emit('key', 'N');
+    $browser->emit('key', "\x13");
+}
+
 function write(Browser $browser): void
 {
     $browser->emit('key', ':');
@@ -48,21 +61,22 @@ function rowsOf(Browser $browser): array
         ->fetchAll(PDO::FETCH_ASSOC);
 }
 
-it('adds a row, fills it in and writes it', function () {
+it('adds a row through the form and writes it', function () {
     $browser = adding();
 
     $browser->emit('key', 'N');
 
-    expect($browser->pendingInserts)->toHaveCount(1)
-        ->and($browser->onAddedRow())->toBeTrue()
-        // On top, where you are already looking.
-        ->and($browser->rowIndex)->toBe(0)
-        // It starts on the first column the database is not filling in itself.
-        ->and($browser->headers[$browser->columnIndex])->toBe('name');
+    expect($browser->recordForm)->not->toBeNull()
+        ->and($browser->recordForm->current()['name'])->toBe('name')
+        ->and($browser->pendingInserts)->toBe([]);
 
-    $browser->emit('key', 'e');
-    typeInto($browser, 'beta');
-    $browser->emit('key', "\n");
+    keepField($browser, 'beta');
+    $browser->emit('key', "\x13");
+
+    expect($browser->recordForm)->toBeNull()
+        ->and($browser->pendingInserts)->toHaveCount(1)
+        ->and($browser->onAddedRow())->toBeTrue()
+        ->and($browser->rowIndex)->toBe(0);
 
     write($browser);
 
@@ -70,27 +84,50 @@ it('adds a row, fills it in and writes it', function () {
 
     expect($rows)->toHaveCount(2)
         ->and($rows[1]['name'])->toBe('beta')
-        // qty was never touched, so the column default applied.
         ->and($rows[1]['qty'])->toBe(1)
         ->and($browser->pendingInserts)->toBe([])
         ->and($browser->status)->toContain('1 row added');
 });
 
-it('shows an untouched column as blank rather than NULL', function () {
+it('fills in a plain default so you can see it', function () {
     $browser = adding();
 
     $browser->emit('key', 'N');
 
-    $added = $browser->rows[0];
+    expect($browser->recordForm->value('qty'))->toBe('1')
+        ->and($browser->recordForm->state('qty'))->toBe('value');
+});
 
-    expect($added['qty'])->toBe('')
-        ->and($added['id'])->toBe('');
+it('shows an untouched column as blank rather than NULL', function () {
+    $browser = adding();
+
+    blankRow($browser);
+
+    expect($browser->rows[0]['id'])->toBe('')
+        ->and($browser->rows[0]['name'])->toBe('');
+});
+
+it('writes an explicit NULL rather than the default', function () {
+    $browser = adding();
+
+    $browser->emit('key', 'N');
+    $browser->emit('key', 'j');
+    $browser->emit('key', "\x0e");
+    $browser->emit('key', "\x13");
+
+    expect($browser->pendingInserts[0])->toHaveKey('qty')
+        ->and($browser->pendingInserts[0]['qty'])->toBeNull()
+        ->and($browser->rows[0]['qty'])->toBe('NULL');
+
+    write($browser);
+
+    expect(rowsOf($browser)[1]['qty'])->toBeNull();
 });
 
 it('drops a row that was never written', function () {
     $browser = adding();
 
-    $browser->emit('key', 'N');
+    blankRow($browser);
     $browser->emit('key', 'u');
 
     expect($browser->pendingInserts)->toBe([])
@@ -102,9 +139,8 @@ it('keeps an unwritten row through a reload', function () {
     $browser = adding();
 
     $browser->emit('key', 'N');
-    $browser->emit('key', 'e');
-    typeInto($browser, 'beta');
-    $browser->emit('key', "\n");
+    keepField($browser, 'beta');
+    $browser->emit('key', "\x13");
 
     $browser->emit('key', 'r');
 
@@ -117,7 +153,8 @@ it('refuses on a read-only connection', function () {
 
     $browser->emit('key', 'N');
 
-    expect($browser->pendingInserts)->toBe([])
+    expect($browser->recordForm)->toBeNull()
+        ->and($browser->pendingInserts)->toBe([])
         ->and($browser->status)->toContain('read-only');
 });
 
@@ -131,7 +168,7 @@ it('refuses on query results, which have no table to add to', function () {
     $browser->emit('key', "\e");
     $browser->emit('key', 'N');
 
-    expect($browser->pendingInserts)->toBe([])
+    expect($browser->recordForm)->toBeNull()
         ->and($browser->status)->toContain('no table to add to');
 });
 
@@ -139,9 +176,8 @@ it('adds to a table with no primary key', function () {
     $browser = adding('create table widgets (name text, qty integer default 1)');
 
     $browser->emit('key', 'N');
-    $browser->emit('key', 'e');
-    typeInto($browser, 'beta');
-    $browser->emit('key', "\n");
+    keepField($browser, 'beta');
+    $browser->emit('key', "\x13");
 
     write($browser);
 
@@ -153,14 +189,12 @@ it('puts the newest row on top', function () {
     $browser = adding();
 
     $browser->emit('key', 'N');
-    $browser->emit('key', 'e');
-    typeInto($browser, 'first');
-    $browser->emit('key', "\n");
+    keepField($browser, 'first');
+    $browser->emit('key', "\x13");
 
     $browser->emit('key', 'N');
-    $browser->emit('key', 'e');
-    typeInto($browser, 'second');
-    $browser->emit('key', "\n");
+    keepField($browser, 'second');
+    $browser->emit('key', "\x13");
 
     expect($browser->rows[0]['name'])->toBe('second')
         ->and($browser->rows[1]['name'])->toBe('first')
@@ -177,13 +211,15 @@ it('leaves an auto-increment key to the database', function () {
 
     $browser->emit('key', 'N');
 
+    $form = $browser->recordForm;
+
     expect($browser->requiredColumns())->not->toContain('id')
-        ->and($browser->pendingInserts[0])->toBe([])
-        ->and($browser->headers[$browser->columnIndex])->toBe('name');
+        ->and($form->state('id'))->toBe('untouched')
+        ->and($form->fields()[0]['hint'])->toBe('auto')
+        ->and($form->current()['name'])->toBe('name');
 });
 
-it('fills a key the database will not give out, and says which are left', function () {
-    // A smallint primary key is not SQLite's rowid, so nothing fills it in.
+it('fills a key the database will not give out, and marks what is left', function () {
     $browser = adding(
         'create table widgets (id smallint not null primary key, name text not null, qty integer default 1)',
         seed: "insert into widgets (id, name, qty) values (1, 'alpha', 3)",
@@ -191,16 +227,15 @@ it('fills a key the database will not give out, and says which are left', functi
 
     $browser->emit('key', 'N');
 
-    expect($browser->requiredColumns())->toContain('name')
-        ->and($browser->pendingInserts[0]['id'])->toBe(2)
-        // Past the one it filled in, onto the one you have to.
-        ->and($browser->headers[$browser->columnIndex])->toBe('name')
-        ->and($browser->status)->toContain('id 2')
-        ->and($browser->status)->toContain('name to fill in');
+    $form = $browser->recordForm;
 
-    $browser->emit('key', 'e');
-    typeInto($browser, 'beta');
-    $browser->emit('key', "\n");
+    expect($browser->requiredColumns())->toContain('name')
+        ->and($form->value('id'))->toBe('2')
+        ->and($form->current()['name'])->toBe('name')
+        ->and($form->fields()[1]['hint'])->toBe('required');
+
+    keepField($browser, 'beta');
+    $browser->emit('key', "\x13");
 
     write($browser);
 
@@ -208,7 +243,7 @@ it('fills a key the database will not give out, and says which are left', functi
         ->and($browser->problem)->toBeNull();
 });
 
-it('says what must be filled in when nothing can be guessed', function () {
+it('marks what must be filled in when nothing can be guessed', function () {
     $browser = adding(
         'create table widgets (code text not null primary key, name text not null)',
         seed: "insert into widgets (code, name) values ('a', 'alpha')",
@@ -216,16 +251,17 @@ it('says what must be filled in when nothing can be guessed', function () {
 
     $browser->emit('key', 'N');
 
+    $form = $browser->recordForm;
+
     expect($browser->requiredColumns())->toBe(['code', 'name'])
-        // A text key is not a number, so there is no next one to offer.
-        ->and($browser->pendingInserts[0])->toBe([])
-        ->and($browser->status)->toContain('code, name to fill in');
+        ->and($form->state('code'))->toBe('untouched')
+        ->and(array_column($form->fields(), 'hint'))->toBe(['required', 'required']);
 });
 
 it('shows which column you are on inside a pending row', function () {
     $browser = adding();
 
-    $browser->emit('key', 'N');
+    blankRow($browser);
 
     $render = new ReflectionMethod($browser, 'renderTheme');
     $render->setAccessible(true);
@@ -240,18 +276,15 @@ it('shows which column you are on inside a pending row', function () {
         return '';
     };
 
+    $browser->columnIndex = 1;
     $browser->emit('key', 'e');
     typeInto($browser, 'beta');
     $browser->emit('key', "\n");
 
     $row = $rowOf($render->invoke($browser), 'beta');
 
-    // The bar is broken into spans so the cell under the cursor is its own,
-    // rather than one flat colour with nothing to say where you are.
     expect(substr_count($row, "\e[7m"))->toBeGreaterThan(1);
 
-    // Off the grid, the row is one colour again: the cursor belongs to the
-    // pane you are in.
     $browser->focus = 'sidebar';
 
     $row = $rowOf($render->invoke($browser), 'beta');

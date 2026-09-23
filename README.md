@@ -359,16 +359,17 @@ encryption key), both `0600`.
 | --- | --- |
 | `tab` | switch between the table list and the grid |
 | `↑ ↓` / `j k` | move the cursor |
-| `← →` / `h l` | move between columns |
+| `← →` / `h l` | move between columns; `→` from the table list moves to the grid |
 | `↵` | open a table, or edit the selected cell |
-| `i` | view the selected value full screen, read-only |
+| `i` | view the selected value in a modal, read-only |
 | `e` | edit the selected value, `ctrl+s` saves |
+| `E` | edit the whole row in a form |
 | `< >` | narrow or widen the selected column |
 | `=` | reset the column width |
 | `n` / `p` | next or previous page (100 rows) |
 | `r` | reload the current table |
 | `o` | sort by the column the cursor is on |
-| `N` | add a row |
+| `N` | add a row, in a form |
 | `y` / `Y` | yank this value, or the whole row as an object |
 | `d` / `u` | mark the row for deletion, or clear every mark |
 | `L` | follow a link, `esc` comes back |
@@ -733,7 +734,8 @@ from one database into another.
 ## Editing
 
 Select a cell and press `e` or `↵`. `↵` saves, `esc` cancels. An empty value
-writes `NULL`.
+writes `NULL`. `E` edits the whole row in a form — see
+[Editing a row in a form](#editing-a-row-in-a-form).
 
 Editing requires a single-column primary key, which tql uses to target the
 row. Tables without one are read-only, as are connections flagged `read_only`.
@@ -759,27 +761,64 @@ drivers your PHP build actually has.
 
 ## Adding a row
 
-`N` puts an empty row on top of the grid, where you are already looking rather
-than a hundred rows down. It is a row like any other — `e`
-fills a column, `↵` keeps it — except that it is not in the table yet, so it is
-drawn in the added colour and nothing has happened until `:w`.
+`N` opens a form over the grid, one field a line:
 
-The cursor is visible inside the row: a marked, edited or added row is drawn as
-one bar, and the cell you are on is a span of its own inside it, so you can see
-where you are without reading the header.
+```
+┌─ NEW ROW  ·  film ───────────────────────────────────────────────┐
+│                                                                  │
+│   film_id (integer): auto                                        │
+│                                                                  │
+│   title (varchar): required                                      │
+│                                                                  │
+│   rating (varchar): G                                            │
+│                                                                  │
+│   last_update (timestamp): now()                                 │
+│                                                                  │
+│   token (text): default gen_random_uuid()                        │
+│                                                                  │
+│                                                                  │
+│  ↑↓ move  ↵ edit  ctrl+n null  ⌫ reset  ctrl+s keep  esc cancel  │
+└──────────────────────────────────────────────────────────────────┘
+```
 
-tql starts you on the first column the database is not going to fill in itself,
-and the status line says what is left: `new row · country_id 110 · country to
-fill in`. A primary key that is **not** auto-generated — a schema converted from
-somewhere that lost its auto increment, a table keyed by hand — is filled with
-the next number going, because otherwise you are looking up a value the database
-already knows.
+`↵` types into a field and `↵` or `tab` keeps it and moves on; json, and a value
+too long for its line, open in the value editor instead. `ctrl+s` keeps the row
+and puts it on top of the grid, where you are already looking, drawn in the
+added colour. Nothing has happened until `:w`.
 
-A column you never touch is left out of the insert, so the table's own default
-applies: add a row to `widgets (id, name, qty default 1)`, type a name, write
-it, and the id and the quantity come from the database rather than from tql.
-Blank is how that reads on screen — an untouched column is empty, not `NULL`,
-because what it ends up holding is the table's business.
+The form fills in what it can, so you can see it before you keep it:
+
+- **A plain default** is the field's value — `rating` starts as `G`. Change it
+  or leave it.
+- **A time default** — `current_timestamp`, `now()`, `datetime('now')` — starts
+  as `now()`, which becomes the time when you keep the row, the way the column
+  writes it.
+- **A key the database will not give out** — a schema converted from somewhere
+  that lost its auto increment, a table keyed by hand — is filled with the next
+  number going, because otherwise you are looking up a value the database
+  already knows.
+- **Anything the database works out itself** — an auto-increment key, a
+  sequence, a generated uuid — is left out of the insert and says so, dimmed.
+
+A field that is not null and has nothing to fall back on says **required**, and
+the cursor starts on the first field that is yours to fill in. `ctrl+n` sets a
+field to `NULL` — an explicit one, written as `NULL` rather than left to the
+default — and `⌫` puts a field back to how it started.
+
+The row is a row like any other once it is kept: `e` changes one cell of it,
+`E` opens it in the form again, and `u` drops it. The cursor is visible inside
+it — a marked, edited or added row is drawn as one bar, and the cell you are on
+is a span of its own inside it.
+
+## Editing a row in a form
+
+`e` edits one value. `E` opens the whole row in the same form, on the field for
+the column you were on, with the row's values in it. `ctrl+s` keeps **only the
+fields you changed**, as pending edits, and the row goes yellow in the grid.
+The primary key is shown but not editable — it is how tql names the row.
+
+`esc` closes the form. If you changed something it asks first: `esc` again
+throws the changes away, any other key keeps you in the form.
 
 ### The time
 
@@ -838,6 +877,7 @@ Nothing you do to a row reaches the database until you ask for it.
 | key | what it does |
 | --- | --- |
 | `e` | edit the value; `ctrl+s` keeps the edit, pending |
+| `E` | edit the whole row in a form; `ctrl+s` keeps it, pending |
 | double click | the same, with the mouse |
 | `d` | mark the row for deletion, and move down |
 | `u` | drop every pending change |

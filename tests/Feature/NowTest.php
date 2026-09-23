@@ -63,6 +63,7 @@ it('turns now() into the time, per column', function () {
     $browser = timestamped();
 
     $browser->emit('key', 'N');
+    $browser->emit('key', "\x13");
 
     fill($browser, 'published_on', 'now()');
     fill($browser, 'starts_at', 'NOW()');
@@ -78,6 +79,7 @@ it('types the time with ctrl+t', function () {
     $browser = timestamped();
 
     $browser->emit('key', 'N');
+    $browser->emit('key', "\x13");
 
     $browser->columnIndex = (int) array_search('created_at', $browser->headers, true);
     $browser->emit('key', 'e');
@@ -98,6 +100,7 @@ it('leaves now() alone in a column that is not a time', function () {
     $browser = timestamped();
 
     $browser->emit('key', 'N');
+    $browser->emit('key', "\x13");
 
     fill($browser, 'title', 'now()');
 

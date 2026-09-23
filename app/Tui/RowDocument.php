@@ -244,7 +244,7 @@ class RowDocument
             $value = $this->value($row[$column] ?? null);
             $width = $widths[$column];
 
-            $cells[] = str_pad(
+            $cells[] = mb_str_pad(
                 mb_strlen($value) > $width ? mb_substr($value, 0, $width - 1).'…' : $value,
                 $width,
             );
@@ -263,13 +263,13 @@ class RowDocument
         $value = $this->value($value);
 
         if ($type === '') {
-            return str_pad(static::clamp($column, 21), 22).$value;
+            return mb_str_pad(static::clamp($column, 21), 22).$value;
         }
 
         // A description that runs long would otherwise print straight through
         // the type beside it. i or e opens the whole value.
-        return str_pad(static::clamp($column, 21), 22)
-            .str_pad(static::clamp($value, 47), 48)
+        return mb_str_pad(static::clamp($column, 21), 22)
+            .mb_str_pad(static::clamp($value, 46), 48)
             .$type;
     }
 

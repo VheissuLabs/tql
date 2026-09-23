@@ -15,6 +15,7 @@ use App\Tui\Islands\InspectorWidth;
 use App\Tui\Islands\Island;
 use App\Tui\Islands\Modal;
 use App\Tui\Islands\PickerIsland;
+use App\Tui\Islands\RecordFormIsland;
 use App\Tui\Islands\Screen;
 use App\Tui\Islands\SectionIsland;
 use App\Tui\Islands\SidebarIsland;
@@ -202,11 +203,52 @@ class BrowserRenderer extends Renderer
             $structure->focused = true;
             $structure->title = 'STRUCTURE  ·  '.$table;
 
-            $this->modal($width, $top, $frameHeight, min($width - 4, StructureIsland::WIDTH))
+            $this->modal($width, $top, $frameHeight, min($width - 4, $structure->naturalWidth()))
                 ->add($structure, min($frameHeight - 2, count($prompt->columnsOf($table)) + 9))
                 ->onto($screen);
 
             $prompt->structureHidden = $structure->hidden;
+        }
+
+        if ($prompt->mode === 'edit' && $prompt->cellEditor !== null) {
+            $editor = new ValueEditorIsland(
+                $prompt->cellColumn().($prompt->editable ? '' : '  ·  read-only'),
+                $prompt->cellEditor,
+                $prompt->editingJson,
+                $style,
+                $prompt->editable,
+                $prompt->visualAnchor === null ? [] : $prompt->selectedLines(),
+            );
+            $editor->focused = true;
+
+            $this->modal($width, $top, $frameHeight, min($width - 4, $editor->naturalWidth()))
+                ->add($editor, min($frameHeight - 2, $editor->rows()))
+                ->onto($screen);
+
+            $prompt->valueIsland = $editor;
+        }
+
+        if ($prompt->recordForm !== null) {
+            $form = new RecordFormIsland($prompt->recordForm, $style);
+            $form->focused = $prompt->recordForm->editor === null || ! $prompt->recordForm->expanded;
+
+            $this->modal($width, $top, $frameHeight, min($width - 4, $form->naturalWidth()))
+                ->add($form, min($frameHeight - 2, $form->rows()))
+                ->onto($screen);
+
+            if ($prompt->recordForm->editor !== null && $prompt->recordForm->expanded) {
+                $field = new ValueEditorIsland(
+                    $prompt->recordForm->current()['name'],
+                    $prompt->recordForm->editor,
+                    $prompt->recordForm->json,
+                    $style,
+                );
+                $field->focused = true;
+
+                $this->modal($width, $top, $frameHeight, min($width - 4, $field->naturalWidth()))
+                    ->add($field, min($frameHeight - 2, $field->rows()))
+                    ->onto($screen);
+            }
         }
 
         // An error sits over everything else, including whatever was open
@@ -232,24 +274,6 @@ class BrowserRenderer extends Renderer
                 ->onto($screen);
 
             $prompt->helpIsland = $help;
-        }
-
-        if ($prompt->mode === 'edit' && $prompt->cellEditor !== null) {
-            $editor = new ValueEditorIsland(
-                $prompt->cellColumn().($prompt->editable ? '' : '  ·  read-only'),
-                $prompt->cellEditor,
-                $prompt->editingJson,
-                $style,
-                $prompt->editable,
-                $prompt->visualAnchor === null ? [] : $prompt->selectedLines(),
-            );
-            $editor->focused = true;
-            $editor->place(1, $top, $width, $frameHeight);
-
-            $screen = (new Screen)->add($editor);
-
-            $prompt->valueIsland = $editor;
-            $tableHeight = 0;
         }
 
         $table = new TableIsland(
@@ -278,13 +302,7 @@ class BrowserRenderer extends Renderer
         $table->focused = $prompt->focus === 'grid' && $prompt->mode !== 'query';
         $table->place($rightX, $tableY, $rightWidth, max(5, $tableHeight));
 
-        // Only the value editor takes the screen. Everything else floats over
-        // the panes, so they stay where they were.
-        $modal = $prompt->mode === 'edit';
-
-        if (! $modal) {
-            $screen->add($table);
-        }
+        $screen->add($table);
 
         collect($screen->compose($top + $frameHeight - 1, fn (Island $island) => $this->box($island, $style)))
             ->each($this->line(...));
@@ -422,6 +440,8 @@ class BrowserRenderer extends Renderer
                 'marked' => $this->highlight(Theme::color('deleted', 'red'), $t),
                 'edited' => $this->highlight(Theme::color('edited', 'yellow'), $t),
                 'added' => $this->highlight(Theme::color('added', 'green'), $t),
+                'changed' => $this->paint(Theme::color('edited', 'yellow'), $t),
+                'problem' => $this->paint(Theme::color('deleted', 'red'), $t),
                 'selection' => $this->highlight(Theme::selection(), $t),
                 default => $t,
             },
@@ -600,6 +620,14 @@ class BrowserRenderer extends Renderer
 
         if ($prompt->filtering) {
             return ' /'.$prompt->filter.$this->paint(Theme::cursor(), '█');
+        }
+
+        if ($prompt->recordForm !== null) {
+            $form = $prompt->recordForm;
+
+            return ' '.$this->bold($form->adds() ? 'new row' : 'editing row')
+                .$this->dim('   ctrl+s keeps it pending    :w writes it'
+                    .($form->expanded ? '    ⇧↵ adds a line' : ''));
         }
 
         if ($prompt->mode === 'edit') {

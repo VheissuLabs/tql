@@ -41,6 +41,21 @@ class StructureIsland extends Island
         return $visible;
     }
 
+    public function naturalWidth(): int
+    {
+        $longest = 0;
+
+        foreach ($this->columns as $column) {
+            $longest = max($longest, $this->nameWidth() + $this->typeWidth() + mb_strlen($this->notes($column)) + 4);
+        }
+
+        foreach ($this->indexLines() as $line) {
+            $longest = max($longest, mb_strlen($line) + 2);
+        }
+
+        return max(self::WIDTH, $longest + 6);
+    }
+
     /**
      * @return array<int, string>
      */
@@ -48,29 +63,63 @@ class StructureIsland extends Island
     {
         $lines = [''];
 
+        $name = $this->nameWidth();
+        $type = $this->typeWidth();
+
+        foreach ($this->columns as $column) {
+            $lines[] = '  '.$this->column($column, $name, $type, $width - $name - $type - 4);
+        }
+
+        if ($this->indexes !== []) {
+            $lines[] = '';
+            $lines[] = '  '.$this->style->bold('indexes');
+
+            foreach ($this->indexLines() as $line) {
+                $lines[] = '    '.$this->style->dim($this->style->truncate($line, max(4, $width - 2)));
+            }
+        }
+
+        return $lines;
+    }
+
+    private function nameWidth(): int
+    {
         $name = 2;
 
         foreach ($this->columns as $column) {
             $name = max($name, mb_strlen((string) ($column['name'] ?? '')));
         }
 
-        $name = min($name, 28);
+        return min($name, 28);
+    }
+
+    private function typeWidth(): int
+    {
+        $type = 12;
 
         foreach ($this->columns as $column) {
-            $lines[] = '  '.$this->column($column, $name, $width - $name - 4);
+            $type = max($type, mb_strlen((string) ($column['type_name'] ?? '?')));
         }
 
-        foreach ($this->indexSection() as $line) {
-            $lines[] = $line;
-        }
-
-        return $lines;
+        return min($type, 24);
     }
 
     /**
      * @param  array<string, mixed>  $column
      */
-    private function column(array $column, int $name, int $width): string
+    private function column(array $column, int $name, int $type, int $width): string
+    {
+        $label = (string) ($column['name'] ?? '');
+
+        return $this->style->pad($this->style->truncate($label, $name), $name)
+            .'  '.$this->style->color('keyword', $this->style->pad($this->style->truncate((string) ($column['type_name'] ?? '?'), $type), $type))
+            .'  '.$this->style->dim($this->style->truncate($this->notes($column), max(4, $width)));
+    }
+
+    /**
+     * @param  array<string, mixed>  $column
+     */
+    private function notes(array $column): string
     {
         $label = (string) ($column['name'] ?? '');
 
@@ -98,21 +147,15 @@ class StructureIsland extends Island
             $notes[] = 'default '.$default;
         }
 
-        return $this->style->pad($this->style->truncate($label, $name), $name)
-            .'  '.$this->style->color('keyword', $this->style->pad((string) ($column['type_name'] ?? '?'), 12))
-            .'  '.$this->style->dim($this->style->truncate(implode('  ·  ', $notes), max(4, $width)));
+        return implode('  ·  ', $notes);
     }
 
     /**
      * @return array<int, string>
      */
-    private function indexSection(): array
+    private function indexLines(): array
     {
-        if ($this->indexes === []) {
-            return [];
-        }
-
-        $lines = ['', '  '.$this->style->bold('indexes')];
+        $lines = [];
 
         foreach ($this->indexes as $index) {
             $columns = implode(', ', $index['columns'] ?? []);
@@ -126,10 +169,8 @@ class StructureIsland extends Island
                 $notes[] = 'unique';
             }
 
-            $lines[] = '    '.$this->style->dim(
-                ($index['name'] ?: $columns).'  ('.$columns.')'
-                .($notes === [] ? '' : '  '.implode(' ', $notes))
-            );
+            $lines[] = ($index['name'] ?: $columns).'  ('.$columns.')'
+                .($notes === [] ? '' : '  '.implode(' ', $notes));
         }
 
         return $lines;

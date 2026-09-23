@@ -529,6 +529,7 @@ it('follows a link to a table the sidebar filter is hiding', function () {
 
     $browser->emit('key', 'l');
     $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
     $browser->emit('key', 'L');
 
     expect($browser->currentTable())->toBe('artists')
@@ -553,6 +554,7 @@ it('keeps a sidebar filter that still shows the table it jumped to', function ()
 
     $browser->emit('key', 'l');
     $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
     $browser->emit('key', 'L');
 
     expect($browser->currentTable())->toBe('artists')
@@ -568,6 +570,7 @@ it('goes back to the right table with a filter active', function () {
 
     $browser->emit('key', 'l');
     $browser->emit('key', 'l');
+    $browser->emit('key', 'l');
     $browser->emit('key', 'L');
 
     expect($browser->currentTable())->toBe('artists');
@@ -575,4 +578,43 @@ it('goes back to the right table with a filter active', function () {
     $browser->emit('key', "\e");
 
     expect($browser->currentTable())->toBe('albums');
+});
+
+it('keeps every row inside the box, however long the type or the notes', function () {
+    $path = sys_get_temp_dir().'/tql-wide-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table language (language_id integer primary key)');
+    $pdo->exec('create table film (
+        film_id integer primary key,
+        description blob sub_type text default null,
+        original_language_id smallint default null references language(language_id)
+    )');
+
+    $connection = Connection::create([
+        'name' => 'wide'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+    $browser->tableIndex = array_search('film', $browser->tables, true);
+    structureFrame($browser);
+    $browser->emit('key', "\n");
+    $browser->emit('key', 't');
+
+    $lines = explode("\n", structureFrame($browser));
+    $top = collect($lines)->search(fn (string $line) => str_contains($line, 'STRUCTURE'));
+    $right = mb_strrpos($lines[$top], '┐');
+
+    for ($row = $top + 1; ! str_contains($lines[$row - 1], '┘') || $row === $top + 1; $row++) {
+        $edge = mb_substr($lines[$row], $right, 1);
+
+        expect(in_array($edge, ['│', '┘'], true))->toBeTrue("row {$row} spills over the border: {$lines[$row]}");
+
+        if ($edge === '┘') {
+            break;
+        }
+    }
+
+    expect(implode("\n", $lines))->toContain('blob sub_type text  ');
 });

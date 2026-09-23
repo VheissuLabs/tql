@@ -7,6 +7,8 @@ use App\Tui\QueryEditor;
 
 class ValueEditorIsland extends Island
 {
+    public const WIDTH = 76;
+
     public function __construct(
         private string $column,
         private QueryEditor $editor,
@@ -19,6 +21,19 @@ class ValueEditorIsland extends Island
     }
 
     private int $firstLine = 0;
+
+    public function naturalWidth(): int
+    {
+        $lines = $this->editor->lines();
+        $longest = max(array_map(mb_strlen(...), $lines ?: ['']));
+
+        return max(self::WIDTH, $longest + max(2, mb_strlen((string) count($lines))) + 7);
+    }
+
+    public function rows(): int
+    {
+        return max(1, count($this->editor->lines())) + 2;
+    }
 
     public function lineAt(int $localRow): ?int
     {
