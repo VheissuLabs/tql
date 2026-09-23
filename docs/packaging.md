@@ -14,10 +14,17 @@ three PDO drivers, openssl, curl, mbstring and the pieces Laravel expects — an
 cached between releases, since it only changes when that list or the PHP version
 does.
 
-Everything below is driven by pushing a `v*` tag.
+Everything below is driven by pushing a `v*` tag, which `bin/release` does.
 `.github/workflows/release.yml` builds, checks and publishes. It also takes a
 `workflow_dispatch`, which builds everything without publishing — use that to
 try a change to the pipeline.
+
+After it publishes, `.github/workflows/install.yml` installs the new release the
+way people will — the one-line installer on Linux x86_64, Linux ARM and macOS,
+and the AUR package built with `makepkg` in an Arch container — and fails if any
+of them does not run and report the new version. It runs on its own too, whenever
+`install.sh` or `packaging/` changes and once a week, so a broken installer is
+caught before someone runs into it.
 
 ## What ships
 
@@ -57,7 +64,8 @@ Formulae live in a tap, which is a repository named `homebrew-<tap>`:
 2. Make a fine-grained token with **contents: write** on that repository and add
    it to this repository as the secret `HOMEBREW_TAP_TOKEN`.
 
-Then every release updates `Formula/tql.rb` by itself, and people install with:
+Then every release updates `Formula/tql.rb` by itself, installs it from the tap
+on a macOS runner to check it, and people install with:
 
 ```bash
 brew install VheissuLabs/tap/tql

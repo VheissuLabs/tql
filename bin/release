@@ -1,0 +1,52 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+die() {
+  echo "bin/release: $*" >&2
+  exit 1
+}
+
+version="${1:-}"
+
+[[ $version =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || die "give the version to release, like: bin/release 0.4.3"
+
+tag="v$version"
+
+cd "$(dirname "$0")/.."
+
+[[ $(git rev-parse --abbrev-ref HEAD) == main ]] || die "releases are cut from main"
+[[ -z $(git status --porcelain) ]] || die "commit or stash your changes first"
+
+git fetch --quiet --tags origin main
+
+[[ $(git rev-parse HEAD) == $(git rev-parse origin/main) ]] || die "main is not the same as origin/main; push or pull first"
+! git rev-parse --quiet --verify "refs/tags/$tag" > /dev/null || die "$tag already exists"
+
+vendor/bin/pest --compact
+
+previous=$(git describe --tags --abbrev=0)
+message=$(mktemp)
+trap 'rm -f "$message"' EXIT
+
+{
+  echo "$tag"
+  echo
+  git log --reverse --format='%s' "$previous..HEAD" \
+    | grep -E '^(feat|fix)(\([^)]*\))?: ' \
+    | sed -E 's/^(feat|fix)(\([^)]*\))?: /- /' \
+    || true
+} > "$message"
+
+if [[ -t 0 && -t 1 ]]; then
+  git tag --annotate "$tag" --file "$message" --edit
+else
+  git tag --annotate "$tag" --file "$message"
+fi
+
+git push --quiet origin "$tag"
+
+echo
+echo "Pushed $tag. The release builds at:"
+sleep 5
+gh run list --workflow release.yml --branch "$tag" --limit 1 --json url --jq '.[0].url'

@@ -181,8 +181,17 @@ php -d phar.readonly=0 tql app:build tql --build-version=dev
 `box.json` decides what goes into the phar. It has to include `database/`, or a
 released binary cannot migrate its own store on first run.
 
-Pushing a `v*` tag builds the phar, smoke-tests it, packages a `.deb` and an
-`.rpm`, and publishes the release. See [packaging.md](packaging.md).
+A release is one command, from a clean `main` that matches GitHub:
+
+```bash
+bin/release 0.4.3
+```
+
+It runs the tests, drafts the tag message from the `feat:` and `fix:` commits
+since the last tag, opens it in your editor, then pushes the tag. Pushing a `v*`
+tag builds the phar and the four standalone binaries, packages a `.deb` and an
+`.rpm`, publishes the release, and then installs what it published to check it
+works. See [packaging.md](packaging.md).
 
 ## Notes on the stack
 
