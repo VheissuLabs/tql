@@ -99,6 +99,10 @@ return [
 
         'sidebar_width' => 24,
 
+        // The zone ctrl+t and now() write in. A database column almost always
+        // holds UTC.
+        'time_zone' => 'UTC',
+
         // The border drawn around a modal's backdrop.
         'modal_ring' => true,
 

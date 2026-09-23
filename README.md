@@ -779,6 +779,16 @@ Typing **`now()`** does the same thing without the shortcut, wherever it is
 typed, since an explicit `now()` is an instruction rather than a value. That is
 how `created_at` and `updated_at` get filled in without looking up a format.
 
+It writes **UTC**, because that is what a database column almost always holds
+and a row written in local time is wrong in a way nobody notices for months.
+The status line names the zone — `ctrl+t now UTC` — and `[ui] time_zone` in the
+config changes it:
+
+```toml
+[ui]
+time_zone = "America/Toronto"
+```
+
 `u` drops it, a reload keeps it, and changing table forgets it. It works on a
 table with no primary key, which editing does not: a row that is not in the
 table yet is written by position rather than by key.

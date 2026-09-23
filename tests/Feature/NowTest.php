@@ -118,3 +118,40 @@ it('says ctrl+t is there while editing a time', function () {
 
     expect(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)))->toContain('ctrl+t now');
 });
+
+it('writes UTC unless the config says otherwise', function () {
+    config(['tql.ui.time_zone' => 'UTC']);
+
+    expect(Now::for('datetime'))->toBe(gmdate('Y-m-d H:i:s'))
+        ->and(Now::label())->toBe('UTC');
+
+    config(['tql.ui.time_zone' => 'Asia/Kolkata']);
+
+    expect(Now::for('datetime'))
+        ->toBe((new DateTimeImmutable('now', new DateTimeZone('Asia/Kolkata')))->format('Y-m-d H:i:s'))
+        ->and(Now::for('datetime'))->not->toBe(gmdate('Y-m-d H:i:s'));
+
+    // A zone nobody has heard of is not a reason to write the wrong time.
+    config(['tql.ui.time_zone' => 'Nowhere/Special']);
+
+    expect(Now::for('datetime'))->toBe(gmdate('Y-m-d H:i:s'));
+
+    config(['tql.ui.time_zone' => 'UTC']);
+});
+
+it('says which zone it is about to write', function () {
+    config(['tql.ui.time_zone' => 'America/Toronto']);
+
+    $browser = timestamped();
+
+    $browser->columnIndex = (int) array_search('created_at', $browser->headers, true);
+    $browser->emit('key', 'e');
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+
+    expect(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)))
+        ->toContain('ctrl+t now E');
+
+    config(['tql.ui.time_zone' => 'UTC']);
+});

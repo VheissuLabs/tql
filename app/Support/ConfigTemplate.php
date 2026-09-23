@@ -31,6 +31,7 @@ class ConfigTemplate
             ['section' => 'ui', 'key' => 'row_style', 'default' => '"marker"', 'since' => '0.3.0', 'comment' => ['The current row: "marker", "dim-others", "bold", "inverse", "underline"']],
             ['section' => 'ui', 'key' => 'top_margin', 'default' => '1', 'since' => '0.3.0', 'comment' => ['Blank rows above the frame']],
             ['section' => 'ui', 'key' => 'sidebar_width', 'default' => '24', 'since' => '0.3.0', 'comment' => ['Width of the table list']],
+            ['section' => 'ui', 'key' => 'time_zone', 'default' => '"UTC"', 'since' => '0.4.0', 'comment' => ['The zone ctrl+t and now() write in, such as America/Toronto']],
             ['section' => 'ui', 'key' => 'modal_ring', 'default' => 'true', 'since' => '0.4.0', 'comment' => ['Ring a modal with a border as well as the box itself']],
             ['section' => 'ui', 'key' => 'inspect_related', 'default' => '10', 'since' => '0.3.0', 'comment' => ['Related rows to load into the inspector, 0 turns it off']],
             ['section' => 'ui', 'key' => 'export_path', 'default' => '""', 'since' => '0.3.0', 'comment' => ['Where exports go, empty uses the last folder you saved one in']],

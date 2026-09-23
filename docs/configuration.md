@@ -47,6 +47,7 @@ tql notices and tells you which ones.
 | `row_style` | `"marker"` | how the current row is shown: `"marker"`, `"dim-others"`, `"bold"`, `"inverse"`, `"underline"` |
 | `top_margin` | `1` | blank rows above the frame |
 | `sidebar_width` | `24` | width of the table list |
+| `time_zone` | `"UTC"` | the zone `ctrl+t` and `now()` write in |
 | `modal_ring` | `true` | ring a modal with a border as well as the box itself |
 | `inspect_related` | `10` | related rows to load into the inspector; 0 turns it off |
 | `export_path` | `""` | where exports go; empty uses the last folder you saved one in |

@@ -2,6 +2,7 @@
 
 namespace App\Prompts\Renderers;
 
+use App\Support\Now;
 use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\Islands\AskIsland;
@@ -591,7 +592,7 @@ class BrowserRenderer extends Renderer
             // terminal, and a hint you cannot see is not a hint.
             return ' '.$this->bold("editing {$column}").
                 $this->dim('   ↵ keeps it'.
-                    ($prompt->editingTime() ? '    ctrl+t now' : '').
+                    ($prompt->editingTime() ? '    ctrl+t now '.Now::label() : '').
                     '    ⇧↵ adds a line    esc cancels'.
                     ($prompt->editingJson ? '    json is validated' : ''));
         }

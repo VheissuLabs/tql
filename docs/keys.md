@@ -113,7 +113,8 @@ keybind = shift+enter=csi:13;2u
 | `ctrl+t` | type the time, in the format the column takes |
 | `esc` | cancel |
 
-`now()` typed into a cell means the same as `ctrl+t`.
+`now()` typed into a cell means the same as `ctrl+t`. Both write UTC unless
+`[ui] time_zone` says otherwise, and the status line names the zone.
 
 ## Filtering rows
 
