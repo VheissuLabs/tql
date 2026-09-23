@@ -104,6 +104,8 @@ jobs:
 
       - name: Build the interpreter
         if: steps.cache.outputs.cache-hit != 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./spc doctor --auto-fix
           ./spc download --with-php=${{ env.PHP_VERSION }} --for-extensions="$EXTENSIONS" --prefer-pre-built
