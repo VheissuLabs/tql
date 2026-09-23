@@ -52,6 +52,20 @@ The binary is a phar, so it needs **PHP 8.4 or newer** on the machine — the
 installer checks before it downloads anything. On first run tql creates
 `~/.config/tql/` and migrates its own store, so there is nothing to set up.
 
+### Packages
+
+Every release also carries a `.deb` and an `.rpm`, both of which are the same
+binary plus a dependency on `php-cli`:
+
+```bash
+sudo dpkg -i tql_0.3.0_all.deb        # debian, ubuntu
+sudo dnf install ./tql-0.3.0.noarch.rpm   # fedora, rhel
+```
+
+Homebrew and the AUR are packaged from this repository too — see
+[docs/packaging.md](docs/packaging.md) for where each one is published and what
+it takes to cut a new version.
+
 Building it yourself:
 
 ```bash

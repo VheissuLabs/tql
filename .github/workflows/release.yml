@@ -39,9 +39,98 @@ jobs:
           ./builds/tql --version
           ./builds/tql list | grep -q 'mcp:start'
 
+      - name: Build the deb and the rpm
+        run: |
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v2.47.0/nfpm_2.47.0_Linux_x86_64.tar.gz" \
+            | tar -xz -C /usr/local/bin nfpm
+          mkdir -p dist
+          VERSION=${{ steps.version.outputs.version }} nfpm package \
+            --config packaging/nfpm.yaml --packager deb --target dist/
+          VERSION=${{ steps.version.outputs.version }} nfpm package \
+            --config packaging/nfpm.yaml --packager rpm --target dist/
+
+      - name: Check the deb installs what it says
+        run: |
+          dpkg-deb --contents dist/*.deb | grep -q 'usr/bin/tql'
+          dpkg-deb --info dist/*.deb | grep -q 'php-cli'
+
       - name: Publish the release
         uses: softprops/action-gh-release@v2
         with:
-          files: builds/tql
+          files: |
+            builds/tql
+            dist/*.deb
+            dist/*.rpm
           generate_release_notes: true
           draft: false
+
+  # Both of these need a one-time account setup, and skip themselves until the
+  # secret is there: a tap repository for brew, an AUR account for pacman.
+  publish-packages:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Work out the version and the checksum
+        id: release
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          curl -fsSL -o tql "https://github.com/${{ github.repository }}/releases/download/$TAG/tql"
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          echo "sha=$(sha256sum tql | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Update the Homebrew tap
+        env:
+          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ steps.release.outputs.version }}
+          SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          if [ -z "$TAP_TOKEN" ]; then
+            echo 'No HOMEBREW_TAP_TOKEN, skipping the tap.'
+            exit 0
+          fi
+
+          sed -e "s/VERSION/$VERSION/g" -e "s/SHA/$SHA/g" packaging/homebrew/tql.rb > /tmp/tql.rb
+
+          git clone "https://x-access-token:$TAP_TOKEN@github.com/VheissuLabs/homebrew-tap.git" /tmp/tap
+          mkdir -p /tmp/tap/Formula
+          cp /tmp/tql.rb /tmp/tap/Formula/tql.rb
+
+          cd /tmp/tap
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add Formula/tql.rb
+          git commit -m "tql $VERSION"
+          git push
+
+      - name: Update the AUR package
+        env:
+          AUR_KEY: ${{ secrets.AUR_SSH_KEY }}
+          VERSION: ${{ steps.release.outputs.version }}
+          SHA: ${{ steps.release.outputs.sha }}
+        run: |
+          if [ -z "$AUR_KEY" ]; then
+            echo 'No AUR_SSH_KEY, skipping the AUR.'
+            exit 0
+          fi
+
+          mkdir -p ~/.ssh
+          printf '%s' "$AUR_KEY" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts
+          export GIT_SSH_COMMAND='ssh -i ~/.ssh/aur'
+
+          git clone ssh://aur@aur.archlinux.org/tql-bin.git /tmp/aur
+          sed -e "s/VERSION/$VERSION/g" -e "s/SHA/$SHA/g" packaging/aur/PKGBUILD > /tmp/aur/PKGBUILD
+
+          cd /tmp/aur
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          docker run --rm -v /tmp/aur:/pkg -w /pkg archlinux:base-devel \
+            sh -c 'useradd -m build && chown -R build /pkg && su build -c "makepkg --printsrcinfo" > .SRCINFO'
+          git add PKGBUILD .SRCINFO
+          git commit -m "tql $VERSION"
+          git push

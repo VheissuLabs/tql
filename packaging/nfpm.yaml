@@ -1,0 +1,33 @@
+# Builds the .deb and .rpm attached to each release.
+#
+#   VERSION=0.3.0 nfpm package --config packaging/nfpm.yaml --packager deb
+#
+# The binary is a phar, so the package is one file plus a dependency on PHP.
+name: tql
+arch: all
+platform: linux
+version: ${VERSION}
+section: database
+priority: optional
+maintainer: VheissuLabs <karl@notarydash.com>
+description: |
+  A database client for the terminal.
+  Browse, filter, sort and edit MySQL, Postgres, SQL Server and SQLite from a
+  full-screen terminal interface that always shows the SQL behind the view.
+vendor: VheissuLabs
+homepage: https://github.com/VheissuLabs/tql
+license: MIT
+
+contents:
+  - src: ./builds/tql
+    dst: /usr/bin/tql
+    file_info:
+      mode: 0755
+
+overrides:
+  deb:
+    depends:
+      - php-cli (>= 8.4)
+  rpm:
+    depends:
+      - php-cli >= 8.4
