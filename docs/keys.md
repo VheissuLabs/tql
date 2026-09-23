@@ -157,6 +157,13 @@ answers the same way.
 | `ctrl+s` | save, from anywhere, keeping what you just typed |
 | `esc` | cancel |
 
+## The status line
+
+The line under the hotkeys says what just happened. It **lights up when it
+changes** and settles back to dim on your next key press, in the color of what
+it is about: red while rows are marked for deletion, yellow while edits are
+pending, otherwise the focus color.
+
 ## Mouse
 
 On by default; `mouse = false` in `[ui]` gives the terminal its selection and

@@ -138,7 +138,22 @@ class Browser extends Prompt
 
     public string $focus = 'sidebar';
 
-    public ?string $status = null;
+    /**
+     * The line under the hotkeys, and whether it has just changed.
+     *
+     * A property hook rather than a setter everywhere: the status is written
+     * from fifty places, and every one of them should light it up for a beat
+     * without having to remember to.
+     */
+    public ?string $status = null {
+        set(?string $value) {
+            $this->statusFresh = $value !== null && $value !== $this->status;
+            $this->status = $value;
+        }
+    }
+
+    /** Set on the render right after the status changed, and not after that. */
+    public bool $statusFresh = false;
 
     public ?string $command = null;
 
@@ -276,6 +291,9 @@ class Browser extends Prompt
 
     public function onKey(string $key): void
     {
+        // The highlight lasts until the next thing you do.
+        $this->statusFresh = false;
+
         if ($event = Mouse::parse($key)) {
             // A terminal can keep reporting the mouse after we asked it to
             // stop, so honour the setting here as well as at the escape code.

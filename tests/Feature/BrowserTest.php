@@ -1455,3 +1455,38 @@ it('goes back to the table from query results with escape', function () {
 
     expect(frameOf($browser))->toContain('esc goes back to');
 });
+
+it('lights the status up when it changes, and settles after', function () {
+    $browser = jsonBrowser();
+
+    $browser->emit('key', 'd');   // mark a row
+
+    expect($browser->statusFresh)->toBeTrue();
+
+    $painted = function () use ($browser) {
+        $method = new ReflectionMethod($browser, 'renderTheme');
+        $method->setAccessible(true);
+
+        return $method->invoke($browser);
+    };
+
+    // Bold, and in the color of a pending deletion rather than dim.
+    expect($painted())->toContain("\e[1m");
+
+    // The next key press settles it, whatever that key was.
+    $browser->emit('key', 'j');
+
+    expect($browser->statusFresh)->toBeFalse();
+});
+
+it('does not relight a status that says the same thing', function () {
+    $browser = jsonBrowser();
+
+    $browser->emit('key', 'y');
+    $first = $browser->status;
+
+    $browser->emit('key', 'y');
+
+    expect($browser->status)->toBe($first)
+        ->and($browser->statusFresh)->toBeFalse();
+});

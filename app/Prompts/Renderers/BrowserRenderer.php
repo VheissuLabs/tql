@@ -613,7 +613,34 @@ class BrowserRenderer extends Renderer
             : '';
 
         return ' '.$name.$tag
-            .$this->dim(' · '.($prompt->status ?? '').$position.$back)
+            .$this->dim(' · ').$this->said($prompt)
+            .$this->dim($position.$back)
             .$this->link($prompt);
+    }
+
+    /**
+     * What tql last said, in the color of what it is about, and lit up until
+     * the next key press.
+     *
+     * A status line that only ever looks the same is a status line you stop
+     * reading, and the whole point of it is that it changed.
+     */
+    private function said(Browser $prompt): string
+    {
+        $text = $prompt->status ?? '';
+
+        if ($text === '') {
+            return '';
+        }
+
+        $color = match (true) {
+            $prompt->pendingDeletes !== [] => Theme::color('deleted', 'red'),
+            $prompt->pendingEdits !== [] => Theme::color('edited', 'yellow'),
+            default => Theme::title(true),
+        };
+
+        return $prompt->statusFresh
+            ? $this->bold($this->paint($color, $text))
+            : $this->dim($text);
     }
 }
