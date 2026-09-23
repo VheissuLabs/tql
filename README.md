@@ -170,6 +170,7 @@ about each one.
 | `export_path` | `""` | where exports go, empty uses the last folder you saved one in |
 | `mouse` | `true` | click, drag and scroll inside tql |
 | `double_click_ms` | `400` | how close two clicks must be to open the editor |
+| `status_seconds` | `4` | how long a status message stays before it fades; `0` keeps it |
 | `mouse_row_offset` | `0` | subtract this from reported mouse rows |
 | `mouse_column_offset` | `0` | subtract this from reported mouse columns |
 
@@ -368,13 +369,16 @@ encryption key), both `0600`.
 | Key | Action |
 | --- | --- |
 | `tab` | switch between the table list and the grid |
-| `↑ ↓` / `j k` | move the cursor |
+| `alt+1` `alt+2` `alt+3` | go to the table list, the rows or the SQL editor |
+| `\` | hide or show the table list |
+| `↑ ↓` / `j k` | move the cursor; `5j` moves five rows, `3l` three columns |
 | `← →` / `h l` | move between columns; `→` from the table list moves to the grid |
 | `↵` | open a table, or edit the selected cell |
 | `i` | view the selected value in a modal, read-only |
 | `e` | edit the selected value, `ctrl+s` saves |
 | `E` | edit the whole row in a form |
-| `< >` | narrow or widen the selected column |
+| `ctrl+k` | the command palette: every action, table, database and connection |
+| `< >` | narrow or widen the selected column, or the table list when you are in it |
 | `=` | reset the column width |
 | `n` / `p` | next or previous page (100 rows) |
 | `r` | reload the current table |

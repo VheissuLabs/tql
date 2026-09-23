@@ -11,6 +11,7 @@ use App\Tui\Layout;
 use App\Tui\QueryEditor;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Config;
 use Laravel\Prompts\Key;
 
 function sqliteFixture(): string
@@ -221,13 +222,15 @@ it('widens the rendered column when resized', function () {
         ->and(headerRowOf($browser))->toBe($before);
 });
 
-it('resizes columns even while the sidebar has focus', function () {
+it('resizes the table list, not a column, while the table list has focus', function () {
     $browser = browserFor(sqliteFixture());
+    $start = $browser->tablesWidth();
 
     $browser->focus = 'sidebar';
     $browser->emit('key', '>');
 
-    expect($browser->widthOverrides)->not->toBeEmpty();
+    expect($browser->widthOverrides)->toBeEmpty()
+        ->and($browser->tablesWidth())->toBe($start + 4);
 });
 
 it('resizes a column by dragging its border', function () {
@@ -463,7 +466,7 @@ it('aligns the status and hotkey lines with the island content', function () {
             $status ??= $line;
         }
 
-        if (str_contains($line, 'Quit')) {
+        if (str_contains($line, 'Help')) {
             $hotkeys ??= $line;
         }
     }
@@ -968,7 +971,7 @@ it('keeps the sql pane visible when configured to', function () {
     $browser = browserFor(sqliteFixture());
 
     expect($browser->mode)->toBe('browse')
-        ->and(frameOf($browser))->toContain('─ SQL ');
+        ->and(frameOf($browser))->toContain('─ [3] SQL ');
 
     $browser->emit('key', 's');
 
@@ -977,7 +980,7 @@ it('keeps the sql pane visible when configured to', function () {
     $browser->emit('key', "\e");
 
     expect($browser->mode)->toBe('browse')
-        ->and(frameOf($browser))->toContain('─ SQL ');
+        ->and(frameOf($browser))->toContain('─ [3] SQL ');
 
     config(['tql.ui.sql_always' => false]);
 });
@@ -985,11 +988,11 @@ it('keeps the sql pane visible when configured to', function () {
 it('hides the sql pane by default until s is pressed', function () {
     $browser = browserFor(sqliteFixture());
 
-    expect(frameOf($browser))->not->toContain('─ SQL ');
+    expect(frameOf($browser))->not->toContain('─ [3] SQL ');
 
     $browser->emit('key', 's');
 
-    expect(frameOf($browser))->toContain('─ SQL ');
+    expect(frameOf($browser))->toContain('─ [3] SQL ');
 });
 
 it('only shows the editor cursor when the editor has focus', function () {
@@ -1215,7 +1218,7 @@ it('titles the pane with the table a query selects from', function () {
 
     $frame = frameOf($browser);
 
-    expect($frame)->toContain('─ settings ')
+    expect($frame)->toContain('─ [2] settings ')
         ->and($frame)->not->toContain('RESULTS');
 });
 
@@ -1239,7 +1242,7 @@ it('goes back to the table name when you leave the results', function () {
     $browser->emit('key', 'r');
 
     expect($browser->queryTable)->toBeNull()
-        ->and(frameOf($browser))->toContain('─ events ');
+        ->and(frameOf($browser))->toContain('─ [2] events ');
 });
 
 it('tabs through the sql pane when it is on screen', function () {
@@ -1581,4 +1584,227 @@ it('titles the table list with the database it is showing', function () {
         ->and((new SidebarIsland([], 0, $style))->heading('', 22))->toBe('TABLES')
         ->and((new SidebarIsland([], 0, $style, 'options'))->heading('wordpress', 22))->toBe('wordpress /options')
         ->and((new SidebarIsland([], 0, $style, 'options'))->heading('a_database_with_a_long_name', 22))->toBe('a_database_w… /options');
+});
+
+it('jumps to a pane by its number, and titles each pane with it', function () {
+    config(['tql.ui.sql_always' => true]);
+
+    $browser = browserFor(sqliteFixture());
+
+    $frame = frameOf($browser);
+
+    expect($frame)->toMatch('/┌─ \[1\] /')
+        ->and($frame)->toContain('─ [2] widgets ')
+        ->and($frame)->toContain('─ [3] SQL ');
+
+    $browser->emit('key', "\e1");
+    expect($browser->focus)->toBe('sidebar');
+
+    $browser->emit('key', "\e3");
+    expect($browser->mode)->toBe('query');
+
+    $browser->emit('key', "\e");
+    $browser->emit('key', "\e2");
+    expect($browser->focus)->toBe('grid')
+        ->and($browser->mode)->toBe('browse');
+
+    config(['tql.ui.sql_always' => false]);
+});
+
+it('opens the SQL editor with 3 even when it is hidden', function () {
+    $browser = browserFor(sqliteFixture());
+
+    $browser->emit('key', "\e3");
+
+    expect($browser->mode)->toBe('query');
+});
+
+it('hides the table list with a backslash and gives the grid the width', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', "\e1");
+
+    $browser->emit('key', '\\');
+
+    $frame = frameOf($browser);
+
+    expect($browser->tablesHidden)->toBeTrue()
+        ->and($browser->focus)->toBe('grid')
+        ->and($browser->table->x)->toBe(1)
+        ->and($frame)->not->toMatch('/┌─ \[1\] /')
+        ->and($browser->status)->toContain('\\ shows it');
+
+    $browser->emit('key', "\t");
+    expect($browser->focus)->toBe('grid');
+
+    $browser->emit('key', '\\');
+    frameOf($browser);
+
+    expect($browser->tablesHidden)->toBeFalse()
+        ->and($browser->table->x)->toBeGreaterThan(1);
+});
+
+it('brings the table list back with 1, or with / to filter it', function () {
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', '\\');
+
+    $browser->emit('key', "\e1");
+
+    expect($browser->tablesHidden)->toBeFalse()
+        ->and($browser->focus)->toBe('sidebar');
+
+    $browser->emit('key', '\\');
+    $browser->emit('key', '/');
+
+    expect($browser->tablesHidden)->toBeFalse();
+});
+
+it('resizes the table list from inside it, and a column from the grid', function () {
+    $browser = browserFor(sqliteFixture());
+    $start = $browser->tablesWidth();
+
+    $browser->emit('key', "\e1");
+    $browser->emit('key', '>');
+    frameOf($browser);
+
+    expect($browser->tablesWidth())->toBe($start + 4)
+        ->and($browser->sidebar->width)->toBe($start + 6)
+        ->and($browser->widthOverrides)->toBe([]);
+
+    $browser->emit('key', '<');
+    $browser->emit('key', '<');
+    expect($browser->tablesWidth())->toBe($start - 4);
+
+    $browser->emit('key', '=');
+    expect($browser->tablesWidth())->toBe($start);
+
+    $browser->emit('key', "\e2");
+    $browser->emit('key', '>');
+
+    expect($browser->tablesWidth())->toBe($start)
+        ->and($browser->widthOverrides)->not->toBe([]);
+});
+
+it('resizes the table list by dragging its border', function () {
+    config(['tql.ui.mouse_row_offset' => 0]);
+    Config::set('tql.ui.mouse', true);
+
+    $browser = browserFor(sqliteFixture());
+    $border = $browser->sidebar->x + $browser->sidebar->width - 1;
+    $row = $browser->sidebar->y + 3;
+
+    $browser->emit('key', "\e[<0;{$border};{$row}M");
+    $browser->emit('key', "\e[<32;".($border + 10).";{$row}M");
+    $browser->emit('key', "\e[<0;".($border + 10).";{$row}m");
+
+    expect($browser->tablesWidth())->toBe($border + 8);
+});
+
+it('goes back to the table list from the first column with left or h', function (string $key) {
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', "\e2");
+    $browser->emit('key', 'l');
+
+    $browser->emit('key', $key);
+
+    expect($browser->focus)->toBe('grid')
+        ->and($browser->columnIndex)->toBe(0);
+
+    $browser->emit('key', '\\');
+    $browser->emit('key', $key);
+
+    expect($browser->focus)->toBe('sidebar')
+        ->and($browser->tablesHidden)->toBeFalse();
+
+    $browser->emit('key', $key);
+
+    expect($browser->focus)->toBe('sidebar');
+})->with([Key::LEFT_ARROW, 'h']);
+
+it('fits the hotkey bar on one line, keeping More and Help, at any width', function (int $columns) {
+    putenv("COLUMNS={$columns}");
+
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', "\e2");
+    $browser->emit('key', 'd');
+
+    $lines = array_values(array_filter(explode("\n", frameOf($browser)), fn (string $line) => trim($line) !== ''));
+    $bar = $lines[count($lines) - 2];
+
+    putenv('COLUMNS');
+
+    expect($bar)->toEndWith('ctrl+k More   ? Help')
+        ->and($bar)->toStartWith(' :w Write')
+        ->and(mb_strlen($bar))->toBeLessThanOrEqual($columns)
+        ->and($lines[count($lines) - 3])->not->toContain('Edit');
+})->with([60, 80, 100]);
+
+it('calls out unwritten changes on the right of the status line', function (int $columns) {
+    putenv("COLUMNS={$columns}");
+
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', "\e2");
+    $browser->emit('key', 'd');
+
+    $lines = array_values(array_filter(explode("\n", frameOf($browser)), fn (string $line) => trim($line) !== ''));
+    $status = end($lines);
+
+    putenv('COLUMNS');
+
+    expect($status)->toEndWith('1 marked for deletion · :w writes · u clears ')
+        ->and(substr_count($status, ':w writes'))->toBe(1)
+        ->and(mb_strlen($status))->toBeLessThanOrEqual($columns)
+        ->and(ltrim($status))->not->toStartWith('1 marked');
+})->with([60, 100]);
+
+it('puts what tql just said on the right of the status line, before any pending callout', function () {
+    putenv('COLUMNS=100');
+
+    $browser = browserFor(sqliteFixture(), 'shop');
+    $status = function () use ($browser) {
+        $lines = array_values(array_filter(explode("\n", frameOf($browser)), fn (string $line) => trim($line) !== ''));
+
+        return end($lines);
+    };
+
+    $browser->status = 'pending changes dropped';
+
+    expect($status())->toEndWith('pending changes dropped ')
+        ->and(ltrim($status()))->toStartWith('shop');
+
+    $browser->emit('key', "\e2");
+    $browser->emit('key', 'd');
+    $browser->status = 'copied the value';
+
+    putenv('COLUMNS');
+
+    expect($status())->toEndWith('copied the value · 1 marked for deletion · :w writes · u clears ');
+});
+
+it('fades a status message after a few seconds, but keeps the pending callout', function () {
+    config(['tql.ui.status_seconds' => 4]);
+
+    $browser = browserFor(sqliteFixture());
+    $browser->emit('key', "\e2");
+    $browser->emit('key', 'd');
+    $browser->status = 'copied the value';
+
+    expect($browser->fadeStatus($browser->statusSince + 3))->toBeFalse()
+        ->and($browser->status)->toBe('copied the value');
+
+    expect($browser->fadeStatus($browser->statusSince + 5))->toBeTrue()
+        ->and($browser->status)->toBeNull()
+        ->and(frameOf($browser))->toContain('1 marked for deletion · :w writes · u clears')
+        ->and(frameOf($browser))->not->toContain('copied the value');
+});
+
+it('keeps a status message when status_seconds is 0', function () {
+    config(['tql.ui.status_seconds' => 0]);
+
+    $browser = browserFor(sqliteFixture());
+    $browser->status = 'copied the value';
+
+    expect($browser->fadeStatus($browser->statusSince + 3600))->toBeFalse()
+        ->and($browser->status)->toBe('copied the value');
+
+    config(['tql.ui.status_seconds' => 4]);
 });

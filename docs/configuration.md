@@ -53,6 +53,7 @@ tql notices and tells you which ones.
 | `export_path` | `""` | where exports go; empty uses the last folder you saved one in |
 | `mouse` | `true` | click, drag and scroll inside tql |
 | `double_click_ms` | `400` | how close two clicks must be to open the editor |
+| `status_seconds` | `4` | how long a status message stays before it fades; `0` keeps it until the next one |
 | `mouse_row_offset` | `0` | subtract this from reported mouse rows |
 | `mouse_column_offset` | `0` | subtract this from reported mouse columns |
 

@@ -174,9 +174,11 @@ class HelpIsland extends Island
             'moving' => [
                 [$this->keys('move_left', 'move_down', 'move_up', 'move_right'), 'move'],
                 [$this->keys('next_pane', 'previous_pane'), 'next / previous pane'],
+                [$this->keys('focus_tables', 'focus_rows', 'focus_sql'), 'tables / rows / SQL'],
+                ...$this->each('toggle_tables'),
                 [$this->keys('next_page', 'previous_page'), 'next / previous page'],
-                [$this->keys('narrow', 'widen'), 'narrow / widen column'],
-                ...$this->each('reset_width', 'sort_column', 'reload', 'redraw', 'connections'),
+                [$this->keys('narrow', 'widen'), 'narrow / widen'],
+                ...$this->each('reset_width', 'sort_column', 'reload', 'connections'),
             ],
             'rows' => [
                 ...$this->each('activate', 'inspect_row', 'view_value', 'edit_value', 'edit_row', 'new_row'),
@@ -185,11 +187,10 @@ class HelpIsland extends Island
             ],
             'finding' => $this->each(
                 'filter_tables', 'filter_rows', 'structure', 'follow_link', 'jump_back',
-                'databases', 'sql', 'ask', 'help', 'quit',
+                'databases', 'sql', 'ask', 'palette', 'help', 'quit',
             ),
             'viewing a value' => [
                 ['j k', 'move a line'],
-                ['3j', 'move three'],
                 ['g G', 'top / bottom'],
                 ['12G', 'go to line 12'],
                 ['V', 'select lines'],
@@ -253,9 +254,14 @@ class HelpIsland extends Island
         for ($at = 0; $at < max(array_map(count(...), $glyphs ?: [[]])); $at++) {
             $parts = array_values(array_filter(array_column($glyphs, $at), fn ($glyph) => $glyph !== null));
 
-            $tight = count($parts) >= 3 && max(array_map(mb_strlen(...), $parts)) === 1;
+            $tight = count($parts) === 4 && max(array_map(mb_strlen(...), $parts)) === 1;
+            $alt = count($parts) > 1 && array_filter($parts, fn (string $part) => ! str_starts_with($part, 'alt+')) === [];
 
-            $positions[] = implode($tight ? '' : ' ', $parts);
+            $positions[] = match (true) {
+                $tight => implode('', $parts),
+                $alt => 'alt+'.implode(' ', array_map(fn (string $part) => substr($part, 4), $parts)),
+                default => implode(' ', $parts),
+            };
         }
 
         return implode(' / ', $positions);

@@ -114,6 +114,8 @@ return [
 
         'double_click_ms' => env('TQL_DOUBLE_CLICK_MS', 400),
 
+        'status_seconds' => 4,
+
         // Related rows to load into the row inspector. 0 turns it off.
         'inspect_related' => env('TQL_INSPECT_RELATED', 10),
 

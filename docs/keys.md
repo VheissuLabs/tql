@@ -11,7 +11,9 @@ does where it does not. **They can be changed** — see [Rebinding](#rebinding).
 | Key | Action |
 | --- | --- |
 | `tab` / `shift+tab` | next or previous pane |
-| `↑ ↓` / `j k` | move the cursor |
+| `alt+1` / `alt+2` / `alt+3` | go to the table list, the rows or the SQL editor — each pane's title shows its number. On macOS, turn on your terminal's "Option as Meta" or "Option as Alt" |
+| `\` | hide or show the table list, so the grid has the whole width |
+| `↑ ↓` / `j k` | move the cursor; a count before it moves that far, so `5j` is five rows and `3l` three columns |
 | `← →` / `h l` | move between columns; `→` from the table list moves to the grid |
 | `n` / `p` | next or previous page, 100 rows |
 | `↵` | open the table, or edit the cell |
@@ -32,10 +34,11 @@ does where it does not. **They can be changed** — see [Rebinding](#rebinding).
 | `y` / `Y` | yank this value, or the whole row as an object |
 | `N` | add a row, in a form; `:w` writes it |
 | `d` / `u` | mark the row for deletion, or clear every mark |
-| `,` `.` or `<` `>` | narrow or widen the column |
-| `=` | reset the column width |
+| `,` `.` or `<` `>` | narrow or widen the column — or the table list, when you are in it |
+| `=` | reset the width |
 | `c` | back to the connection list |
 | `ctrl+l` | redraw the screen |
+| `ctrl+k` | the command palette: every action, the tables, databases and connections |
 | `?` | help |
 | `:` | the command line |
 | `q` | quit |
@@ -54,6 +57,24 @@ test fixture:
 `esc` is contextual, in this order: go back where you followed a link from,
 clear the filter, then put the table back after a hand-written query replaced
 the grid with its results. It never quits — `q` and `:q` do that.
+
+## The command palette
+
+`ctrl+k` opens one list of everything you can do from here: every action, with
+the key that does it, the `:` commands that have no key, the tables, the other
+databases on a server, and your other connections. Type to narrow it — exact and
+prefix matches first, then words, then letters in order — and `↵` runs the one
+you are on, exactly as its key would.
+
+| Key | Action |
+| --- | --- |
+| type | narrow the list |
+| `↑ ↓` / `ctrl+p` `ctrl+n` | move |
+| `↵` | run it |
+| `esc` | close |
+
+The key shown beside an action is the one it is bound to, so a key you rebind is
+the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 
 ## The command line
 
@@ -219,7 +240,7 @@ new_row = "ctrl+n"
 ask = "?"
 ```
 
-A key is a single character (`F` is not `f`), `ctrl+<letter>`, or one of `tab`,
+A key is a single character (`F` is not `f`), `ctrl+<letter>`, `alt+<key>`, or one of `tab`,
 `shift+tab`, `enter`, `escape`, `space`, `backspace`, `delete`, `up`, `down`,
 `left`, `right`, `home`, `end`. A list means **several keys that all do the same thing** —
 `yank_value = ["y", "ctrl+y"]` makes both yank, the way `,` and `<` both narrow
@@ -254,6 +275,9 @@ of is ignored and the default stands.
 | `yank_value` / `yank_row` | `y` / `Y` | yank |
 | `narrow` / `widen` | `,` `<` / `.` `>` | column width |
 | `reset_width` | `=` | reset the column width |
+| `palette` | `ctrl+k` | the command palette |
+| `focus_tables` / `focus_rows` / `focus_sql` | `alt+1` / `alt+2` / `alt+3` | go to a pane |
+| `toggle_tables` | `\` | hide or show the table list |
 | `help` | `?` | help |
 | `quit` | `q` | quit |
 

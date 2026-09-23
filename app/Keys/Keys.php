@@ -52,6 +52,10 @@ class Keys
             return chr(ord(strtolower($match[1])) - 96);
         }
 
+        if (preg_match('/^(?:alt|option|meta)\+(.)$/iu', $name, $match) === 1) {
+            return "\e".$match[1];
+        }
+
         // A single character is itself, and case matters: N is not n.
         return mb_strlen($name) === 1 ? $name : null;
     }
@@ -66,7 +70,7 @@ class Keys
             Key::ENTER => '↵',
             Key::SHIFT_TAB => '⇧tab',
             Key::BACKSPACE => '⌫',
-            default => self::spell($key),
+            default => self::isAlt($key) ? (PHP_OS_FAMILY === 'Darwin' ? '⌥' : 'alt+').substr($key, 1) : self::spell($key),
         };
     }
 
@@ -81,12 +85,19 @@ class Keys
             }
         }
 
-        $byte = ord($key);
+        if (strlen($key) === 1 && ord($key) > 0 && ord($key) < 27) {
+            return 'ctrl+'.chr(ord($key) + 96);
+        }
 
-        if (mb_strlen($key) === 1 && $byte > 0 && $byte < 27) {
-            return 'ctrl+'.chr($byte + 96);
+        if (self::isAlt($key)) {
+            return 'alt+'.substr($key, 1);
         }
 
         return $key;
+    }
+
+    public static function isAlt(string $key): bool
+    {
+        return strlen($key) === 2 && $key[0] === "\e" && ctype_graph($key[1]);
     }
 }

@@ -220,12 +220,25 @@ it('keeps a section it has never heard of', function () {
 
 it('only adds settings newer than the file says it is', function () {
     withoutConfigFile(function (string $file) {
-        file_put_contents($file, "# tql configuration 0.4.0\n\n[ui]\nsidebar_width = 40\n");
+        file_put_contents($file, '# tql configuration '.ConfigTemplate::VERSION."\n\n[ui]\nsidebar_width = 40\n");
 
         // sidebar_width is the only [ui] setting here; the rest shipped at
         // 0.3.0, so they were deleted on purpose and stay deleted.
         expect(ConfigFile::ensure()['added'])->toBe([])
             ->and(file_get_contents($file))->not->toContain('sql_position');
+    });
+});
+
+it('offers a setting from a newer version once, and not again after it is deleted', function () {
+    withoutConfigFile(function (string $file) {
+        file_put_contents($file, "# tql configuration 0.4.0\n\n[ui]\nsidebar_width = 40\n");
+
+        expect(ConfigFile::ensure()['added'])->toBe(['status_seconds'])
+            ->and(file_get_contents($file))->toContain('# tql configuration '.ConfigTemplate::VERSION);
+
+        file_put_contents($file, preg_replace('/^status_seconds = .*$/m', '', file_get_contents($file)));
+
+        expect(ConfigFile::ensure()['added'])->toBe([]);
     });
 });
 

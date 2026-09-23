@@ -35,8 +35,11 @@ class BrowseCommand extends Command
             return self::FAILURE;
         }
 
+        $next = null;
+
         while (true) {
-            $connection = $this->chooseConnection();
+            $connection = $next ?? $this->chooseConnection();
+            $next = null;
 
             if ($connection === null) {
                 return self::SUCCESS;
@@ -51,7 +54,13 @@ class BrowseCommand extends Command
 
             $this->connections->touch($connection);
 
-            $exit = (new Browser($connection, $this->runner, $this->formatter))->prompt();
+            $exit = (string) (new Browser($connection, $this->runner, $this->formatter))->prompt();
+
+            if (str_starts_with($exit, 'open:')) {
+                $next = Connection::find((int) substr($exit, 5));
+
+                continue;
+            }
 
             if ($exit !== 'connections') {
                 return self::SUCCESS;

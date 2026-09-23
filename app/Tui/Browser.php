@@ -8,7 +8,9 @@ use App\Database\Filters;
 use App\Database\OrderBy;
 use App\Database\QueryRunner;
 use App\Database\SqlExporter;
+use App\Keys\Binding;
 use App\Keys\Keymap;
+use App\Keys\Keys;
 use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Support\Now;
@@ -23,6 +25,7 @@ use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Laravel\Prompts\Key;
 use Laravel\Prompts\Prompt;
+use Laravel\Prompts\Support\Result;
 
 class Browser extends Prompt
 {
@@ -92,6 +95,10 @@ class Browser extends Prompt
 
     public ?SidebarIsland $sidebar = null;
 
+    public ?int $sidebarWidth = null;
+
+    public bool $tablesHidden = false;
+
     public ?TableIsland $table = null;
 
     public ?ValueEditorIsland $valueIsland = null;
@@ -158,7 +165,62 @@ class Browser extends Prompt
     public ?string $status = null {
         set(?string $value) {
             $this->statusFresh = $value !== null && $value !== $this->status;
+
+            if ($value !== $this->status) {
+                $this->statusSince = microtime(true);
+            }
+
             $this->status = $value;
+        }
+    }
+
+    public float $statusSince = 0.0;
+
+    public function fadeStatus(?float $now = null): bool
+    {
+        $after = Layout::statusSeconds();
+
+        if ($after <= 0 || $this->status === null || $this->status === '') {
+            return false;
+        }
+
+        if (($now ?? microtime(true)) - $this->statusSince < $after) {
+            return false;
+        }
+
+        $this->status = null;
+
+        return true;
+    }
+
+    public function runLoop(callable $callable): mixed
+    {
+        while (true) {
+            $read = [STDIN];
+            $write = null;
+            $except = null;
+
+            $ready = @stream_select($read, $write, $except, 0, 250_000);
+
+            if ($ready === 0 && $this->fadeStatus()) {
+                $this->render();
+            }
+
+            if ($ready !== 1) {
+                continue;
+            }
+
+            $key = static::terminal()->read();
+
+            if ($key === '') {
+                continue;
+            }
+
+            $result = $callable($key);
+
+            if ($result instanceof Result) {
+                return $result->value;
+            }
         }
     }
 
@@ -421,6 +483,12 @@ class Browser extends Prompt
             return;
         }
 
+        if ($this->palette !== null) {
+            $this->handlePaletteKey($key);
+
+            return;
+        }
+
         if ($this->mode === 'help') {
             $this->handleHelpKey($key);
 
@@ -487,18 +555,64 @@ class Browser extends Prompt
             return;
         }
 
-        match (Keymap::action($key)) {
+        if (ctype_digit($key) && ($key !== '0' || $this->countPrefix !== '')) {
+            $this->countPrefix .= $key;
+
+            return;
+        }
+
+        $action = (string) Keymap::action($key);
+        $count = (int) $this->countPrefix;
+        $this->countPrefix = '';
+
+        if ($count > 1 && in_array($action, ['move_up', 'move_down', 'move_left', 'move_right'], true)) {
+            $this->moveBy($action, $count);
+
+            return;
+        }
+
+        $this->runAction($action);
+    }
+
+    private function moveBy(string $action, int $count): void
+    {
+        if ($this->focus === 'sidebar') {
+            match ($action) {
+                'move_up' => $this->selectTable(max(0, $this->tableIndex - $count)),
+                'move_down' => $this->selectTable(min(count($this->visibleTables()) - 1, $this->tableIndex + $count)),
+                default => $this->runAction($action),
+            };
+
+            return;
+        }
+
+        match ($action) {
+            'move_up' => $this->rowIndex = max(0, $this->rowIndex - $count),
+            'move_down' => $this->rowIndex = min(max(0, count($this->rows) - 1), $this->rowIndex + $count),
+            'move_left' => $this->moveColumn(-$count),
+            default => $this->moveColumn($count),
+        };
+    }
+
+    private function runAction(string $action): bool
+    {
+        return match ($action) {
             'command' => $this->openCommandLine(),
             'quit' => $this->quit(),
             'next_pane' => $this->toggleFocus(),
             'previous_pane' => $this->toggleFocus(-1),
             'move_up' => $this->moveUp(),
             'move_down' => $this->moveDown(),
-            'move_left' => $this->moveColumn(-1),
+            'move_left' => match (true) {
+                $this->focus === 'sidebar' => true,
+                $this->columnIndex === 0 => $this->showTables(),
+                default => $this->moveColumn(-1),
+            },
             'move_right' => $this->focus === 'sidebar' ? $this->toggleFocus() : $this->moveColumn(1),
-            'narrow' => $this->resize(-4),
-            'widen' => $this->resize(4),
-            'reset_width' => $this->resetWidth(),
+            'narrow' => $this->focus === 'sidebar' ? $this->resizeTables(-4) : $this->resize(-4),
+            'widen' => $this->focus === 'sidebar' ? $this->resizeTables(4) : $this->resize(4),
+            'reset_width' => $this->focus === 'sidebar' ? $this->resizeTables(null) : $this->resetWidth(),
+            'toggle_tables' => $this->toggleTables(),
             'sql' => $this->openQuery(),
             'inspect_row' => $this->inspectRow(),
             'view_value' => $this->startEditing(readOnly: true),
@@ -524,6 +638,10 @@ class Browser extends Prompt
             'yank_row' => $this->yankRow(),
             'mark_delete' => $this->markDelete(),
             'clear_marks' => $this->unmarkAll(),
+            'palette' => $this->openPalette(),
+            'focus_tables' => $this->showTables(),
+            'focus_rows' => $this->focusPane('grid'),
+            'focus_sql' => $this->openQuery(),
             default => true,
         };
     }
@@ -647,6 +765,12 @@ class Browser extends Prompt
 
     private function handleQueryKey(string $key): void
     {
+        if (Keymap::action($key) === 'palette') {
+            $this->openPalette();
+
+            return;
+        }
+
         if ($key === Key::TAB || $key === Key::SHIFT_TAB) {
             $this->toggleFocus($key === Key::SHIFT_TAB ? -1 : 1);
 
@@ -763,6 +887,8 @@ class Browser extends Prompt
     public ?RowDocument $document = null;
 
     public ?RecordForm $recordForm = null;
+
+    public ?Palette $palette = null;
 
     public int $documentLine = 0;
 
@@ -2157,6 +2283,15 @@ class Browser extends Prompt
 
     private function press(int $column, int $row): bool
     {
+        if ($this->sidebar !== null
+            && $column === $this->sidebar->x + $this->sidebar->width - 1
+            && $row >= $this->sidebar->y
+            && $row <= $this->sidebar->y + $this->sidebar->height - 1) {
+            $this->drag = ['tables' => true];
+
+            return true;
+        }
+
         if ($this->table !== null
             && $row === $this->table->y + 1
             && $column >= $this->table->x
@@ -2199,6 +2334,13 @@ class Browser extends Prompt
 
     private function dragTo(int $column): void
     {
+        if (($this->drag['tables'] ?? false) === true) {
+            $this->sidebarWidth = max(8, min(80, $column - 2));
+            $this->status = 'table list width '.$this->sidebarWidth;
+
+            return;
+        }
+
         if ($this->drag === null || $this->table === null) {
             return;
         }
@@ -2248,10 +2390,7 @@ class Browser extends Prompt
         $this->status = '↵ runs it · ⇧↵ adds a line · esc returns';
 
         if (! $entering || $localRow >= 0) {
-            $this->editor->toLineColumn(
-                $this->editorIsland->firstLine + max(0, $localRow),
-                max(0, $localColumn),
-            );
+            $this->editor->toLineColumn(...$this->editorIsland->positionAt($localRow, $localColumn));
         }
 
         return true;
@@ -2453,15 +2592,13 @@ class Browser extends Prompt
             $key === Key::ESCAPE, $key === 'q' => $this->databasePicker = null,
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $picker->move(-1),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $picker->move(1),
-            $key === Key::ENTER => $this->useDatabase(),
+            $key === Key::ENTER => $this->useDatabase($picker->selected()),
             default => $picker->type($key),
         };
     }
 
-    private function useDatabase(): void
+    private function useDatabase(?string $chosen): void
     {
-        $chosen = $this->databasePicker?->selected();
-
         $this->databasePicker = null;
 
         if ($chosen === null || $chosen === $this->connection->activeDatabase()) {
@@ -3084,6 +3221,7 @@ class Browser extends Prompt
     {
         $this->filtering = true;
         $this->filter ??= '';
+        $this->tablesHidden = false;
         $this->focus = 'sidebar';
         $this->status = 'filtering tables · ↵ keeps it · esc clears it';
 
@@ -3143,6 +3281,110 @@ class Browser extends Prompt
         $this->load();
     }
 
+    private const PALETTE_SKIPS = ['move_up', 'move_down', 'move_left', 'move_right', 'activate', 'escape', 'command', 'palette'];
+
+    private const PALETTE_COMMANDS = [
+        'w' => 'write the pending changes',
+        'export' => 'export this table as SQL',
+        'tables' => 'focus the table list',
+        'rows' => 'focus the rows',
+    ];
+
+    private function openPalette(): bool
+    {
+        $items = [];
+
+        foreach (Keymap::all() as $binding) {
+            if (in_array($binding->action, self::PALETTE_SKIPS, true)) {
+                continue;
+            }
+
+            $items[] = Palette::item(Palette::ACTION, ucfirst($binding->description), $this->keysOf($binding), $binding->action);
+        }
+
+        foreach (self::PALETTE_COMMANDS as $command => $description) {
+            $items[] = Palette::item(Palette::COMMAND, ucfirst($description), ':'.$command, $command);
+        }
+
+        foreach ($this->tables as $table) {
+            $items[] = Palette::item(Palette::TABLE, $table, 'table', $table);
+        }
+
+        if ($this->connection->driver !== 'sqlite') {
+            foreach ($this->runner->databases($this->connection) as $database) {
+                if ($database !== $this->connection->activeDatabase()) {
+                    $items[] = Palette::item(Palette::DATABASE, $database, 'database', $database);
+                }
+            }
+        }
+
+        foreach (Connection::orderBy('name')->get() as $other) {
+            if ($other->id !== $this->connection->id) {
+                $items[] = Palette::item(Palette::CONNECTION, $other->name, 'connection', (string) $other->id);
+            }
+        }
+
+        $this->palette = new Palette($items);
+        $this->status = null;
+
+        return true;
+    }
+
+    private function keysOf(Binding $binding): string
+    {
+        return implode(' / ', array_values(array_unique(array_map(Keys::glyph(...), $binding->keys))));
+    }
+
+    private function handlePaletteKey(string $key): void
+    {
+        $palette = $this->palette;
+
+        match (true) {
+            $key === Key::ESCAPE => $this->palette = null,
+            $key === Key::ENTER => $this->runPaletteItem($palette->selected()),
+            in_array($key, [Key::UP, Key::UP_ARROW, Key::CTRL_P], true) => $palette->move(-1),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, Key::CTRL_N], true) => $palette->move(1),
+            default => $palette->type($key),
+        };
+    }
+
+    private function runPaletteItem(?array $item): void
+    {
+        $this->palette = null;
+
+        if ($item === null) {
+            return;
+        }
+
+        if ($this->mode === 'query' && $item['target'] !== 'sql') {
+            $this->mode = 'browse';
+        }
+
+        match ($item['kind']) {
+            Palette::ACTION => $this->runAction($item['target']),
+            Palette::COMMAND => $this->runCommand($item['target']),
+            Palette::TABLE => $this->goToTable($item['target']),
+            Palette::DATABASE => $this->useDatabase($item['target']),
+            Palette::CONNECTION => $this->quit('open:'.$item['target']),
+            default => null,
+        };
+    }
+
+    private function goToTable(string $table): void
+    {
+        $this->filter = null;
+        $this->resultsFromQuery = false;
+
+        $at = array_search($table, $this->visibleTables(), true);
+
+        if ($at === false) {
+            return;
+        }
+
+        $this->selectTable($at);
+        $this->focus = 'grid';
+    }
+
     private function openCommandLine(): bool
     {
         $this->command = '';
@@ -3197,6 +3439,67 @@ class Browser extends Prompt
         return true;
     }
 
+    public function pendingCallout(): string
+    {
+        return $this->hasPending() ? $this->pendingStatus() : '';
+    }
+
+    public function hasPending(): bool
+    {
+        return $this->pendingDeletes !== [] || $this->pendingEdits !== [] || $this->pendingInserts !== [];
+    }
+
+    public function canGoBack(): bool
+    {
+        return $this->jumps !== [] || $this->filters !== null;
+    }
+
+    public function tablesWidth(): int
+    {
+        return $this->sidebarWidth ?? Layout::sidebarWidth();
+    }
+
+    private function toggleTables(): bool
+    {
+        $this->tablesHidden = ! $this->tablesHidden;
+
+        if ($this->tablesHidden && $this->focus === 'sidebar') {
+            $this->focus = 'grid';
+        }
+
+        $this->status = $this->tablesHidden
+            ? 'table list hidden · '.Keymap::key('toggle_tables').' shows it'
+            : null;
+
+        return true;
+    }
+
+    private function showTables(): bool
+    {
+        $this->tablesHidden = false;
+
+        return $this->focusPane('sidebar');
+    }
+
+    private function resizeTables(?int $by): bool
+    {
+        $this->sidebarWidth = $by === null
+            ? null
+            : max(8, min(80, $this->tablesWidth() + $by));
+
+        $this->status = 'table list width '.$this->tablesWidth();
+
+        return true;
+    }
+
+    private function focusPane(string $pane): bool
+    {
+        $this->mode = 'browse';
+        $this->focus = $pane;
+
+        return true;
+    }
+
     private function focusOn(string $pane): bool
     {
         $this->focus = $pane;
@@ -3209,6 +3512,10 @@ class Browser extends Prompt
         $panes = Layout::sqlAlways() || $this->mode === 'query'
             ? ['sidebar', 'grid', 'sql']
             : ['sidebar', 'grid'];
+
+        if ($this->tablesHidden) {
+            $panes = array_values(array_diff($panes, ['sidebar']));
+        }
 
         $current = $this->mode === 'query' ? 'sql' : $this->focus;
         $at = array_search($current, $panes, true);

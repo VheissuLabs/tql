@@ -329,7 +329,7 @@ it('keeps the hotkey bar to a single line at a usable width', function () {
     putenv('LINES');
 
     // The hotkey bar is the second to last line; a wrap would push the frame.
-    expect(array_filter($lines, fn (string $l) => str_contains($l, 'Pane')))->toHaveCount(1);
+    expect(array_filter($lines, fn (string $l) => str_contains($l, 'Help')))->toHaveCount(1);
 });
 
 it('floats the help over the panes instead of interleaving with them', function () {

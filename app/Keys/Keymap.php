@@ -40,6 +40,10 @@ class Keymap
 
             new Binding('next_pane', [Key::TAB], 'next pane', 'Pane', rebindable: false),
             new Binding('previous_pane', [Key::SHIFT_TAB], 'previous pane', rebindable: false),
+            new Binding('focus_tables', ["\e1"], 'go to the table list'),
+            new Binding('focus_rows', ["\e2"], 'go to the rows'),
+            new Binding('focus_sql', ["\e3"], 'go to the SQL editor'),
+            new Binding('toggle_tables', ['\\'], 'show or hide tables'),
 
             new Binding('inspect_row', ['i'], 'inspect the row', 'Row'),
             new Binding('view_value', ['I'], 'view the value'),
@@ -63,9 +67,10 @@ class Keymap
             new Binding('connections', ['c'], 'connections'),
             new Binding('yank_value', ['y'], 'yank the value'),
             new Binding('yank_row', ['Y'], 'yank the row'),
-            new Binding('narrow', [',', '<'], 'narrow column'),
-            new Binding('widen', ['.', '>'], 'widen column'),
+            new Binding('narrow', [',', '<'], 'narrow column or list'),
+            new Binding('widen', ['.', '>'], 'widen column or list'),
             new Binding('reset_width', ['='], 'reset width'),
+            new Binding('palette', ["\x0b"], 'command palette'),
             new Binding('help', ['?'], 'help', 'Help'),
             new Binding('quit', ['q'], 'quit'),
             new Binding('redraw', ["\x0c"], 'redraw', rebindable: false),

@@ -95,6 +95,9 @@ it('shows the rebound key in help and on the hotkey bar', function () {
 
     $plain = fn () => preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser));
 
+    $plain();
+    $browser->emit('key', "\n");
+
     expect($plain())->toContain('F Filter');
 
     $browser->emit('key', '?');

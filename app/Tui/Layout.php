@@ -56,6 +56,11 @@ class Layout
         return (bool) config('tql.ui.modal_ring', true);
     }
 
+    public static function statusSeconds(): float
+    {
+        return max(0.0, (float) config('tql.ui.status_seconds', 4));
+    }
+
     public static function doubleClickMs(): int
     {
         return (int) config('tql.ui.double_click_ms', 400);
@@ -86,12 +91,12 @@ class Layout
 
     public static function sidebarColumns(): array
     {
-        return [self::SIDEBAR_FIRST_COLUMN, self::SIDEBAR_FIRST_COLUMN + self::SIDEBAR - 1];
+        return [self::SIDEBAR_FIRST_COLUMN, self::SIDEBAR_FIRST_COLUMN + self::sidebarWidth() - 1];
     }
 
     public static function gridFirstColumn(): int
     {
-        return self::SIDEBAR_FIRST_COLUMN + self::SIDEBAR + 1;
+        return self::SIDEBAR_FIRST_COLUMN + self::sidebarWidth() + 1;
     }
 
     public static function inSidebar(int $column): bool

@@ -17,7 +17,7 @@ class ConfigTemplate
      * enough to be worth adding: one that shipped before your file was last
      * topped up is one you deleted on purpose.
      */
-    public const VERSION = '0.4.0';
+    public const VERSION = '0.5.0';
 
     /**
      * @return array<int, array{section: string, key: string, default: string, comment: array<int, string>}>
@@ -36,6 +36,7 @@ class ConfigTemplate
             ['section' => 'ui', 'key' => 'inspect_related', 'default' => '10', 'since' => '0.3.0', 'comment' => ['Related rows to load into the inspector, 0 turns it off']],
             ['section' => 'ui', 'key' => 'export_path', 'default' => '""', 'since' => '0.3.0', 'comment' => ['Where exports go, empty uses the last folder you saved one in']],
             ['section' => 'ui', 'key' => 'mouse', 'default' => 'true', 'since' => '0.3.0', 'comment' => ['Click, drag and scroll inside tql']],
+            ['section' => 'ui', 'key' => 'status_seconds', 'default' => '4', 'since' => '0.5.0', 'comment' => ['Seconds a status message stays before it fades, 0 keeps it']],
             ['section' => 'ui', 'key' => 'double_click_ms', 'default' => '400', 'since' => '0.3.0', 'comment' => ['How close two clicks must be to open the editor']],
             ['section' => 'ui', 'key' => 'mouse_row_offset', 'default' => '0', 'since' => '0.3.0', 'comment' => ['Subtract from reported mouse rows, 1 inside a multiplexer']],
             ['section' => 'ui', 'key' => 'mouse_column_offset', 'default' => '0', 'since' => '0.3.0', 'comment' => ['Subtract from reported mouse columns']],

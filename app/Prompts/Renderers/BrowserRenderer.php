@@ -3,6 +3,7 @@
 namespace App\Prompts\Renderers;
 
 use App\Keys\Keymap;
+use App\Keys\Keys;
 use App\Support\Now;
 use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
@@ -14,6 +15,7 @@ use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\InspectorWidth;
 use App\Tui\Islands\Island;
 use App\Tui\Islands\Modal;
+use App\Tui\Islands\PaletteIsland;
 use App\Tui\Islands\PickerIsland;
 use App\Tui\Islands\RecordFormIsland;
 use App\Tui\Islands\Screen;
@@ -26,12 +28,10 @@ use App\Tui\Islands\ValueEditorIsland;
 use App\Tui\Layout;
 use App\Tui\RowDocument;
 use App\Tui\Theme;
-use Chewie\Concerns\DrawsHotkeys;
 use Laravel\Prompts\Themes\Default\Renderer;
 
 class BrowserRenderer extends Renderer
 {
-    use DrawsHotkeys;
     use RendersWithoutPadding;
 
     /** Whether the island currently being drawn has focus. */
@@ -48,17 +48,19 @@ class BrowserRenderer extends Renderer
 
         $style = $this->styler();
 
+        $tablesWidth = min($prompt->tablesWidth(), max(8, $width - 30));
+
         $sidebar = new SidebarIsland($prompt->visibleTables(), $prompt->tableIndex, $style, $prompt->filter);
         $sidebar->focused = $prompt->focus === 'sidebar';
-        $sidebar->title = $sidebar->heading($prompt->connection->driver === 'sqlite'
+        $sidebar->title = $this->paneKey('focus_tables').$sidebar->heading($prompt->connection->driver === 'sqlite'
             ? basename((string) $prompt->connection->database)
-            : (string) $prompt->connection->activeDatabase(), Layout::sidebarWidth() - 4);
-        $sidebar->place(1, $top, Layout::sidebarWidth() + 2, $frameHeight);
+            : (string) $prompt->connection->activeDatabase(), $tablesWidth - 4 - mb_strlen($this->paneKey('focus_tables')));
+        $sidebar->place(1, $top, $tablesWidth + 2, $frameHeight);
 
-        $rightX = $sidebar->x + $sidebar->width + 1;
+        $rightX = $prompt->tablesHidden ? 1 : $sidebar->x + $sidebar->width + 1;
         $rightWidth = max(20, $width - $rightX);
 
-        $screen = (new Screen)->add($sidebar);
+        $screen = $prompt->tablesHidden ? new Screen : (new Screen)->add($sidebar);
 
         $tableY = $top;
         $tableHeight = $frameHeight;
@@ -74,6 +76,7 @@ class BrowserRenderer extends Renderer
                 $style,
             );
             $editor->focused = $prompt->mode === 'query';
+            $editor->title = $this->paneKey('focus_sql').$editor->title;
 
             if (Layout::sqlPosition() === 'bottom') {
                 $tableY = $top;
@@ -251,6 +254,15 @@ class BrowserRenderer extends Renderer
             }
         }
 
+        if ($prompt->palette !== null) {
+            $palette = new PaletteIsland($prompt->palette, $style);
+            $palette->focused = true;
+
+            $this->modal($width, $top, $frameHeight, min($width - 4, PaletteIsland::WIDTH))
+                ->add($palette, min($frameHeight - 2, $palette->rows()))
+                ->onto($screen);
+        }
+
         // An error sits over everything else, including whatever was open
         // when it happened.
         if ($prompt->problem !== null) {
@@ -296,7 +308,7 @@ class BrowserRenderer extends Renderer
         $table->scrollLocked = $prompt->isDragging();
         $filtered = $prompt->filters !== null ? ' ·  filtered' : '';
 
-        $table->title = match (true) {
+        $table->title = $this->paneKey('focus_rows').match (true) {
             $prompt->resultsFromQuery && $prompt->queryTable !== null => $prompt->queryTable,
             $prompt->resultsFromQuery => 'RESULTS',
             default => ($prompt->currentTable() ?? 'ROWS').$filtered,
@@ -313,55 +325,118 @@ class BrowserRenderer extends Renderer
             $prompt->editorIsland = null;
         }
 
-        $prompt->sidebar = $sidebar;
+        $prompt->sidebar = $prompt->tablesHidden ? null : $sidebar;
         $prompt->table = $table;
         $prompt->columnOffset = $table->columnOffset;
         $prompt->columnHandles = $table->handles();
 
-        $this->clearHotkeys();
+        $this->line($this->bar($this->offers($prompt), $width));
 
-        // The bar reads the keymap, so a key rebound in config.toml is the key
-        // the bar offers.
-        foreach (['next_pane', 'inspect_row', 'edit_value', 'sort_column', 'mark_delete', 'ask', 'filter_rows', 'structure'] as $action) {
-            $this->action($action);
-        }
-
-        if ($prompt->connection->driver !== 'sqlite') {
-            $this->action('databases');
-        }
-
-        $this->action('sql');
-
-        // Paging is only worth a slot when there is somewhere to page to.
-        if ($prompt->hasMore || $prompt->offset > 0) {
-            $this->hotkey(Keymap::key('next_page').'/'.Keymap::key('previous_page'), 'Page');
-        }
-
-        $this->action('help');
-        $this->hotkey(':'.Keymap::key('quit'), 'Quit');
-
-        collect($this->hotkeys())
-            ->map(fn (string $line) => rtrim($line))
-            ->filter()
-            ->each(fn (string $line) => $this->line($this->fit(' '.$line, $width)));
-
-        $this->line($this->fit($this->status($prompt), $width));
+        $this->line($this->withCallout($this->status($prompt), $prompt, $width));
 
         return $this;
     }
 
-    /**
-     * A hotkey from the keymap: its key, and the short label it carries.
-     */
-    private function action(string $action): void
+    private function offers(Browser $prompt): array
     {
-        $binding = Keymap::binding($action);
+        $key = fn (string $action, int $which = 0): string => $this->keyOf($action, $which);
+        $more = [$key('palette'), 'More'];
+        $help = [$key('help'), 'Help'];
 
-        if ($binding === null || $binding->label === null) {
-            return;
+        return match (true) {
+            $prompt->problem !== null => [['y', 'Copy'], ['esc', 'Close']],
+            $prompt->palette !== null => [['↑↓', 'Move'], ['↵', 'Run'], ['esc', 'Close']],
+            $prompt->recordForm?->editor !== null => [['↵', 'Keep'], ['tab', 'Next'], ['esc', 'Put back']],
+            $prompt->recordForm !== null => [['↑↓', 'Field'], ['↵', 'Edit'], ['ctrl+s', 'Keep row'], ['esc', 'Cancel']],
+            $prompt->filterForm !== null => [['↑↓', 'Move'], ['ctrl+s', 'Apply'], ['esc', 'Cancel']],
+            $prompt->question !== null => [['↵', 'Ask'], ['⇧↵', 'New line'], ['esc', 'Cancel']],
+            $prompt->databasePicker !== null, $prompt->linkPicker !== null => [['↑↓', 'Move'], ['↵', 'Choose'], ['esc', 'Cancel']],
+            $prompt->command !== null => [['↵', 'Run'], ['esc', 'Cancel']],
+            $prompt->filtering => [['↵', 'Keep'], ['esc', 'Clear']],
+            $prompt->mode === 'help', $prompt->mode === 'structure' => [['j k', 'Scroll'], ['esc', 'Close']],
+            $prompt->mode === 'inspect' => [['↵', 'Fold'], ['e', 'Edit'], ['y', 'Yank'], ['esc', 'Close']],
+            $prompt->mode === 'edit' && $prompt->editable => [['↵', 'Keep'], ['⇧↵', 'New line'], ['esc', 'Cancel']],
+            $prompt->mode === 'edit' => [['V', 'Select'], ['y', 'Yank'], ['e', 'Edit'], ['esc', 'Close']],
+            $prompt->mode === 'query' => [['↵', 'Run'], ['⇧↵', 'New line'], ['esc', 'Grid'], $more],
+            $prompt->focus === 'sidebar' => [
+                ['↵', 'Open'],
+                [$key('filter_tables'), 'Filter'],
+                [$key('toggle_tables'), 'Hide'],
+                [$key('narrow', 1).$key('widen', 1), 'Width'],
+                ...($prompt->connection->driver === 'sqlite' ? [] : [[$key('databases'), 'Database']]),
+                [$key('focus_rows'), 'Rows'],
+                $more,
+                $help,
+            ],
+            $prompt->resultsFromQuery => [
+                [$key('yank_value'), 'Yank'],
+                [$key('yank_row'), 'Row'],
+                [$key('sql'), 'Edit query'],
+                ['esc', 'Back'],
+                $more,
+                $help,
+            ],
+            default => [
+                ...($prompt->hasPending() ? [[':w', 'Write'], [$key('clear_marks'), 'Undo']] : []),
+                ...($prompt->hasMore || $prompt->offset > 0 ? [[$key('next_page').'/'.$key('previous_page'), 'Page']] : []),
+                [$key('edit_value'), 'Edit'],
+                [$key('new_row'), 'Add'],
+                [$key('mark_delete'), 'Mark'],
+                [$key('filter_rows'), 'Filter'],
+                [$key('sort_column'), 'Sort'],
+                [$key('inspect_row'), 'Inspect'],
+                [$key('sql'), 'SQL'],
+                ...($prompt->canGoBack() ? [['esc', 'Back']] : []),
+                $more,
+                $help,
+            ],
+        };
+    }
+
+    private function bar(array $offers, int $width): string
+    {
+        $offers = array_values(array_filter($offers, fn (array $offer) => $offer[0] !== ''));
+        $gap = '   ';
+        $plain = fn (array $offer) => $offer[0].' '.$offer[1];
+        $tail = count($offers) > 2 ? array_slice($offers, -2) : [];
+        $head = $tail === [] ? $offers : array_slice($offers, 0, -2);
+
+        $room = $width - 1 - array_sum(array_map(fn (array $offer) => mb_strlen($plain($offer)) + mb_strlen($gap), $tail));
+        $kept = [];
+
+        foreach ($head as $offer) {
+            $room -= mb_strlen($plain($offer)) + mb_strlen($gap);
+
+            if ($room < 0) {
+                break;
+            }
+
+            $kept[] = $offer;
         }
 
-        $this->hotkey(Keymap::key($action), $binding->label);
+        return ' '.implode($gap, array_map(
+            fn (array $offer) => $offer[0].' '.$this->dim($offer[1]),
+            [...$kept, ...$tail],
+        ));
+    }
+
+    private function keyOf(string $action, int $which = 0): string
+    {
+        $keys = Keymap::binding($action)?->keys ?? [];
+        $chosen = $keys[$which] ?? $keys[0] ?? null;
+
+        return $chosen === null ? '' : Keys::glyph($chosen);
+    }
+
+    private function paneKey(string $action): string
+    {
+        $bytes = Keymap::binding($action)?->keys[0] ?? '';
+
+        if ($bytes === '') {
+            return '';
+        }
+
+        return '['.(Keys::isAlt($bytes) && ctype_digit($bytes[1]) ? $bytes[1] : Keys::glyph($bytes)).'] ';
     }
 
     /**
@@ -684,9 +759,39 @@ class BrowserRenderer extends Renderer
             : '';
 
         return ' '.$name.$tag
-            .$this->dim(' · ').$this->said($prompt)
             .$this->dim($position.$back)
             .$this->link($prompt);
+    }
+
+    private function withCallout(string $left, Browser $prompt, int $width): string
+    {
+        if ($prompt->command !== null || $prompt->filtering || ! $this->browsing($prompt)) {
+            return $this->fit($left, $width);
+        }
+
+        $callout = $prompt->pendingCallout();
+        $color = $prompt->pendingDeletes !== [] ? Theme::color('deleted', 'red') : Theme::color('edited', 'yellow');
+        $pending = $callout === '' ? '' : $this->bold($this->paint($color, $this->truncate($callout, max(1, $width - 2))));
+
+        $said = $this->said($prompt);
+        $room = $width - 1 - $this->visible($pending) - ($said !== '' && $pending !== '' ? 3 : 0);
+        $said = $said !== '' && $this->visible($said) > $room - 2 ? $this->truncate($said, max(0, $room - 2)) : $said;
+
+        $right = implode($this->dim(' · '), array_filter([$said, $pending], fn (string $part) => $part !== '')).' ';
+
+        if (trim($right) === '') {
+            return $this->fit($left, $width);
+        }
+
+        $space = $width - $this->visible($right);
+        $left = $this->visible($left) > $space - 2 ? $this->truncate($left, max(0, $space - 2)) : $left;
+
+        return $left.str_repeat(' ', max(1, $space - $this->visible($left))).$right;
+    }
+
+    private function browsing(Browser $prompt): bool
+    {
+        return $prompt->recordForm === null && ! in_array($prompt->mode, ['edit', 'help', 'inspect'], true);
     }
 
     /**
@@ -700,7 +805,7 @@ class BrowserRenderer extends Renderer
     {
         $text = $prompt->status ?? '';
 
-        if ($text === '') {
+        if ($text === '' || $text === $prompt->pendingCallout()) {
             return '';
         }
 
