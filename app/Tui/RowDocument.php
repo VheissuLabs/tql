@@ -184,8 +184,11 @@ class RowDocument
         return $lines;
     }
 
-    /** How wide a column of a related collection is allowed to get. */
-    private const CELL = 24;
+    /** Narrow enough to still say something, in a row that cannot fit. */
+    private const CELL_FLOOR = 8;
+
+    /** The room a collection row has, once the frame is known. */
+    private ?int $width = null;
 
     private function collection(array $rows, array $hide = []): array
     {
@@ -202,14 +205,18 @@ class RowDocument
             return [];
         }
 
-        $widths = [];
+        $natural = [];
 
         foreach ($columns as $column) {
-            $widths[$column] = min(self::CELL, max(
+            $natural[$column] = max(
                 mb_strlen((string) $column),
                 ...array_map(fn (array $row) => mb_strlen($this->value($row[$column] ?? null)), $rows),
-            ));
+            );
         }
+
+        $cap = $this->cap($natural);
+
+        $widths = array_map(fn (int $width) => min($width, $cap), $natural);
 
         $lines = [$this->collectionRow(
             array_combine($columns, $columns),
@@ -318,6 +325,54 @@ class RowDocument
      * The width the content wants, so the modal is sized to what it holds
      * rather than truncating a collection to a number picked in advance.
      */
+    /**
+     * How much room a collection row has to work with.
+     *
+     * Terminals differ, so a column is not capped at some number somebody
+     * liked: it is capped at what fits, the same way the grid decides its own
+     * column widths. Called once the frame knows how wide the box is.
+     */
+    public function fitTo(int $width): void
+    {
+        $this->width = max(self::CELL_FLOOR, $width);
+    }
+
+    /**
+     * The widest a column may be, so the row as a whole fits.
+     *
+     * Take the columns that already fit as they are and share what is left
+     * between the ones that do not, which is the same as finding the cap where
+     * the total comes out right.
+     *
+     * @param  array<string, int>  $natural
+     */
+    private function cap(array $natural): int
+    {
+        if ($this->width === null || $natural === []) {
+            return PHP_INT_MAX;
+        }
+
+        $gaps = (count($natural) - 1) * 2;
+        $room = max(self::CELL_FLOOR, $this->width - $gaps);
+
+        if (array_sum($natural) <= $room) {
+            return PHP_INT_MAX;
+        }
+
+        $cap = self::CELL_FLOOR;
+
+        for ($try = max($natural); $try >= self::CELL_FLOOR; $try--) {
+            $total = array_sum(array_map(fn (int $w) => min($w, $try), $natural));
+
+            if ($total <= $room) {
+                $cap = $try;
+                break;
+            }
+        }
+
+        return $cap;
+    }
+
     public function naturalWidth(): int
     {
         $width = 0;

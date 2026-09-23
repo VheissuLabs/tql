@@ -137,6 +137,11 @@ class BrowserRenderer extends Renderer
                 InspectorWidth::MINIMUM,
                 min($width - 6, $document->naturalWidth()),
             );
+
+            // Now that the box has a width, the related rows can be laid out
+            // to it: the border, and the six columns a collection is indented
+            // by, are not theirs to use.
+            $document->fitTo($boxWidth - 2 - 6);
             $room = $frameHeight - 2;
 
             $boxes = [];

@@ -68,6 +68,12 @@ function relatedBrowser(string $sql, ?string $table = null): Browser
     $browser->emit('key', "\n");
     $browser->emit('key', 'i');
 
+    // Render once: the related rows are laid out to the width of the box, so
+    // until the frame has been drawn there is no width to lay them out to.
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+    $render->invoke($browser);
+
     return $browser;
 }
 
@@ -454,4 +460,33 @@ it('leaves a narrow related row alone', function () {
     expect($text)->toContain('players  ·  has many  (1)')
         ->and($text)->toContain('Ada')
         ->and($text)->not->toContain('…');
+});
+
+it('lays a related row out to the width it has', function () {
+    $sql = <<<'SQL'
+        create table authors (id integer primary key, name text);
+        create table books (id integer primary key, author_id integer references authors(id), title text, blurb text);
+        insert into authors (name) values ('Ursula');
+        insert into books (author_id, title, blurb)
+            values (1, 'The Dispossessed', 'A very long description that would run off the side of a narrow terminal but not a wide one');
+    SQL;
+
+    $blurb = function (int $columns) use ($sql) {
+        putenv("COLUMNS={$columns}");
+        putenv('LINES=40');
+
+        $browser = relatedBrowser($sql, 'authors');
+
+        $text = implode("\n", inspectorLines($browser));
+
+        putenv('COLUMNS');
+        putenv('LINES');
+
+        preg_match('/A very long[^\n]*/', $text, $match);
+
+        return mb_strlen($match[0] ?? '');
+    };
+
+    // The same row, laid out to two different terminals.
+    expect($blurb(200))->toBeGreaterThan($blurb(100));
 });
