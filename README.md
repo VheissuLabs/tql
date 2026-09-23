@@ -658,6 +658,16 @@ collections: one header for the relation, then a line per record.
 `g`/`G` jump, `V` selects, `y` yanks, `esc` closes. `e` on a field opens the
 editor on **that** column, not whichever one the grid cursor was on.
 
+Each relation says what it is: **belongs to** when this row holds the key,
+**has many** for the rows pointing back, and **has one** when a unique key on
+the other side means there can only be one. A single record reads as fields; a
+list reads as a table.
+
+A **join table is read through**, not shown: a film's `film_actor` rows are a
+list of timestamps, so tql shows `actors · has many through film_actor` with
+the actors in it. A join table that carries data of its own — a quantity, a
+price — is a table in its own right and is shown as one.
+
 Relations are found by following foreign keys both ways.
 `ui.inspect_related` caps how many rows are loaded (10 by default, 0 turns it
 off); when there are more, the heading says `(10 of 47)`.

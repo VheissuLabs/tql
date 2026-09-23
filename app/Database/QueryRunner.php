@@ -9,7 +9,38 @@ use Throwable;
 
 class QueryRunner
 {
+    /**
+     * Schema answers, kept for as long as the table on screen is.
+     *
+     * The interface asks what a column links to on every frame, and the row
+     * inspector asks what points back at a table before it can draw. Those are
+     * schema queries, and a schema does not change between key presses.
+     *
+     * @var array<string, mixed>
+     */
+    private array $schema = [];
+
     public function __construct(private ConnectionManager $connections) {}
+
+    /**
+     * Forget it, for when something might have changed it: a reload, a write,
+     * or a statement the user wrote themselves.
+     */
+    public function forgetSchema(): void
+    {
+        $this->schema = [];
+    }
+
+    /**
+     * @template T
+     *
+     * @param  callable(): T  $answer
+     * @return T
+     */
+    private function remembered(string $key, callable $answer): mixed
+    {
+        return $this->schema[$key] ??= $answer();
+    }
 
     public function tables(Connection $connection): array
     {
@@ -48,6 +79,14 @@ class QueryRunner
      */
     public function foreignKeys(Connection $connection, string $table): array
     {
+        return $this->remembered('keys.'.$connection->id.'.'.$table, fn () => $this->findForeignKeys($connection, $table));
+    }
+
+    /**
+     * @return array<string, array{table: string, column: string}>
+     */
+    private function findForeignKeys(Connection $connection, string $table): array
+    {
         try {
             $keys = $this->connections->resolve($connection)->getSchemaBuilder()->getForeignKeys($table);
         } catch (Throwable) {
@@ -83,6 +122,14 @@ class QueryRunner
      */
     public function referencedBy(Connection $connection, string $table): array
     {
+        return $this->remembered('referenced.'.$connection->id.'.'.$table, fn () => $this->findReferences($connection, $table));
+    }
+
+    /**
+     * @return array<int, array{table: string, column: string, references: string, unique: bool}>
+     */
+    private function findReferences(Connection $connection, string $table): array
+    {
         $found = [];
 
         foreach ($this->tables($connection) as $other) {
@@ -96,6 +143,10 @@ class QueryRunner
                         'table' => $other,
                         'column' => $column,
                         'references' => $link['column'],
+                        // A unique key on the other side means one row, not
+                        // many: that is the whole difference between a profile
+                        // and a list of orders.
+                        'unique' => in_array($column, $this->uniqueColumns($connection, $other), true),
                     ];
                 }
             }
@@ -105,10 +156,140 @@ class QueryRunner
     }
 
     /**
+     * Columns that can hold a value only once: a single-column unique index,
+     * or a single-column primary key.
+     *
+     * @return array<int, string>
+     */
+    public function uniqueColumns(Connection $connection, string $table): array
+    {
+        $unique = [];
+
+        foreach ($this->indexes($connection, $table) as $index) {
+            $columns = (array) ($index['columns'] ?? []);
+
+            if (count($columns) !== 1) {
+                continue;
+            }
+
+            if (($index['unique'] ?? false) || ($index['primary'] ?? false)) {
+                $unique[] = (string) $columns[0];
+            }
+        }
+
+        return array_values(array_unique($unique));
+    }
+
+    /**
      * Rows of $table where $column equals $value, for loading a relation.
      *
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Is this table there only to join two others?
+     *
+     * A pivot has two foreign keys and nothing of its own worth reading — an
+     * id and a timestamp at most. Showing its rows shows a list of timestamps;
+     * what you wanted was what is on the other side of it.
+     *
+     * @return array{table: string, on: string, references: string}|null
+     */
+    public function pivot(Connection $connection, string $table, string $joinedOn): ?array
+    {
+        $keys = $this->foreignKeys($connection, $table);
+
+        if (count($keys) !== 2 || ! isset($keys[$joinedOn])) {
+            return null;
+        }
+
+        $far = null;
+
+        foreach ($keys as $column => $link) {
+            if ($column !== $joinedOn) {
+                $far = ['table' => $link['table'], 'on' => $column, 'references' => $link['column']];
+            }
+        }
+
+        if ($far === null) {
+            return null;
+        }
+
+        // Anything else in there is data, and data is worth showing as itself.
+        foreach ($this->columns($connection, $table) as $column) {
+            $name = (string) ((array) $column)['name'];
+
+            if (isset($keys[$name]) || static::isPlumbing($name)) {
+                continue;
+            }
+
+            return null;
+        }
+
+        return $far;
+    }
+
+    /**
+     * Columns every table has and nobody reads on purpose.
+     */
+    private static function isPlumbing(string $column): bool
+    {
+        return in_array(strtolower($column), [
+            'id', 'created_at', 'updated_at', 'deleted_at', 'last_update', 'last_updated',
+        ], true);
+    }
+
+    /**
+     * The rows on the far side of a pivot: a film's actors, not its film_actor
+     * rows.
+     *
+     * @param  array{table: string, on: string, references: string}  $far
+     * @return array<int, array<string, mixed>>
+     */
+    public function through(
+        Connection $connection,
+        string $pivot,
+        string $joinedOn,
+        array $far,
+        mixed $value,
+        int $limit,
+    ): array {
+        $db = $this->connections->resolve($connection);
+        $grammar = $db->getQueryGrammar();
+
+        $statement = 'select '.$grammar->wrapTable($far['table']).'.* from '.$grammar->wrapTable($far['table'])
+            .' join '.$grammar->wrapTable($pivot)
+            .' on '.$grammar->wrapTable($pivot).'.'.$grammar->wrap($far['on'])
+            .' = '.$grammar->wrapTable($far['table']).'.'.$grammar->wrap($far['references'])
+            .' where '.$grammar->wrapTable($pivot).'.'.$grammar->wrap($joinedOn).' = ?'
+            .' limit '.($limit + 1);
+
+        try {
+            return array_map(fn ($row) => (array) $row, $db->select($statement, [$value]));
+        } catch (Throwable) {
+            return [];
+        }
+    }
+
+    /**
+     * How many are on the far side, when there are more than were asked for.
+     *
+     * @param  array{table: string, on: string, references: string}  $far
+     */
+    public function countThrough(Connection $connection, string $pivot, string $joinedOn, array $far, mixed $value): ?int
+    {
+        $db = $this->connections->resolve($connection);
+        $grammar = $db->getQueryGrammar();
+
+        $statement = 'select count(*) as total from '.$grammar->wrapTable($pivot)
+            .' where '.$grammar->wrap($joinedOn).' = ?';
+
+        try {
+            return (int) ((array) ($db->select($statement, [$value])[0] ?? [])['total'] ?? 0);
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
     public function related(Connection $connection, string $table, string $column, mixed $value, int $limit): array
     {
         $db = $this->connections->resolve($connection);
@@ -156,14 +337,16 @@ class QueryRunner
 
     public function indexes(Connection $connection, string $table): array
     {
-        try {
-            return array_map(
-                fn ($index) => (array) $index,
-                $this->connections->resolve($connection)->getSchemaBuilder()->getIndexes($table),
-            );
-        } catch (Throwable) {
-            return [];
-        }
+        return $this->remembered('indexes.'.$connection->id.'.'.$table, function () use ($connection, $table) {
+            try {
+                return array_map(
+                    fn ($index) => (array) $index,
+                    $this->connections->resolve($connection)->getSchemaBuilder()->getIndexes($table),
+                );
+            } catch (Throwable) {
+                return [];
+            }
+        });
     }
 
     public function primaryKey(Connection $connection, string $table): ?string

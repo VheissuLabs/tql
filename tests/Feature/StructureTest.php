@@ -225,7 +225,7 @@ it('finds the tables that reference this one', function () {
 
     expect($browser->currentTable())->toBe('artists')
         ->and($browser->backLinks())->toBe([
-            ['table' => 'albums', 'column' => 'artist_id', 'references' => 'id'],
+            ['table' => 'albums', 'column' => 'artist_id', 'references' => 'id', 'unique' => false],
         ]);
 });
 
@@ -338,7 +338,7 @@ it('inspects a row with the records that belong to it', function () {
     $text = $browser->document->text();
 
     expect($text)->toContain('AC/DC')
-        ->and($text)->toContain('albums  (1)')
+        ->and($text)->toContain('albums  ·  has many  (1)')
         ->and($text)->toContain('Let There Be Rock');
 });
 
@@ -379,10 +379,17 @@ it('folds a related table on its own', function () {
     $browser->emit('key', 'j');
     $browser->emit('key', 'i');
 
-    // Walk to the albums heading inside related.
-    while (! str_contains($browser->document->lines()[$browser->documentLine]['text'], 'albums  (')) {
+    // Walk to the albums heading inside related, and do not walk for ever if
+    // the heading ever changes shape again.
+    foreach (range(1, count($browser->document->lines())) as $ignored) {
+        if (str_contains($browser->document->lines()[$browser->documentLine]['text'], 'albums  ·')) {
+            break;
+        }
+
         $browser->emit('key', 'j');
     }
+
+    expect($browser->document->lines()[$browser->documentLine]['text'])->toContain('albums  ·');
 
     $browser->emit('key', "\n");
 
@@ -407,7 +414,7 @@ it('caps how many related rows it loads and says it did', function () {
     $browser->emit('key', 'j');
     $browser->emit('key', 'i');
 
-    expect($browser->document->text())->toContain('albums  (3 of 13)');
+    expect($browser->document->text())->toContain('albums  ·  has many  (3 of 13)');
 
     config(['tql.ui.inspect_related' => 10]);
 });

@@ -769,6 +769,8 @@ class Browser extends Prompt
                     'rows' => [$this->readable($parent[0])],
                     'total' => 1,
                     'hide' => $this->idsToHide($link['table'], $link['column']),
+                    // This row holds the key, so there is exactly one of them.
+                    'kind' => 'belongs to',
                 ];
             }
         }
@@ -777,6 +779,16 @@ class Browser extends Prompt
             $value = $row[$link['references']] ?? null;
 
             if ($value === null) {
+                continue;
+            }
+
+            // A join table has nothing to say for itself: show what is on the
+            // other side of it instead, and say which table it went through.
+            $pivot = $this->runner->pivot($this->connection, $link['table'], $link['column']);
+
+            if ($pivot !== null) {
+                $this->throughPivot($related, $link, $pivot, $value, $limit);
+
                 continue;
             }
 
@@ -792,10 +804,41 @@ class Browser extends Prompt
                 'rows' => array_map(fn (array $r) => $this->readable($r), array_slice($rows, 0, $limit)),
                 'total' => $more ? $this->countRelated($link, $value) : count($rows),
                 'hide' => $this->idsToHide($link['table'], $link['column']),
+                // A unique key on the other side means one row, not a list.
+                'kind' => ($link['unique'] ?? false) ? 'has one' : 'has many',
             ];
         }
 
         return $related;
+    }
+
+    /**
+     * A film's actors, by way of film_actor.
+     *
+     * @param  array<string, array{rows: array<int, array<string, mixed>>, total: ?int, hide: array<int, string>, kind: string}>  $related
+     * @param  array{table: string, column: string, references: string}  $link
+     * @param  array{table: string, on: string, references: string}  $pivot
+     */
+    private function throughPivot(array &$related, array $link, array $pivot, mixed $value, int $limit): void
+    {
+        $rows = $this->runner->through(
+            $this->connection, $link['table'], $link['column'], $pivot, $value, $limit,
+        );
+
+        if ($rows === []) {
+            return;
+        }
+
+        $more = count($rows) > $limit;
+
+        $related[$pivot['table']] = [
+            'rows' => array_map(fn (array $r) => $this->readable($r), array_slice($rows, 0, $limit)),
+            'total' => $more
+                ? $this->runner->countThrough($this->connection, $link['table'], $link['column'], $pivot, $value)
+                : count($rows),
+            'hide' => $this->idsToHide($pivot['table'], $pivot['references']),
+            'kind' => 'has many through '.$link['table'],
+        ];
     }
 
     /**
@@ -2647,8 +2690,11 @@ class Browser extends Prompt
     private function reload(): bool
     {
         // Re-read the tables too: reload should mean the whole picture, so a
-        // table created since you opened the connection shows up.
+        // table created since you opened the connection shows up. Same for the
+        // schema tql has been remembering between frames.
         $table = $this->currentTable();
+
+        $this->runner->forgetSchema();
 
         $this->tables = $this->runner->tables($this->connection);
 

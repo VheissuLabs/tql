@@ -21,7 +21,7 @@ class RowDocument
     /**
      * @param  array<string, mixed>  $row
      * @param  array<string, string>  $types  column => type name
-     * @param  array<string, array{rows: array<int, array<string, mixed>>, total: ?int, hide: array<int, string>}>  $related
+     * @param  array<string, array{rows: array<int, array<string, mixed>>, total: ?int, hide: array<int, string>, kind?: string}>  $related
      */
     public function __construct(
         private array $row,
@@ -77,10 +77,15 @@ class RowDocument
             $key = self::RELATED.'.'.$table;
             $shown = count($relation['rows']);
             $total = $relation['total'];
+            $kind = $relation['kind'] ?? 'has many';
+            $one = ! str_starts_with($kind, 'has many');
+
+            $count = $one
+                ? ''
+                : '  '.($total !== null && $total > $shown ? "({$shown} of {$total})" : "({$shown})");
 
             $lines[] = [
-                'text' => '  '.$this->marker($key).' '.$table.'  '
-                    .($total !== null && $total > $shown ? "({$shown} of {$total})" : "({$shown})"),
+                'text' => '  '.$this->marker($key).' '.$table.'  ·  '.$kind.$count,
                 'fold' => $key,
                 'section' => self::RELATED,
                 'heading' => false,
@@ -91,9 +96,14 @@ class RowDocument
                 continue;
             }
 
-            // Related rows read as a collection: one header, then the rows,
-            // rather than the same keys repeated for every record.
-            foreach ($this->collection($relation['rows'], $relation['hide'] ?? []) as $line) {
+            // One record reads as a record: the album's artist is a thing with
+            // fields, not a table with one row in it. Many read as a
+            // collection — one header, then the rows.
+            $body = $one && $shown === 1
+                ? $this->record($relation['rows'][0], $relation['hide'] ?? [])
+                : $this->collection($relation['rows'], $relation['hide'] ?? []);
+
+            foreach ($body as $line) {
                 $lines[] = [
                     'text' => '      '.$line,
                     'fold' => null,
@@ -152,6 +162,28 @@ class RowDocument
      * @param  array<int, string>  $hide
      * @return array<int, string>
      */
+    /**
+     * A single related record, as its fields rather than as a one-row table.
+     *
+     * @param  array<string, mixed>  $row
+     * @param  array<int, string>  $hide
+     * @return array<int, string>
+     */
+    private function record(array $row, array $hide = []): array
+    {
+        $lines = [];
+
+        foreach ($row as $column => $value) {
+            if (in_array((string) $column, $hide, true)) {
+                continue;
+            }
+
+            $lines[] = $this->field((string) $column, $value, 2);
+        }
+
+        return $lines;
+    }
+
     private function collection(array $rows, array $hide = []): array
     {
         // The id joining back to this row, and the ids pointing at other
@@ -219,10 +251,22 @@ class RowDocument
         $value = $this->value($value);
 
         if ($type === '') {
-            return str_pad($column, 22).$value;
+            return str_pad(static::clamp($column, 21), 22).$value;
         }
 
-        return str_pad($column, 22).str_pad($value, 48).$type;
+        // A description that runs long would otherwise print straight through
+        // the type beside it. i or e opens the whole value.
+        return str_pad(static::clamp($column, 21), 22)
+            .str_pad(static::clamp($value, 47), 48)
+            .$type;
+    }
+
+    /**
+     * Cut a value to a width, with an ellipsis to say it was cut.
+     */
+    private static function clamp(string $text, int $width): string
+    {
+        return mb_strlen($text) <= $width ? $text : mb_substr($text, 0, $width - 1).'…';
     }
 
     private function value(mixed $value): string

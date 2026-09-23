@@ -516,12 +516,12 @@ it('rings the row inspector, and leaves it plain when the config says so', funct
     };
 
     // Look just outside the modal's own top-left corner, where a ring would be.
-    $corner = function (array $lines, int $rows): string {
+    $corner = function (array $lines, int $rows, int $left = 3, int $width = 4): string {
         foreach ($lines as $index => $line) {
             if (str_contains($line, 'RECORD')) {
                 $at = mb_strpos($lines[$index], '┌');
 
-                return mb_substr($lines[$index - $rows] ?? '', $at - 3, 4);
+                return mb_substr($lines[$index - $rows] ?? '', $at - $left, $width);
             }
         }
 
@@ -534,9 +534,10 @@ it('rings the row inspector, and leaves it plain when the config says so', funct
     // The ring sits two rows above the box: its corner, then a blank row.
     expect($corner($ringed, 2))->toStartWith('┌')
         ->and($corner($ringed, 1))->toBe('│   ')
-        // Without it the backdrop is padding, and nothing shows through.
-        ->and($corner($plain, 1))->toBe('    ')
-        ->and($corner($plain, 2))->toBe('    ');
+        // Without it the backdrop is a row and two columns of padding: blank
+        // beside the box, and no ring drawn in it.
+        ->and($corner($plain, 1, 2, 2))->toBe('  ')
+        ->and($corner($plain, 1))->not->toContain('┌');
 
     config(['tql.ui.modal_ring' => true]);
 

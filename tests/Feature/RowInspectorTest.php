@@ -41,6 +41,36 @@ function inspectable(): Browser
     return $browser;
 }
 
+/**
+ * A browser on a database built for the test, sitting on the first row.
+ */
+function relatedBrowser(string $sql, ?string $table = null): Browser
+{
+    $path = sys_get_temp_dir().'/tql-related-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+
+    foreach (array_filter(array_map('trim', explode(';', $sql))) as $statement) {
+        $pdo->exec($statement);
+    }
+
+    $connection = Connection::create([
+        'name' => 'related'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+
+    if ($table !== null) {
+        $browser->tableIndex = (int) array_search($table, $browser->tables, true);
+    }
+
+    $browser->emit('key', "\n");
+    $browser->emit('key', 'i');
+
+    return $browser;
+}
+
 function inspected(Browser $browser): string
 {
     return $browser->document?->text() ?? '';
@@ -333,4 +363,53 @@ it('widens to fit a related collection instead of truncating it', function () {
     }
 
     expect(max(array_map('mb_strlen', $lines)))->toBeLessThanOrEqual(160);
+});
+
+it('says what kind of relation each one is', function () {
+    $browser = relatedBrowser(<<<'SQL'
+        create table artists (id integer primary key, name text);
+        create table albums (id integer primary key, artist_id integer references artists(id), title text);
+        create table passports (id integer primary key, artist_id integer unique references artists(id), number text);
+        insert into artists (name) values ('AC/DC');
+        insert into albums (artist_id, title) values (1, 'Let There Be Rock'), (1, 'Powerage');
+        insert into passports (artist_id, number) values (1, 'X1');
+    SQL, 'artists');
+
+    $text = implode("\n", inspectorLines($browser));
+
+    // A unique key on the other side is what makes it one rather than many.
+    expect($text)->toContain('albums  ·  has many  (2)')
+        ->and($text)->toContain('passports  ·  has one');
+});
+
+it('shows what is on the far side of a pivot', function () {
+    $browser = relatedBrowser(<<<'SQL'
+        create table films (id integer primary key, title text);
+        create table actors (id integer primary key, name text);
+        create table film_actor (film_id integer references films(id), actor_id integer references actors(id), last_update text);
+        insert into films (title) values ('Airplane Sierra');
+        insert into actors (name) values ('Penelope Guiness'), ('Christian Gable');
+        insert into film_actor values (1, 1, 'now'), (1, 2, 'now');
+    SQL, 'films');
+
+    $text = implode("\n", inspectorLines($browser));
+
+    // The actors, not two rows of timestamps.
+    expect($text)->toContain('actors  ·  has many through film_actor  (2)')
+        ->and($text)->toContain('Penelope Guiness')
+        ->and($text)->not->toContain('film_actor  ·  has many');
+});
+
+it('leaves a join table alone when it carries data of its own', function () {
+    $browser = relatedBrowser(<<<'SQL'
+        create table orders (id integer primary key, reference text);
+        create table products (id integer primary key, name text);
+        create table order_lines (id integer primary key, order_id integer references orders(id), product_id integer references products(id), quantity integer);
+        insert into orders (reference) values ('A-1');
+        insert into products (name) values ('Widget');
+        insert into order_lines (order_id, product_id, quantity) values (1, 1, 7);
+    SQL, 'orders');
+
+    // quantity is the whole point of that row, so it is not a pivot.
+    expect(implode("\n", inspectorLines($browser)))->toContain('order_lines  ·  has many  (1)');
 });

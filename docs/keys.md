@@ -78,6 +78,7 @@ the grid with its results. It never quits — `q` and `:q` do that.
 | `g` / `G` | top or bottom |
 | `12G` | jump to line 12 |
 | `↵` | fold or unfold a section |
+| | each relation says what it is: belongs to, has one, has many, or has many through a join table |
 | `V` | start a line selection |
 | `y` | yank the selection, or the line |
 | `e` | edit *that* field, not whichever the grid cursor was on |
