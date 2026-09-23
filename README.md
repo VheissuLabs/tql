@@ -68,16 +68,6 @@ macOS and Linux, Apple Silicon, Intel and ARM. It installs the same standalone
 binary, so Homebrew does not pull in PHP either. `brew upgrade tql` moves to a
 new release.
 
-### Arch and Omarchy
-
-```bash
-yay -S tql-bin
-```
-
-`tql-bin` is on the AUR, for x86_64 and aarch64. On Omarchy,
-`omarchy-tui-install` — _Install > TUI_ in the Omarchy menu — gives it a launcher
-in `Super + Space`.
-
 ### Packages
 
 Every release also carries a `.deb` and an `.rpm` per architecture, and neither
@@ -88,7 +78,7 @@ sudo dpkg -i tql_0.4.1_amd64.deb          # debian, ubuntu
 sudo dnf install ./tql-0.4.1.x86_64.rpm   # fedora, rhel
 ```
 
-How the Homebrew formula and the AUR package are published is in
+How the Homebrew formula is published is in
 [docs/packaging.md](docs/packaging.md).
 
 ### With PHP, if you would rather
