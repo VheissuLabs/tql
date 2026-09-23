@@ -72,7 +72,7 @@ jobs:
           - runner: ubuntu-24.04-arm
             spc: spc-linux-aarch64
             asset: tql-linux-aarch64
-          - runner: macos-14
+          - runner: macos-15
             spc: spc-macos-aarch64
             asset: tql-macos-aarch64
           - runner: macos-15-intel
@@ -260,6 +260,7 @@ jobs:
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           docker run --rm -v /tmp/aur:/pkg -w /pkg archlinux:base-devel \
             sh -c 'useradd -m build && chown -R build /pkg && su build -c "makepkg --printsrcinfo" > .SRCINFO'
+          sudo chown -R "$(id -u):$(id -g)" /tmp/aur
           git add PKGBUILD .SRCINFO
           git commit -m "tql $VERSION"
           git push

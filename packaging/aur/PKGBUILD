@@ -1,5 +1,4 @@
 # Maintainer: VheissuLabs <karl@notarydash.com>
-# pkgver and the checksums are filled in by the release workflow.
 pkgname=tql-bin
 pkgver=VERSION
 pkgrel=1
@@ -7,8 +6,8 @@ pkgdesc="A database client for the terminal"
 arch=('x86_64' 'aarch64')
 url="https://github.com/VheissuLabs/tql"
 license=('MIT')
-# The binary carries its own PHP.
 depends=()
+options=('!strip' '!debug')
 provides=('tql')
 conflicts=('tql')
 source_x86_64=("tql-$pkgver-x86_64::$url/releases/download/v$pkgver/tql-linux-x86_64")
