@@ -171,18 +171,21 @@ all the way through instead of growing a colored outline.
 
 ### `[icons]`
 
-The glyph beside a connection name, by driver. These are Nerd Font devicons;
-change them if your font has something better, or set them to a letter if it
-has nothing.
+The glyph beside a connection name, by driver. The defaults are Nerd Font
+devicons, written as escapes here because they are private-use codepoints that
+only a Nerd Font draws — your config file can hold either the escape or the
+glyph itself.
 
 ```toml
 [icons]
-mysql = ""
-pgsql = ""
-sqlite = ""
-sqlsrv = ""
-default = ""
+mysql = "\uE704"    # nf-dev-mysql
+pgsql = "\uE76E"    # nf-dev-postgresql
+sqlite = "\uE7C4"   # nf-dev-sqllite
+sqlsrv = "\uF1C0"   # nf-fa-database
+default = "\uF1C0"  # anything else
 ```
+
+No Nerd Font? Any character works: `mysql = "M"`, or `""` for nothing at all.
 
 ### `[ai]`
 
@@ -731,60 +734,28 @@ Queries through MCP are **read-only** — only `select`, `show`, `explain`,
 second statement are rejected. Writes happen in the interface, not through
 an agent.
 
-## Rendering
-
-Laravel Prompts repaints by erasing the frame and rewriting it, which flickers.
-Every repaint is wrapped in synchronized output (`\e[?2026h` / `\e[?2026l`) so
-the terminal presents the update atomically and the erase is never shown.
-Terminals that do not support it ignore the sequence. Set `NO_SYNC_OUTPUT=1` to
-turn it off.
-
-## Storage
-
-Connection passwords are encrypted with Laravel's encrypter using a key at
-`~/.config/tql/key`. The key sits beside the database, so this protects
-against casual reading of the file, not against someone with access to your
-account.
-
-## Tests
+## Developing
 
 ```bash
+composer install
+php tql
 ./vendor/bin/pest
 ```
 
-Tests use `tests/.scratch` as their config directory and never touch your real
-connections.
+The interface is composed of **islands**: bordered boxes that own a rectangle,
+draw their own content and answer hit tests for it. `Screen` places them and
+composes the frame row by row. Adding a pane means adding an island.
 
-## Islands
+[docs/developing.md](docs/developing.md) has the rest: where everything lives,
+how a frame is drawn, the drawing rules that are easy to break, how to add a
+key, a modal, a command, an MCP tool or a setting, how the interface is tested
+without a terminal, and the notes on Laravel Zero, Prompts and MCP that this
+project ran into.
 
-The interface is composed of islands: independent bordered panes that each own
-a rectangle on screen, render their own content, and answer hit tests for it.
-`Screen` places them and composes the frame row by row.
+[docs/packaging.md](docs/packaging.md) covers the binary, the `.deb` and the
+`.rpm`, the Homebrew tap and the AUR package.
 
-This matters for correctness, not just layout. Screen geometry lives in one
-place — the island — so clicking asks the island that drew the pixels rather
-than re-deriving coordinates. Every mouse bug in this project came from having
-two copies of that maths.
-
-Adding a pane means adding an island.
-
-## Notes on the stack
-
-Laravel Zero strips `illuminate/encryption`, so it is required explicitly.
-
-Laravel MCP's service provider registers web routes when `routes/ai.php` exists,
-which needs a `router` binding Laravel Zero does not have. The server is
-therefore registered from `AppServiceProvider::boot()` with `Mcp::local()` and
-no routes file.
-
-Three gaps found in `joetannenbaum/chewie` 0.1.11:
-
-- `RegistersRenderers` resolves `Chewie\Theme::$namespace`, but `src/Theme.php`
-  is not in the release, so calling `registerRenderer()` with no argument fatals.
-  Pass the renderer class explicitly.
-- `Input\Mouse` is three constants with no implementation.
-- There is no mouse sequence parsing, so `App\Tui\Mouse` does it.
-
-`Prompt::handleKeyPress()` is private, so it cannot be overridden. Keys are
-handled by registering `$this->on('key', ...)`, and a prompt exits by setting
-`$this->state = 'submit'`.
+Connection passwords and SSH passwords are encrypted with Laravel's encrypter
+using a key at `~/.config/tql/key`, `0600`. Filter values are always bound,
+never interpolated — the SQL pane shows them filled in for reading, and that
+string is never what runs.
