@@ -9,10 +9,8 @@ use App\Mcp\Tools\RunQueryTool;
 use Laravel\Mcp\Server;
 use Laravel\Mcp\Server\Attributes\Instructions;
 use Laravel\Mcp\Server\Attributes\Name;
-use Laravel\Mcp\Server\Attributes\Version;
 
 #[Name('tql')]
-#[Version('0.4.2')]
 #[Instructions(
     'tql exposes the same database connections the user browses in the tql terminal interface. '.
     'Start by listing connections, then list or describe tables before querying. '.
@@ -26,4 +24,9 @@ class TqlServer extends Server
         DescribeTableTool::class,
         RunQueryTool::class,
     ];
+
+    protected function boot(): void
+    {
+        $this->version = ltrim((string) config('app.version'), 'v');
+    }
 }
