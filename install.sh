@@ -53,7 +53,7 @@ fi
 TMP="$(mktemp)"
 trap 'rm -f "$TMP"' EXIT
 
-say "Downloading tql ($VERSION) for $OS $ARCH…"
+say "Downloading tql ($VERSION) for $OS ${ARCH}…"
 curl -fsSL "$URL" -o "$TMP" || die "Could not download $URL"
 
 chmod +x "$TMP"
