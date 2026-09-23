@@ -192,8 +192,9 @@ ask = "?"
 
 A key is a single character (`F` is not `f`), `ctrl+<letter>`, or one of `tab`,
 `shift+tab`, `enter`, `escape`, `space`, `backspace`, `delete`, `up`, `down`,
-`left`, `right`, `home`, `end`. Several keys for one action is a list:
-`yank_value = ["y", "ctrl+y"]`.
+`left`, `right`, `home`, `end`. A list means **several keys that all do the same thing** —
+`yank_value = ["y", "ctrl+y"]` makes both yank, the way `,` and `<` both narrow
+a column by default. The first one is what help and the hotkey bar show.
 
 Help and the hotkey bar read the same list, so a rebound key is the key they
 offer. A key two actions both want goes to the first one and tql says so, in

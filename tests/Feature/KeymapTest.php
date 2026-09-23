@@ -128,3 +128,20 @@ it('ignores a key it cannot make sense of', function () {
 
     expect(Keymap::action('f'))->toBe('filter_rows');
 });
+
+it('takes several keys for one action', function () {
+    config(['tql.keys' => ['yank_value' => ['y', 'ctrl+y']]]);
+    Keymap::forget();
+
+    // Either key does it; the first is the one help and the hotkey bar show.
+    expect(Keymap::action('y'))->toBe('yank_value')
+        ->and(Keymap::action("\x19"))->toBe('yank_value')
+        ->and(Keymap::key('yank_value'))->toBe('y')
+        ->and(Keymap::binding('yank_value')->shown())->toBe('y / ctrl+y');
+
+    $browser = bound();
+
+    $browser->emit('key', "\x19");
+
+    expect($browser->status)->toContain('yanked');
+});
