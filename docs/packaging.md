@@ -25,7 +25,7 @@ try a change to the pipeline.
 | --- | --- |
 | `tql-linux-x86_64`, `tql-linux-aarch64` | standalone, needs nothing |
 | `tql-macos-aarch64`, `tql-macos-x86_64` | the same, for macOS |
-| `tql.phar` | 22MB, for a machine that has PHP 8.4 already |
+| `tql.phar` | 8MB, for a machine that has PHP 8.4 already |
 | `.deb`, `.rpm` | the matching binary, one per architecture, no dependencies |
 | Homebrew | `packaging/homebrew/tql.rb`, pushed to the tap on release |
 | AUR | `packaging/aur/PKGBUILD`, pushed to `tql-bin` on release |

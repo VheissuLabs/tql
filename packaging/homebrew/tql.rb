@@ -1,9 +1,6 @@
-# The formula published to VheissuLabs/homebrew-tap on release.
-# The version and the checksums are filled in by the release workflow.
 class Tql < Formula
   desc "Database client for the terminal"
   homepage "https://github.com/VheissuLabs/tql"
-  version "VERSION"
   license "MIT"
 
   on_macos do

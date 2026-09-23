@@ -75,7 +75,7 @@ jobs:
           - runner: macos-14
             spc: spc-macos-aarch64
             asset: tql-macos-aarch64
-          - runner: macos-13
+          - runner: macos-15-intel
             spc: spc-macos-x86_64
             asset: tql-macos-x86_64
 

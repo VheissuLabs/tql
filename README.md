@@ -74,7 +74,7 @@ Homebrew and the AUR are packaged from this repository too — see
 ### With PHP, if you would rather
 
 `tql.phar` is on every release as well, for a machine that already has PHP 8.4
-and would rather have a 22MB file than a 35MB one:
+and would rather have an 8MB file than a 35MB one:
 
 ```bash
 php tql.phar
