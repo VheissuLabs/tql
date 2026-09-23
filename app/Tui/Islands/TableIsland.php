@@ -224,20 +224,36 @@ class TableIsland extends Island
         $changed = in_array($absolute, $this->edited, true);
         $new = in_array($absolute, $this->added, true);
 
-        // A pending row is drawn as one bar, so it is built without color of
-        // its own: an escape sequence inside the span would tear the
-        // highlight at the first column separator.
+        // A pending row is drawn as one bar, so each span is built without
+        // color of its own: an escape sequence inside a span would tear the
+        // highlight at the first column separator. The cursor is a span of its
+        // own for the same reason, laid beside the others rather than inside.
         if ($pending || $changed || $new) {
             $marker = $selected && $style === 'marker' ? ' ▸' : '  ';
 
-            return $this->style->color(
-                match (true) {
-                    $pending => 'marked',
-                    $new => 'added',
-                    default => 'edited',
-                },
-                $this->style->pad($marker.implode('│', $cells), $innerWidth),
-            );
+            $tone = match (true) {
+                $pending => 'marked',
+                $new => 'added',
+                default => 'edited',
+            };
+
+            $at = $this->columnIndex - $this->columnOffset;
+
+            if (! $this->focused || ! $selected || ! isset($cells[$at])) {
+                return $this->style->color(
+                    $tone,
+                    $this->style->pad($marker.implode('│', $cells), $innerWidth),
+                );
+            }
+
+            $before = $marker.implode('│', array_slice($cells, 0, $at)).($at > 0 ? '│' : '');
+            $after = ($at < count($cells) - 1 ? '│' : '').implode('│', array_slice($cells, $at + 1));
+
+            $used = mb_strlen($before) + mb_strlen($cells[$at]) + mb_strlen($after);
+
+            return $this->style->color($tone, $before)
+                .$this->style->color('cursor', $cells[$at])
+                .$this->style->color($tone, $after.str_repeat(' ', max(0, $innerWidth - $used)));
         }
 
         $marker = $selected && $style === 'marker' ? ' ▸' : '  ';

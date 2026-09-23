@@ -1582,28 +1582,173 @@ class Browser extends Prompt
         $this->load(keepCursor: true);
 
         $this->rowIndex = 0;
-        $this->columnIndex = $this->firstFillable();
         $this->focus = 'grid';
 
-        $this->status = 'new row · e fills a column · :w writes it · u drops it';
+        $required = $this->requiredColumns();
+        $given = $this->suggestKey($required);
+
+        // Start where there is something to type, which is past anything the
+        // database fills in and past anything tql just filled in.
+        $this->columnIndex = $this->firstFillable(array_keys($given));
+
+        $required = array_values(array_diff($required, array_keys($given)));
+
+        $this->status = 'new row · '
+            .($given === [] ? '' : key($given).' '.reset($given).' · ')
+            .($required === [] ? '' : implode(', ', $required).' to fill in · ')
+            .'e fills a column · :w writes it · u drops it';
 
         return true;
     }
 
     /**
-     * The column to start on: the key is usually the database's to give.
+     * A key the database is not going to give out gets the next one going.
+     *
+     * Most primary keys are generated and this never happens. The ones that
+     * are not — a schema converted from somewhere that lost its auto
+     * increment, a table keyed by hand — leave you typing a number you have to
+     * go and look up, so tql looks it up.
+     *
+     * @param  array<int, string>  $required
+     * @return array<string, string> the column, and what it was filled with
      */
-    private function firstFillable(): int
+    private function suggestKey(array $required): array
     {
         $key = $this->keyColumn();
+        $table = $this->currentTable();
 
+        if ($key === null || $table === null || ! in_array($key, $required, true)) {
+            return [];
+        }
+
+        if (! $this->numeric($key)) {
+            return [];
+        }
+
+        $grammar = $this->runner->grammarFor($this->connection);
+
+        $result = $this->runner->run(
+            $this->connection,
+            'select max('.$grammar->wrap($key).') as highest from '.$grammar->wrapTable($table),
+            'tui',
+        );
+
+        if ($result->failed()) {
+            return [];
+        }
+
+        $next = (int) ($result->rows[0]['highest'] ?? 0) + 1;
+
+        $this->pendingInserts[0][$key] = $next;
+        $this->raw[0][$key] = $next;
+        $this->rows[0] = $this->addedRow($this->raw[0]);
+
+        return [$key => (string) $next];
+    }
+
+    /**
+     * Does this column hold numbers? Only then is "the next one" a number.
+     */
+    private function numeric(string $column): bool
+    {
+        $table = $this->currentTable();
+
+        foreach ($table === null ? [] : $this->columnsOf($table) as $candidate) {
+            if (($candidate['name'] ?? null) !== $column) {
+                continue;
+            }
+
+            $type = strtolower((string) ($candidate['type_name'] ?? ''));
+
+            foreach (['int', 'serial', 'numeric', 'decimal'] as $shape) {
+                if (str_contains($type, $shape)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /**
+     * The column to start on: the first one the database will not fill in
+     * itself. An auto-increment key is the database's to give; a key that is
+     * not auto-increment is yours, and starting past it is how you end up
+     * being told about it by a constraint.
+     */
+    private function firstFillable(array $given = []): int
+    {
         foreach ($this->headers as $index => $column) {
-            if ($column !== $key) {
+            if (! $this->filledByDatabase($column) && ! in_array($column, $given, true)) {
                 return $index;
             }
         }
 
         return 0;
+    }
+
+    /**
+     * Columns with nothing to fall back on: not nullable, no default, and not
+     * something the database generates.
+     *
+     * @return array<int, string>
+     */
+    public function requiredColumns(): array
+    {
+        $table = $this->currentTable();
+
+        if ($table === null) {
+            return [];
+        }
+
+        $required = [];
+
+        foreach ($this->columnsOf($table) as $column) {
+            $name = (string) ($column['name'] ?? '');
+
+            if ($name === '' || $this->filledByDatabase($name)) {
+                continue;
+            }
+
+            $nullable = (bool) ($column['nullable'] ?? false);
+            $default = $column['default'] ?? null;
+
+            if (! $nullable && ($default === null || $default === '')) {
+                $required[] = $name;
+            }
+        }
+
+        return $required;
+    }
+
+    /**
+     * Will the database put something there without being asked?
+     */
+    private function filledByDatabase(string $column): bool
+    {
+        $table = $this->currentTable();
+
+        if ($table === null) {
+            return false;
+        }
+
+        foreach ($this->columnsOf($table) as $candidate) {
+            if (($candidate['name'] ?? null) !== $column) {
+                continue;
+            }
+
+            if ((bool) ($candidate['auto_increment'] ?? false)) {
+                return true;
+            }
+
+            // In SQLite an integer primary key is the rowid, which is given
+            // out whether or not the schema says auto increment.
+            return $this->connection->driver === 'sqlite'
+                && $column === $this->keyColumn()
+                && strtolower((string) ($candidate['type_name'] ?? '')) === 'integer';
+        }
+
+        return false;
     }
 
     /**

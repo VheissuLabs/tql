@@ -764,6 +764,17 @@ than a hundred rows down. It is a row like any other — `e`
 fills a column, `↵` keeps it — except that it is not in the table yet, so it is
 drawn in the added colour and nothing has happened until `:w`.
 
+The cursor is visible inside the row: a marked, edited or added row is drawn as
+one bar, and the cell you are on is a span of its own inside it, so you can see
+where you are without reading the header.
+
+tql starts you on the first column the database is not going to fill in itself,
+and the status line says what is left: `new row · country_id 110 · country to
+fill in`. A primary key that is **not** auto-generated — a schema converted from
+somewhere that lost its auto increment, a table keyed by hand — is filled with
+the next number going, because otherwise you are looking up a value the database
+already knows.
+
 A column you never touch is left out of the insert, so the table's own default
 applies: add a row to `widgets (id, name, qty default 1)`, type a name, write
 it, and the id and the quantity come from the database rather than from tql.
