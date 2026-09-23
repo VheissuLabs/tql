@@ -1,10 +1,33 @@
 # tql
 
-A database client for the terminal, built with Laravel Zero, Laravel Prompts and Laravel MCP.
+A database client for the terminal, built with Laravel Zero, Laravel Prompts and
+Laravel MCP.
 
-The same engine drives two faces: a full-screen terminal interface for you, and an
-MCP server for an AI agent. Both call the same `QueryRunner`, and every statement
-either of them runs is recorded in one shared history.
+## Why
+
+The database is the part of the job you cannot see. Everything else is in the
+terminal already — the editor, the logs, the deploy — and then the schema is
+behind a window you have to go and find, in an application that costs money and
+knows nothing about the rest of your work.
+
+tql is that window, in the terminal, and it is built around three things a GUI
+tends not to do:
+
+- **It shows you the query.** The SQL pane always holds the statement that
+  produced what is on screen. Click a header to sort and the `order by` appears.
+  Filter a column and the `where` appears, with its value bound, never glued in.
+  You learn the language by using the tool.
+- **It is the same engine for you and for an agent.** The MCP server and the
+  interface both call one `QueryRunner`, so what your agent can see is what you
+  can see. The agent's side only reads, and every statement either of you runs
+  lands in one shared history.
+- **It makes production look like production.** A connection carries a tag and
+  the tag carries a color, so the screen tells you where you are before you
+  press `d`. Read-only connections refuse every write. Edits and deletions are
+  pending until you type `:w`.
+
+It is one binary, no configuration required to start, and it opens a SQLite file
+as happily as a Postgres server behind an SSH tunnel.
 
 ## Installing
 
@@ -27,6 +50,131 @@ php -d phar.readonly=0 tql app:build tql --build-version=dev
 ```
 
 Tagging `v*` builds and publishes a release from GitHub Actions.
+
+## The commands
+
+Running `tql` with nothing after it opens the connection list, which is how you
+will use it nearly all the time. The rest are for the things a full-screen
+interface is the wrong shape for.
+
+| Command | What it does |
+| --- | --- |
+| `tql` | the interface: pick a connection and browse |
+| `tql open <path-or-dsn>` | open a database by path or connection string, saving it |
+| `tql export [connection] [table]` | write rows out as re-importable SQL |
+| `tql mcp:start tql` | run the MCP server on stdio, for an agent |
+
+```bash
+tql open ~/Code/app/database/database.sqlite
+tql open "mysql://root@127.0.0.1:3306/shop" --tag=local
+tql open "$DATABASE_URL" --peek          # use it without saving it
+```
+
+`open` takes a SQLite path or a `mysql://`, `pgsql://` or `sqlsrv://` string,
+remembers it under `--tag` or the database name, and drops you straight into it.
+
+`export` asks for whatever you leave out — connection, database, table and where
+to save — so `tql export` on its own is a four-question wizard, and
+`tql export prod orders --sql=./orders.sql` is a script. See
+[Exporting](#exporting).
+
+`tql list` shows those and nothing else in a released binary — the framework's
+own commands are hidden, since tql runs its migrations for itself and a
+`migrate:fresh` typed at the wrong moment would drop your saved connections. A
+source checkout also shows the development ones, `app:build` and `test`.
+
+## Configuring
+
+There is nothing to configure to start. On first run tql writes
+`~/.config/tql/config.toml` with every setting at its default and a comment
+above each one, so the file is its own documentation. When a later version adds
+a setting it is appended to your file on the next run — your values and your own
+comments are left alone — and the status line tells you which ones arrived.
+
+Defaults live in `config/tql.php` and the file is merged over them, so a setting
+you never touch follows the application rather than freezing at the value it had
+the day you installed it. A file that cannot be parsed does not stop tql: it
+starts on the defaults and says so in the status line.
+
+Everything belongs to a section. A key above the first `[section]` is read as a
+key of no section and quietly does nothing, which is a mistake worth knowing
+about — tql notices and tells you.
+
+### `[ui]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `sql_position` | `"top"` | where the SQL editor sits: `"top"` or `"bottom"` |
+| `sql_always` | `false` | keep the SQL editor on screen instead of only after `s` |
+| `sql_height` | `0` | rows it takes, 0 picks a third of the frame |
+| `row_style` | `"marker"` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
+| `top_margin` | `1` | blank rows above the frame |
+| `sidebar_width` | `24` | width of the tables pane |
+| `modal_ring` | `true` | ring a modal with a border as well as the box itself |
+| `inspect_related` | `10` | related rows to load into the row inspector, 0 turns it off |
+| `export_path` | `""` | where exports go, empty uses the last folder you saved one in |
+| `mouse` | `true` | click, drag and scroll inside tql |
+| `double_click_ms` | `400` | how close two clicks must be to open the editor |
+| `mouse_row_offset` | `0` | subtract this from reported mouse rows |
+| `mouse_column_offset` | `0` | subtract this from reported mouse columns |
+
+`mouse_row_offset = 1` is the one to reach for inside a multiplexer whose tab
+bar sits above the pane: without it every click lands a row out.
+
+### `[theme]`
+
+Colors are names, not hexes — `dim`, `default`, `black`, `red`, `green`,
+`yellow`, `blue`, `magenta`, `cyan`, `white`, `gray` — so tql wears the palette
+your terminal is already themed with.
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `border` | `"dim"` | a pane border that is not focused |
+| `focus_border` | `"cyan"` | the border of the pane you are in |
+| `focus_title` | `"cyan"` | its title |
+| `grid` | `"dim"` | column separators and the rule under the header |
+| `cursor` | `"default"` | the block you are on |
+| `selection` | `"default"` | highlighted but not where you are |
+| `edited` | `"yellow"` | a row you have changed, before `:w` |
+| `deleted` | `"red"` | a row marked for deletion, before `:w` |
+| `modal_border` | `"gray"` | modal borders, and the ring around them |
+| `modal_focus_border` | `"cyan"` | the same when focused |
+| `modal_title` | `"white"` | modal titles |
+| `modal_focus_title` | `"cyan"` | the same when focused |
+
+`grid = "inherit"` ties the grid to the pane border, so a focused table tints
+all the way through instead of growing a colored outline.
+
+### `[icons]`
+
+The glyph beside a connection name, by driver. These are Nerd Font devicons;
+change them if your font has something better, or set them to a letter if it
+has nothing.
+
+```toml
+[icons]
+mysql = ""
+pgsql = ""
+sqlite = ""
+sqlsrv = ""
+default = ""
+```
+
+### `[ai]`
+
+What answers when you press `a`. Only table and column names are sent — never
+rows. See [Asking for SQL](#asking-for-sql).
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `provider` | `"auto"` | `auto` uses whichever API key is in your environment |
+| `model` | `""` | empty picks a sensible default for the provider |
+| `timeout` | `60` | seconds to wait for an answer |
+| `url` | `""` | an OpenAI-compatible endpoint instead, such as LM Studio |
+| `key` | `""` | bearer token for that endpoint, if it wants one |
+
+Tags are deliberately not configurable: `production` is red in your terminal and
+in the next person's screenshot. See [Tags and read only](#tags-and-read-only).
 
 ## TLS
 
@@ -117,14 +265,8 @@ tql chinook.db
 
 ## Running it
 
-```bash
-php tql
-```
-
-`browse` is the default command.
-
-To skip the connection list and open a SQLite file straight away, point it at
-the file:
+Running `tql` with nothing after it opens the connection list. To skip it and
+open a SQLite file straight away, point tql at the file:
 
 ```bash
 tql test.sqlite          # same as: tql open test.sqlite
@@ -156,10 +298,10 @@ it once, then use the connection list, where the password is encrypted at rest.
 Prefixing the command with a space keeps it out of history in zsh if
 `HIST_IGNORE_SPACE` is set.
 
-The file is not added to your saved connections unless you pass `--save`, so
-poking at a one-off database does not clutter the list. A first argument that
-exists on disk, contains a `/`, or ends in `.sqlite`, `.sqlite3` or `.db` is
-treated as a path rather than a command name. On first run tql creates `~/.config/tql/`
+A first argument that exists on disk, contains a `/`, ends in `.sqlite`,
+`.sqlite3` or `.db`, or looks like a connection string is treated as a path
+rather than a command name — a file that exists is never a command name, which
+makes the rewrite unambiguous. On first run tql creates `~/.config/tql/`
 containing `tql.sqlite` (connections and query history) and `key` (the
 encryption key), both `0600`.
 
@@ -588,69 +730,6 @@ account.
 
 Tests use `tests/.scratch` as their config directory and never touch your real
 connections.
-
-## Configuration
-
-On first run tql writes `~/.config/tql/config.toml` containing every
-setting at its default, each with a comment. When a later version adds a
-setting, it is appended to your file on the next run — your values and your own
-comments are left alone — and the status line says which ones arrived.
-
-Defaults ship in `config/tql.php`. Machine-specific overrides go in
-`~/.config/tql/config.toml`, which is merged over them — so settings that
-depend on where tql runs stay out of the repo:
-
-```toml
-# tql configuration
-# Anything omitted falls back to the shipped defaults.
-
-[ui]
-
-# Where the SQL editor sits when you press s: "top" or "bottom"
-sql_position = "bottom"
-
-# Keep the SQL editor on screen rather than only after pressing s
-sql_always = true
-
-# How many rows it takes, 0 picks a third of the frame
-sql_height = 8
-
-# Blank rows above the frame
-top_margin = 0
-
-# Subtract this from reported mouse rows.
-# Set to 1 inside a multiplexer whose tab bar sits above the pane.
-mouse_row_offset = 1
-```
-
-A file that cannot be parsed does not stop tql — it starts on the defaults
-and reports the problem in the status line.
-
-| Key | Default | Meaning |
-| --- | --- | --- |
-| `ui.sql_position` | `top` | `top` or `bottom` — where the SQL editor sits |
-| `ui.sql_always` | `false` | keep the SQL editor on screen instead of only after `s` |
-| `ui.sql_height` | 0 | rows for the SQL editor, 0 picks a third of the frame |
-| `ui.row_style` | `marker` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
-| `ui.top_margin` | 1 | blank rows above the frame |
-| `ui.sidebar_width` | 24 | width of the tables pane |
-| `ui.export_path` | `~/.config/tql/exports` | where `:export` writes files |
-| `ui.mouse_row_offset` | 0 | rows to subtract from reported mouse coordinates |
-| `ui.mouse_column_offset` | 0 | columns to subtract from reported mouse coordinates |
-
-### Driver icons
-
-Connections show a Nerd Font devicon beside the name, one per driver.
-Change them in `[icons]` if you want different glyphs:
-
-```toml
-[icons]
-mysql = ""
-pgsql = ""
-sqlite = ""
-sqlsrv = ""
-default = ""
-```
 
 ## Islands
 
