@@ -127,6 +127,9 @@ Everything belongs to a section. A key above the first `[section]` is read as a
 key of no section and quietly does nothing, which is a mistake worth knowing
 about — tql notices and tells you.
 
+[docs/configuration.md](docs/configuration.md) is the same list with more said
+about each one.
+
 ### `[ui]`
 
 | Key | Default | Meaning |
@@ -350,10 +353,16 @@ encryption key), both `0600`.
 | `n` / `p` | next or previous page (100 rows) |
 | `r` | reload the current table |
 | `o` | sort by the column the cursor is on |
+| `y` / `Y` | yank this value, or the whole row as an object |
+| `d` / `u` | mark the row for deletion, or clear every mark |
+| `L` | follow a link, `esc` comes back |
 | `b` | switch database on this server |
 | `s` | open the SQL editor |
 | `:` | command line — `:q`, `:tables`, `:rows`, `:reload`, `:sql` |
 | `q` / `esc` | quit |
+
+[docs/keys.md](docs/keys.md) has the rest: the filter form, the inspector, the
+SQL editor, the lists, the connection form and the command line.
 
 Mouse works too: click a table or a row, scroll with the wheel, and **drag a
 column border in the header row to resize it**, as you would in a spreadsheet.
@@ -517,23 +526,49 @@ model = ""          # empty uses a sensible default for that provider
 timeout = 60
 ```
 
-### A local model
+### A local model, with LM Studio
 
-Anything with an OpenAI-compatible API works, which includes **LM Studio**,
-vLLM and local gateways. Point `url` at it and name the model you loaded:
+Anything with an OpenAI-compatible API works. LM Studio, start to finish:
+
+1. Install a model in LM Studio — a coding model is the right shape for this;
+   `qwen2.5-coder-7b-instruct` is a good starting point.
+2. Open the **Developer** tab and **Start Server**. It listens on port 1234 by
+   default and speaks OpenAI's API at `http://localhost:1234/v1`.
+3. Ask it what it is serving, and use that name verbatim:
+
+   ```bash
+   curl -s http://localhost:1234/v1/models | jq -r '.data[].id'
+   # qwen2.5-coder-7b-instruct
+   ```
+
+4. Put both in `~/.config/tql/config.toml`:
+
+   ```toml
+   [ai]
+   url = "http://localhost:1234/v1"
+   model = "qwen2.5-coder-7b-instruct"
+   key = ""            # LM Studio does not want one; some gateways do
+   ```
+
+5. Press `a` in tql and ask for something.
+
+`provider` is ignored once `url` is set — a url points somewhere deliberate, so
+it wins over any key in your environment. Nothing leaves your machine in that
+setup, and only table and column names were ever being sent anyway.
+
+Ollama is the same shape, on its own port:
 
 ```toml
 [ai]
-url = "http://localhost:1234/v1"
-model = "qwen2.5-coder-7b"
-key = ""            # only if your endpoint wants a bearer token
+url = "http://localhost:11434/v1"
+model = "qwen2.5-coder"
 ```
 
-A `url` wins over any provider key, so a local endpoint is used even when you
-have hosted keys in the environment. Nothing leaves your machine at all in that
-setup — and only table and column names were ever being sent anyway.
+If `a` says nothing is configured, tql could not find a url or a key. If it
+fails at the network, the server is not running or the port is wrong — the
+`curl` above is the quickest way to tell which.
 
-With nothing configured, `a` says what to set rather than failing at the
+With nothing configured at all, `a` says what to set rather than failing at the
 network.
 
 ## Enter runs things
@@ -755,6 +790,8 @@ key, a modal, a command, an MCP tool or a setting, how the interface is tested
 without a terminal, and the notes on Laravel Zero, Prompts and MCP that this
 project ran into.
 
+[docs/configuration.md](docs/configuration.md) is every setting, and
+[docs/keys.md](docs/keys.md) is every key.
 [docs/packaging.md](docs/packaging.md) covers the binary, the `.deb` and the
 `.rpm`, the Homebrew tap and the AUR package.
 
