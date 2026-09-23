@@ -75,9 +75,6 @@ jobs:
           - runner: macos-15
             spc: spc-macos-aarch64
             asset: tql-macos-aarch64
-          - runner: macos-15-intel
-            spc: spc-macos-x86_64
-            asset: tql-macos-x86_64
 
     steps:
       - uses: actions/checkout@v4
@@ -196,7 +193,7 @@ jobs:
         run: |
           base="https://github.com/${{ github.repository }}/releases/download/$TAG"
 
-          for asset in linux-x86_64 linux-aarch64 macos-x86_64 macos-aarch64; do
+          for asset in linux-x86_64 linux-aarch64 macos-aarch64; do
             curl -fsSL -o "tql-$asset" "$base/tql-$asset"
             echo "$(echo $asset | tr '-' '_')=$(sha256sum "tql-$asset" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
           done
@@ -218,7 +215,6 @@ jobs:
           TAP_TOKEN: ${{ steps.tap.outputs.token || secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ steps.sums.outputs.version }}
           SHA_MACOS_ARM: ${{ steps.sums.outputs.macos_aarch64 }}
-          SHA_MACOS_INTEL: ${{ steps.sums.outputs.macos_x86_64 }}
           SHA_LINUX_ARM: ${{ steps.sums.outputs.linux_aarch64 }}
           SHA_LINUX_INTEL: ${{ steps.sums.outputs.linux_x86_64 }}
         run: |
@@ -229,7 +225,6 @@ jobs:
 
           sed -e "s/VERSION/$VERSION/g" \
               -e "s/SHA_MACOS_ARM/$SHA_MACOS_ARM/" \
-              -e "s/SHA_MACOS_INTEL/$SHA_MACOS_INTEL/" \
               -e "s/SHA_LINUX_ARM/$SHA_LINUX_ARM/" \
               -e "s/SHA_LINUX_INTEL/$SHA_LINUX_INTEL/" \
               packaging/homebrew/tql.rb > /tmp/tql.rb

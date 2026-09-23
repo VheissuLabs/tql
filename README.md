@@ -48,7 +48,7 @@ version. If you would rather read a script before running it, and you should,
 [it is here](install.sh).
 
 By hand: the releases carry `tql-linux-x86_64`, `tql-linux-aarch64`,
-`tql-macos-aarch64` and `tql-macos-x86_64`.
+and `tql-macos-aarch64`, for Apple Silicon.
 
 ```bash
 curl -L -o tql https://github.com/VheissuLabs/tql/releases/latest/download/tql-macos-aarch64
@@ -64,7 +64,7 @@ is nothing to set up.
 brew install vheissulabs/tap/tql
 ```
 
-macOS and Linux, Apple Silicon, Intel and ARM. It installs the same standalone
+Apple Silicon Macs, and Linux on x86_64 and ARM. It installs the same standalone
 binary, so Homebrew does not pull in PHP either. `brew upgrade tql` moves to a
 new release.
 

@@ -31,7 +31,7 @@ caught before someone runs into it.
 | | |
 | --- | --- |
 | `tql-linux-x86_64`, `tql-linux-aarch64` | standalone, needs nothing |
-| `tql-macos-aarch64`, `tql-macos-x86_64` | the same, for macOS |
+| `tql-macos-aarch64` | the same, for Apple Silicon Macs |
 | `tql.phar` | 8MB, for a machine that has PHP 8.4 already |
 | `.deb`, `.rpm` | the matching binary, one per architecture, no dependencies |
 | Homebrew | `packaging/homebrew/tql.rb`, pushed to the tap on release |

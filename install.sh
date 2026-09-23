@@ -31,6 +31,8 @@ esac
 
 ASSET="tql-$OS-$ARCH"
 
+[ "$ASSET" != "tql-macos-x86_64" ] || die "tql needs an Apple Silicon Mac; there is no build for Intel Macs."
+
 # Somewhere on PATH that does not need a password, if there is one.
 if [ -n "${TQL_BIN_DIR:-}" ]; then
     DIR="$TQL_BIN_DIR"

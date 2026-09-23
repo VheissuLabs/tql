@@ -4,13 +4,11 @@ class Tql < Formula
   license "MIT"
 
   on_macos do
+    depends_on arch: :arm64
+
     on_arm do
       url "https://github.com/VheissuLabs/tql/releases/download/vVERSION/tql-macos-aarch64"
       sha256 "SHA_MACOS_ARM"
-    end
-    on_intel do
-      url "https://github.com/VheissuLabs/tql/releases/download/vVERSION/tql-macos-x86_64"
-      sha256 "SHA_MACOS_INTEL"
     end
   end
 
