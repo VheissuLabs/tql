@@ -137,6 +137,17 @@ with `contains` as the operator.
 Any other letter typed on the value goes straight into it. On a filtered table,
 `esc` clears the filter.
 
+## An error
+
+It opens over everything and takes every key until it is closed, so nothing
+happens behind it.
+
+| Key | Action |
+| --- | --- |
+| `j` / `k` | scroll a long message |
+| `y` | copy it |
+| anything else | close it |
+
 ## Lists
 
 Every list — a column, an operator, a database, a link, a file, a tag —

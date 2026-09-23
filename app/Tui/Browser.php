@@ -165,6 +165,20 @@ class Browser extends Prompt
     /** Set on the render right after the status changed, and not after that. */
     public bool $statusFresh = false;
 
+    /**
+     * Something that went wrong and is worth stopping for: a write the
+     * database refused, a statement it could not parse. The status line is for
+     * what happened; this is for what went wrong, because a reason you cannot
+     * read is not a reason.
+     */
+    public ?string $problem = null;
+
+    /** What to try, when there is something worth suggesting. */
+    public array $problemNotes = [];
+
+    /** How far the error has been scrolled, for one that runs long. */
+    public int $problemOffset = 0;
+
     public ?string $command = null;
 
     public string $exit = 'connections';
@@ -253,7 +267,76 @@ class Browser extends Prompt
             $this->linkPicker === null ? '' : 'links',
             $this->document === null ? '' : count($this->document->lines()),
             $this->databasePicker === null ? '' : 'databases',
+            $this->problem === null ? '' : 'error',
         ]);
+    }
+
+    /**
+     * Stop and say what went wrong.
+     *
+     * @param  array<int, string>  $notes
+     */
+    public function fail(string $message, array $notes = [], string $title = 'ERROR'): bool
+    {
+        $this->problem = static::withoutPlumbing($message);
+        $this->problemNotes = $notes;
+        $this->problemOffset = 0;
+        $this->problemTitle = $title;
+
+        return true;
+    }
+
+    public string $problemTitle = 'ERROR';
+
+    /**
+     * A database error, with the plumbing taken out of it.
+     *
+     * PDO hands back the driver's message, then the connection name, the file
+     * it was talking to and the statement it was running. The first part is
+     * the answer; the statement is worth keeping, on its own line; the rest is
+     * tql talking to itself.
+     */
+    private static function withoutPlumbing(string $message): string
+    {
+        $message = trim($message);
+
+        $sql = null;
+
+        if (preg_match('/,?\s*SQL:\s*(.+?)\)?$/s', $message, $match) === 1) {
+            $sql = trim($match[1]);
+            $message = trim(substr($message, 0, (int) mb_strpos($message, $match[0])));
+        }
+
+        $message = (string) preg_replace('/\s*\(Connection:.*$/s', '', $message);
+        $message = rtrim(trim($message), ' ,(');
+
+        return $sql === null ? $message : $message."\n\n".$sql;
+    }
+
+    private function handleErrorKey(string $key): void
+    {
+        if (in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true)) {
+            $this->problemOffset = max(0, $this->problemOffset - 1);
+
+            return;
+        }
+
+        if (in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true)) {
+            $this->problemOffset++;
+
+            return;
+        }
+
+        if ($key === 'y') {
+            Clipboard::copy((string) $this->problem);
+            $this->status = 'copied the error';
+
+            return;
+        }
+
+        $this->problem = null;
+        $this->problemNotes = [];
+        $this->problemOffset = 0;
     }
 
     public function currentTable(): ?string
@@ -310,6 +393,15 @@ class Browser extends Prompt
             if (Layout::mouse()) {
                 $this->onMouse($event);
             }
+
+            return;
+        }
+
+        // An error is in front of everything, including whatever mode was
+        // open when it happened: it is the only thing on screen asking to be
+        // read.
+        if ($this->problem !== null) {
+            $this->handleErrorKey($key);
 
             return;
         }
@@ -604,7 +696,7 @@ class Browser extends Prompt
         $result = $this->runner->run($this->connection, $this->editor->buffer(), 'tui');
 
         if ($result->failed()) {
-            $this->status = $result->error;
+            $this->fail((string) $result->error, [], 'THE DATABASE SAID NO');
 
             return;
         }
@@ -1621,9 +1713,9 @@ class Browser extends Prompt
             ));
 
             if ($result->failed()) {
-                $this->status = 'could not add the row: '.$result->error;
-
-                return true;
+                return $this->fail($result->error, [
+                    'The row is still here — fix it and :w again, or u to drop it.',
+                ], 'COULD NOT ADD THE ROW');
             }
         }
 
@@ -1639,9 +1731,9 @@ class Browser extends Prompt
                 );
 
                 if ($result->failed()) {
-                    $this->status = 'write failed: '.$result->error;
-
-                    return true;
+                    return $this->fail($result->error, [
+                        'The change is still here — fix it and :w again, or u to drop it.',
+                    ], 'COULD NOT WRITE');
                 }
             }
         }
@@ -1650,9 +1742,9 @@ class Browser extends Prompt
             $result = $this->runner->delete($this->connection, $table, $key, $this->pendingDeletes);
 
             if ($result->failed()) {
-                $this->status = $result->error;
-
-                return true;
+                return $this->fail($result->error, [
+                    'The rows are still marked — u clears them.',
+                ], 'COULD NOT DELETE');
             }
         }
 

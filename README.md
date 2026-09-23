@@ -795,6 +795,31 @@ time_zone = "America/Toronto"
 table with no primary key, which editing does not: a row that is not in the
 table yet is written by position rather than by key.
 
+## When something goes wrong
+
+A database refusing a write is the most important thing on the screen, so it
+takes the screen: the error opens as a modal over whatever you were doing, with
+the statement it refused on its own line and what to do next under it.
+
+```
+┌─ COULD NOT ADD THE ROW ──────────────────────────────────────┐
+│                                                              │
+│  SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE  │
+│  constraint failed: people.email                             │
+│                                                              │
+│  insert into "people" ("name", "email") values (…)           │
+│                                                              │
+│  The row is still here — fix it and :w again, or u to drop.  │
+│                                                              │
+│  y copies it    esc closes                                   │
+└──────────────────────────────────────────────────────────────┘
+```
+
+The connection name tql invented and the file it opened are taken out — that is
+tql talking to itself, not the database talking to you. `j`/`k` scroll a long
+one, `y` copies it, any other key closes it. **Your pending changes are still
+pending**: nothing is dropped because a write failed.
+
 ## Pending changes
 
 Nothing you do to a row reaches the database until you ask for it.

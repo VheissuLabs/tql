@@ -8,6 +8,7 @@ use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\Islands\AskIsland;
 use App\Tui\Islands\EditorIsland;
+use App\Tui\Islands\ErrorIsland;
 use App\Tui\Islands\FilterIsland;
 use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\InspectorWidth;
@@ -206,6 +207,20 @@ class BrowserRenderer extends Renderer
                 ->onto($screen);
 
             $prompt->structureHidden = $structure->hidden;
+        }
+
+        // An error sits over everything else, including whatever was open
+        // when it happened.
+        if ($prompt->problem !== null) {
+            $problem = new ErrorIsland($prompt->problem, $style, $prompt->problemNotes, $prompt->problemOffset);
+            $problem->focused = true;
+            $problem->title = $prompt->problemTitle;
+
+            $problemWidth = min($width - 4, ErrorIsland::WIDTH);
+
+            $this->modal($width, $top, $frameHeight, $problemWidth)
+                ->add($problem, min($frameHeight - 2, $problem->rows($problemWidth)))
+                ->onto($screen);
         }
 
         if ($prompt->mode === 'help') {
