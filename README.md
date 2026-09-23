@@ -43,7 +43,7 @@ built in.
 
 The installer picks the build for your platform, puts it somewhere on your PATH
 — `/usr/local/bin` if it can write there, `~/.local/bin` if not — and tells you
-where it went. `TQL_BIN_DIR` chooses the directory, `TQL_VERSION=v0.4.1` pins a
+where it went. `TQL_BIN_DIR` chooses the directory, `TQL_VERSION=v0.4.2` pins a
 version. If you would rather read a script before running it, and you should,
 [it is here](install.sh).
 
@@ -74,8 +74,8 @@ Every release also carries a `.deb` and an `.rpm` per architecture, and neither
 depends on anything:
 
 ```bash
-sudo dpkg -i tql_0.4.1_amd64.deb          # debian, ubuntu
-sudo dnf install ./tql-0.4.1.x86_64.rpm   # fedora, rhel
+sudo dpkg -i tql_0.4.2_amd64.deb          # debian, ubuntu
+sudo dnf install ./tql-0.4.2.x86_64.rpm   # fedora, rhel
 ```
 
 How the Homebrew formula is published is in
