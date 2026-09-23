@@ -199,9 +199,19 @@ jobs:
 
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
 
+      - name: A token that can write to the tap
+        id: tap
+        if: vars.TAP_APP_ID != ''
+        uses: actions/create-github-app-token@v2
+        with:
+          app-id: ${{ vars.TAP_APP_ID }}
+          private-key: ${{ secrets.TAP_APP_PRIVATE_KEY }}
+          owner: VheissuLabs
+          repositories: homebrew-tap
+
       - name: Update the Homebrew tap
         env:
-          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_TOKEN: ${{ steps.tap.outputs.token || secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ steps.sums.outputs.version }}
           SHA_MACOS_ARM: ${{ steps.sums.outputs.macos_aarch64 }}
           SHA_MACOS_INTEL: ${{ steps.sums.outputs.macos_x86_64 }}
@@ -209,7 +219,7 @@ jobs:
           SHA_LINUX_INTEL: ${{ steps.sums.outputs.linux_x86_64 }}
         run: |
           if [ -z "$TAP_TOKEN" ]; then
-            echo 'No HOMEBREW_TAP_TOKEN, skipping the tap.'
+            echo 'No tap app or HOMEBREW_TAP_TOKEN, skipping the tap.'
             exit 0
           fi
 
@@ -298,11 +308,11 @@ jobs:
     steps:
       - name: Install from the tap and run it
         env:
-          TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_READY: ${{ vars.TAP_APP_ID || secrets.HOMEBREW_TAP_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
-          if [ -z "$TAP_TOKEN" ]; then
-            echo 'No HOMEBREW_TAP_TOKEN, so the tap was not updated; skipping.'
+          if [ -z "$TAP_READY" ]; then
+            echo 'No tap app or HOMEBREW_TAP_TOKEN, so the tap was not updated; skipping.'
             exit 0
           fi
 
