@@ -12,7 +12,7 @@ use Laravel\Mcp\Server\Attributes\Name;
 use Laravel\Mcp\Server\Attributes\Version;
 
 #[Name('tql')]
-#[Version('0.3.0')]
+#[Version('0.4.0')]
 #[Instructions(
     'tql exposes the same database connections the user browses in the tql terminal interface. '.
     'Start by listing connections, then list or describe tables before querying. '.
