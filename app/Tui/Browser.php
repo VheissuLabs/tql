@@ -10,6 +10,7 @@ use App\Database\QueryRunner;
 use App\Database\SqlExporter;
 use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
+use App\Support\Now;
 use App\Tui\Concerns\HandlesMouse;
 use App\Tui\Concerns\RendersSmoothly;
 use App\Tui\Islands\EditorIsland;
@@ -1070,6 +1071,15 @@ class Browser extends Prompt
             return;
         }
 
+        // ctrl+t types the time for you, in the format this column takes.
+        if ($key === "\x14") {
+            $this->cellEditor?->set(Now::for($this->typeOfColumn()));
+            $this->cellEditor?->toEnd();
+            $this->status = 'now';
+
+            return;
+        }
+
         $this->cellEditor?->handle($key);
     }
 
@@ -1199,6 +1209,11 @@ class Browser extends Prompt
 
         if ($this->editingJson) {
             $value = json_encode(json_decode($value), JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+        }
+
+        // now() means the time, the way this column writes it.
+        if (Now::asked($value)) {
+            $value = Now::for($this->typeOfColumn());
         }
 
         $this->cellEditor = null;
@@ -2131,6 +2146,36 @@ class Browser extends Prompt
     /**
      * @return array<int, array<string, mixed>>
      */
+    /**
+     * Is the value being edited a date, a time or a timestamp?
+     */
+    public function editingTime(): bool
+    {
+        return Now::suits($this->typeOfColumn());
+    }
+
+    /**
+     * The declared type of the column the cursor is on, for anything that has
+     * to write a value the way that column takes it.
+     */
+    private function typeOfColumn(): ?string
+    {
+        $table = $this->currentTable();
+        $column = $this->headers[$this->columnIndex] ?? null;
+
+        if ($table === null || $column === null) {
+            return null;
+        }
+
+        foreach ($this->columnsOf($table) as $candidate) {
+            if (($candidate['name'] ?? null) === $column) {
+                return (string) ($candidate['type_name'] ?? $candidate['type'] ?? '');
+            }
+        }
+
+        return null;
+    }
+
     public function columnsOf(string $table): array
     {
         return array_map(fn ($column) => (array) $column, $this->runner->columns($this->connection, $table));

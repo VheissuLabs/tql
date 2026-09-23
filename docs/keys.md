@@ -104,6 +104,17 @@ the grid with its results. It never quits — `q` and `:q` do that.
 keybind = shift+enter=csi:13;2u
 ```
 
+### While editing a value
+
+| Key | Action |
+| --- | --- |
+| `↵` | keep it |
+| `⇧↵` | add a line |
+| `ctrl+t` | type the time, in the format the column takes |
+| `esc` | cancel |
+
+`now()` typed into a cell means the same as `ctrl+t`.
+
 ## Filtering rows
 
 `f` opens the filter, already typing in the value, on the column you were on,

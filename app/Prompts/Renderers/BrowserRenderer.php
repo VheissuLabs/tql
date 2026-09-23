@@ -587,8 +587,12 @@ class BrowserRenderer extends Renderer
                     $this->dim('   j/k moves    V selects    y yanks    g/G top/bottom    esc closes');
             }
 
+            // The time shortcut goes early: the line is clamped to the
+            // terminal, and a hint you cannot see is not a hint.
             return ' '.$this->bold("editing {$column}").
-                $this->dim('   ↵ keeps it    ⇧↵ adds a line    esc cancels'.
+                $this->dim('   ↵ keeps it'.
+                    ($prompt->editingTime() ? '    ctrl+t now' : '').
+                    '    ⇧↵ adds a line    esc cancels'.
                     ($prompt->editingJson ? '    json is validated' : ''));
         }
 

@@ -768,6 +768,17 @@ it, and the id and the quantity come from the database rather than from tql.
 Blank is how that reads on screen — an untouched column is empty, not `NULL`,
 because what it ends up holding is the table's business.
 
+### The time
+
+Any date, time or timestamp column takes **`ctrl+t`** while editing: it types
+the current time into the editor, in the format that column wants — `Y-m-d` for
+a date, `H:i:s` for a time, `Y-m-d H:i:s` for a datetime or timestamp — so you
+can see it before keeping it. The status line says so while you are in one.
+
+Typing **`now()`** does the same thing without the shortcut, wherever it is
+typed, since an explicit `now()` is an instruction rather than a value. That is
+how `created_at` and `updated_at` get filled in without looking up a format.
+
 `u` drops it, a reload keeps it, and changing table forgets it. It works on a
 table with no primary key, which editing does not: a row that is not in the
 table yet is written by position rather than by key.
