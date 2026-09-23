@@ -257,3 +257,28 @@ it('still sends on ctrl+s', function () {
 
     expect($browser->status)->toContain('no model to ask');
 });
+
+it('uses a local endpoint when the named provider has no key', function () {
+    config([
+        'tql.ai.provider' => 'anthropic',
+        'tql.ai.url' => 'http://localhost:1234/v1',
+        'tql.ai.model' => 'qwen2.5-coder-7b-instruct',
+        'ai.providers.anthropic.key' => '',
+    ]);
+
+    expect(Providers::chosen())->toBe(Providers::LOCAL);
+});
+
+it('says both ways out when there is no key and no endpoint', function () {
+    config([
+        'tql.ai.provider' => 'anthropic',
+        'tql.ai.url' => '',
+        'ai.providers.anthropic.key' => '',
+    ]);
+
+    $missing = new ReflectionMethod(Ask::class, 'missing');
+
+    expect($missing->invoke(app(Ask::class)))
+        ->toContain('ANTHROPIC_API_KEY')
+        ->toContain('[ai] url');
+});

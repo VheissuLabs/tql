@@ -101,7 +101,13 @@ class Providers
         $configured = trim((string) config('tql.ai.provider', 'auto'));
 
         if ($configured !== '' && $configured !== 'auto') {
-            return static::hasKey($configured) ? $configured : null;
+            if (static::hasKey($configured)) {
+                return $configured;
+            }
+
+            // A named provider with no key is usually a default nobody
+            // changed; a url was typed on purpose, so it answers instead.
+            return static::hasKey(self::LOCAL) ? self::LOCAL : null;
         }
 
         // A url points somewhere deliberate, so it wins over any stray key.

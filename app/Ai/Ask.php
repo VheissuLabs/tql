@@ -81,7 +81,8 @@ class Ask
         $configured = trim((string) config('tql.ai.provider', 'auto'));
 
         if ($configured !== '' && $configured !== 'auto') {
-            return "no key for {$configured} — set ".Providers::keyVariable($configured);
+            return "no key for {$configured} — set ".Providers::keyVariable($configured)
+                .', or point [ai] url at a local model';
         }
 
         return 'no model to ask — set an api key such as ANTHROPIC_API_KEY or '.
