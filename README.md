@@ -576,6 +576,13 @@ url = "http://localhost:11434/v1"
 model = "qwen2.5-coder"
 ```
 
+LM Studio may want a token — it says so in the Developer tab, and it goes in
+`key`. A url with no path gets `/v1` added, so `http://localhost:1234` and
+`http://localhost:1234/v1` both work.
+
+A reasoning model such as qwen3 answers in its thinking rather than in the
+message body, and tql reads the answer out of it either way.
+
 If `a` says nothing is configured, tql could not find a url or a key. If it
 fails at the network, the server is not running or the port is wrong — the
 `curl` above is the quickest way to tell which.

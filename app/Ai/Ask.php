@@ -4,6 +4,7 @@ namespace App\Ai;
 
 use App\Ai\Agents\SqlWriter;
 use App\Models\Connection;
+use Illuminate\Http\Client\Response;
 use Throwable;
 
 class Ask
@@ -57,6 +58,10 @@ class Ask
         $data = is_array($response) ? $response : json_decode((string) $response, true);
 
         if (! is_array($data) || ! isset($data['query'])) {
+            $data = static::fromText(static::reasoning($response));
+        }
+
+        if (! is_array($data) || ! isset($data['query'])) {
             return null;
         }
 
@@ -65,6 +70,47 @@ class Ask
             'explanation' => trim((string) ($data['explanation'] ?? '')),
             'notes' => trim((string) ($data['notes'] ?? '')),
         ];
+    }
+
+    /**
+     * What a reasoning model said while it was thinking.
+     *
+     * Local endpoints serving a reasoning model — qwen3 through LM Studio, for
+     * one — put the whole answer in reasoning_content and leave content empty,
+     * so the structured result arrives blank even though the model answered.
+     */
+    private static function reasoning(mixed $response): string
+    {
+        $raw = is_object($response) && isset($response->steps)
+            ? ($response->steps->first()->raw ?? null)
+            : null;
+
+        if (! $raw instanceof Response) {
+            return '';
+        }
+
+        try {
+            return (string) data_get($raw->json(), 'choices.0.message.reasoning_content', '');
+        } catch (Throwable) {
+            return '';
+        }
+    }
+
+    /**
+     * The first JSON object in a piece of prose, for a model that wrapped its
+     * answer in words or in <think> tags.
+     *
+     * @return array<string, mixed>|null
+     */
+    private static function fromText(string $text): ?array
+    {
+        if ($text === '' || preg_match('/\{.*\}/s', $text, $match) !== 1) {
+            return null;
+        }
+
+        $data = json_decode($match[0], true);
+
+        return is_array($data) ? $data : null;
     }
 
     public function configured(): bool

@@ -282,3 +282,25 @@ it('says both ways out when there is no key and no endpoint', function () {
         ->toContain('ANTHROPIC_API_KEY')
         ->toContain('[ai] url');
 });
+
+it('fills in the /v1 an endpoint is served under', function () {
+    expect(Providers::endpoint('http://localhost:1234'))->toBe('http://localhost:1234/v1')
+        ->and(Providers::endpoint('http://localhost:1234/'))->toBe('http://localhost:1234/v1')
+        // Already pointed at a path: left alone.
+        ->and(Providers::endpoint('http://localhost:1234/v1'))->toBe('http://localhost:1234/v1')
+        ->and(Providers::endpoint('https://gateway.test/api/openai/v1'))->toBe('https://gateway.test/api/openai/v1');
+});
+
+it('finds the answer a reasoning model left in its thinking', function () {
+    // LM Studio serving qwen3 puts the whole answer in reasoning_content and
+    // leaves content empty, so the structured result arrives blank.
+    $thinking = 'Let me think. {"query": "select count(*) from albums", '
+        .'"explanation": "counts the rows"} and that is the answer.';
+
+    $fromText = new ReflectionMethod(Ask::class, 'fromText');
+
+    expect($fromText->invoke(null, $thinking))
+        ->toBe(['query' => 'select count(*) from albums', 'explanation' => 'counts the rows'])
+        ->and($fromText->invoke(null, 'no json here'))->toBeNull()
+        ->and($fromText->invoke(null, ''))->toBeNull();
+});

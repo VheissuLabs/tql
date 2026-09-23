@@ -48,12 +48,26 @@ class Providers
 
         config(['ai.providers.'.self::LOCAL => array_filter([
             'driver' => 'openai-compatible',
-            'url' => $url,
+            'url' => static::endpoint($url),
             'key' => trim((string) config('tql.ai.key', '')),
             'models' => array_filter([
                 'text' => array_filter(['default' => trim((string) config('tql.ai.model', ''))]),
             ]),
         ])]);
+    }
+
+    /**
+     * A bare host is not an OpenAI-compatible endpoint: LM Studio and the rest
+     * serve one under /v1, and leaving it off 404s at the first question. A
+     * url that already names a path is left alone.
+     */
+    public static function endpoint(string $url): string
+    {
+        $url = rtrim($url, '/');
+
+        return trim((string) parse_url($url, PHP_URL_PATH), '/') === ''
+            ? $url.'/v1'
+            : $url;
     }
 
     /**
