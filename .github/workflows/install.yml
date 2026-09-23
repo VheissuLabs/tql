@@ -1,0 +1,65 @@
+name: install
+
+on:
+  push:
+    branches: [main]
+    paths: ['install.sh', 'packaging/**', '.github/workflows/install.yml']
+  pull_request:
+    paths: ['install.sh', 'packaging/**', '.github/workflows/install.yml']
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+  workflow_call:
+
+jobs:
+  installer:
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm, macos-15]
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install with the one-line installer and run it
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+
+          TQL_BIN_DIR="$RUNNER_TEMP/bin" sh install.sh
+          "$RUNNER_TEMP/bin/tql" --version | tee /dev/stderr | grep -qF "${tag#v}"
+
+  pkgbuild:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build the AUR package from the latest release and run what it installs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+
+          gh release download "$tag" --repo "$GITHUB_REPOSITORY" \
+            --pattern 'tql-linux-x86_64' --pattern 'tql-linux-aarch64' --dir "$RUNNER_TEMP/assets"
+
+          mkdir -p "$RUNNER_TEMP/pkg"
+          sed -e "s/VERSION/${tag#v}/g" \
+              -e "s/SHA_LINUX_INTEL/$(sha256sum "$RUNNER_TEMP/assets/tql-linux-x86_64" | cut -d' ' -f1)/" \
+              -e "s/SHA_LINUX_ARM/$(sha256sum "$RUNNER_TEMP/assets/tql-linux-aarch64" | cut -d' ' -f1)/" \
+              packaging/aur/PKGBUILD > "$RUNNER_TEMP/pkg/PKGBUILD"
+
+          docker run --rm -v "$RUNNER_TEMP/pkg:/pkg" -w /pkg \
+            -e EXPECTED_SIZE="$(stat -c %s "$RUNNER_TEMP/assets/tql-linux-x86_64")" \
+            -e VERSION="${tag#v}" \
+            archlinux:base-devel sh -c '
+              set -e
+              useradd -m build
+              chown -R build /pkg
+              su build -c "makepkg --noconfirm"
+              ./pkg/tql-bin/usr/bin/tql --version | grep -qF "$VERSION"
+              test "$(stat -c %s pkg/tql-bin/usr/bin/tql)" = "$EXPECTED_SIZE"
+            '
