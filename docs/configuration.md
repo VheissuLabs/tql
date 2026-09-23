@@ -3,10 +3,11 @@
 Every setting, what it does, and what it is if you never touch it.
 
 There is nothing to configure to start. On first run tql writes
-`~/.config/tql/config.toml` with all of this in it, each key under its comment,
-so the file is its own copy of this page. When a later version adds a setting it
-is appended on the next run — your values and your own comments are left alone —
-and the status line names what arrived.
+`~/.config/tql/config.toml` with all of this in it, in this order, one short
+line of comment above each key — the long version stays here rather than in
+your file. When a later version adds a setting it is
+written into the place it belongs on the next run — your values and your own
+comments are left alone — and the status line names what arrived.
 
 Defaults live in `config/tql.php` and your file is merged over them, so a
 setting you never touch follows the application instead of freezing at the value

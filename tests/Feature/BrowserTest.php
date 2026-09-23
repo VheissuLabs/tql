@@ -1430,3 +1430,28 @@ it('keeps the query in step when paging', function () {
     unlink($path);
     config(['tql.ui.sql_always' => false]);
 });
+
+it('goes back to the table from query results with escape', function () {
+    $browser = jsonBrowser();
+
+    $browser->emit('key', 's');
+    $browser->editor->set('select 1 as one');
+    $browser->emit('key', QueryEditor::RUN);
+
+    expect($browser->resultsFromQuery)->toBeTrue()
+        ->and($browser->headers)->toBe(['one']);
+
+    $browser->emit('key', "\e");   // out of the editor
+    $browser->emit('key', "\e");   // and back to the table
+
+    expect($browser->resultsFromQuery)->toBeFalse()
+        ->and($browser->status)->toContain('back to');
+
+    // And the status line says so while the results are up.
+    $browser->emit('key', 's');
+    $browser->editor->set('select 1 as one');
+    $browser->emit('key', QueryEditor::RUN);
+    $browser->emit('key', "\e");
+
+    expect(frameOf($browser))->toContain('esc goes back to');
+});

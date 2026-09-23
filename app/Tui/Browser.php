@@ -2073,6 +2073,16 @@ class Browser extends Prompt
             return $this->clearFilters();
         }
 
+        // A hand-written query replaces the grid with its results. Escape is
+        // how you get the table back, since nothing else on screen says where
+        // those rows came from.
+        if ($this->resultsFromQuery) {
+            $this->load();
+            $this->status = 'back to '.$this->currentTable();
+
+            return true;
+        }
+
         return true;
     }
 
@@ -2375,7 +2385,17 @@ class Browser extends Prompt
             $lines[] = '--';
         }
 
-        return implode("\n", $lines).($lines === [] ? '' : "\n").$answer['query'];
+        return implode("\n", $lines).($lines === [] ? '' : "\n").static::trimmed($answer['query']);
+    }
+
+    /**
+     * A model often signs off with its own block comment after the statement.
+     * The explanation is already above the query, and a comment nobody asked
+     * for runs off the side of the editor.
+     */
+    private static function trimmed(string $query): string
+    {
+        return rtrim((string) preg_replace('#/\*.*?\*/\s*$#s', '', trim($query)));
     }
 
     private function openFilter(): bool

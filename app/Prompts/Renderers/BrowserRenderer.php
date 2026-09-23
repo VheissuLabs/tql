@@ -606,8 +606,14 @@ class BrowserRenderer extends Renderer
             ? $this->dim(' ['.$prompt->connection->tag.']')
             : '';
 
+        // Results replace the grid, and nothing else on screen says how to
+        // get the table back.
+        $back = $prompt->resultsFromQuery
+            ? ' · esc goes back to '.($prompt->currentTable() ?? 'the table')
+            : '';
+
         return ' '.$name.$tag
-            .$this->dim(' · '.($prompt->status ?? '').$position)
+            .$this->dim(' · '.($prompt->status ?? '').$position.$back)
             .$this->link($prompt);
     }
 }

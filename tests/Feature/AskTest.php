@@ -304,3 +304,13 @@ it('finds the answer a reasoning model left in its thinking', function () {
         ->and($fromText->invoke(null, 'no json here'))->toBeNull()
         ->and($fromText->invoke(null, ''))->toBeNull();
 });
+
+it('drops a block comment the model signed off with', function () {
+    $trimmed = new ReflectionMethod(Browser::class, 'trimmed');
+
+    expect($trimmed->invoke(null, "select 1;\n/* Explain: it selects one. */"))->toBe('select 1;')
+        ->and($trimmed->invoke(null, 'select 1;'))->toBe('select 1;')
+        // A comment inside the statement is the model's own commentary on it.
+        ->and($trimmed->invoke(null, 'select /* the count */ count(*) from t;'))
+        ->toBe('select /* the count */ count(*) from t;');
+});

@@ -49,8 +49,9 @@ test fixture:
 }
 ```
 
-`esc` is contextual: it clears a filter if one is set, then closes what is open,
-and then does nothing. It never quits — `q` and `:q` do that.
+`esc` is contextual, in this order: go back where you followed a link from,
+clear the filter, then put the table back after a hand-written query replaced
+the grid with its results. It never quits — `q` and `:q` do that.
 
 ## The command line
 

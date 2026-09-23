@@ -75,23 +75,82 @@ class ConfigFile
         return preg_match('/^\s*'.preg_quote($key, '/').'\s*=/m', $contents) === 1;
     }
 
+    /**
+     * Put a new setting where the template says it goes.
+     *
+     * Not simply after the section header: that lands every new setting at the
+     * top, in the order they were added, and a file that reorders itself over
+     * time is a file you cannot find anything in.
+     */
     private static function insert(string $contents, array $setting): string
     {
-        $block = "\n".ConfigTemplate::block($setting);
+        $lines = explode("\n", $contents);
         $header = '['.$setting['section'].']';
 
-        $position = strpos($contents, $header);
+        $headerAt = null;
 
-        if ($position === false) {
-            return rtrim($contents)."\n\n".$header."\n".$block;
+        foreach ($lines as $index => $line) {
+            if (trim($line) === $header) {
+                $headerAt = $index;
+                break;
+            }
         }
 
-        $after = strpos($contents, "\n", $position);
-
-        if ($after === false) {
-            return $contents."\n".$block;
+        if ($headerAt === null) {
+            return rtrim($contents)."\n\n".$header."\n\n".ConfigTemplate::block($setting);
         }
 
-        return substr($contents, 0, $after + 1).$block.substr($contents, $after + 1);
+        $at = static::afterPrevious($lines, $setting, $headerAt) ?? static::afterHeader($lines, $headerAt);
+
+        array_splice($lines, $at, 0, array_merge([''], explode("\n", rtrim(ConfigTemplate::block($setting), "\n"))));
+
+        return implode("\n", $lines);
+    }
+
+    /**
+     * The line after the setting this one follows in the template, if the file
+     * has it.
+     *
+     * @param  array<int, string>  $lines
+     */
+    private static function afterPrevious(array $lines, array $setting, int $headerAt): ?int
+    {
+        $before = [];
+
+        foreach (ConfigTemplate::settings() as $candidate) {
+            if ($candidate['key'] === $setting['key']) {
+                break;
+            }
+
+            if ($candidate['section'] === $setting['section']) {
+                $before[] = $candidate['key'];
+            }
+        }
+
+        foreach (array_reverse($before) as $key) {
+            foreach ($lines as $index => $line) {
+                if ($index > $headerAt && preg_match('/^\s*'.preg_quote($key, '/').'\s*=/', $line) === 1) {
+                    return $index + 1;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Below the header, and below the note under it if there is one.
+     *
+     * @param  array<int, string>  $lines
+     */
+    private static function afterHeader(array $lines, int $headerAt): int
+    {
+        $at = $headerAt + 1;
+
+        while (isset($lines[$at]) && str_starts_with(trim($lines[$at]), '#')) {
+            $at++;
+        }
+
+        return $at;
     }
 }
