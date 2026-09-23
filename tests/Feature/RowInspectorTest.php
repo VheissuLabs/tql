@@ -413,3 +413,46 @@ it('leaves a join table alone when it carries data of its own', function () {
     // quantity is the whole point of that row, so it is not a pivot.
     expect(implode("\n", inspectorLines($browser)))->toContain('order_lines  ·  has many  (1)');
 });
+
+it('keeps a related row readable across the screen', function () {
+    $browser = relatedBrowser(<<<'SQL'
+        create table authors (id integer primary key, name text);
+        create table books (
+            id integer primary key,
+            author_id integer references authors(id),
+            title text,
+            blurb text,
+            isbn text,
+            pages integer,
+            price real,
+            edition text,
+            printing integer,
+            binding text
+        );
+        insert into authors (name) values ('Ursula');
+        insert into books (author_id, title, blurb, isbn, pages, price, edition, printing, binding)
+            values (1, 'The Dispossessed', 'A very long description of the book that would push every other column off the side of the screen', '978', 341, 9.99, 'first', 2, 'paper');
+    SQL, 'authors');
+
+    $text = implode("\n", inspectorLines($browser));
+
+    // The prose is dropped, the rest is capped, and the heading says so.
+    expect($text)->toContain('books  ·  has many  (1)  ·  6 of 9 columns')
+        ->and($text)->toContain('The Dispossessed')
+        ->and($text)->not->toContain('push every other column');
+});
+
+it('shows every column when the row is narrow enough', function () {
+    $browser = relatedBrowser(<<<'SQL'
+        create table teams (id integer primary key, name text);
+        create table players (id integer primary key, team_id integer references teams(id), name text, number integer);
+        insert into teams (name) values ('Rovers');
+        insert into players (team_id, name, number) values (1, 'Ada', 9);
+    SQL, 'teams');
+
+    $text = implode("\n", inspectorLines($browser));
+
+    expect($text)->toContain('players  ·  has many  (1)')
+        ->and($text)->not->toContain('columns')
+        ->and($text)->toContain('Ada');
+});
