@@ -46,6 +46,7 @@ class ConfigTemplate
             ['section' => 'theme', 'key' => 'cursor', 'default' => '"default"', 'since' => '0.3.0', 'comment' => ['The block you are on, "default" swaps the terminal\'s own colors']],
             ['section' => 'theme', 'key' => 'selection', 'default' => '"default"', 'since' => '0.3.0', 'comment' => ['Highlighted but not where you are: the selected table, a marked row']],
             ['section' => 'theme', 'key' => 'edited', 'default' => '"yellow"', 'since' => '0.3.0', 'comment' => ['A row you have changed, before :w']],
+            ['section' => 'theme', 'key' => 'added', 'default' => '"green"', 'since' => '0.4.0', 'comment' => ['A row you have added, before :w']],
             ['section' => 'theme', 'key' => 'deleted', 'default' => '"red"', 'since' => '0.3.0', 'comment' => ['A row marked for deletion, before :w']],
             ['section' => 'theme', 'key' => 'modal_border', 'default' => '"gray"', 'since' => '0.3.0', 'comment' => ['A modal border, and the ring around it']],
             ['section' => 'theme', 'key' => 'modal_focus_border', 'default' => '"cyan"', 'since' => '0.3.0', 'comment' => ['The same, focused']],

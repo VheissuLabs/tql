@@ -29,6 +29,7 @@ and a letter that says what it does where it does not.
 | `a` | ask for a query in plain english |
 | `s` | the SQL editor |
 | `y` / `Y` | yank this value, or the whole row as an object |
+| `N` | add a row: `e` fills it in, `:w` writes it |
 | `d` / `u` | mark the row for deletion, or clear every mark |
 | `,` `.` or `<` `>` | narrow or widen the column |
 | `=` | reset the column width |

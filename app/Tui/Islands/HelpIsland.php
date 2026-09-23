@@ -77,6 +77,7 @@ class HelpIsland extends Island
                 'c' => 'back to the connection list',
                 'y' => 'yank this value',
                 'Y' => 'yank the row as an object',
+                'N' => 'add a row, filled in with e and written with :w',
                 'd' => 'mark the row for deletion',
                 'u' => 'clear every mark',
                 'ctrl+l' => 'redraw the screen',

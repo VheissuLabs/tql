@@ -126,6 +126,14 @@ class Browser extends Prompt
      */
     public array $pendingEdits = [];
 
+    /**
+     * Rows added but not written, each one the columns that were filled in.
+     * A column nobody touched is left out, so the table's own default applies.
+     *
+     * @var array<int, array<string, mixed>>
+     */
+    public array $pendingInserts = [];
+
     public ?string $sortColumn = null;
 
     public string $sortDirection = 'asc';
@@ -412,6 +420,7 @@ class Browser extends Prompt
             $key === self::BACK => $this->jumpBack(),
             $key === Key::ESCAPE => $this->escape(),
             $key === 'c' => $this->quit('connections'),
+            $key === 'N' => $this->newRow(),
             $key === 'y' => $this->yankCell(),
             $key === 'Y' => $this->yankRow(),
             $key === 'd' => $this->markDelete(),
@@ -995,9 +1004,20 @@ class Browser extends Prompt
         return match (true) {
             $this->connection->read_only => 'this connection is marked read-only',
             $this->resultsFromQuery => 'query results have no row to write back to',
+            // A row that is not in the table yet is edited by position, so it
+            // does not need a key to be written back by.
+            $this->onAddedRow() => null,
             $this->keyColumn() === null => $this->currentTable().' has no single-column primary key',
             default => null,
         };
+    }
+
+    /**
+     * Is the cursor on a row that has not been written yet?
+     */
+    public function onAddedRow(): bool
+    {
+        return $this->pendingInserts !== [] && $this->rowIndex >= $this->firstAddedRow();
     }
 
     private function handleEditKey(string $key): void
@@ -1188,7 +1208,27 @@ class Browser extends Prompt
         $column = $this->headers[$this->columnIndex] ?? null;
         $row = $this->raw[$this->rowIndex] ?? null;
 
-        if ($key === null || $column === null || $row === null) {
+        if ($column === null || $row === null) {
+            $this->status = 'nothing to save';
+
+            return;
+        }
+
+        // A row that is not in the table yet has no key to edit by: the value
+        // goes into the row waiting to be inserted.
+        if ($this->onAddedRow()) {
+            $at = $this->rowIndex - $this->firstAddedRow();
+
+            $this->pendingInserts[$at][$column] = $value === '' ? null : $value;
+            $this->raw[$this->rowIndex][$column] = $value === '' ? null : $value;
+            $this->rows[$this->rowIndex] = $this->addedRow($this->raw[$this->rowIndex]);
+
+            $this->status = $this->pendingStatus();
+
+            return;
+        }
+
+        if ($key === null) {
             $this->status = 'nothing to save';
 
             return;
@@ -1301,12 +1341,21 @@ class Browser extends Prompt
 
     private function unmarkAll(): bool
     {
-        if ($this->pendingDeletes === [] && $this->pendingEdits === []) {
+        if ($this->pendingDeletes === [] && $this->pendingEdits === [] && $this->pendingInserts === []) {
             return true;
         }
 
+        $added = $this->pendingInserts !== [];
+
         $this->pendingDeletes = [];
         $this->pendingEdits = [];
+        $this->pendingInserts = [];
+
+        // A row that was only ever on screen has to come off it again.
+        if ($added) {
+            $this->load(keepCursor: true);
+        }
+
         $this->status = 'pending changes dropped';
 
         return true;
@@ -1316,12 +1365,17 @@ class Browser extends Prompt
     {
         $deletes = count($this->pendingDeletes);
         $edits = count($this->pendingEdits);
+        $adds = count($this->pendingInserts);
 
-        if ($deletes === 0 && $edits === 0) {
+        if ($deletes === 0 && $edits === 0 && $adds === 0) {
             return 'nothing pending';
         }
 
         $parts = [];
+
+        if ($adds > 0) {
+            $parts[] = $adds.' row'.($adds === 1 ? '' : 's').' added';
+        }
 
         if ($edits > 0) {
             $parts[] = $edits.' row'.($edits === 1 ? '' : 's').' edited';
@@ -1390,6 +1444,120 @@ class Browser extends Prompt
     }
 
     /**
+     * Add an empty row to the end of the grid, unwritten.
+     *
+     * It is a row like any other until :w: you fill it in with e, and u drops
+     * it. Nothing reaches the database until you say so.
+     */
+    private function newRow(): bool
+    {
+        if ($this->resultsFromQuery) {
+            $this->status = 'query results have no table to add to';
+
+            return true;
+        }
+
+        if ($this->currentTable() === null || $this->headers === []) {
+            $this->status = 'no table to add to';
+
+            return true;
+        }
+
+        if ($this->connection->read_only) {
+            $this->status = 'this connection is marked read-only';
+
+            return true;
+        }
+
+        $this->pendingInserts[] = [];
+        $this->appendPendingRows();
+
+        $this->rowIndex = count($this->rows) - 1;
+        $this->columnIndex = $this->firstFillable();
+        $this->focus = 'grid';
+
+        $this->status = 'new row · e fills a column · :w writes it · u drops it';
+
+        return true;
+    }
+
+    /**
+     * The column to start on: the key is usually the database's to give.
+     */
+    private function firstFillable(): int
+    {
+        $key = $this->keyColumn();
+
+        foreach ($this->headers as $index => $column) {
+            if ($column !== $key) {
+                return $index;
+            }
+        }
+
+        return 0;
+    }
+
+    /**
+     * Put the unwritten rows back on the end of the grid, after a load.
+     */
+    private function appendPendingRows(): void
+    {
+        foreach ($this->pendingInserts as $values) {
+            $row = array_fill_keys($this->headers, null);
+
+            foreach ($values as $column => $value) {
+                $row[$column] = $value;
+            }
+
+            $this->raw[] = $row;
+            $this->rows[] = $this->addedRow($row);
+        }
+    }
+
+    /**
+     * A row waiting to be written, as the grid shows it.
+     *
+     * Nothing is NULL here yet: a column nobody filled in is blank, because
+     * what it ends up holding is the table's business, not something tql can
+     * claim to know.
+     *
+     * @param  array<string, mixed>  $row
+     * @return array<string, string>
+     */
+    private function addedRow(array $row): array
+    {
+        $display = $this->formatter->rows([$row])[0];
+
+        foreach ($row as $column => $value) {
+            if ($value === null) {
+                $display[$column] = '';
+            }
+        }
+
+        return $display;
+    }
+
+    /**
+     * Where the added rows start in the grid, since they sit on the end.
+     */
+    public function firstAddedRow(): int
+    {
+        return count($this->rows) - count($this->pendingInserts);
+    }
+
+    /**
+     * Row indexes that are not in the table yet, for the renderer.
+     *
+     * @return array<int, int>
+     */
+    public function addedRows(): array
+    {
+        return $this->pendingInserts === []
+            ? []
+            : range($this->firstAddedRow(), count($this->rows) - 1);
+    }
+
+    /**
      * Row indexes currently marked, for the renderer.
      *
      * @return array<int, int>
@@ -1415,7 +1583,7 @@ class Browser extends Prompt
 
     public function writePending(): bool
     {
-        if ($this->pendingDeletes === [] && $this->pendingEdits === []) {
+        if ($this->pendingDeletes === [] && $this->pendingEdits === [] && $this->pendingInserts === []) {
             $this->status = 'nothing to write';
 
             return true;
@@ -1424,12 +1592,30 @@ class Browser extends Prompt
         $table = $this->currentTable();
         $key = $this->keyColumn();
 
-        if ($table === null || $key === null) {
+        if ($table === null) {
+            return true;
+        }
+
+        if ($key === null && ($this->pendingEdits !== [] || $this->pendingDeletes !== [])) {
             return true;
         }
 
         $edits = count($this->pendingEdits);
         $deletes = count($this->pendingDeletes);
+        $adds = count($this->pendingInserts);
+
+        foreach ($this->pendingInserts as $values) {
+            $result = $this->runner->insert($this->connection, $table, array_filter(
+                $values,
+                fn (mixed $value) => $value !== null,
+            ));
+
+            if ($result->failed()) {
+                $this->status = 'could not add the row: '.$result->error;
+
+                return true;
+            }
+        }
 
         foreach ($this->pendingEdits as $keyValue => $columns) {
             foreach ($columns as $column => $value) {
@@ -1462,10 +1648,15 @@ class Browser extends Prompt
 
         $this->pendingDeletes = [];
         $this->pendingEdits = [];
+        $this->pendingInserts = [];
 
         $this->load(keepCursor: true);
 
         $written = [];
+
+        if ($adds > 0) {
+            $written[] = $adds.' row'.($adds === 1 ? '' : 's').' added';
+        }
 
         if ($edits > 0) {
             $written[] = $edits.' row'.($edits === 1 ? '' : 's').' updated';
@@ -2637,9 +2828,11 @@ class Browser extends Prompt
         $this->offset = 0;
 
         // Marks name rows by primary key, so they mean nothing in another
-        // table — and writing them there would delete the wrong rows.
+        // table — and writing them there would delete the wrong rows. A row
+        // waiting to be added belongs to the table it was added to.
         $this->pendingDeletes = [];
         $this->pendingEdits = [];
+        $this->pendingInserts = [];
         $this->filters = null;
 
         $this->sortColumn = null;
@@ -2763,6 +2956,10 @@ class Browser extends Prompt
         $this->rowIndex = 0;
         $this->columnIndex = 0;
         $this->columnOffset = 0;
+
+        // Rows waiting to be written belong to this table, so they come back
+        // with it after a sort, a page or a reload.
+        $this->appendPendingRows();
 
         if ($keepCursor) {
             $index = $column === null ? false : array_search($column, $this->headers, true);

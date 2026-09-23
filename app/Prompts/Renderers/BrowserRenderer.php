@@ -247,6 +247,7 @@ class BrowserRenderer extends Renderer
             $prompt->sortDirection,
             $prompt->markedRows(),
             $prompt->editedRows(),
+            $prompt->addedRows(),
         );
         $table->columnOffset = $prompt->columnOffset;
         $table->scrollLocked = $prompt->isDragging();
@@ -390,6 +391,7 @@ class BrowserRenderer extends Renderer
                 'cursor' => $this->highlight(Theme::cursor(), $t),
                 'marked' => $this->highlight(Theme::color('deleted', 'red'), $t),
                 'edited' => $this->highlight(Theme::color('edited', 'yellow'), $t),
+                'added' => $this->highlight(Theme::color('added', 'green'), $t),
                 'selection' => $this->highlight(Theme::selection(), $t),
                 default => $t,
             },

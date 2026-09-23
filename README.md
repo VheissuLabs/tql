@@ -368,6 +368,7 @@ encryption key), both `0600`.
 | `n` / `p` | next or previous page (100 rows) |
 | `r` | reload the current table |
 | `o` | sort by the column the cursor is on |
+| `N` | add a row |
 | `y` / `Y` | yank this value, or the whole row as an object |
 | `d` / `u` | mark the row for deletion, or clear every mark |
 | `L` | follow a link, `esc` comes back |
@@ -753,6 +754,22 @@ prompt sequence. `↑↓` picks a field, `↵` edits it with a real cursor (arro
 home, end, backspace, delete, paste), `ctrl+s` saves and `esc` cancels. Nothing
 is written until you save. The driver is cycled with `← →` and only offers
 drivers your PHP build actually has.
+
+## Adding a row
+
+`N` puts an empty row on the end of the grid. It is a row like any other — `e`
+fills a column, `↵` keeps it — except that it is not in the table yet, so it is
+drawn in the added colour and nothing has happened until `:w`.
+
+A column you never touch is left out of the insert, so the table's own default
+applies: add a row to `widgets (id, name, qty default 1)`, type a name, write
+it, and the id and the quantity come from the database rather than from tql.
+Blank is how that reads on screen — an untouched column is empty, not `NULL`,
+because what it ends up holding is the table's business.
+
+`u` drops it, a reload keeps it, and changing table forgets it. It works on a
+table with no primary key, which editing does not: a row that is not in the
+table yet is written by position rather than by key.
 
 ## Pending changes
 

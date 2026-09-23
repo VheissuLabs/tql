@@ -86,6 +86,7 @@ your terminal is already themed with, and follows it when you change it.
 | `cursor` | `"default"` | the block you are on: the selected cell, the caret |
 | `selection` | `"default"` | highlighted, but not where you are |
 | `edited` | `"yellow"` | a row you have changed, before `:w` |
+| `added` | `"green"` | a row you have added, before `:w` |
 | `deleted` | `"red"` | a row marked for deletion, before `:w` |
 | `modal_border` | `"gray"` | a modal's border, and the ring around it |
 | `modal_focus_border` | `"cyan"` | the same, focused |

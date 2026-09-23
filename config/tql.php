@@ -55,6 +55,8 @@ return [
 
         'edited' => 'yellow',
 
+        'added' => 'green',
+
     ],
 
     /*

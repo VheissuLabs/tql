@@ -459,6 +459,35 @@ class QueryRunner
      *
      * @param  array<int, mixed>  $keyValues
      */
+    /**
+     * Add a row. Only the columns that were filled in are sent, so a column
+     * left alone takes whatever default the table gives it.
+     *
+     * @param  array<string, mixed>  $values
+     */
+    public function insert(Connection $connection, string $table, array $values, string $source = 'tui'): QueryResult
+    {
+        $grammar = $this->grammarFor($connection);
+
+        if ($values === []) {
+            // Every column defaulted: still a row, and every driver spells
+            // that differently.
+            $statement = $connection->driver === 'sqlite'
+                ? 'insert into '.$grammar->wrapTable($table).' default values'
+                : 'insert into '.$grammar->wrapTable($table).' () values ()';
+
+            return $this->run($connection, $statement, $source);
+        }
+
+        $columns = array_map(fn (string $column) => $grammar->wrap($column), array_keys($values));
+
+        $statement = 'insert into '.$grammar->wrapTable($table)
+            .' ('.implode(', ', $columns).')'
+            .' values ('.implode(', ', array_fill(0, count($values), '?')).')';
+
+        return $this->run($connection, $statement, $source, array_values($values));
+    }
+
     public function delete(Connection $connection, string $table, string $key, array $keyValues): QueryResult
     {
         $started = microtime(true);
