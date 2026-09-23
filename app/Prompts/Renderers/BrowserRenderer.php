@@ -2,6 +2,7 @@
 
 namespace App\Prompts\Renderers;
 
+use App\Keys\Keymap;
 use App\Support\Now;
 use App\Tui\Browser;
 use App\Tui\Concerns\RendersWithoutPadding;
@@ -283,27 +284,26 @@ class BrowserRenderer extends Renderer
         $prompt->columnHandles = $table->handles();
 
         $this->clearHotkeys();
-        $this->hotkey('tab', 'Pane');
-        $this->hotkey('i', 'Row');
-        $this->hotkey('e', 'Edit');
-        $this->hotkey('o', 'Sort');
-        $this->hotkey('d', 'Mark');
-        $this->hotkey('a', 'Ask');
-        $this->hotkey('f', 'Filter');
-        $this->hotkey('t', 'Structure');
+
+        // The bar reads the keymap, so a key rebound in config.toml is the key
+        // the bar offers.
+        foreach (['next_pane', 'inspect_row', 'edit_value', 'sort_column', 'mark_delete', 'ask', 'filter_rows', 'structure'] as $action) {
+            $this->action($action);
+        }
 
         if ($prompt->connection->driver !== 'sqlite') {
-            $this->hotkey('b', 'Database');
+            $this->action('databases');
         }
-        $this->hotkey('s', 'SQL');
+
+        $this->action('sql');
 
         // Paging is only worth a slot when there is somewhere to page to.
         if ($prompt->hasMore || $prompt->offset > 0) {
-            $this->hotkey('n/p', 'Page');
+            $this->hotkey(Keymap::key('next_page').'/'.Keymap::key('previous_page'), 'Page');
         }
 
-        $this->hotkey('?', 'Help');
-        $this->hotkey(':q', 'Quit');
+        $this->action('help');
+        $this->hotkey(':'.Keymap::key('quit'), 'Quit');
 
         collect($this->hotkeys())
             ->map(fn (string $line) => rtrim($line))
@@ -313,6 +313,20 @@ class BrowserRenderer extends Renderer
         $this->line($this->fit($this->status($prompt), $width));
 
         return $this;
+    }
+
+    /**
+     * A hotkey from the keymap: its key, and the short label it carries.
+     */
+    private function action(string $action): void
+    {
+        $binding = Keymap::binding($action);
+
+        if ($binding === null || $binding->label === null) {
+            return;
+        }
+
+        $this->hotkey(Keymap::key($action), $binding->label);
     }
 
     /**

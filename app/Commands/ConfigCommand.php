@@ -2,6 +2,7 @@
 
 namespace App\Commands;
 
+use App\Keys\Keymap;
 use App\Support\ConfigFile;
 use App\Support\ConfigTemplate;
 use App\Support\ConfigTidy;
@@ -76,6 +77,10 @@ class ConfigCommand extends Command
 
         $this->line('  <fg=cyan>'.$file.'</>');
         $this->line('  written for '.$written.', template is '.ConfigTemplate::VERSION);
+
+        foreach (Keymap::clashes() as $clash) {
+            $this->line('  <fg=yellow>'.$clash.'</>');
+        }
 
         if ($moved === []) {
             $this->line('  <fg=green>in order</>');

@@ -3,8 +3,8 @@
 Every key tql answers to, by where you are. `?` shows an abridged version of
 this inside the application.
 
-Nothing here is rebindable yet. The bindings are vim's where vim has an opinion,
-and a letter that says what it does where it does not.
+The bindings are vim's where vim has an opinion, and a letter that says what it
+does where it does not. **They can be changed** — see [Rebinding](#rebinding).
 
 ## Browsing
 
@@ -177,6 +177,58 @@ The line under the hotkeys says what just happened. It **lights up when it
 changes** and settles back to dim on your next key press, in the color of what
 it is about: red while rows are marked for deletion, yellow while edits are
 pending, otherwise the focus color.
+
+## Rebinding
+
+Every action in the grid has a name, and `[keys]` in `~/.config/tql/config.toml`
+says which key asks for it:
+
+```toml
+[keys]
+filter_rows = "F"
+new_row = "ctrl+n"
+ask = "?"
+```
+
+A key is a single character (`F` is not `f`), `ctrl+<letter>`, or one of `tab`,
+`shift+tab`, `enter`, `escape`, `space`, `backspace`, `delete`, `up`, `down`,
+`left`, `right`, `home`, `end`. Several keys for one action is a list:
+`yank_value = ["y", "ctrl+y"]`.
+
+Help and the hotkey bar read the same list, so a rebound key is the key they
+offer. A key two actions both want goes to the first one and tql says so, in
+the status line when it starts and in `tql config`. A key it cannot make sense
+of is ignored and the default stands.
+
+| Action | Default | |
+| --- | --- | --- |
+| `inspect_row` | `i` | inspect the row |
+| `view_value` | `I` | view just this value |
+| `edit_value` | `e` | edit the value |
+| `sort_column` | `o` | sort this column |
+| `mark_delete` | `d` | mark the row for deletion |
+| `clear_marks` | `u` | drop every pending change |
+| `new_row` | `N` | add a row |
+| `ask` | `a` | ask for a query |
+| `filter_rows` | `f` | filter the rows |
+| `filter_tables` | `/` | filter the table list |
+| `structure` | `t` | structure |
+| `databases` | `b` | switch database |
+| `sql` | `s` | the SQL editor |
+| `follow_link` | `L` | follow a link |
+| `jump_back` | `ctrl+o` | go back |
+| `next_page` / `previous_page` | `n` / `p` | paging |
+| `reload` | `r` | reload |
+| `connections` | `c` | the connection list |
+| `yank_value` / `yank_row` | `y` / `Y` | yank |
+| `narrow` / `widen` | `,` `<` / `.` `>` | column width |
+| `reset_width` | `=` | reset the column width |
+| `help` | `?` | help |
+| `quit` | `q` | quit |
+
+Movement (`j k h l`, the arrows), `↵`, `esc`, `tab`, `:` and `ctrl+l` are fixed:
+they are what a terminal and a vim user both already assume, and rebinding them
+breaks more than it fixes.
 
 ## Mouse
 

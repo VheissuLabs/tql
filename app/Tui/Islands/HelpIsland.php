@@ -2,6 +2,8 @@
 
 namespace App\Tui\Islands;
 
+use App\Keys\Keymap;
+
 class HelpIsland extends Island
 {
     public const WIDTH = 56;
@@ -66,45 +68,25 @@ class HelpIsland extends Island
     private function sections(): array
     {
         return [
-            'moving' => [
-                'tab' => 'next pane',
-                'shift+tab' => 'previous pane',
-                '↑ ↓ / j k' => 'move the cursor',
-                '← → / h l' => 'move between columns',
-                'n / p' => 'next or previous page',
-                'o' => 'sort this column: asc, desc, primary key',
-                'r' => 'reload the table',
-                'c' => 'back to the connection list',
-                'y' => 'yank this value',
-                'Y' => 'yank the row as an object',
-                'N' => 'add a row, filled in with e and written with :w',
-                'd' => 'mark the row for deletion',
-                'u' => 'clear every mark',
-                'ctrl+l' => 'redraw the screen',
-            ],
-            'doing' => [
-                '↵' => 'open a table, or edit the value',
-                'i' => 'inspect the row: record and related, foldable',
-                'I' => 'view just this value, read only',
-                'e' => 'edit the value: ↵ keeps it, ⇧↵ adds a line',
-                's' => 'SQL editor: ↵ runs it, ⇧↵ adds a line',
-                'a' => 'ask for a query in plain english',
-                '/' => 'filter the tables list',
-                'f' => 'filter the rows: column, operator, value',
-                't' => 'structure: columns, types, keys and indexes',
-                'b' => 'switch database on this server',
-                'L' => 'follow a link: the key under the cursor, or what points here',
-                'esc / ctrl+o' => 'go back where you followed from',
-                '↵ in a filter' => 'open a list you can type to narrow',
-                ', .' => 'narrow or widen the column',
-                '=' => 'reset the column width',
-            ],
+            // Read from the keymap, so a rebound key is right here without
+            // anybody remembering to change two places.
+            'moving' => $this->keysFor([
+                'next_pane', 'previous_pane', 'move_up', 'move_left', 'next_page',
+                'sort_column', 'reload', 'connections', 'yank_value', 'yank_row',
+                'new_row', 'mark_delete', 'clear_marks', 'redraw',
+            ]),
+            'doing' => $this->keysFor([
+                'activate', 'inspect_row', 'view_value', 'edit_value', 'sql', 'ask',
+                'filter_tables', 'filter_rows', 'structure', 'databases',
+                'follow_link', 'jump_back', 'narrow', 'reset_width', 'help', 'quit',
+            ]),
             'viewing a value' => [
                 'j / k' => 'move a line, 3j moves three',
                 'g / G' => 'top or bottom',
                 '12G' => 'jump to line 12',
                 'V' => 'start a line selection',
                 'y' => 'yank the selection',
+                'ctrl+t' => 'type the time, in a date or datetime column',
                 'esc' => 'clear the selection, then close',
             ],
             'mouse' => [
@@ -120,14 +102,35 @@ class HelpIsland extends Island
                 ':tables' => 'focus the tables list',
                 ':rows' => 'focus the rows',
                 ':reload' => 'reload the table',
-                ':w' => 'write marked deletions to the database',
+                ':w' => 'write pending changes to the database',
                 ':c' => 'back to the connection list',
                 ':q' => 'quit',
             ],
             'from the shell' => [
                 'export' => 'tql export <conn> [table] --sql=',
-                'list' => 'tql export <conn> --list',
+                'config' => 'tql config --tidy',
             ],
         ];
+    }
+
+    /**
+     * @param  array<int, string>  $actions
+     * @return array<string, string>
+     */
+    private function keysFor(array $actions): array
+    {
+        $lines = [];
+
+        foreach ($actions as $action) {
+            $binding = Keymap::binding($action);
+
+            if ($binding === null) {
+                continue;
+            }
+
+            $lines[$binding->shown()] = $binding->description;
+        }
+
+        return $lines;
     }
 }

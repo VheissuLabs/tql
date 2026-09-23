@@ -378,7 +378,9 @@ encryption key), both `0600`.
 | `q` / `esc` | quit |
 
 [docs/keys.md](docs/keys.md) has the rest: the filter form, the inspector, the
-SQL editor, the lists, the connection form and the command line.
+SQL editor, the lists, the connection form, the command line — and how to
+rebind any of it with `[keys]` in the config, which help and the hotkey bar
+follow.
 
 Mouse works too: click a table or a row, scroll with the wheel, and **drag a
 column border in the header row to resize it**, as you would in a spreadsheet.

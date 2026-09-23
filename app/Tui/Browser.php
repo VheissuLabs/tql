@@ -8,6 +8,7 @@ use App\Database\Filters;
 use App\Database\OrderBy;
 use App\Database\QueryRunner;
 use App\Database\SqlExporter;
+use App\Keys\Keymap;
 use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Support\Now;
@@ -388,44 +389,42 @@ class Browser extends Prompt
             return;
         }
 
-        match (true) {
-            $key === ':' => $this->openCommandLine(),
-            $key === 'q' => $this->quit(),
-            $key === Key::TAB => $this->toggleFocus(),
-            $key === Key::SHIFT_TAB => $this->toggleFocus(-1),
-            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->moveUp(),
-            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->moveDown(),
-            in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $this->moveColumn(-1),
-            in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l'], true) => $this->moveColumn(1),
-            // , and . are the unshifted < and >, so the pair is the same two
-            // keys without the reach. Both spellings work.
-            $key === ',', $key === '<' => $this->resize(-4),
-            $key === '.', $key === '>' => $this->resize(4),
-            $key === '=' => $this->resetWidth(),
-            $key === 's' => $this->openQuery(),
-            $key === 'i' => $this->inspectRow(),
-            $key === 'I' => $this->startEditing(readOnly: true),
-            $key === '?' => $this->toggleHelp(),
-            $key === 'e' => $this->startEditing(),
-            $key === Key::ENTER => $this->activate(),
-            $key === 'n' => $this->page(self::PAGE),
-            $key === 'p' => $this->page(-self::PAGE),
-            $key === 'r' => $this->reload(),
-            $key === 'o' => $this->sortBy($this->headers[$this->columnIndex] ?? null),
-            $key === '/' => $this->openFilter(),
-            $key === 'a' => $this->openQuestion(),
-            $key === 'f' => $this->openFilters(),
-            $key === 't' => $this->toggleStructure(),
-            $key === 'b' => $this->openDatabases(),
-            $key === 'L' => $this->followLink(),
-            $key === self::BACK => $this->jumpBack(),
-            $key === Key::ESCAPE => $this->escape(),
-            $key === 'c' => $this->quit('connections'),
-            $key === 'N' => $this->newRow(),
-            $key === 'y' => $this->yankCell(),
-            $key === 'Y' => $this->yankRow(),
-            $key === 'd' => $this->markDelete(),
-            $key === 'u' => $this->unmarkAll(),
+        match (Keymap::action($key)) {
+            'command' => $this->openCommandLine(),
+            'quit' => $this->quit(),
+            'next_pane' => $this->toggleFocus(),
+            'previous_pane' => $this->toggleFocus(-1),
+            'move_up' => $this->moveUp(),
+            'move_down' => $this->moveDown(),
+            'move_left' => $this->moveColumn(-1),
+            'move_right' => $this->moveColumn(1),
+            'narrow' => $this->resize(-4),
+            'widen' => $this->resize(4),
+            'reset_width' => $this->resetWidth(),
+            'sql' => $this->openQuery(),
+            'inspect_row' => $this->inspectRow(),
+            'view_value' => $this->startEditing(readOnly: true),
+            'help' => $this->toggleHelp(),
+            'edit_value' => $this->startEditing(),
+            'activate' => $this->activate(),
+            'next_page' => $this->page(self::PAGE),
+            'previous_page' => $this->page(-self::PAGE),
+            'reload' => $this->reload(),
+            'sort_column' => $this->sortBy($this->headers[$this->columnIndex] ?? null),
+            'filter_tables' => $this->openFilter(),
+            'ask' => $this->openQuestion(),
+            'filter_rows' => $this->openFilters(),
+            'structure' => $this->toggleStructure(),
+            'databases' => $this->openDatabases(),
+            'follow_link' => $this->followLink(),
+            'jump_back' => $this->jumpBack(),
+            'escape' => $this->escape(),
+            'connections' => $this->quit('connections'),
+            'new_row' => $this->newRow(),
+            'yank_value' => $this->yankCell(),
+            'yank_row' => $this->yankRow(),
+            'mark_delete' => $this->markDelete(),
+            'clear_marks' => $this->unmarkAll(),
             default => true,
         };
     }

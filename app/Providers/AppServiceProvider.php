@@ -2,6 +2,7 @@
 
 namespace App\Providers;
 
+use App\Keys\Keymap;
 use App\Mcp\Servers\TqlServer;
 use App\Support\ConfigFile;
 use App\Support\Paths;
@@ -66,6 +67,10 @@ class AppServiceProvider extends ServiceProvider
         $moved = [];
 
         config(['tql' => array_replace_recursive(config('tql', []), ConfigFile::hoist($user, $moved))]);
+
+        if (($clashes = Keymap::clashes()) !== []) {
+            config(['tql.config_notice' => 'in [keys]: '.implode(' · ', $clashes)]);
+        }
 
         if ($moved !== []) {
             config(['tql.config_notice' => 'read '.implode(', ', $moved).

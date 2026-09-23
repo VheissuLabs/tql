@@ -154,6 +154,19 @@ url = "http://localhost:1234/v1"
 model = "qwen2.5-coder-7b-instruct"
 ```
 
+## `[keys]`
+
+What key asks for what, by action name:
+
+```toml
+[keys]
+filter_rows = "F"
+new_row = "ctrl+n"
+```
+
+The list of actions, what a key may be written as, and which keys are fixed:
+[keys.md](keys.md#rebinding).
+
 ## What is not configurable
 
 **Tags.** `production`, `staging`, `dev` and `local`, red, yellow, blue and
@@ -161,7 +174,9 @@ green. The point of a tag is that production looks the same in your terminal and
 in the next person's screenshot, so it is a fixed set rather than a list you can
 add to.
 
-**Keys.** Not yet; see [keys.md](keys.md) for what they are.
+**Movement.** `j k h l`, the arrows, `↵`, `esc`, `tab`, `:` and `ctrl+l` are
+what a terminal and a vim user both already assume. Everything else is in
+`[keys]`.
 
 ## Where things live
 

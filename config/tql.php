@@ -83,6 +83,10 @@ return [
 
     ],
 
+    // Rebinding: keys.<action> = "x". Every action is in docs/keys.md, and
+    // `tql config` says when two of them ask for the same key.
+    'keys' => [],
+
     'ui' => [
 
         'top_margin' => 1,
