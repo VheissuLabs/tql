@@ -31,15 +31,25 @@ as happily as a Postgres server behind an SSH tunnel.
 
 ## Installing
 
-Download the binary from the [latest release](https://github.com/VheissuLabs/tql/releases/latest):
+```bash
+curl -fsSL https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh | sh
+```
+
+That picks the newest release, puts `tql` somewhere on your PATH — `/usr/local/bin`
+if it can write there, `~/.local/bin` if not — and tells you where it went. Set
+`TQL_BIN_DIR` to choose, or `TQL_VERSION=v0.3.0` to pin a version. If you would
+rather read a script before running it, and you should,
+[it is here](install.sh); download and run it instead of piping.
+
+By hand, if you prefer:
 
 ```bash
 curl -L -o tql https://github.com/VheissuLabs/tql/releases/latest/download/tql
-chmod +x tql
-mv tql /usr/local/bin/
+chmod +x tql && mv tql /usr/local/bin/
 ```
 
-It needs PHP 8.4 or newer on the machine. On first run it creates
+The binary is a phar, so it needs **PHP 8.4 or newer** on the machine — the
+installer checks before it downloads anything. On first run tql creates
 `~/.config/tql/` and migrates its own store, so there is nothing to set up.
 
 Building it yourself:
