@@ -35,36 +35,48 @@ as happily as a Postgres server behind an SSH tunnel.
 curl -fsSL https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh | sh
 ```
 
-That picks the newest release, puts `tql` somewhere on your PATH — `/usr/local/bin`
-if it can write there, `~/.local/bin` if not — and tells you where it went. Set
-`TQL_BIN_DIR` to choose, or `TQL_VERSION=v0.3.0` to pin a version. If you would
-rather read a script before running it, and you should,
-[it is here](install.sh); download and run it instead of piping.
+One file, no runtime to install — **tql does not need PHP on your machine**.
+The binary carries its own, statically linked, with the three database drivers
+built in.
 
-By hand, if you prefer:
+The installer picks the build for your platform, puts it somewhere on your PATH
+— `/usr/local/bin` if it can write there, `~/.local/bin` if not — and tells you
+where it went. `TQL_BIN_DIR` chooses the directory, `TQL_VERSION=v0.3.0` pins a
+version. If you would rather read a script before running it, and you should,
+[it is here](install.sh).
+
+By hand: the releases carry `tql-linux-x86_64`, `tql-linux-aarch64`,
+`tql-macos-aarch64` and `tql-macos-x86_64`.
 
 ```bash
-curl -L -o tql https://github.com/VheissuLabs/tql/releases/latest/download/tql
+curl -L -o tql https://github.com/VheissuLabs/tql/releases/latest/download/tql-macos-aarch64
 chmod +x tql && mv tql /usr/local/bin/
 ```
 
-The binary is a phar, so it needs **PHP 8.4 or newer** on the machine — the
-installer checks before it downloads anything. On first run tql creates
-`~/.config/tql/` and migrates its own store, so there is nothing to set up.
+On first run tql creates `~/.config/tql/` and migrates its own store, so there
+is nothing to set up.
 
 ### Packages
 
-Every release also carries a `.deb` and an `.rpm`, both of which are the same
-binary plus a dependency on `php-cli`:
+Every release also carries a `.deb` and an `.rpm` per architecture, and neither
+depends on anything:
 
 ```bash
-sudo dpkg -i tql_0.3.0_all.deb        # debian, ubuntu
-sudo dnf install ./tql-0.3.0.noarch.rpm   # fedora, rhel
+sudo dpkg -i tql_0.3.0_amd64.deb          # debian, ubuntu
+sudo dnf install ./tql-0.3.0.x86_64.rpm   # fedora, rhel
 ```
 
 Homebrew and the AUR are packaged from this repository too — see
-[docs/packaging.md](docs/packaging.md) for where each one is published and what
-it takes to cut a new version.
+[docs/packaging.md](docs/packaging.md).
+
+### With PHP, if you would rather
+
+`tql.phar` is on every release as well, for a machine that already has PHP 8.4
+and would rather have a 22MB file than a 35MB one:
+
+```bash
+php tql.phar
+```
 
 Building it yourself:
 
@@ -73,7 +85,7 @@ php -d phar.readonly=0 tql app:build tql --build-version=dev
 ./builds/tql --version
 ```
 
-Tagging `v*` builds and publishes a release from GitHub Actions.
+Tagging `v*` builds and publishes everything above from GitHub Actions.
 
 ## The commands
 

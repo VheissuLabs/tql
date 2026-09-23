@@ -1,32 +1,53 @@
 # Packaging tql
 
-One artifact does all of it: the phar built by `app:build`. Every package is
-that file plus a dependency on PHP 8.4, so there is nothing per-distribution to
-compile and nothing to keep in sync but a version and a checksum.
+tql is a PHP application that ships as a binary with **no PHP required on the
+target machine**. That is static-php-cli's `micro`: a statically linked PHP
+interpreter with a self-extracting stub, which takes an appended phar and runs
+it. A release binary is literally:
+
+```bash
+cat micro.sfx tql.phar > tql
+```
+
+The interpreter is built once per platform from a fixed extension list — the
+three PDO drivers, openssl, curl, mbstring and the pieces Laravel expects — and
+cached between releases, since it only changes when that list or the PHP version
+does.
 
 Everything below is driven by pushing a `v*` tag.
-`.github/workflows/release.yml` builds the phar, smoke-tests it, and publishes.
+`.github/workflows/release.yml` builds, checks and publishes. It also takes a
+`workflow_dispatch`, which builds everything without publishing — use that to
+try a change to the pipeline.
 
-## What ships where
+## What ships
 
 | | |
 | --- | --- |
-| the binary | attached to the GitHub release, and what `install.sh` downloads |
-| `.deb` | attached to the release, built by nfpm from `packaging/nfpm.yaml` |
-| `.rpm` | the same config, `--packager rpm` |
+| `tql-linux-x86_64`, `tql-linux-aarch64` | standalone, needs nothing |
+| `tql-macos-aarch64`, `tql-macos-x86_64` | the same, for macOS |
+| `tql.phar` | 22MB, for a machine that has PHP 8.4 already |
+| `.deb`, `.rpm` | the matching binary, one per architecture, no dependencies |
 | Homebrew | `packaging/homebrew/tql.rb`, pushed to the tap on release |
 | AUR | `packaging/aur/PKGBUILD`, pushed to `tql-bin` on release |
 
-`VERSION` and `SHA` in the formula and the PKGBUILD are placeholders; the
-workflow fills them in from the tag and the checksum of the published binary.
+`VERSION` and the `SHA_*` placeholders in the formula and the PKGBUILD are
+filled in by the workflow from the tag and the published checksums.
 
-To build the packages locally:
+To build a standalone binary locally:
 
 ```bash
+curl -fsSL -o spc https://dl.static-php.dev/static-php-cli/spc-bin/nightly/spc-macos-aarch64
+chmod +x spc
+./spc doctor --auto-fix
+./spc download --with-php=8.4 --for-extensions="$EXTENSIONS" --prefer-pre-built
+./spc build "$EXTENSIONS" --build-micro
+
 php -d phar.readonly=0 tql app:build tql --build-version=0.0.0
-VERSION=0.0.0 nfpm package --config packaging/nfpm.yaml --packager deb --target dist/
-VERSION=0.0.0 nfpm package --config packaging/nfpm.yaml --packager rpm --target dist/
+cat buildroot/bin/micro.sfx builds/tql > tql-local && chmod +x tql-local
 ```
+
+`$EXTENSIONS` is in the workflow, in one place, because the binary and the
+packages must agree about it.
 
 ## Homebrew
 
@@ -72,12 +93,12 @@ yay -S tql-bin
 
 ## Debian and Fedora
 
-The `.deb` and the `.rpm` are attached to each release and install with the
-system tools:
+The `.deb` and the `.rpm` are attached to each release, one per architecture,
+and install with the system tools:
 
 ```bash
-sudo dpkg -i tql_0.3.0_all.deb
-sudo dnf install ./tql-0.3.0.noarch.rpm
+sudo dpkg -i tql_0.3.0_amd64.deb
+sudo dnf install ./tql-0.3.0.x86_64.rpm
 ```
 
 Hosting an actual apt or dnf *repository* — so `apt install tql` works without
@@ -87,6 +108,6 @@ built and correct.
 
 ## Adding a distribution
 
-Anything that can install a single executable and depend on PHP will work. Add
-the recipe under `packaging/`, a step to the release workflow that fills in the
-version and checksum, and a row to the table above.
+Anything that can install a single executable will work — there is no runtime to
+declare. Add the recipe under `packaging/`, a step to the release workflow that
+fills in the version and the checksums, and a row to the table above.

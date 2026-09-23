@@ -1,17 +1,35 @@
 # The formula published to VheissuLabs/homebrew-tap on release.
-# VERSION and SHA are filled in by the release workflow.
+# The version and the checksums are filled in by the release workflow.
 class Tql < Formula
   desc "Database client for the terminal"
   homepage "https://github.com/VheissuLabs/tql"
-  url "https://github.com/VheissuLabs/tql/releases/download/vVERSION/tql"
   version "VERSION"
-  sha256 "SHA"
   license "MIT"
 
-  depends_on "php" => "8.4"
+  on_macos do
+    on_arm do
+      url "https://github.com/VheissuLabs/tql/releases/download/vVERSION/tql-macos-aarch64"
+      sha256 "SHA_MACOS_ARM"
+    end
+    on_intel do
+      url "https://github.com/VheissuLabs/tql/releases/download/vVERSION/tql-macos-x86_64"
+      sha256 "SHA_MACOS_INTEL"
+    end
+  end
+
+  on_linux do
+    on_arm do
+      url "https://github.com/VheissuLabs/tql/releases/download/vVERSION/tql-linux-aarch64"
+      sha256 "SHA_LINUX_ARM"
+    end
+    on_intel do
+      url "https://github.com/VheissuLabs/tql/releases/download/vVERSION/tql-linux-x86_64"
+      sha256 "SHA_LINUX_INTEL"
+    end
+  end
 
   def install
-    bin.install "tql"
+    bin.install Dir["tql-*"].first => "tql"
   end
 
   test do

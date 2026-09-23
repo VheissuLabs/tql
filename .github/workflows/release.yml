@@ -3,12 +3,23 @@ name: release
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build, for a dry run'
+        required: false
 
 permissions:
   contents: write
 
+env:
+  # Everything tql touches: three database drivers, encryption, http for the
+  # ask, and the pieces Laravel expects to be there.
+  EXTENSIONS: bcmath,ctype,curl,dom,fileinfo,filter,iconv,mbstring,mbregex,mysqlnd,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,phar,posix,session,simplexml,sockets,sqlite3,tokenizer,xml,xmlreader,xmlwriter,zlib
+  PHP_VERSION: '8.4'
+
 jobs:
-  build:
+  phar:
     runs-on: ubuntu-latest
 
     steps:
@@ -33,67 +44,179 @@ jobs:
       - name: Build
         run: php tql app:build tql --build-version=${{ steps.version.outputs.version }} --no-interaction
 
-      - name: Check the binary runs
+      - name: Check it runs
         run: |
           chmod +x builds/tql
           ./builds/tql --version
           ./builds/tql list | grep -q 'mcp:start'
 
-      - name: Build the deb and the rpm
-        run: |
-          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v2.47.0/nfpm_2.47.0_Linux_x86_64.tar.gz" \
-            | tar -xz -C /usr/local/bin nfpm
-          mkdir -p dist
-          VERSION=${{ steps.version.outputs.version }} nfpm package \
-            --config packaging/nfpm.yaml --packager deb --target dist/
-          VERSION=${{ steps.version.outputs.version }} nfpm package \
-            --config packaging/nfpm.yaml --packager rpm --target dist/
-
-      - name: Check the deb installs what it says
-        run: |
-          dpkg-deb --contents dist/*.deb | grep -q 'usr/bin/tql'
-          dpkg-deb --info dist/*.deb | grep -q 'php-cli'
-
-      - name: Publish the release
-        uses: softprops/action-gh-release@v2
+      - uses: actions/upload-artifact@v4
         with:
-          files: |
-            builds/tql
-            dist/*.deb
-            dist/*.rpm
-          generate_release_notes: true
-          draft: false
+          name: phar
+          path: builds/tql
 
-  # Both of these need a one-time account setup, and skip themselves until the
-  # secret is there: a tap repository for brew, an AUR account for pacman.
-  publish-packages:
-    needs: build
+  # A phar needs PHP on the machine. These do not: static-php-cli's micro is a
+  # PHP interpreter with no dependencies, and a binary is that with the phar
+  # appended to it.
+  standalone:
+    needs: phar
+    runs-on: ${{ matrix.runner }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            spc: spc-linux-x86_64
+            asset: tql-linux-x86_64
+          - runner: ubuntu-24.04-arm
+            spc: spc-linux-aarch64
+            asset: tql-linux-aarch64
+          - runner: macos-14
+            spc: spc-macos-aarch64
+            asset: tql-macos-aarch64
+          - runner: macos-13
+            spc: spc-macos-x86_64
+            asset: tql-macos-x86_64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: phar
+          path: builds
+
+      - name: Get the builder
+        run: |
+          curl -fsSL -o spc "https://dl.static-php.dev/static-php-cli/spc-bin/nightly/${{ matrix.spc }}"
+          chmod +x spc
+          ./spc --version
+
+      # The interpreter only changes when the extension list or the PHP version
+      # does, so it is worth keeping between releases.
+      - name: Cache the interpreter
+        id: cache
+        uses: actions/cache@v4
+        with:
+          path: buildroot/bin/micro.sfx
+          key: micro-${{ matrix.asset }}-php${{ env.PHP_VERSION }}-${{ hashFiles('.github/workflows/release.yml') }}
+
+      - name: Build the interpreter
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          ./spc doctor --auto-fix
+          ./spc download --with-php=${{ env.PHP_VERSION }} --for-extensions="$EXTENSIONS" --prefer-pre-built
+          ./spc build "$EXTENSIONS" --build-micro
+
+      - name: Make the binary
+        run: |
+          cat buildroot/bin/micro.sfx builds/tql > ${{ matrix.asset }}
+          chmod +x ${{ matrix.asset }}
+
+      - name: Check it runs, with no PHP in sight
+        run: |
+          ./${{ matrix.asset }} --version
+          ./${{ matrix.asset }} list | grep -q 'mcp:start'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.asset }}
+          path: ${{ matrix.asset }}
+
+  packages:
+    needs: standalone
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Work out the version and the checksum
-        id: release
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: tql-linux-*
+          path: binaries
+          merge-multiple: true
+
+      - name: Read the version from the tag
+        id: version
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Build the deb and the rpm, one per architecture
+        run: |
+          curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v2.47.0/nfpm_2.47.0_Linux_x86_64.tar.gz" \
+            | tar -xz -C /usr/local/bin nfpm
+          mkdir -p dist
+
+          for arch in amd64 arm64; do
+            case "$arch" in
+              amd64) cp binaries/tql-linux-x86_64 dist/tql ;;
+              arm64) cp binaries/tql-linux-aarch64 dist/tql ;;
+            esac
+
+            chmod +x dist/tql
+
+            VERSION=${{ steps.version.outputs.version }} ARCH=$arch nfpm package \
+              --config packaging/nfpm.yaml --packager deb --target dist/
+            VERSION=${{ steps.version.outputs.version }} ARCH=$arch nfpm package \
+              --config packaging/nfpm.yaml --packager rpm --target dist/
+          done
+
+          rm dist/tql
+
+      - name: Check the deb holds a binary that needs nothing
+        run: |
+          dpkg-deb --contents dist/*amd64.deb | grep -q 'usr/bin/tql'
+          ! dpkg-deb --info dist/*amd64.deb | grep -q 'Depends'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: packages
+          path: dist
+
+  # Both of these need a one-time account setup, and skip themselves until the
+  # secret is there: a tap repository for brew, an AUR account for pacman.
+  recipes:
+    needs: publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checksums for each binary
+        id: sums
         env:
           TAG: ${{ github.ref_name }}
         run: |
-          curl -fsSL -o tql "https://github.com/${{ github.repository }}/releases/download/$TAG/tql"
+          base="https://github.com/${{ github.repository }}/releases/download/$TAG"
+
+          for asset in linux-x86_64 linux-aarch64 macos-x86_64 macos-aarch64; do
+            curl -fsSL -o "tql-$asset" "$base/tql-$asset"
+            echo "$(echo $asset | tr '-' '_')=$(sha256sum "tql-$asset" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+          done
+
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
-          echo "sha=$(sha256sum tql | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
 
       - name: Update the Homebrew tap
         env:
           TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
-          VERSION: ${{ steps.release.outputs.version }}
-          SHA: ${{ steps.release.outputs.sha }}
+          VERSION: ${{ steps.sums.outputs.version }}
+          SHA_MACOS_ARM: ${{ steps.sums.outputs.macos_aarch64 }}
+          SHA_MACOS_INTEL: ${{ steps.sums.outputs.macos_x86_64 }}
+          SHA_LINUX_ARM: ${{ steps.sums.outputs.linux_aarch64 }}
+          SHA_LINUX_INTEL: ${{ steps.sums.outputs.linux_x86_64 }}
         run: |
           if [ -z "$TAP_TOKEN" ]; then
             echo 'No HOMEBREW_TAP_TOKEN, skipping the tap.'
             exit 0
           fi
 
-          sed -e "s/VERSION/$VERSION/g" -e "s/SHA/$SHA/g" packaging/homebrew/tql.rb > /tmp/tql.rb
+          sed -e "s/VERSION/$VERSION/g" \
+              -e "s/SHA_MACOS_ARM/$SHA_MACOS_ARM/" \
+              -e "s/SHA_MACOS_INTEL/$SHA_MACOS_INTEL/" \
+              -e "s/SHA_LINUX_ARM/$SHA_LINUX_ARM/" \
+              -e "s/SHA_LINUX_INTEL/$SHA_LINUX_INTEL/" \
+              packaging/homebrew/tql.rb > /tmp/tql.rb
 
           git clone "https://x-access-token:$TAP_TOKEN@github.com/VheissuLabs/homebrew-tap.git" /tmp/tap
           mkdir -p /tmp/tap/Formula
@@ -109,8 +232,9 @@ jobs:
       - name: Update the AUR package
         env:
           AUR_KEY: ${{ secrets.AUR_SSH_KEY }}
-          VERSION: ${{ steps.release.outputs.version }}
-          SHA: ${{ steps.release.outputs.sha }}
+          VERSION: ${{ steps.sums.outputs.version }}
+          SHA_LINUX_INTEL: ${{ steps.sums.outputs.linux_x86_64 }}
+          SHA_LINUX_ARM: ${{ steps.sums.outputs.linux_aarch64 }}
         run: |
           if [ -z "$AUR_KEY" ]; then
             echo 'No AUR_SSH_KEY, skipping the AUR.'
@@ -124,7 +248,10 @@ jobs:
           export GIT_SSH_COMMAND='ssh -i ~/.ssh/aur'
 
           git clone ssh://aur@aur.archlinux.org/tql-bin.git /tmp/aur
-          sed -e "s/VERSION/$VERSION/g" -e "s/SHA/$SHA/g" packaging/aur/PKGBUILD > /tmp/aur/PKGBUILD
+          sed -e "s/VERSION/$VERSION/g" \
+              -e "s/SHA_LINUX_INTEL/$SHA_LINUX_INTEL/" \
+              -e "s/SHA_LINUX_ARM/$SHA_LINUX_ARM/" \
+              packaging/aur/PKGBUILD > /tmp/aur/PKGBUILD
 
           cd /tmp/aur
           git config user.name 'github-actions[bot]'
@@ -134,3 +261,23 @@ jobs:
           git add PKGBUILD .SRCINFO
           git commit -m "tql $VERSION"
           git push
+
+  publish:
+    needs: [phar, standalone, packages]
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: release
+          merge-multiple: true
+
+      - name: Name the phar for what it is
+        run: mv release/tql release/tql.phar
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          generate_release_notes: true
+          draft: false

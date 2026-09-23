@@ -1,10 +1,11 @@
-# Builds the .deb and .rpm attached to each release.
+# Builds the .deb and the .rpm attached to each release.
 #
-#   VERSION=0.3.0 nfpm package --config packaging/nfpm.yaml --packager deb
+#   VERSION=0.3.0 ARCH=amd64 nfpm package --config packaging/nfpm.yaml --packager deb
 #
-# The binary is a phar, so the package is one file plus a dependency on PHP.
+# dist/tql is the standalone binary for that architecture, so the package is
+# one file and nothing else.
 name: tql
-arch: all
+arch: ${ARCH}
 platform: linux
 version: ${VERSION}
 section: database
@@ -19,15 +20,9 @@ homepage: https://github.com/VheissuLabs/tql
 license: MIT
 
 contents:
-  - src: ./builds/tql
+  - src: ./dist/tql
     dst: /usr/bin/tql
     file_info:
       mode: 0755
 
-overrides:
-  deb:
-    depends:
-      - php-cli (>= 8.4)
-  rpm:
-    depends:
-      - php-cli >= 8.4
+# No dependencies at all: the binary carries its own PHP.
