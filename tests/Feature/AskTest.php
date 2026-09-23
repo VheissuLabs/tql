@@ -8,6 +8,7 @@ use App\Models\Connection;
 use App\Tui\Browser;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
     Artisan::call('migrate', ['--force' => true]);
@@ -314,3 +315,33 @@ it('drops a block comment the model signed off with', function () {
         ->and($trimmed->invoke(null, 'select /* the count */ count(*) from t;'))
         ->toBe('select /* the count */ count(*) from t;');
 });
+
+it('reads the answer a local reasoning model left in its thinking, through the sdk', function (string $content) {
+    config([
+        'tql.ai.provider' => 'auto',
+        'tql.ai.url' => 'http://localhost:1234/v1',
+        'tql.ai.model' => 'qwen3-8b',
+    ]);
+
+    Http::fake(['localhost:1234/*' => Http::response([
+        'id' => 'chatcmpl-1',
+        'object' => 'chat.completion',
+        'model' => 'qwen3-8b',
+        'choices' => [[
+            'index' => 0,
+            'finish_reason' => 'stop',
+            'message' => [
+                'role' => 'assistant',
+                'content' => $content,
+                'reasoning_content' => 'Thinking. {"query": "select count(*) from customers", "explanation": "counts them"}',
+            ],
+        ]],
+        'usage' => ['prompt_tokens' => 10, 'completion_tokens' => 20, 'total_tokens' => 30],
+    ])]);
+
+    $answer = app(Ask::class)->for(asked()->connection, 'how many customers?');
+
+    expect($answer)->toBeArray()
+        ->and($answer['query'])->toBe('select count(*) from customers')
+        ->and($answer['explanation'])->toBe('counts them');
+})->with(['empty content' => '', 'thinking tags' => '<think></think>']);

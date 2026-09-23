@@ -81,9 +81,13 @@ class Ask
      */
     private static function reasoning(mixed $response): string
     {
-        $raw = is_object($response) && isset($response->steps)
-            ? ($response->steps->first()->raw ?? null)
-            : null;
+        $step = is_object($response) && isset($response->steps) ? $response->steps->first() : null;
+
+        if (is_string($step->reasoning ?? null) && trim($step->reasoning) !== '') {
+            return $step->reasoning;
+        }
+
+        $raw = $step->raw ?? null;
 
         if (! $raw instanceof Response) {
             return '';

@@ -19,7 +19,6 @@ class Providers
         'openrouter' => 'anthropic/claude-sonnet-5',
         'ollama' => 'llama3.2',
         'azure' => 'gpt-4o',
-        'bedrock' => 'anthropic.claude-sonnet-4-20250514-v1:0',
         'openai-compatible' => '',
     ];
 
@@ -147,7 +146,6 @@ class Providers
     {
         return match ($provider) {
             'azure' => 'AZURE_OPENAI_API_KEY',
-            'bedrock' => 'AWS_BEARER_TOKEN_BEDROCK',
             'eleven' => 'ELEVENLABS_API_KEY',
             'openai-compatible' => 'OPENAI_COMPATIBLE_API_KEY',
             default => strtoupper(str_replace('-', '_', $provider)).'_API_KEY',
