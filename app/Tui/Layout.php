@@ -37,6 +37,29 @@ class Layout
         return (string) config('tql.ui.row_style', 'marker');
     }
 
+    public const MIN_COLUMNS = 60;
+
+    public const MIN_LINES = 12;
+
+    public static function tooSmall(int $columns, int $lines, int $minLines = self::MIN_LINES): ?array
+    {
+        if ($columns >= self::MIN_COLUMNS && $lines >= $minLines) {
+            return null;
+        }
+
+        $message = [
+            'Make the window bigger',
+            'tql needs '.self::MIN_COLUMNS.'×'.$minLines,
+            'this is '.$columns.'×'.$lines,
+        ];
+
+        return array_slice(
+            array_map(fn (string $line) => mb_substr($line, 0, max(1, $columns)), $message),
+            0,
+            max(1, $lines - 1),
+        );
+    }
+
     public static function followTheTerminal(): void
     {
         putenv('COLUMNS');

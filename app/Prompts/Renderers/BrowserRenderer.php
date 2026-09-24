@@ -39,8 +39,18 @@ class BrowserRenderer extends Renderer
 
     public function __invoke(Browser $prompt): string
     {
-        $width = max(60, $prompt->terminal()->cols());
-        $height = max(12, $prompt->terminal()->lines());
+        $small = Layout::tooSmall($prompt->terminal()->cols(), $prompt->terminal()->lines());
+
+        if ($small !== null) {
+            foreach ($small as $line) {
+                $this->line($line);
+            }
+
+            return $this;
+        }
+
+        $width = $prompt->terminal()->cols();
+        $height = $prompt->terminal()->lines();
 
         $top = Layout::topMargin() + 1;
         $prompt->firstBodyRow = $top + 1;

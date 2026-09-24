@@ -1808,3 +1808,32 @@ it('keeps a status message when status_seconds is 0', function () {
 
     config(['tql.ui.status_seconds' => 4]);
 });
+
+it('asks for a bigger window rather than wrapping a layout that cannot fit', function (int $columns, int $rows) {
+    putenv("COLUMNS={$columns}");
+    putenv("LINES={$rows}");
+
+    $browser = browserFor(sqliteFixture());
+    $lines = array_values(array_filter(explode("\n", frameOf($browser)), fn (string $line) => $line !== ''));
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    expect(implode("\n", $lines))->toContain(mb_substr('Make the window bigger', 0, $columns))
+        ->and(max(array_map('mb_strlen', $lines)))->toBeLessThanOrEqual($columns)
+        ->and(count($lines))->toBeLessThan($rows)
+        ->and(implode("\n", $lines))->not->toContain('┌');
+})->with([[40, 30], [80, 8], [12, 4]]);
+
+it('draws the full layout from the smallest size it fits', function () {
+    putenv('COLUMNS=60');
+    putenv('LINES=12');
+
+    $frame = frameOf(browserFor(sqliteFixture()));
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    expect($frame)->toContain('┌')
+        ->and($frame)->not->toContain('Make the window bigger');
+});

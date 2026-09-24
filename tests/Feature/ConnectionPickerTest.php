@@ -771,3 +771,11 @@ it('saves a sqlite path under ~ with the home directory in place', function () {
 
     expect(Connection::where('name', 'home')->value('database'))->toBe(realpath($home.'/code/lunar.sqlite'));
 });
+
+it('asks for a bigger window on the connection list too', function () {
+    $frame = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame(picker(), 40, 20));
+
+    expect($frame)->toContain('Make the window bigger')
+        ->and($frame)->toContain('tql needs 60×10')
+        ->and(max(array_map('mb_strlen', explode("\n", $frame))))->toBeLessThanOrEqual(40);
+});

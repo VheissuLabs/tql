@@ -22,8 +22,18 @@ class ConnectionPickerRenderer extends Renderer
     {
         $prompt->firstBodyRow = Layout::firstBodyRow(Layout::topMargin());
 
-        $width = max(60, $prompt->terminal()->cols());
-        $height = max(10, $prompt->terminal()->lines());
+        $small = Layout::tooSmall($prompt->terminal()->cols(), $prompt->terminal()->lines(), 10);
+
+        if ($small !== null) {
+            foreach ($small as $line) {
+                $this->line($line);
+            }
+
+            return $this;
+        }
+
+        $width = $prompt->terminal()->cols();
+        $height = $prompt->terminal()->lines();
 
         $inner = $width - 2;
         $bodyHeight = max(3, $height - 7 - Layout::topMargin());
