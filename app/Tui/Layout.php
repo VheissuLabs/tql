@@ -37,6 +37,12 @@ class Layout
         return (string) config('tql.ui.row_style', 'marker');
     }
 
+    public static function followTheTerminal(): void
+    {
+        putenv('COLUMNS');
+        putenv('LINES');
+    }
+
     public static function mouse(): bool
     {
         return (bool) config('tql.ui.mouse', true);

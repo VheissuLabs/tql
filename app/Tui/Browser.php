@@ -193,35 +193,64 @@ class Browser extends Prompt
         return true;
     }
 
+    public bool $resized = false;
+
     public function runLoop(callable $callable): mixed
     {
-        while (true) {
-            $read = [STDIN];
-            $write = null;
-            $except = null;
+        $watching = function_exists('pcntl_signal') && defined('SIGWINCH');
 
-            $ready = @stream_select($read, $write, $except, 0, 250_000);
+        if ($watching) {
+            pcntl_async_signals(true);
+            pcntl_signal(SIGWINCH, function () {
+                $this->resized = true;
+            });
+        }
 
-            if ($ready === 0 && $this->fadeStatus()) {
-                $this->render();
+        try {
+            while (true) {
+                $read = [STDIN];
+                $write = null;
+                $except = null;
+
+                $ready = @stream_select($read, $write, $except, 0, 250_000);
+
+                if ($this->idle($ready === 0)) {
+                    $this->render();
+                }
+
+                if ($ready !== 1) {
+                    continue;
+                }
+
+                $key = static::terminal()->read();
+
+                if ($key === '') {
+                    continue;
+                }
+
+                $result = $callable($key);
+
+                if ($result instanceof Result) {
+                    return $result->value;
+                }
             }
-
-            if ($ready !== 1) {
-                continue;
-            }
-
-            $key = static::terminal()->read();
-
-            if ($key === '') {
-                continue;
-            }
-
-            $result = $callable($key);
-
-            if ($result instanceof Result) {
-                return $result->value;
+        } finally {
+            if ($watching) {
+                pcntl_signal(SIGWINCH, SIG_DFL);
             }
         }
+    }
+
+    public function idle(bool $timedOut): bool
+    {
+        $redraw = $this->resized;
+        $this->resized = false;
+
+        if ($timedOut && $this->fadeStatus()) {
+            $redraw = true;
+        }
+
+        return $redraw;
     }
 
     /** Set on the render right after the status changed, and not after that. */

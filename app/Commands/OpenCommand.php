@@ -8,6 +8,7 @@ use App\Database\Dsn;
 use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Tui\Browser;
+use App\Tui\Layout;
 use App\Tui\RowFormatter;
 use LaravelZero\Framework\Commands\Command;
 
@@ -113,6 +114,8 @@ class OpenCommand extends Command
         if ($connection->exists) {
             $this->connections->touch($connection);
         }
+
+        Layout::followTheTerminal();
 
         (new Browser($connection, $this->runner, $this->formatter))->prompt();
 

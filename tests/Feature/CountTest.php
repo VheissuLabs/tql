@@ -166,3 +166,23 @@ it('leaves the SQL editor for another pane with alt and a number, and types plai
     expect($browser->mode)->toBe('browse')
         ->and($browser->focus)->toBe('sidebar');
 });
+
+it('redraws after the window is resized, without waiting for a key', function () {
+    config(['tql.ui.status_seconds' => 4]);
+
+    $browser = counted();
+
+    expect($browser->idle(false))->toBeFalse();
+
+    $browser->resized = true;
+
+    expect($browser->idle(false))->toBeTrue()
+        ->and($browser->resized)->toBeFalse()
+        ->and($browser->idle(false))->toBeFalse();
+
+    $browser->status = 'copied the value';
+    $browser->statusSince = microtime(true) - 10;
+
+    expect($browser->idle(true))->toBeTrue()
+        ->and($browser->idle(true))->toBeFalse();
+});

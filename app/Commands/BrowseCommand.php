@@ -7,6 +7,7 @@ use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Tui\Browser;
 use App\Tui\ConnectionPicker;
+use App\Tui\Layout;
 use App\Tui\RowFormatter;
 use LaravelZero\Framework\Commands\Command;
 
@@ -34,6 +35,8 @@ class BrowseCommand extends Command
 
             return self::FAILURE;
         }
+
+        Layout::followTheTerminal();
 
         $next = null;
 
