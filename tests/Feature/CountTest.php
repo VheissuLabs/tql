@@ -129,3 +129,40 @@ it('reads and writes alt keys the way a person would', function () {
         ->and(Keys::glyph("\e3"))->toBe(PHP_OS_FAMILY === 'Darwin' ? '⌥3' : 'alt+3')
         ->and(Keymap::key('focus_rows'))->toBe('alt+2');
 });
+
+it('draws only the pane you are in as focused', function () {
+    $browser = counted();
+
+    keys($browser, "\e1", "\e3");
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+    $render->invoke($browser);
+
+    expect($browser->mode)->toBe('query')
+        ->and($browser->sidebar->focused)->toBeFalse()
+        ->and($browser->table->focused)->toBeFalse()
+        ->and($browser->editorIsland->focused)->toBeTrue();
+});
+
+it('leaves the SQL editor for another pane with alt and a number, and types plain digits', function () {
+    $browser = counted();
+
+    keys($browser, "\e3");
+    $browser->editor->set('select ');
+    $browser->editor->toEnd();
+    keys($browser, '4', '2');
+
+    expect($browser->editor->buffer())->toBe('select 42')
+        ->and($browser->mode)->toBe('query');
+
+    keys($browser, "\e2");
+
+    expect($browser->mode)->toBe('browse')
+        ->and($browser->focus)->toBe('grid');
+
+    keys($browser, "\e3", "\e1");
+
+    expect($browser->mode)->toBe('browse')
+        ->and($browser->focus)->toBe('sidebar');
+});

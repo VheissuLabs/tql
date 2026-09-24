@@ -51,7 +51,7 @@ class BrowserRenderer extends Renderer
         $tablesWidth = min($prompt->tablesWidth(), max(8, $width - 30));
 
         $sidebar = new SidebarIsland($prompt->visibleTables(), $prompt->tableIndex, $style, $prompt->filter);
-        $sidebar->focused = $prompt->focus === 'sidebar';
+        $sidebar->focused = $prompt->focus === 'sidebar' && $prompt->mode !== 'query';
         $sidebar->title = $this->paneKey('focus_tables').$sidebar->heading($prompt->connection->driver === 'sqlite'
             ? basename((string) $prompt->connection->database)
             : (string) $prompt->connection->activeDatabase(), $tablesWidth - 4 - mb_strlen($this->paneKey('focus_tables')));

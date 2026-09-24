@@ -765,8 +765,8 @@ class Browser extends Prompt
 
     private function handleQueryKey(string $key): void
     {
-        if (Keymap::action($key) === 'palette') {
-            $this->openPalette();
+        if (in_array(Keymap::action($key), ['palette', 'focus_tables', 'focus_rows', 'focus_sql'], true) && ! Input::isText($key)) {
+            $this->runAction((string) Keymap::action($key));
 
             return;
         }
