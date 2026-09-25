@@ -67,6 +67,7 @@ function relatedBrowser(string $sql, ?string $table = null): Browser
 
     $browser->emit('key', "\n");
     $browser->emit('key', 'i');
+    expanded($browser);
 
     // Render once: the related rows are laid out to the width of the box, so
     // until the frame has been drawn there is no width to lay them out to.
@@ -112,7 +113,7 @@ it('folds a section with enter', function () {
 
     expect(inspected($browser))->toContain('user.signed_up');
 
-    // The cursor starts on the record heading.
+    $browser->emit('key', 'k');
     $browser->emit('key', "\n");
 
     expect($browser->document->isFolded(RowDocument::RECORD))->toBeTrue()
@@ -128,6 +129,7 @@ it('folds with space as well as enter', function () {
     $browser = inspectable();
 
     $browser->emit('key', 'i');
+    $browser->emit('key', 'k');
     $browser->emit('key', ' ');
 
     expect($browser->document->isFolded(RowDocument::RECORD))->toBeTrue();
@@ -151,12 +153,12 @@ it('moves with j and k and jumps with g and G', function () {
 
     $browser->emit('key', 'i');
 
-    expect($browser->documentLine)->toBe(0);
+    expect($browser->documentLine)->toBe(1);
 
     $browser->emit('key', 'j');
     $browser->emit('key', 'j');
 
-    expect($browser->documentLine)->toBe(2);
+    expect($browser->documentLine)->toBe(3);
 
     $browser->emit('key', 'g');
 
@@ -165,6 +167,38 @@ it('moves with j and k and jumps with g and G', function () {
     $browser->emit('key', 'G');
 
     expect($browser->documentLine)->toBe(count($browser->document->lines()) - 1);
+});
+
+it('opens with the cursor on the first field', function () {
+    $browser = inspectable();
+
+    $browser->emit('key', 'i');
+
+    expect($browser->document->columnAt($browser->documentLine))->toBe('id');
+});
+
+it('wraps around inside a box instead of leaving it', function () {
+    $browser = relatedBrowser(<<<'SQL'
+        create table artists (id integer primary key, name text);
+        create table albums (id integer primary key, artist_id integer references artists(id), title text);
+        insert into artists (name) values ('AC/DC');
+        insert into albums (artist_id, title) values (1, 'Powerage');
+    SQL, 'artists');
+
+    $browser->documentLine = 0;
+    $browser->emit('key', 'k');
+
+    expect($browser->document->columnAt($browser->documentLine))->toBe('name');
+
+    $browser->emit('key', 'j');
+
+    expect($browser->documentLine)->toBe(0);
+
+    $browser->emit('key', "\t");
+    $browser->emit('key', 'k');
+    $browser->emit('key', 'k');
+
+    expect($browser->document->lines()[$browser->documentLine]['section'])->toBe(RowDocument::RELATED);
 });
 
 it('keeps the cursor in range when a fold shortens the document', function () {
@@ -207,6 +241,7 @@ it('collapses a box to its title bar', function () {
 
     $open = substr_count(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)), "\n");
 
+    $browser->emit('key', 'k');
     $browser->emit('key', "\n");
 
     $closed = substr_count(preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser)), "\n");
@@ -274,7 +309,6 @@ it('selects and yanks lines', function () {
     $browser = inspectable();
 
     $browser->emit('key', 'i');
-    $browser->emit('key', 'j');
     $browser->emit('key', 'V');
     $browser->emit('key', 'j');
 
@@ -306,8 +340,6 @@ it('edits the column the cursor is on with e', function () {
 
     $browser->emit('key', 'i');
 
-    // record heading, then id, then name.
-    $browser->emit('key', 'j');
     $browser->emit('key', 'j');
 
     $browser->emit('key', 'e');

@@ -18,6 +18,12 @@ class RowDocument
     /** @var array<string, bool> */
     private array $folded = [];
 
+    private ?array $built = null;
+
+    private ?array $fields = null;
+
+    private array $bodies = [];
+
     /**
      * @param  array<string, mixed>  $row
      * @param  array<string, string>  $types  column => type name
@@ -27,7 +33,11 @@ class RowDocument
         private array $row,
         private array $types = [],
         private array $related = [],
-    ) {}
+    ) {
+        $this->folded = collect(array_keys($related))
+            ->mapWithKeys(fn ($table) => [self::RELATED.'.'.$table => true])
+            ->all();
+    }
 
     /**
      * Every line, in order, tagged with the section it belongs to so the two
@@ -36,6 +46,11 @@ class RowDocument
      * @return array<int, array{text: string, fold: ?string, section: string, heading: bool, column: ?string}>
      */
     public function lines(): array
+    {
+        return $this->built ??= $this->build();
+    }
+
+    private function build(): array
     {
         $lines = [[
             'text' => 'RECORD  ('.count($this->row).')',
@@ -46,15 +61,13 @@ class RowDocument
         ]];
 
         if (! $this->isFolded(self::RECORD)) {
-            foreach ($this->row as $column => $value) {
-                $lines[] = [
-                    'text' => '  '.$this->field((string) $column, $value, 1),
-                    'fold' => null,
-                    'section' => self::RECORD,
-                    'heading' => false,
-                    'column' => (string) $column,
-                ];
-            }
+            array_push($lines, ...$this->fields ??= array_map(fn ($column, $value) => [
+                'text' => '  '.$this->field((string) $column, $value, 1),
+                'fold' => null,
+                'section' => self::RECORD,
+                'heading' => false,
+                'column' => (string) $column,
+            ], array_keys($this->row), $this->row));
         }
 
         if ($this->related === []) {
@@ -75,7 +88,7 @@ class RowDocument
 
         foreach ($this->related as $table => $relation) {
             $key = self::RELATED.'.'.$table;
-            $shown = count($relation['rows']);
+            $shown = $relation['shown'] ?? count($relation['rows'] ?? []);
             $total = $relation['total'];
             $kind = $relation['kind'] ?? 'has many';
             $one = ! str_starts_with($kind, 'has many');
@@ -96,25 +109,35 @@ class RowDocument
                 continue;
             }
 
-            // One record reads as a record: the album's artist is a thing with
-            // fields, not a table with one row in it. Many read as a
-            // collection — one header, then the rows.
-            $body = $one && $shown === 1
-                ? $this->record($relation['rows'][0], $relation['hide'] ?? [])
-                : $this->collection($relation['rows'], $relation['hide'] ?? []);
-
-            foreach ($body as $line) {
-                $lines[] = [
-                    'text' => '      '.$line,
-                    'fold' => null,
-                    'section' => self::RELATED,
-                    'heading' => false,
-                    'column' => null,
-                ];
-            }
+            array_push($lines, ...$this->body((string) $table, $relation, $one));
         }
 
         return $lines;
+    }
+
+    private function body(string $table, array $relation, bool $one): array
+    {
+        if (($relation['rows'] ?? null) === null) {
+            return [$this->bodyLine('loading…')];
+        }
+
+        return $this->bodies[$table] ??= array_map(
+            fn (string $line) => $this->bodyLine($line),
+            $one && count($relation['rows']) === 1
+                ? $this->record($relation['rows'][0], $relation['hide'] ?? [])
+                : $this->collection($relation['rows'], $relation['hide'] ?? []),
+        );
+    }
+
+    private function bodyLine(string $text): array
+    {
+        return [
+            'text' => '      '.$text,
+            'fold' => null,
+            'section' => self::RELATED,
+            'heading' => false,
+            'column' => null,
+        ];
     }
 
     /**
@@ -150,6 +173,30 @@ class RowDocument
     public function hasRelated(): bool
     {
         return $this->related !== [];
+    }
+
+    public function waiting(): array
+    {
+        if ($this->isFolded(self::RELATED)) {
+            return [];
+        }
+
+        return collect($this->related)
+            ->filter(fn (array $relation, $table) => ($relation['rows'] ?? null) === null && ! $this->isFolded(self::RELATED.'.'.$table))
+            ->keys()
+            ->all();
+    }
+
+    public function fill(string $table, array $rows): void
+    {
+        $this->related[$table]['rows'] = $rows;
+
+        unset($this->bodies[$table]);
+        $this->built = null;
+
+        if (($this->related[$table]['total'] ?? null) === null) {
+            $this->related[$table]['shown'] = count($rows);
+        }
     }
 
     private function marker(string $key): string
@@ -300,6 +347,7 @@ class RowDocument
         }
 
         $this->folded[$fold] = ! $this->isFolded($fold);
+        $this->built = null;
     }
 
     public function foldable(int $line): bool
@@ -334,7 +382,13 @@ class RowDocument
      */
     public function fitTo(int $width): void
     {
+        if ($this->width === max(self::CELL_FLOOR, $width)) {
+            return;
+        }
+
         $this->width = max(self::CELL_FLOOR, $width);
+        $this->bodies = [];
+        $this->built = null;
     }
 
     /**

@@ -4,7 +4,9 @@ use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Tui\Browser;
 use App\Tui\RowFormatter;
+use Illuminate\Database\Events\QueryExecuted;
 use Illuminate\Support\Facades\Artisan;
+use Illuminate\Support\Facades\Event;
 
 beforeEach(function () {
     Artisan::call('migrate', ['--force' => true]);
@@ -316,7 +318,7 @@ it('inspects a row with the record it belongs to', function () {
 
     $browser->emit('key', 'i');
 
-    $text = $browser->document->text();
+    $text = expanded($browser)->document->text();
 
     expect($text)->toContain('RECORD')
         ->and($text)->toContain('Let There Be Rock')
@@ -335,7 +337,7 @@ it('inspects a row with the records that belong to it', function () {
 
     $browser->emit('key', 'i');
 
-    $text = $browser->document->text();
+    $text = expanded($browser)->document->text();
 
     expect($text)->toContain('AC/DC')
         ->and($text)->toContain('albums  ·  has many  (1)')
@@ -364,7 +366,7 @@ it('shows related rows as a collection with one header', function () {
     $browser->emit('key', 'j');
     $browser->emit('key', 'i');
 
-    $text = $browser->document->text();
+    $text = expanded($browser)->document->text();
 
     // One header for the collection, then a line per record.
     expect(substr_count($text, 'title'))->toBe(1)
@@ -378,18 +380,14 @@ it('folds a related table on its own', function () {
     $browser->focus = 'sidebar';
     $browser->emit('key', 'j');
     $browser->emit('key', 'i');
-
-    // Walk to the albums heading inside related, and do not walk for ever if
-    // the heading ever changes shape again.
-    foreach (range(1, count($browser->document->lines())) as $ignored) {
-        if (str_contains($browser->document->lines()[$browser->documentLine]['text'], 'albums  ·')) {
-            break;
-        }
-
-        $browser->emit('key', 'j');
-    }
+    $browser->emit('key', "\t");
 
     expect($browser->document->lines()[$browser->documentLine]['text'])->toContain('albums  ·');
+
+    $browser->emit('key', "\n");
+
+    expect(settled($browser)->document->text())->toContain('▾ albums')
+        ->and($browser->document->text())->toContain('Let There Be Rock');
 
     $browser->emit('key', "\n");
 
@@ -415,6 +413,124 @@ it('caps how many related rows it loads and says it did', function () {
     $browser->emit('key', 'i');
 
     expect($browser->document->text())->toContain('albums  ·  has many  (3 of 13)');
+
+    config(['tql.ui.inspect_related' => 10]);
+});
+
+it('opens with every related table collapsed, saying what it is and how many', function () {
+    $browser = linked();
+
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'i');
+
+    expect(settled($browser)->document->text())->toContain('AC/DC')
+        ->and($browser->document->text())->toContain('▸ albums  ·  has many  (1)')
+        ->and($browser->document->text())->not->toContain('Let There Be Rock');
+});
+
+it('loads a related table only when you open it', function () {
+    $browser = linked();
+
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'i');
+
+    $queries = 0;
+
+    Event::listen(QueryExecuted::class, function () use (&$queries) {
+        $queries++;
+    });
+
+    settled($browser);
+
+    expect($queries)->toBe(0);
+
+    $browser->emit('key', "\t");
+    $browser->emit('key', "\n");
+
+    expect($browser->document->text())->toContain('loading…')
+        ->and(settled($browser)->document->text())->toContain('Let There Be Rock')
+        ->and($queries)->toBeGreaterThan(0);
+});
+
+it('asks the same number of queries to open a row however many tables point at it', function () {
+    $queriesToInspect = function (Browser $browser) {
+        $browser->focus = 'sidebar';
+
+        while ($browser->currentTable() !== 'artists') {
+            $browser->emit('key', 'j');
+        }
+
+        $browser->emit('key', 'i');
+        $browser->emit('key', "\e");
+
+        $count = 0;
+
+        Event::listen(QueryExecuted::class, function () use (&$count) {
+            $count++;
+        });
+
+        $browser->emit('key', 'i');
+
+        return $count;
+    };
+
+    $few = $queriesToInspect(linked());
+
+    $browser = linked();
+    $pdo = new PDO('sqlite:'.$browser->connection->database);
+
+    foreach (['gigs', 'tours', 'fans'] as $table) {
+        $pdo->exec("create table {$table} (id integer primary key, artist_id integer references artists(id), name text)");
+        $pdo->exec("insert into {$table} (artist_id, name) values (1, 'one')");
+    }
+
+    $browser->emit('key', 'r');
+
+    expect($queriesToInspect($browser))->toBe($few);
+});
+
+it('switches between the record and its related records with tab', function (string $key) {
+    $browser = linked();
+
+    $browser->emit('key', 'i');
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'j');
+    $browser->emit('key', $key);
+
+    expect($browser->document->lines()[$browser->documentLine]['text'])->toContain('artists  ·  belongs to');
+
+    $browser->emit('key', 'j');
+    $browser->emit('key', $key);
+
+    expect($browser->document->lines()[$browser->documentLine]['column'])->toBe('id');
+})->with(['tab' => "\t", 'shift+tab' => "\e[Z"]);
+
+it('draws the box the cursor is in as focused, not just its title', function () {
+    $browser = linked();
+
+    $browser->emit('key', 'i');
+    $browser->emit('key', "\t");
+    $browser->emit('key', 'j');
+
+    structureFrame(settled($browser));
+
+    expect(array_map(fn ($box) => [$box->title, $box->focused], $browser->inspectorBoxes))->toBe([
+        ['RECORD  (3)', false],
+        ['RELATED  (1)', true],
+    ]);
+});
+
+it('stays on the record with tab when nothing is related', function () {
+    config(['tql.ui.inspect_related' => 0]);
+
+    $browser = linked();
+
+    $browser->emit('key', 'i');
+    $browser->emit('key', "\t");
+
+    expect($browser->documentLine)->toBe(1);
 
     config(['tql.ui.inspect_related' => 10]);
 });

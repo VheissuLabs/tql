@@ -16,6 +16,8 @@ abstract class Island
 
     public string $title = '';
 
+    public bool $titleUnderCursor = false;
+
     abstract public function content(int $innerWidth, int $innerHeight): array;
 
     public function place(int $x, int $y, int $width, int $height): static

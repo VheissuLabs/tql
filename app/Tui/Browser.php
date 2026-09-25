@@ -105,6 +105,8 @@ class Browser extends Prompt
 
     public ?EditorIsland $editorIsland = null;
 
+    public array $inspectorBoxes = [];
+
     public ?HelpIsland $helpIsland = null;
 
     public int $helpOffset = 0;
@@ -212,7 +214,9 @@ class Browser extends Prompt
                 $write = null;
                 $except = null;
 
-                $ready = @stream_select($read, $write, $except, 0, 250_000);
+                $ready = @stream_select($read, $write, $except, 0, $this->document?->waiting()
+                    ? 0
+                    : 250_000);
 
                 if ($this->idle($ready === 0)) {
                     $this->render();
@@ -250,7 +254,7 @@ class Browser extends Prompt
             $redraw = true;
         }
 
-        return $redraw;
+        return ($timedOut && $this->loadRelated()) || $redraw;
     }
 
     /** Set on the render right after the status changed, and not after that. */
@@ -972,7 +976,7 @@ class Browser extends Prompt
         }
 
         $this->focus = 'grid';
-        $this->documentLine = 0;
+        $this->documentLine = 1;
         $this->documentAnchor = null;
 
         $this->document = new RowDocument(
@@ -1006,10 +1010,6 @@ class Browser extends Prompt
         return $types;
     }
 
-    /**
-     * @param  array<string, mixed>  $row
-     * @return array<string, array{rows: array<int, array<string, mixed>>, total: ?int}>
-     */
     private function relatedRecords(array $row): array
     {
         $limit = Layout::inspectRelated();
@@ -1018,92 +1018,91 @@ class Browser extends Prompt
             return [];
         }
 
-        $related = [];
+        $relations = [...$this->parentsOf($row), ...$this->childrenOf($row, $limit)];
 
-        foreach ($this->links() as $column => $link) {
-            $value = $row[$column] ?? null;
+        $totals = $this->runner->counts($this->connection, array_map(fn (array $relation) => $relation['count'], $relations));
 
-            if ($value === null) {
-                continue;
-            }
+        $this->relatedLoads = array_map(fn (array $relation) => $relation['load'], $relations);
 
-            $parent = $this->runner->related($this->connection, $link['table'], $link['column'], $value, 1);
-
-            if ($parent !== []) {
-                $related[$link['table']] = [
-                    'rows' => [$this->readable($parent[0])],
-                    'total' => 1,
-                    'hide' => $this->idsToHide($link['table'], $link['column']),
-                    // This row holds the key, so there is exactly one of them.
-                    'kind' => 'belongs to',
-                ];
-            }
-        }
-
-        foreach ($this->backLinks() as $link) {
-            $value = $row[$link['references']] ?? null;
-
-            if ($value === null) {
-                continue;
-            }
-
-            // A join table has nothing to say for itself: show what is on the
-            // other side of it instead, and say which table it went through.
-            $pivot = $this->runner->pivot($this->connection, $link['table'], $link['column']);
-
-            if ($pivot !== null) {
-                $this->throughPivot($related, $link, $pivot, $value, $limit);
-
-                continue;
-            }
-
-            $rows = $this->runner->related($this->connection, $link['table'], $link['column'], $value, $limit);
-
-            if ($rows === []) {
-                continue;
-            }
-
-            $more = count($rows) > $limit;
-
-            $related[$link['table']] = [
-                'rows' => array_map(fn (array $r) => $this->readable($r), array_slice($rows, 0, $limit)),
-                'total' => $more ? $this->countRelated($link, $value) : count($rows),
-                'hide' => $this->idsToHide($link['table'], $link['column']),
-                // A unique key on the other side means one row, not a list.
-                'kind' => ($link['unique'] ?? false) ? 'has one' : 'has many',
-            ];
-        }
-
-        return $related;
+        return collect($relations)
+            ->reject(fn (array $relation, $table) => $totals[$table] === 0)
+            ->map(fn (array $relation, $table) => [
+                'rows' => null,
+                'shown' => min($relation['limit'], $totals[$table] ?? $relation['limit']),
+                'total' => $totals[$table],
+                'hide' => $relation['hide'],
+                'kind' => $relation['kind'],
+            ])
+            ->all();
     }
 
-    /**
-     * A film's actors, by way of film_actor.
-     *
-     * @param  array<string, array{rows: array<int, array<string, mixed>>, total: ?int, hide: array<int, string>, kind: string}>  $related
-     * @param  array{table: string, column: string, references: string}  $link
-     * @param  array{table: string, on: string, references: string}  $pivot
-     */
-    private function throughPivot(array &$related, array $link, array $pivot, mixed $value, int $limit): void
+    private function parentsOf(array $row): array
     {
-        $rows = $this->runner->through(
-            $this->connection, $link['table'], $link['column'], $pivot, $value, $limit,
-        );
+        return collect($this->links())
+            ->reject(fn (array $link, $column) => ($row[$column] ?? null) === null)
+            ->mapWithKeys(fn (array $link, $column) => [$link['table'] => [
+                'count' => ['table' => $link['table'], 'column' => $link['column'], 'value' => $row[$column]],
+                'load' => fn () => $this->runner->related($this->connection, $link['table'], $link['column'], $row[$column], 1),
+                'limit' => 1,
+                'hide' => $this->idsToHide($link['table'], $link['column']),
+                'kind' => 'belongs to',
+            ]])
+            ->all();
+    }
 
-        if ($rows === []) {
-            return;
+    private function childrenOf(array $row, int $limit): array
+    {
+        return collect($this->backLinks())
+            ->reject(fn (array $link) => ($row[$link['references']] ?? null) === null)
+            ->mapWithKeys(fn (array $link) => $this->childOf($link, $row[$link['references']], $limit))
+            ->all();
+    }
+
+    private function childOf(array $link, mixed $value, int $limit): array
+    {
+        $count = ['table' => $link['table'], 'column' => $link['column'], 'value' => $value];
+
+        $pivot = $this->runner->pivot($this->connection, $link['table'], $link['column']);
+
+        if ($pivot !== null) {
+            return [$pivot['table'] => [
+                'count' => $count,
+                'load' => fn () => $this->runner->through($this->connection, $link['table'], $link['column'], $pivot, $value, $limit),
+                'limit' => $limit,
+                'hide' => $this->idsToHide($pivot['table'], $pivot['references']),
+                'kind' => 'has many through '.$link['table'],
+            ]];
         }
 
-        $more = count($rows) > $limit;
+        return [$link['table'] => [
+            'count' => $count,
+            'load' => fn () => $this->runner->related($this->connection, $link['table'], $link['column'], $value, $limit),
+            'limit' => $limit,
+            'hide' => $this->idsToHide($link['table'], $link['column']),
+            'kind' => ($link['unique'] ?? false)
+                ? 'has one'
+                : 'has many',
+        ]];
+    }
 
-        $related[$pivot['table']] = [
-            'rows' => array_map(fn (array $r) => $this->readable($r), array_slice($rows, 0, $limit)),
-            'total' => $more
-                ? $this->runner->countThrough($this->connection, $link['table'], $link['column'], $pivot, $value)
-                : count($rows),
-            'hide' => $this->idsToHide($pivot['table'], $pivot['references']),
-            'kind' => 'has many through '.$link['table'],
-        ];
+    private array $relatedLoads = [];
+
+    public function loadRelated(): bool
+    {
+        $table = $this->mode === 'inspect'
+            ? $this->document?->waiting()[0] ?? null
+            : null;
+
+        if ($table === null) {
+            return false;
+        }
+
+        $this->document->fill($table, collect(($this->relatedLoads[$table] ?? fn () => [])())
+            ->take(Layout::inspectRelated())
+            ->map(fn (array $row) => $this->readable($row))
+            ->all());
+
+        return true;
     }
 
     /**
@@ -1119,24 +1118,6 @@ class Browser extends Prompt
             [$joinedOn],
             array_keys($this->runner->foreignKeys($this->connection, $table)),
         )));
-    }
-
-    /**
-     * @param  array{table: string, column: string, references: string}  $link
-     */
-    private function countRelated(array $link, mixed $value): ?int
-    {
-        $grammar = $this->runner->grammarFor($this->connection);
-
-        $result = $this->runner->run(
-            $this->connection,
-            'select count(*) as total from '.$grammar->wrapTable($link['table']).
-                ' where '.$grammar->wrap($link['column']).' = ?',
-            'tui',
-            [$value],
-        );
-
-        return $result->failed() ? null : (int) ($result->rows[0]['total'] ?? 0);
     }
 
     private function handleInspectKey(string $key): void
@@ -1174,11 +1155,12 @@ class Browser extends Prompt
         }
 
         match (true) {
-            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->documentLine = min($lines - 1, $this->documentLine + 1),
-            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->documentLine = max(0, $this->documentLine - 1),
+            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->moveWithinSection($document, 1),
+            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->moveWithinSection($document, -1),
             $key === 'g' => $this->documentLine = 0,
             $key === 'G' => $this->documentLine = $lines - 1,
             $key === Key::ENTER, $key === ' ' => $document->toggle($this->documentLine),
+            $key === Key::TAB, $key === Key::SHIFT_TAB => $this->switchInspectorSection($document),
             $key === 'V' => $this->documentAnchor = $this->documentAnchor === null ? $this->documentLine : null,
             $key === 'y' => $this->yankDocument(),
             $key === 'i' => $this->foldAll($document),
@@ -1186,6 +1168,26 @@ class Browser extends Prompt
         };
 
         $this->documentLine = min($this->documentLine, max(0, count($document->lines()) - 1));
+    }
+
+    private function moveWithinSection(RowDocument $document, int $step): void
+    {
+        $section = $document->lines()[$this->documentLine]['section'] ?? RowDocument::RECORD;
+
+        $lines = [$document->headingAt($section), ...array_keys($document->section($section))];
+
+        $this->documentLine = $lines[(array_search($this->documentLine, $lines, true) + $step + count($lines)) % count($lines)];
+    }
+
+    private function switchInspectorSection(RowDocument $document): void
+    {
+        $other = ($document->lines()[$this->documentLine]['section'] ?? null) === RowDocument::RECORD
+            ? RowDocument::RELATED
+            : RowDocument::RECORD;
+
+        $this->documentLine = array_key_first($document->section($other))
+            ?? $document->headingAt($other)
+            ?? $this->documentLine;
     }
 
     private function foldAll(RowDocument $document): void

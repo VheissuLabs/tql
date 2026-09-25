@@ -6,6 +6,7 @@ putenv('NO_MOUSE=1');
 putenv('NO_TTY_SETUP=1');
 
 use App\Tui\Browser;
+use App\Tui\RowDocument;
 use Tests\TestCase;
 
 /*
@@ -57,4 +58,25 @@ function editorShown(Browser $browser): string
     $island = $browser->valueIsland;
 
     return implode("\n", $island->content($island->innerWidth(), $island->innerHeight()));
+}
+
+function settled(Browser $browser): Browser
+{
+    while ($browser->idle(true)) {
+    }
+
+    return $browser;
+}
+
+function expanded(Browser $browser): Browser
+{
+    $folded = fn () => collect($browser->document->lines())->search(
+        fn (array $line) => str_starts_with((string) $line['fold'], RowDocument::RELATED.'.') && $browser->document->isFolded($line['fold']),
+    );
+
+    while (($line = $folded()) !== false) {
+        $browser->document->toggle($line);
+    }
+
+    return settled($browser);
 }

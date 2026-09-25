@@ -87,3 +87,29 @@ it('asks again for a primary key after the schema is forgotten', function () {
 
     expect($count)->toBe(1);
 });
+
+it('sees a column added by a statement you ran yourself', function () {
+    $connection = reusable();
+    $runner = app(QueryRunner::class);
+
+    $runner->columns($connection, 'widgets');
+    $runner->run($connection, 'alter table widgets add column colour text', 'tui');
+
+    expect(array_column($runner->columns($connection, 'widgets'), 'name'))->toContain('colour');
+});
+
+it('asks for a table\'s columns once while reading', function () {
+    $connection = reusable();
+    $runner = app(QueryRunner::class);
+
+    $once = queriesOn(reusable(), fn () => app(QueryRunner::class)->columns(reusable(), 'widgets'));
+
+    $count = queriesOn($connection, function () use ($runner, $connection) {
+        foreach (range(1, 3) as $ignored) {
+            $runner->columns($connection, 'widgets');
+            $runner->run($connection, 'select * from widgets', 'tui');
+        }
+    });
+
+    expect($count)->toBe($once + 3);
+});

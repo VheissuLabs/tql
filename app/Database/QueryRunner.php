@@ -68,7 +68,14 @@ class QueryRunner
 
     public function columns(Connection $connection, string $table): array
     {
-        return $this->connections->resolve($connection)->getSchemaBuilder()->getColumns($table);
+        $this->prefetch($connection);
+
+        return $this->remembered(
+            $this->key('columns', $connection, $table),
+            fn () => $this->prefetched($connection)
+                ? []
+                : $this->connections->resolve($connection)->getSchemaBuilder()->getColumns($table),
+        );
     }
 
     /**
@@ -295,6 +302,48 @@ class QueryRunner
         }
     }
 
+    public function counts(Connection $connection, array $targets): array
+    {
+        if ($targets === []) {
+            return [];
+        }
+
+        try {
+            $row = (array) $this->connections->resolve($connection)->selectOne(
+                'select '.collect(array_values($targets))
+                    ->map(fn (array $target, int $position) => $this->countOf($connection, $target).' as count_'.$position)
+                    ->implode(', '),
+                array_column($targets, 'value'),
+            );
+        } catch (Throwable) {
+            return collect($targets)->map(fn (array $target) => $this->countOne($connection, $target))->all();
+        }
+
+        return collect(array_keys($targets))
+            ->mapWithKeys(fn (string $name, int $position) => [$name => (int) ($row['count_'.$position] ?? 0)])
+            ->all();
+    }
+
+    private function countOne(Connection $connection, array $target): ?int
+    {
+        try {
+            return (int) ((array) $this->connections->resolve($connection)->selectOne(
+                'select '.$this->countOf($connection, $target).' as total',
+                [$target['value']],
+            ))['total'];
+        } catch (Throwable) {
+            return null;
+        }
+    }
+
+    private function countOf(Connection $connection, array $target): string
+    {
+        $grammar = $this->connections->resolve($connection)->getQueryGrammar();
+
+        return '(select count(*) from '.$grammar->wrapTable($target['table'])
+            .' where '.$grammar->wrap($target['column']).' = ?)';
+    }
+
     public function related(Connection $connection, string $table, string $column, mixed $value, int $limit): array
     {
         $db = $this->connections->resolve($connection);
@@ -413,6 +462,16 @@ class QueryRunner
                 .'group by kc.table_name, kc.constraint_name, kc.referenced_table_schema, kc.referenced_table_name, rc.update_rule, rc.delete_rule',
                 $bindings,
             );
+
+            $columns = $db->select(
+                'select table_name as `table`, column_name as `name`, data_type as `type_name`, column_type as `type`, '
+                .'collation_name as `collation`, is_nullable as `nullable`, '
+                .'column_default as `default`, column_comment as `comment`, '
+                .'generation_expression as `expression`, extra as `extra` '
+                .'from information_schema.columns where table_schema = '.$where.' '
+                .'order by table_name, ordinal_position',
+                $bindings,
+            );
         } catch (Throwable) {
             return;
         }
@@ -426,6 +485,9 @@ class QueryRunner
             ])->all(),
             ...$this->byTable($keys)->mapWithKeys(fn (array $rows, $table) => [
                 $this->key('keys', $connection, $table) => $this->links($processor->processForeignKeys($rows)),
+            ])->all(),
+            ...$this->byTable($columns)->mapWithKeys(fn (array $rows, $table) => [
+                $this->key('columns', $connection, $table) => $processor->processColumns($rows),
             ])->all(),
             $flag => true,
         ];
@@ -611,6 +673,10 @@ class QueryRunner
      */
     public function run(Connection $connection, string $statement, string $source, array $bindings = []): QueryResult
     {
+        if (! $this->isReadOnly($statement)) {
+            $this->forgetSchema();
+        }
+
         $started = microtime(true);
 
         try {

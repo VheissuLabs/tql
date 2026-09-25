@@ -176,7 +176,8 @@ class BrowserRenderer extends Renderer
 
                 $box = new SectionIsland($lines, $prompt->documentLine, $style, $selection);
                 $box->title = $document->lines()[$heading]['text'];
-                $box->focused = $prompt->documentLine === $heading;
+                $box->focused = ($document->lines()[$prompt->documentLine]['section'] ?? null) === $name;
+                $box->titleUnderCursor = $prompt->documentLine === $heading;
                 $box->collapsed = $folded;
 
                 $height = $folded ? 1 : max(3, count($lines) + 2);
@@ -198,6 +199,8 @@ class BrowserRenderer extends Renderer
             foreach ($boxes as [$box, $height]) {
                 $modal->add($box, $height);
             }
+
+            $prompt->inspectorBoxes = array_column($boxes, 0);
 
             $modal->onto($screen);
         }
@@ -364,6 +367,7 @@ class BrowserRenderer extends Renderer
             $prompt->command !== null => [['↵', 'Run'], ['esc', 'Cancel']],
             $prompt->filtering => [['↵', 'Keep'], ['esc', 'Clear']],
             $prompt->mode === 'help', $prompt->mode === 'structure' => [['j k', 'Scroll'], ['esc', 'Close']],
+            $prompt->mode === 'inspect' && $prompt->document?->hasRelated() => [['↵', 'Fold'], ['tab', 'Switch'], ['e', 'Edit'], ['y', 'Yank'], ['esc', 'Close']],
             $prompt->mode === 'inspect' => [['↵', 'Fold'], ['e', 'Edit'], ['y', 'Yank'], ['esc', 'Close']],
             $prompt->mode === 'edit' && $prompt->editable => [['↵', 'Keep'], ['⇧↵', 'New line'], ['esc', 'Cancel']],
             $prompt->mode === 'edit' => [['V', 'Select'], ['y', 'Yank'], ['e', 'Edit'], ['esc', 'Close']],
@@ -639,9 +643,11 @@ class BrowserRenderer extends Renderer
         $label = ' '.$style->truncate($island->title, max(1, $inner - 4)).' ';
         $plain = $style->visible($label);
 
-        $label = $island->focused
-            ? $this->bold($this->paint(Theme::title(true, $island->modal), $label))
-            : $this->paint(Theme::title(false, $island->modal), $label);
+        $label = match (true) {
+            $island->titleUnderCursor => $style->color('cursor', $label),
+            $island->focused => $this->bold($this->paint(Theme::title(true, $island->modal), $label)),
+            default => $this->paint(Theme::title(false, $island->modal), $label),
+        };
 
         $edge = fn (string $text) => $this->paint($color, $text);
 

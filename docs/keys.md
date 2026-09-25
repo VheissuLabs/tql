@@ -101,7 +101,9 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 | `g` / `G` | top or bottom |
 | `12G` | jump to line 12 |
 | `↵` | fold or unfold a section |
+| `tab` / `⇧tab` | switch between the record and its related records |
 | | each relation says what it is: belongs to, has one, has many, or has many through a join table |
+| | related tables start collapsed, and load their rows when you open them |
 | `V` | start a line selection |
 | `y` | yank the selection, or the line |
 | `e` | edit *that* field, not whichever the grid cursor was on |
