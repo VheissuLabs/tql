@@ -339,6 +339,16 @@ class ConnectionPickerRenderer extends Renderer
         $used = min($used, 20);
         $tag = min($tag, 16);
 
+        $over = max(0, $name + $tag + $used + 10 + 11 - $inner);
+
+        $usedGives = min($over, $used - 9);
+        $tagGives = min($over - $usedGives, $tag - 3);
+        $nameGives = min($over - $usedGives - $tagGives, $name - 8);
+
+        $used -= $usedGives;
+        $tag -= $tagGives;
+        $name -= $nameGives;
+
         $where = max(10, $inner - $name - $tag - $used - 11);
 
         return [$name, $tag, $where, $used];

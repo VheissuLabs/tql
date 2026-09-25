@@ -15,6 +15,7 @@ use App\Models\Connection;
 use App\Prompts\Renderers\BrowserRenderer;
 use App\Support\Now;
 use App\Tui\Concerns\HandlesMouse;
+use App\Tui\Concerns\RedrawsOnResize;
 use App\Tui\Concerns\RendersSmoothly;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\HelpIsland;
@@ -25,12 +26,12 @@ use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Laravel\Prompts\Key;
 use Laravel\Prompts\Prompt;
-use Laravel\Prompts\Support\Result;
 
 class Browser extends Prompt
 {
     use CreatesAnAltScreen;
     use HandlesMouse;
+    use RedrawsOnResize;
     use RegistersRenderers;
     use RendersSmoothly;
 
@@ -195,54 +196,11 @@ class Browser extends Prompt
         return true;
     }
 
-    public bool $resized = false;
-
-    public function runLoop(callable $callable): mixed
+    protected function pollMicroseconds(): int
     {
-        $watching = function_exists('pcntl_signal') && defined('SIGWINCH');
-
-        if ($watching) {
-            pcntl_async_signals(true);
-            pcntl_signal(SIGWINCH, function () {
-                $this->resized = true;
-            });
-        }
-
-        try {
-            while (true) {
-                $read = [STDIN];
-                $write = null;
-                $except = null;
-
-                $ready = @stream_select($read, $write, $except, 0, $this->document?->waiting()
-                    ? 0
-                    : 250_000);
-
-                if ($this->idle($ready === 0)) {
-                    $this->render();
-                }
-
-                if ($ready !== 1) {
-                    continue;
-                }
-
-                $key = static::terminal()->read();
-
-                if ($key === '') {
-                    continue;
-                }
-
-                $result = $callable($key);
-
-                if ($result instanceof Result) {
-                    return $result->value;
-                }
-            }
-        } finally {
-            if ($watching) {
-                pcntl_signal(SIGWINCH, SIG_DFL);
-            }
-        }
+        return $this->document?->waiting()
+            ? 0
+            : 250_000;
     }
 
     public function idle(bool $timedOut): bool

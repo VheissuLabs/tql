@@ -779,3 +779,47 @@ it('asks for a bigger window on the connection list too', function () {
         ->and($frame)->toContain('tql needs 60×10')
         ->and(max(array_map('mb_strlen', explode("\n", $frame))))->toBeLessThanOrEqual(40);
 });
+
+it('redraws to the new size when the window is resized', function () {
+    $picker = picker();
+
+    $frame = function () use ($picker) {
+        $render = new ReflectionMethod($picker, 'renderTheme');
+        $render->setAccessible(true);
+
+        return max(array_map('mb_strlen', explode("\n", preg_replace('/\e\[[0-9;]*[A-Za-z]/', '', $render->invoke($picker)))));
+    };
+
+    putenv('COLUMNS=120');
+    putenv('LINES=30');
+    $wide = $frame();
+
+    putenv('COLUMNS=70');
+    $picker->resized = true;
+
+    expect($picker->idle(false))->toBeTrue()
+        ->and($frame())->toBeLessThan($wide)
+        ->and($frame())->toBeLessThanOrEqual(70)
+        ->and($picker->idle(false))->toBeFalse();
+
+    putenv('COLUMNS');
+    putenv('LINES');
+});
+
+it('fits a narrow window instead of wrapping every line', function (int $columns) {
+    Connection::create(['name' => 'a connection with a very long name indeed', 'driver' => 'sqlite', 'database' => '/tmp/'.str_repeat('nested/', 10).'db.sqlite', 'tag' => 'production-eu-west']);
+
+    putenv("COLUMNS={$columns}");
+    putenv('LINES=30');
+
+    $render = new ReflectionMethod($picker = new ConnectionPicker(Connection::all()), 'renderTheme');
+    $render->setAccessible(true);
+
+    $lines = explode("\n", preg_replace('/\e\[[0-9;?]*[A-Za-z]/', '', $render->invoke($picker)));
+
+    putenv('COLUMNS');
+    putenv('LINES');
+
+    expect(max(array_map('mb_strlen', $lines)))->toBeLessThanOrEqual($columns)
+        ->and(implode("\n", $lines))->toContain('a connection');
+})->with([60, 70, 77]);
