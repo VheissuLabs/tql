@@ -535,6 +535,69 @@ it('stays on the record with tab when nothing is related', function () {
     config(['tql.ui.inspect_related' => 10]);
 });
 
+function onFirstAlbum(): Browser
+{
+    $browser = linked();
+
+    $browser->focus = 'sidebar';
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'i');
+    $browser->emit('key', "\t");
+    $browser->emit('key', "\n");
+    settled($browser);
+    $browser->emit('key', 'j');
+    $browser->emit('key', 'j');
+
+    return $browser;
+}
+
+it('inspects a related record with i, and goes back with escape', function () {
+    $browser = onFirstAlbum();
+
+    expect($browser->document->lines()[$browser->documentLine]['text'])->toContain('Let There Be Rock');
+
+    $browser->emit('key', 'i');
+
+    expect($browser->mode)->toBe('inspect')
+        ->and($browser->document->columnAt($browser->documentLine))->toBe('id')
+        ->and($browser->document->text())->toContain('title')
+        ->and($browser->document->text())->toContain('artists  ·  belongs to')
+        ->and($browser->status)->toContain('inspecting albums');
+
+    $browser->emit('key', "\e");
+
+    expect($browser->mode)->toBe('inspect')
+        ->and($browser->document->text())->toContain('AC/DC')
+        ->and($browser->document->lines()[$browser->documentLine]['text'])->toContain('Let There Be Rock');
+
+    $browser->emit('key', "\e");
+
+    expect($browser->mode)->toBe('browse');
+});
+
+it('does nothing but say so when i is not on a related record', function () {
+    $browser = linked();
+
+    $browser->emit('key', 'i');
+
+    $before = $browser->document->text();
+
+    $browser->emit('key', 'i');
+
+    expect($browser->document->text())->toBe($before)
+        ->and($browser->status)->toContain('move onto one');
+});
+
+it('will not edit a related record through the grid', function () {
+    $browser = onFirstAlbum();
+
+    $browser->emit('key', 'i');
+    $browser->emit('key', 'e');
+
+    expect($browser->mode)->toBe('inspect')
+        ->and($browser->status)->toContain('open its table to edit it');
+});
+
 it('loads no relations when the limit is zero', function () {
     config(['tql.ui.inspect_related' => 0]);
 

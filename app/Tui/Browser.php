@@ -934,49 +934,85 @@ class Browser extends Prompt
         }
 
         $this->focus = 'grid';
-        $this->documentLine = 1;
-        $this->documentAnchor = null;
+        $this->inspected = [];
 
-        $this->document = new RowDocument(
-            $this->readable($row),
-            $this->columnTypes(),
-            $this->relatedRecords($row),
-        );
+        $this->openInspector($this->resultsFromQuery ? null : $this->currentTable(), $row);
 
         $this->mode = 'inspect';
 
         return true;
     }
 
-    /**
-     * @return array<string, string>
-     */
-    private function columnTypes(): array
-    {
-        $table = $this->currentTable();
+    public array $inspected = [];
 
+    private function openInspector(?string $table, array $row): void
+    {
+        $this->documentLine = 1;
+        $this->documentAnchor = null;
+        $this->relatedRaw = [];
+
+        $this->document = new RowDocument(
+            $this->readable($row),
+            $this->columnTypes($table ?? $this->currentTable()),
+            $this->relatedRecords($table, $row),
+        );
+    }
+
+    private function inspectRelatedRecord(RowDocument $document): void
+    {
+        $line = $document->lines()[$this->documentLine] ?? [];
+        $row = $this->relatedRaw[$line['table'] ?? ''][$line['row'] ?? -1] ?? null;
+
+        if ($row === null) {
+            $this->status = 'i opens a related record — move onto one first';
+
+            return;
+        }
+
+        $this->inspected[] = [
+            'document' => $document,
+            'line' => $this->documentLine,
+            'loads' => $this->relatedLoads,
+            'raw' => $this->relatedRaw,
+        ];
+
+        $this->openInspector($line['table'], $row);
+
+        $this->status = 'inspecting '.$line['table'].' · esc goes back';
+    }
+
+    private function inspectPrevious(): void
+    {
+        $previous = array_pop($this->inspected);
+
+        $this->document = $previous['document'];
+        $this->documentLine = $previous['line'];
+        $this->relatedLoads = $previous['loads'];
+        $this->relatedRaw = $previous['raw'];
+        $this->documentAnchor = null;
+        $this->status = null;
+    }
+
+    private function columnTypes(?string $table): array
+    {
         if ($table === null) {
             return [];
         }
 
-        $types = [];
-
-        foreach ($this->columnsOf($table) as $column) {
-            $types[(string) ($column['name'] ?? '')] = (string) ($column['type_name'] ?? $column['type'] ?? '');
-        }
-
-        return $types;
+        return collect($this->columnsOf($table))
+            ->mapWithKeys(fn (array $column) => [(string) ($column['name'] ?? '') => (string) ($column['type_name'] ?? $column['type'] ?? '')])
+            ->all();
     }
 
-    private function relatedRecords(array $row): array
+    private function relatedRecords(?string $table, array $row): array
     {
         $limit = Layout::inspectRelated();
 
-        if ($limit < 1) {
+        if ($limit < 1 || $table === null) {
             return [];
         }
 
-        $relations = [...$this->parentsOf($row), ...$this->childrenOf($row, $limit)];
+        $relations = [...$this->parentsOf($table, $row), ...$this->childrenOf($table, $row, $limit)];
 
         $totals = $this->runner->counts($this->connection, array_map(fn (array $relation) => $relation['count'], $relations));
 
@@ -994,9 +1030,9 @@ class Browser extends Prompt
             ->all();
     }
 
-    private function parentsOf(array $row): array
+    private function parentsOf(string $table, array $row): array
     {
-        return collect($this->links())
+        return collect($this->runner->foreignKeys($this->connection, $table))
             ->reject(fn (array $link, $column) => ($row[$column] ?? null) === null)
             ->mapWithKeys(fn (array $link, $column) => [$link['table'] => [
                 'count' => ['table' => $link['table'], 'column' => $link['column'], 'value' => $row[$column]],
@@ -1008,9 +1044,9 @@ class Browser extends Prompt
             ->all();
     }
 
-    private function childrenOf(array $row, int $limit): array
+    private function childrenOf(string $table, array $row, int $limit): array
     {
-        return collect($this->backLinks())
+        return collect($this->runner->referencedBy($this->connection, $table))
             ->reject(fn (array $link) => ($row[$link['references']] ?? null) === null)
             ->mapWithKeys(fn (array $link) => $this->childOf($link, $row[$link['references']], $limit))
             ->all();
@@ -1045,6 +1081,8 @@ class Browser extends Prompt
 
     private array $relatedLoads = [];
 
+    private array $relatedRaw = [];
+
     public function loadRelated(): bool
     {
         $table = $this->mode === 'inspect'
@@ -1055,10 +1093,12 @@ class Browser extends Prompt
             return false;
         }
 
-        $this->document->fill($table, collect(($this->relatedLoads[$table] ?? fn () => [])())
+        $this->relatedRaw[$table] = collect(($this->relatedLoads[$table] ?? fn () => [])())
             ->take(Layout::inspectRelated())
-            ->map(fn (array $row) => $this->readable($row))
-            ->all());
+            ->values()
+            ->all();
+
+        $this->document->fill($table, array_map(fn (array $row) => $this->readable($row), $this->relatedRaw[$table]));
 
         return true;
     }
@@ -1091,9 +1131,21 @@ class Browser extends Prompt
                 return;
             }
 
+            if ($this->inspected !== []) {
+                $this->inspectPrevious();
+
+                return;
+            }
+
             $this->document = null;
             $this->mode = 'browse';
             $this->status = null;
+
+            return;
+        }
+
+        if ($key === 'e' && $this->inspected !== []) {
+            $this->status = 'this record is not in the grid — open its table to edit it';
 
             return;
         }
@@ -1121,7 +1173,7 @@ class Browser extends Prompt
             $key === Key::TAB, $key === Key::SHIFT_TAB => $this->switchInspectorSection($document),
             $key === 'V' => $this->documentAnchor = $this->documentAnchor === null ? $this->documentLine : null,
             $key === 'y' => $this->yankDocument(),
-            $key === 'i' => $this->foldAll($document),
+            $key === 'i' => $this->inspectRelatedRecord($document),
             default => null,
         };
 
@@ -1146,28 +1198,6 @@ class Browser extends Prompt
         $this->documentLine = array_key_first($document->section($other))
             ?? $document->headingAt($other)
             ?? $this->documentLine;
-    }
-
-    private function foldAll(RowDocument $document): void
-    {
-        foreach ([RowDocument::RECORD, RowDocument::RELATED] as $section) {
-            if (! $document->isFolded($section)) {
-                $document->toggle($this->lineOf($document, $section));
-            }
-        }
-
-        $this->documentLine = 0;
-    }
-
-    private function lineOf(RowDocument $document, string $fold): int
-    {
-        foreach ($document->lines() as $index => $line) {
-            if (($line['fold'] ?? null) === $fold) {
-                return $index;
-            }
-        }
-
-        return 0;
     }
 
     /**

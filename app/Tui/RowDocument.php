@@ -121,15 +121,34 @@ class RowDocument
             return [$this->bodyLine('loading…')];
         }
 
-        return $this->bodies[$table] ??= array_map(
-            fn (string $line) => $this->bodyLine($line),
-            $one && count($relation['rows']) === 1
-                ? $this->record($relation['rows'][0], $relation['hide'] ?? [])
-                : $this->collection($relation['rows'], $relation['hide'] ?? []),
+        return $this->bodies[$table] ??= $this->layOut($table, $relation, $one);
+    }
+
+    private function layOut(string $table, array $relation, bool $one): array
+    {
+        if ($one && count($relation['rows']) === 1) {
+            return array_map(
+                fn (string $line) => $this->bodyLine($line, $table, 0),
+                $this->record($relation['rows'][0], $relation['hide'] ?? []),
+            );
+        }
+
+        $collection = $this->collection($relation['rows'], $relation['hide'] ?? []);
+
+        return array_map(
+            fn (string $line, int $position) => $this->bodyLine(
+                $line,
+                $table,
+                $position === 0
+                    ? null
+                    : $position - 1,
+            ),
+            $collection,
+            array_keys($collection),
         );
     }
 
-    private function bodyLine(string $text): array
+    private function bodyLine(string $text, ?string $table = null, ?int $row = null): array
     {
         return [
             'text' => '      '.$text,
@@ -137,6 +156,8 @@ class RowDocument
             'section' => self::RELATED,
             'heading' => false,
             'column' => null,
+            'table' => $table,
+            'row' => $row,
         ];
     }
 

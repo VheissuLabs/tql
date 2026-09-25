@@ -367,8 +367,7 @@ class BrowserRenderer extends Renderer
             $prompt->command !== null => [['↵', 'Run'], ['esc', 'Cancel']],
             $prompt->filtering => [['↵', 'Keep'], ['esc', 'Clear']],
             $prompt->mode === 'help', $prompt->mode === 'structure' => [['j k', 'Scroll'], ['esc', 'Close']],
-            $prompt->mode === 'inspect' && $prompt->document?->hasRelated() => [['↵', 'Fold'], ['tab', 'Switch'], ['e', 'Edit'], ['y', 'Yank'], ['esc', 'Close']],
-            $prompt->mode === 'inspect' => [['↵', 'Fold'], ['e', 'Edit'], ['y', 'Yank'], ['esc', 'Close']],
+            $prompt->mode === 'inspect' => $this->inspectorOffers($prompt),
             $prompt->mode === 'edit' && $prompt->editable => [['↵', 'Keep'], ['⇧↵', 'New line'], ['esc', 'Cancel']],
             $prompt->mode === 'edit' => [['V', 'Select'], ['y', 'Yank'], ['e', 'Edit'], ['esc', 'Close']],
             $prompt->mode === 'query' => [['↵', 'Run'], ['⇧↵', 'New line'], ['esc', 'Grid'], $more],
@@ -627,6 +626,29 @@ class BrowserRenderer extends Renderer
             'gray' => $this->gray($text),
             default => $this->dim($text),
         };
+    }
+
+    private function inspectorOffers(Browser $prompt): array
+    {
+        $onRelatedRecord = ($prompt->document?->lines()[$prompt->documentLine]['row'] ?? null) !== null;
+
+        $close = $prompt->inspected === []
+            ? ['esc', 'Close']
+            : ['esc', 'Back'];
+
+        return array_values(array_filter([
+            $onRelatedRecord
+                ? ['i', 'Inspect']
+                : ['↵', 'Fold'],
+            $prompt->document?->hasRelated()
+                ? ['tab', 'Switch']
+                : null,
+            $prompt->inspected === []
+                ? ['e', 'Edit']
+                : null,
+            ['y', 'Yank'],
+            $close,
+        ]));
     }
 
     private function topBorder(Island $island, Styler $style, int $inner, array $joins): string
