@@ -44,6 +44,10 @@ class ConnectionManager
             $config['port'] = $tunnel->port;
         }
 
+        if (Config::get("database.connections.{$handle}") === $config) {
+            return DB::connection($handle);
+        }
+
         Config::set("database.connections.{$handle}", $config);
 
         DB::purge($handle);

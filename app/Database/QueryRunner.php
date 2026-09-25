@@ -5,6 +5,8 @@ namespace App\Database;
 use App\Models\Connection;
 use App\Models\QueryExecution;
 use Illuminate\Database\Query\Grammars\Grammar;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Collection;
 use Throwable;
 
 class QueryRunner
@@ -79,7 +81,14 @@ class QueryRunner
      */
     public function foreignKeys(Connection $connection, string $table): array
     {
-        return $this->remembered('keys.'.$connection->id.'.'.$table, fn () => $this->findForeignKeys($connection, $table));
+        $this->prefetch($connection);
+
+        return $this->remembered(
+            $this->key('keys', $connection, $table),
+            fn () => $this->prefetched($connection)
+                ? []
+                : $this->findForeignKeys($connection, $table),
+        );
     }
 
     /**
@@ -93,25 +102,21 @@ class QueryRunner
             return [];
         }
 
-        $links = [];
+        return $this->links($keys);
+    }
 
-        foreach ($keys as $key) {
-            $key = (array) $key;
-
-            $columns = $key['columns'] ?? [];
-            $foreign = $key['foreign_columns'] ?? [];
-
-            if (count($columns) !== 1 || count($foreign) !== 1) {
-                continue;
-            }
-
-            $links[$columns[0]] = [
-                'table' => (string) ($key['foreign_table'] ?? ''),
-                'column' => (string) $foreign[0],
-            ];
-        }
-
-        return $links;
+    private function links(array $keys): array
+    {
+        return collect($keys)
+            ->map(fn ($key) => (array) $key)
+            ->filter(fn (array $key) => count($key['columns'] ?? []) === 1 && count($key['foreign_columns'] ?? []) === 1)
+            ->mapWithKeys(fn (array $key) => [
+                $key['columns'][0] => [
+                    'table' => (string) ($key['foreign_table'] ?? ''),
+                    'column' => (string) $key['foreign_columns'][0],
+                ],
+            ])
+            ->all();
     }
 
     /**
@@ -122,7 +127,7 @@ class QueryRunner
      */
     public function referencedBy(Connection $connection, string $table): array
     {
-        return $this->remembered('referenced.'.$connection->id.'.'.$table, fn () => $this->findReferences($connection, $table));
+        return $this->remembered($this->key('referenced', $connection, $table), fn () => $this->findReferences($connection, $table));
     }
 
     /**
@@ -337,7 +342,13 @@ class QueryRunner
 
     public function indexes(Connection $connection, string $table): array
     {
-        return $this->remembered('indexes.'.$connection->id.'.'.$table, function () use ($connection, $table) {
+        $this->prefetch($connection);
+
+        return $this->remembered($this->key('indexes', $connection, $table), function () use ($connection, $table) {
+            if ($this->prefetched($connection)) {
+                return [];
+            }
+
             try {
                 return array_map(
                     fn ($index) => (array) $index,
@@ -349,13 +360,90 @@ class QueryRunner
         });
     }
 
+    private function key(string $kind, Connection $connection, string $table): string
+    {
+        return $kind.'.'.$connection->id.'.'.$connection->activeDatabase().'.'.$table;
+    }
+
+    private function prefetched(Connection $connection): bool
+    {
+        return ($this->schema[$this->key('prefetched', $connection, '')] ?? false) === true;
+    }
+
+    private function prefetch(Connection $connection): void
+    {
+        $flag = $this->key('prefetched', $connection, '');
+
+        if (array_key_exists($flag, $this->schema) || ! in_array($connection->driver, ['mysql', 'mariadb'], true)) {
+            return;
+        }
+
+        $this->schema[$flag] = false;
+
+        $schema = $this->schema($connection);
+
+        $where = $schema === null
+            ? 'schema()'
+            : '?';
+
+        $bindings = $schema === null
+            ? []
+            : [$schema];
+
+        try {
+            $db = $this->connections->resolve($connection);
+
+            $indexes = $db->select(
+                'select table_name as `table`, index_name as `name`, group_concat(column_name order by seq_in_index) as `columns`, '
+                .'index_type as `type`, not non_unique as `unique` '
+                .'from information_schema.statistics where table_schema = '.$where.' '
+                .'group by table_name, index_name, index_type, non_unique',
+                $bindings,
+            );
+
+            $keys = $db->select(
+                'select kc.table_name as `table`, kc.constraint_name as `name`, '
+                .'group_concat(kc.column_name order by kc.ordinal_position) as `columns`, '
+                .'kc.referenced_table_schema as `foreign_schema`, kc.referenced_table_name as `foreign_table`, '
+                .'group_concat(kc.referenced_column_name order by kc.ordinal_position) as `foreign_columns`, '
+                .'rc.update_rule as `on_update`, rc.delete_rule as `on_delete` '
+                .'from information_schema.key_column_usage kc join information_schema.referential_constraints rc '
+                .'on kc.constraint_schema = rc.constraint_schema and kc.constraint_name = rc.constraint_name '
+                .'where kc.table_schema = '.$where.' and kc.referenced_table_name is not null '
+                .'group by kc.table_name, kc.constraint_name, kc.referenced_table_schema, kc.referenced_table_name, rc.update_rule, rc.delete_rule',
+                $bindings,
+            );
+        } catch (Throwable) {
+            return;
+        }
+
+        $processor = $db->getPostProcessor();
+
+        $this->schema = [
+            ...$this->schema,
+            ...$this->byTable($indexes)->mapWithKeys(fn (array $rows, $table) => [
+                $this->key('indexes', $connection, $table) => array_map(fn ($index) => (array) $index, $processor->processIndexes($rows)),
+            ])->all(),
+            ...$this->byTable($keys)->mapWithKeys(fn (array $rows, $table) => [
+                $this->key('keys', $connection, $table) => $this->links($processor->processForeignKeys($rows)),
+            ])->all(),
+            $flag => true,
+        ];
+    }
+
+    private function byTable(array $rows): Collection
+    {
+        return collect($rows)
+            ->map(fn (object $row) => (array) $row)
+            ->groupBy(fn (array $row) => (string) ($row['table'] ?? $row['TABLE'] ?? ''))
+            ->map(fn (Collection $group) => $group
+                ->map(fn (array $row) => (object) Arr::except($row, ['table', 'TABLE']))
+                ->all());
+    }
+
     public function primaryKey(Connection $connection, string $table): ?string
     {
-        $indexes = $this->connections->resolve($connection)->getSchemaBuilder()->getIndexes($table);
-
-        foreach ($indexes as $index) {
-            $index = (array) $index;
-
+        foreach ($this->indexes($connection, $table) as $index) {
             if (($index['primary'] ?? false) && count($index['columns'] ?? []) === 1) {
                 return $index['columns'][0];
             }
