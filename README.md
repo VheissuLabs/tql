@@ -2,8 +2,8 @@
 
 ![tql browsing a database](docs/tql.jpg)
 
-A database client for the terminal, built with Laravel Zero, Laravel Prompts and
-Laravel MCP.
+tql (pronounced *TEE-kwuhl*, like sequel) is a database client for the terminal,
+built with Laravel Zero, Laravel Prompts and Laravel MCP.
 
 ## Why
 
