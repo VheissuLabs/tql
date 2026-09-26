@@ -87,6 +87,115 @@ describe('simple', function () {
         expect($browser->mode)->toBe('browse');
     });
 
+    it('keeps the indentation on a new line', function () {
+        $browser = sqlPane();
+
+        typeSql($browser, '  where a = 1');
+        $browser->emit('key', Key::ENTER);
+        typeSql($browser, 'and b = 2');
+
+        expect($browser->editor->buffer())->toBe("  where a = 1\n  and b = 2");
+    });
+
+    it('does not indent past the cursor', function () {
+        $browser = sqlPane();
+        $browser->editor->set('    where');
+        $browser->editor->moveTo(2);
+
+        $browser->emit('key', Key::ENTER);
+
+        expect($browser->editor->buffer())->toBe("  \n    where");
+    });
+
+    it('does not indent a new line in a cell value', function () {
+        $browser = sqlPane();
+        $browser->emit('key', Key::ESCAPE);
+        $browser->emit('key', 'l');
+        $browser->emit('key', 'e');
+        $browser->cellEditor->set('  cherry');
+        $browser->emit('key', "\e\r");
+
+        expect($browser->cellEditor->buffer())->toBe("  cherry\n");
+    });
+
+    it('runs the statement under the cursor on ctrl+r', function () {
+        $browser = sqlPane();
+        $browser->editor->set("select * from fruit where qty > 8;\nselect * from fruit");
+        $browser->editor->moveTo(5);
+
+        $browser->emit('key', QueryEditor::RUN);
+
+        expect($browser->raw)->toHaveCount(1)
+            ->and($browser->status)->toContain('statement 1 of 2');
+    });
+
+    it('runs a lone statement without numbering it', function () {
+        $browser = sqlPane();
+        $browser->editor->set('select * from fruit;');
+
+        $browser->emit('key', QueryEditor::RUN);
+
+        expect($browser->raw)->toHaveCount(3)
+            ->and($browser->status)->not->toContain('statement');
+    });
+
+    it('undoes a word at a time on ctrl+z and redoes on ctrl+y', function () {
+        $browser = sqlPane();
+
+        typeSql($browser, 'select name');
+
+        $browser->emit('key', "\x1a");
+
+        expect($browser->editor->buffer())->toBe('select');
+
+        $browser->emit('key', "\x1a");
+
+        expect($browser->editor->buffer())->toBe('');
+
+        $browser->emit('key', "\x1a");
+
+        expect($browser->status)->toContain('oldest');
+
+        $browser->emit('key', "\x19");
+
+        expect($browser->editor->buffer())->toBe('select');
+
+        $browser->emit('key', "\x19");
+        $browser->emit('key', "\x19");
+
+        expect($browser->editor->buffer())->toBe('select name')
+            ->and($browser->status)->toContain('newest');
+    });
+
+    it('undoes a run of deletes as one step', function () {
+        $browser = sqlPane();
+
+        typeSql($browser, 'abc');
+        $browser->emit('key', Key::BACKSPACE);
+        $browser->emit('key', Key::BACKSPACE);
+
+        expect($browser->editor->buffer())->toBe('a');
+
+        $browser->emit('key', "\x1a");
+
+        expect($browser->editor->buffer())->toBe('abc');
+    });
+
+    it('undoes a new line on its own', function () {
+        $browser = sqlPane();
+
+        typeSql($browser, 'select');
+        $browser->emit('key', Key::ENTER);
+        typeSql($browser, 'from');
+        $browser->emit('key', "\x1a");
+
+        expect($browser->editor->buffer())->toBe("select\n");
+
+        $browser->emit('key', "\x1a");
+
+        expect($browser->editor->buffer())->toBe('select');
+    });
+
     it('offers ctrl+r in the footer', function () {
         $browser = sqlPane();
 

@@ -50,6 +50,10 @@ class Browser extends Prompt
     /** ctrl+o, vim's jump-back. */
     public const BACK = "\x0f";
 
+    public const UNDO = "\x1a";
+
+    public const REDO = "\x19";
+
     public const ASK = self::SAVE;
 
     public const PAGE = 100;
@@ -156,6 +160,8 @@ class Browser extends Prompt
     public QueryEditor $editor;
 
     public string $sqlMode = 'normal';
+
+    private ?string $lastEditKind = null;
 
     public Vim $vim;
 
@@ -268,7 +274,7 @@ class Browser extends Prompt
     ) {
         $this->registerRenderer(BrowserRenderer::class);
 
-        $this->editor = new QueryEditor;
+        $this->editor = new QueryEditor(autoindent: true);
         $this->vim = new Vim;
 
         // A server connection with no database named opens on the list of
@@ -811,25 +817,71 @@ class Browser extends Prompt
             return;
         }
 
-        if ($key === QueryEditor::RUN) {
+        match (true) {
+            $key === QueryEditor::RUN => $this->runStatementAtCursor(),
+            $key === Key::ESCAPE => $this->leaveQuery(),
+            $key === self::UNDO => $this->undoInEditor(),
+            $key === self::REDO => $this->redoInEditor(),
+            in_array($key, self::NEWLINE, true) => $this->editWithUndo(Key::ENTER),
+            default => $this->editWithUndo($key),
+        };
+    }
+
+    private function editWithUndo(string $key): void
+    {
+        $kind = match (true) {
+            $key === Key::ENTER => 'newline',
+            $key === ' ' => 'space',
+            in_array($key, [Key::BACKSPACE, Key::CTRL_H, Key::DELETE], true) => 'delete',
+            Input::isText($key) => 'type',
+            default => 'other',
+        };
+
+        if ($kind !== $this->lastEditKind || in_array($kind, ['newline', 'space'], true)) {
+            $this->editor->commit();
+        }
+
+        $this->lastEditKind = $kind === 'space'
+            ? 'type'
+            : $kind;
+
+        $this->editor->checkpoint();
+        $this->editor->handle($key);
+    }
+
+    private function undoInEditor(): void
+    {
+        $this->lastEditKind = null;
+
+        if (! $this->editor->undo()) {
+            $this->status = 'already at oldest change';
+        }
+    }
+
+    private function redoInEditor(): void
+    {
+        $this->lastEditKind = null;
+
+        if (! $this->editor->redo()) {
+            $this->status = 'already at newest change';
+        }
+    }
+
+    private function runStatementAtCursor(): void
+    {
+        $statement = Statements::at($this->editor->buffer(), $this->editor->cursor());
+
+        if ($statement === null) {
             $this->runQueryBuffer();
 
             return;
         }
 
-        if ($key === Key::ESCAPE) {
-            $this->leaveQuery();
+        $this->runQueryBuffer($statement['sql']);
 
-            return;
+        if ($statement['of'] > 1 && $this->resultsFromQuery && $this->problem === null) {
+            $this->status .= " · statement {$statement['number']} of {$statement['of']}";
         }
-
-        if (in_array($key, self::NEWLINE, true)) {
-            $this->editor->handle(Key::ENTER);
-
-            return;
-        }
-
-        $this->editor->handle($key);
     }
 
     private function handleVimKey(string $key): void
@@ -853,6 +905,8 @@ class Browser extends Prompt
 
     private function leaveQuery(): void
     {
+        $this->editor->commit();
+        $this->lastEditKind = null;
         $this->mode = 'browse';
         $this->status = null;
     }
@@ -863,6 +917,12 @@ class Browser extends Prompt
 
         $this->vim->leaveVisual();
         $this->sqlMode = $this->vim->mode;
+
+        if ($selected === null) {
+            $this->runStatementAtCursor();
+
+            return true;
+        }
 
         $this->runQueryBuffer($selected);
 

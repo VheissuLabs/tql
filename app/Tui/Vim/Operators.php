@@ -121,7 +121,13 @@ final class Operators
     private function changeLines(QueryEditor $editor, int $start, int $end, string $taken): void
     {
         $this->vim->store($taken, true);
-        $editor->replace($start, $end, '');
+        $editor->moveTo($start);
+
+        $indent = $editor->autoindents()
+            ? $editor->indentation()
+            : '';
+
+        $editor->replace($start, $end, $indent);
         $this->vim->enterInsert($editor);
     }
 

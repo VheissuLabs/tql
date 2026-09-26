@@ -109,8 +109,8 @@ it('changes with c and leaves you in insert', function (string $from, string $ke
     ["where x in (\n  sel|ect 1\n)", 'ci(', 'where x in (|)'],
     ['sel|ect name', 'C', 'sel|'],
     ['sel|ect name', 'c$', 'sel|'],
-    ["a\n  b|b\nc", 'cc', "a\n|\nc"],
-    ["a\n  b|b\nc", 'S', "a\n|\nc"],
+    ["a\n  b|b\nc", 'cc', "a\n  |\nc"],
+    ["a\n  b|b\nc", 'S', "a\n  |\nc"],
     ['|select', 's', '|elect'],
     ['|select', '3s', '|ect'],
 ]);
@@ -355,4 +355,25 @@ describe(':r', function () {
     it('shows :r in the footer instead of ctrl+r', function () {
         expect(paintSql(vimOn('|select 1')))->toContain(':r')->not->toContain('ctrl+r');
     });
+});
+
+it('keeps the indentation on a new line', function (string $from, string $keys, string $to) {
+    expect(withCursor(vimKeys(vimOn($from), $keys)))->toBe($to);
+})->with([
+    ['  |where a = 1', 'A'."\n".'and', "  where a = 1\n  and|"],
+    ['  |where a = 1', 'o'.'and', "  where a = 1\n  and|"],
+    ['  |where a = 1', 'O'.'and', "  and|\n  where a = 1"],
+    ['|where a = 1', 'o'.'and', "where a = 1\nand|"],
+]);
+
+it('runs the statement under the cursor with :r', function () {
+    $browser = vimKeys(vimOn("select * from fruit where qty > 8;\nselect * from |fruit"), ':r', "\n");
+
+    expect($browser->raw)->toHaveCount(3)
+        ->and($browser->status)->toContain('statement 2 of 2');
+
+    vimKeys($browser, 'gg', ':r', "\n");
+
+    expect($browser->raw)->toHaveCount(1)
+        ->and($browser->status)->toContain('statement 1 of 2');
 });

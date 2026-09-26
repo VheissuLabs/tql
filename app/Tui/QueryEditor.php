@@ -22,7 +22,19 @@ class QueryEditor
      * A single-line editor flattens pasted newlines instead of smuggling one
      * into a value that has to stay on one line, like a host or a name.
      */
-    public function __construct(private bool $multiline = true) {}
+    public function __construct(private bool $multiline = true, private bool $autoindent = false) {}
+
+    public function autoindents(): bool
+    {
+        return $this->autoindent;
+    }
+
+    public function indentation(): string
+    {
+        preg_match('/^[ \t]*/', $this->lines()[$this->cursorLine()], $match);
+
+        return $match[0];
+    }
 
     public function buffer(): string
     {
@@ -156,7 +168,7 @@ class QueryEditor
     public function handle(string $key): void
     {
         match (true) {
-            $key === Key::ENTER => $this->insert("\n"),
+            $key === Key::ENTER => $this->newline(),
             in_array($key, [Key::BACKSPACE, Key::CTRL_H], true) => $this->backspace(),
             $key === Key::DELETE => $this->delete(),
             in_array($key, [Key::LEFT, Key::LEFT_ARROW, Key::CTRL_B], true) => $this->move(-1),
@@ -268,15 +280,29 @@ class QueryEditor
 
     public function openLine(bool $above = false): void
     {
+        $indent = $this->carriedIndent();
+
         if ($above) {
             $this->toLineStart();
-            $this->insert("\n");
+            $this->insert($indent."\n");
             $this->move(-1);
 
             return;
         }
 
         $this->toLineEnd();
-        $this->insert("\n");
+        $this->insert("\n".$indent);
+    }
+
+    private function newline(): void
+    {
+        $this->insert("\n".mb_substr($this->carriedIndent(), 0, $this->cursorColumn()));
+    }
+
+    private function carriedIndent(): string
+    {
+        return $this->autoindent
+            ? $this->indentation()
+            : '';
     }
 }

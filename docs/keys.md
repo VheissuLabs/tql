@@ -117,6 +117,12 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 needs. In the simple style `ctrl+r` runs it; in the vim style `:r` does, and
 `ctrl+r` is redo.
 
+With several statements in the editor, separated by `;`, only the one the
+cursor is in runs, and the status line says which: `statement 2 of 3`. A `;`
+inside quotes, a comment or a Postgres `$$` body does not count.
+
+A new line starts at the indentation of the one before it.
+
 The editor has two styles, picked with `sql_editor` in `[ui]`. `"simple"` is
 the default.
 
@@ -124,8 +130,9 @@ the default.
 
 | Key | Action |
 | --- | --- |
-| `ctrl+r` | run the statement |
+| `ctrl+r` | run the statement under the cursor |
 | `↵` | add a line |
+| `ctrl+z` / `ctrl+y` | undo, redo, a word at a time |
 | `←` `→` `↑` `↓` | move the caret |
 | `ctrl+b` / `ctrl+f` | left or right a character |
 | `ctrl+a` / `ctrl+e` | start or end of the line |
@@ -140,8 +147,8 @@ on another pane.
 The editor opens in normal mode, and its title says which mode you are in:
 `SQL · NORMAL`, `SQL · INSERT`, `SQL · VISUAL` or `SQL · VISUAL LINE`.
 
-`:r` or `:run` runs the statement. With a selection, `:r` runs only what is
-selected. Away from the SQL editor `:r` still reloads the table, and the
+`:r` or `:run` runs the statement under the cursor. With a selection, `:r`
+runs only what is selected. Away from the SQL editor `:r` still reloads the table, and the
 command line says which one it is about to do.
 
 Most keys take a count: `3j`, `5w`, `2dd`. An operator takes one on either

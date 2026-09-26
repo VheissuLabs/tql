@@ -619,7 +619,8 @@ question — `↵` does it and `⇧↵` adds a line. `ctrl+s` still works if it 
 your fingers.
 
 The SQL editor is the exception. `↵` adds a line there and only `ctrl+r` runs
-the statement, so a long query never goes off half written. Set
+the statement under the cursor, so a long query never goes off half written,
+and a buffer of several statements runs one at a time. Set
 `sql_editor = "vim"` in `[ui]` for a vim editor instead — motions, operators,
 text objects, visual mode, undo and `.` — where `:r` runs the statement; see
 [the SQL editor](docs/keys.md#the-sql-editor).
