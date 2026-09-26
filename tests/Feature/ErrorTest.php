@@ -3,6 +3,7 @@
 use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Tui\Browser;
+use App\Tui\QueryEditor;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
 
@@ -79,7 +80,7 @@ it('takes the plumbing out of the message', function () {
 
     $browser->emit('key', 's');
     $browser->editor->set('select * from nowhere');
-    $browser->emit('key', "\n");
+    $browser->emit('key', QueryEditor::RUN);
 
     expect($browser->problem)->toContain('no such table')
         // Not the connection name tql made up, nor the file it opened.
@@ -93,7 +94,7 @@ it('closes on a key and leaves the screen as it was', function () {
 
     $browser->emit('key', 's');
     $browser->editor->set('select * from nowhere');
-    $browser->emit('key', "\n");
+    $browser->emit('key', QueryEditor::RUN);
 
     expect($browser->problem)->not->toBeNull();
 
@@ -108,7 +109,7 @@ it('copies the error with y', function () {
 
     $browser->emit('key', 's');
     $browser->editor->set('select * from nowhere');
-    $browser->emit('key', "\n");
+    $browser->emit('key', QueryEditor::RUN);
 
     $browser->emit('key', 'y');
 
@@ -121,7 +122,7 @@ it('takes every key while it is up, so nothing happens behind it', function () {
 
     $browser->emit('key', 's');
     $browser->editor->set('select * from nowhere');
-    $browser->emit('key', "\n");
+    $browser->emit('key', QueryEditor::RUN);
 
     // d would mark a row for deletion if the error were not in front.
     $browser->emit('key', 'd');

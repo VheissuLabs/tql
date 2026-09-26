@@ -10,7 +10,7 @@ does where it does not. **They can be changed** — see [Rebinding](#rebinding).
 
 | Key | Action |
 | --- | --- |
-| `tab` / `shift+tab` | next or previous pane |
+| `tab` / `shift+tab` | next or previous pane; in the SQL editor they indent instead |
 | `alt+1` / `alt+2` / `alt+3` | go to the table list, the rows or the SQL editor — each pane's title shows its number. On macOS, turn on your terminal's "Option as Meta" or "Option as Alt" |
 | `\` | hide or show the table list, so the grid has the whole width |
 | `↑ ↓` / `j k` | move the cursor; a count before it moves that far, so `5j` is five rows and `3l` three columns |
@@ -85,7 +85,8 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 | `:q` `:quit` | quit |
 | `:c` `:connections` | back to the connection list |
 | `:w` `:write` | write pending edits and deletions |
-| `:r` `:reload` | reload the table |
+| `:r` `:reload` | reload the table; from the SQL editor, `:r` runs the statement |
+| `:run` | run the SQL editor's statement |
 | `:sql` | open the SQL editor |
 | `:tables` | focus the table list |
 | `:rows` | focus the rows |
@@ -112,22 +113,104 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 
 ## The SQL editor
 
+`↵` never runs the statement, so a long query can take as many lines as it
+needs. In the simple style `ctrl+r` runs it; in the vim style `:r` does, and
+`ctrl+r` is redo.
+
+The editor has two styles, picked with `sql_editor` in `[ui]`. `"simple"` is
+the default.
+
+#### `sql_editor = "simple"`
+
 | Key | Action |
 | --- | --- |
-| `↵` | run the statement |
-| `⇧↵` | add a line |
-| `ctrl+r` | run it too, if your terminal eats `⇧↵` |
+| `ctrl+r` | run the statement |
+| `↵` | add a line |
 | `←` `→` `↑` `↓` | move the caret |
 | `ctrl+b` / `ctrl+f` | left or right a character |
 | `ctrl+a` / `ctrl+e` | start or end of the line |
+| `tab` / `shift+tab` | indent or outdent the line two spaces |
+| `esc` | back to the grid |
+
+`tab` stays in the editor. Leave it with `esc`, `alt+1` / `alt+2`, or a click
+on another pane.
+
+#### `sql_editor = "vim"`
+
+The editor opens in normal mode, and its title says which mode you are in:
+`SQL · NORMAL`, `SQL · INSERT`, `SQL · VISUAL` or `SQL · VISUAL LINE`.
+
+`:r` or `:run` runs the statement. With a selection, `:r` runs only what is
+selected. Away from the SQL editor `:r` still reloads the table, and the
+command line says which one it is about to do.
+
+Most keys take a count: `3j`, `5w`, `2dd`. An operator takes one on either
+side, and they multiply, so `2d3w` deletes six words.
+
+| Moving | To |
+| --- | --- |
+| `h` `j` `k` `l` | a character or a line; the arrows too |
+| `w` `b` `e` | the next word, the start of this or the last one, the end of one |
+| `W` `B` `E` | the same, where only spaces break a word |
+| `0` `^` `$` | the line's start, its first non-blank, its last character |
+| `gg` / `G` | the first or last line; `5G` goes to line 5 |
+| `f` `t` + a character | onto, or just before, the next one on the line |
+| `F` `T` + a character | the same, going back |
+| `;` / `,` | the last `f` `t` `F` `T` again, the same way or the other |
+| `%` | the bracket that matches this one |
+| `{` / `}` | the blank line before or after this paragraph |
+| `↵` | the first non-blank of the next line |
+
+| Operator | Does | On the line |
+| --- | --- | --- |
+| `d` + a motion | delete | `dd` |
+| `c` + a motion | delete and insert | `cc` |
+| `y` + a motion | copy, to the clipboard as well | `yy` |
+| `>` / `<` + a motion | indent or outdent two spaces | `>>` / `<<` |
+
+An operator also takes a text object: `iw` `aw` a word, `iW` `aW` a word up
+to spaces, `i(` `a(` (or `ib`) brackets, `i[` `a[`, `i{` `a{` (or `iB`), `i"`
+`a"` `i'` `a'` ``i` `` ``a` `` quotes on the line, and `ip` `ap` a paragraph.
+`i` is inside, `a` takes the edges too. `ci(` rewrites a subquery, even one
+written over several lines.
+
+| Key | Action |
+| --- | --- |
+| `x` / `X` | delete the character under or before the cursor |
+| `D` / `C` / `Y` | delete, change or copy to the end of the line (`Y` the whole line) |
+| `s` / `S` | change the character, or the line |
+| `r` + a character | replace the one under the cursor |
+| `J` | join the next line on, with a space |
+| `~` | swap the case, and move on |
+| `p` / `P` | put after or before; lines go below or above |
+| `u` / `ctrl+r` | undo, redo |
+| `.` | do the last change again, with a new count if you give one |
+| `i` / `a` | insert before or after the cursor |
+| `I` / `A` | insert at the start or end of the line |
+| `o` / `O` | open a line below or above, and insert |
+| `v` / `V` | select characters, or lines |
+| `:` | the command line |
 | `tab` / `shift+tab` | leave for the next pane |
 | `esc` | back to the grid |
 
-`⇧↵` needs a terminal that distinguishes it. In Ghostty:
+| Visual mode | Action |
+| --- | --- |
+| a motion or text object | grow the selection |
+| `o` | go to the other end |
+| `d` `x` / `y` / `c` | delete, copy or change it |
+| `>` `<` / `~` / `J` | indent, outdent, swap case, join |
+| `:r` | run only the selection |
+| `v` / `V` | switch kind, or leave when it is the same |
+| `esc` | back to normal mode |
 
-```
-keybind = shift+enter=csi:13;2u
-```
+| Insert mode | Action |
+| --- | --- |
+| `↵` | add a line |
+| `tab` / `shift+tab` | indent or outdent the line two spaces |
+| `ctrl+w` / `ctrl+u` | delete the word before the cursor, or back to the line's start |
+| `esc` | back to normal mode |
+
+An insert counts as one change, so `u` takes back everything typed since `i`.
 
 ### While editing a value
 

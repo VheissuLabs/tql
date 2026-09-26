@@ -1246,7 +1246,7 @@ it('goes back to the table name when you leave the results', function () {
 });
 
 it('tabs through the sql pane when it is on screen', function () {
-    config(['tql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true, 'tql.ui.sql_editor' => 'vim']);
 
     $browser = browserFor(sqliteFixture());
     $browser->focus = 'sidebar';
@@ -1298,7 +1298,7 @@ it('tabs between two panes when the sql pane is hidden', function () {
         ->and($browser->mode)->toBe('browse');
 });
 
-it('leaves the sql pane with tab rather than indenting', function () {
+it('indents with tab rather than leaving the sql pane', function () {
     config(['tql.ui.sql_always' => true]);
 
     $browser = browserFor(sqliteFixture());
@@ -1308,8 +1308,8 @@ it('leaves the sql pane with tab rather than indenting', function () {
 
     $browser->emit('key', "\t");
 
-    expect($browser->editor->buffer())->toBe($before)
-        ->and($browser->mode)->toBe('browse');
+    expect($browser->editor->buffer())->toBe($before.'  ')
+        ->and($browser->mode)->toBe('query');
 
     config(['tql.ui.sql_always' => false]);
 });

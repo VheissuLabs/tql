@@ -162,6 +162,7 @@ about each one.
 | `sql_position` | `"top"` | where the SQL editor sits: `"top"` or `"bottom"` |
 | `sql_always` | `false` | keep the SQL editor on screen instead of only after `s` |
 | `sql_height` | `0` | rows it takes, 0 picks a third of the frame |
+| `sql_editor` | `"simple"` | how the SQL editor takes keys: `"simple"` or `"vim"`, see [the SQL editor](docs/keys.md#the-sql-editor) |
 | `row_style` | `"marker"` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
 | `top_margin` | `1` | blank rows above the frame |
 | `sidebar_width` | `24` | width of the tables pane |
@@ -613,9 +614,15 @@ network.
 
 ## Enter runs things
 
-Everywhere you type something that then has to happen — a query, a value, a
-filter, a question — `↵` does it and `⇧↵` adds a line. `ctrl+r` and `ctrl+s`
-still work if they are in your fingers.
+Everywhere you type something that then has to happen — a value, a filter, a
+question — `↵` does it and `⇧↵` adds a line. `ctrl+s` still works if it is in
+your fingers.
+
+The SQL editor is the exception. `↵` adds a line there and only `ctrl+r` runs
+the statement, so a long query never goes off half written. Set
+`sql_editor = "vim"` in `[ui]` for a vim editor instead — motions, operators,
+text objects, visual mode, undo and `.` — where `:r` runs the statement; see
+[the SQL editor](docs/keys.md#the-sql-editor).
 
 Shift+enter needs a terminal that sends something distinct for it. In Ghostty:
 

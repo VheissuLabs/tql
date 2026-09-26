@@ -17,7 +17,7 @@ class ConfigTemplate
      * enough to be worth adding: one that shipped before your file was last
      * topped up is one you deleted on purpose.
      */
-    public const VERSION = '0.5.0';
+    public const VERSION = '0.6.0';
 
     /**
      * @return array<int, array{section: string, key: string, default: string, comment: array<int, string>}>
@@ -28,6 +28,7 @@ class ConfigTemplate
             ['section' => 'ui', 'key' => 'sql_position', 'default' => '"top"', 'since' => '0.3.0', 'comment' => ['Where the SQL editor sits: "top" or "bottom"']],
             ['section' => 'ui', 'key' => 'sql_always', 'default' => 'false', 'since' => '0.3.0', 'comment' => ['Keep it on screen instead of only after pressing s']],
             ['section' => 'ui', 'key' => 'sql_height', 'default' => '0', 'since' => '0.3.0', 'comment' => ['Rows it takes, 0 picks a third of the frame']],
+            ['section' => 'ui', 'key' => 'sql_editor', 'default' => '"simple"', 'since' => '0.6.0', 'comment' => ['How the SQL editor takes keys: "simple" (ctrl+r runs) or "vim" (:r runs)']],
             ['section' => 'ui', 'key' => 'row_style', 'default' => '"marker"', 'since' => '0.3.0', 'comment' => ['The current row: "marker", "dim-others", "bold", "inverse", "underline"']],
             ['section' => 'ui', 'key' => 'top_margin', 'default' => '1', 'since' => '0.3.0', 'comment' => ['Blank rows above the frame']],
             ['section' => 'ui', 'key' => 'sidebar_width', 'default' => '24', 'since' => '0.3.0', 'comment' => ['Width of the table list']],

@@ -12,6 +12,12 @@ class QueryEditor
 
     private int $cursor = 0;
 
+    private array $undone = [];
+
+    private array $redone = [];
+
+    private ?array $pending = null;
+
     /**
      * A single-line editor flattens pasted newlines instead of smuggling one
      * into a value that has to stay on one line, like a host or a name.
@@ -37,6 +43,62 @@ class QueryEditor
     {
         $this->buffer = $buffer;
         $this->cursor = mb_strlen($buffer);
+    }
+
+    public function moveTo(int $offset): void
+    {
+        $this->cursor = max(0, min($offset, mb_strlen($this->buffer)));
+    }
+
+    public function replace(int $start, int $end, string $text): void
+    {
+        $this->buffer = mb_substr($this->buffer, 0, $start).$text.mb_substr($this->buffer, $end);
+        $this->cursor = $start + mb_strlen($text);
+    }
+
+    public function checkpoint(): void
+    {
+        $this->pending ??= [$this->buffer, $this->cursor];
+    }
+
+    public function commit(): void
+    {
+        if ($this->pending !== null && $this->pending[0] !== $this->buffer) {
+            $this->undone[] = $this->pending;
+            $this->redone = [];
+        }
+
+        $this->pending = null;
+    }
+
+    public function undo(): bool
+    {
+        $this->commit();
+
+        return $this->step($this->undone, $this->redone);
+    }
+
+    public function redo(): bool
+    {
+        $this->commit();
+
+        return $this->step($this->redone, $this->undone);
+    }
+
+    private function step(array &$from, array &$to): bool
+    {
+        while ($from !== [] && end($from)[0] === $this->buffer) {
+            array_pop($from);
+        }
+
+        if ($from === []) {
+            return false;
+        }
+
+        $to[] = [$this->buffer, $this->cursor];
+        [$this->buffer, $this->cursor] = array_pop($from);
+
+        return true;
     }
 
     public function toStart(): void
@@ -104,6 +166,7 @@ class QueryEditor
             $this->is($key, Key::HOME, Key::CTRL_A) => $this->toLineStart(),
             $this->is($key, Key::END, Key::CTRL_E) => $this->toLineEnd(),
             $key === Key::TAB => $this->insert('  '),
+            $key === Key::SHIFT_TAB => $this->outdent(),
             default => $this->type($key),
         };
     }
@@ -174,16 +237,46 @@ class QueryEditor
         $this->cursor = $offset + $column;
     }
 
-    private function toLineStart(): void
+    public function toLineStart(): void
     {
         $this->cursor -= $this->cursorColumn();
     }
 
-    private function toLineEnd(): void
+    public function toLineEnd(): void
     {
         $lines = $this->lines();
         $line = $this->cursorLine();
 
         $this->cursor += mb_strlen($lines[$line]) - $this->cursorColumn();
+    }
+
+    private function outdent(): void
+    {
+        $line = $this->lines()[$this->cursorLine()];
+        $removed = mb_strlen($line) - mb_strlen(preg_replace('/^ {1,2}/', '', $line));
+
+        if ($removed === 0) {
+            return;
+        }
+
+        $start = $this->cursor - $this->cursorColumn();
+        $column = $this->cursorColumn();
+
+        $this->buffer = mb_substr($this->buffer, 0, $start).mb_substr($this->buffer, $start + $removed);
+        $this->cursor = $start + max(0, $column - $removed);
+    }
+
+    public function openLine(bool $above = false): void
+    {
+        if ($above) {
+            $this->toLineStart();
+            $this->insert("\n");
+            $this->move(-1);
+
+            return;
+        }
+
+        $this->toLineEnd();
+        $this->insert("\n");
     }
 }

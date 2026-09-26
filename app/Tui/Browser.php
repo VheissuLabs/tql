@@ -22,6 +22,7 @@ use App\Tui\Islands\HelpIsland;
 use App\Tui\Islands\SidebarIsland;
 use App\Tui\Islands\TableIsland;
 use App\Tui\Islands\ValueEditorIsland;
+use App\Tui\Vim\Vim;
 use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Laravel\Prompts\Key;
@@ -154,6 +155,10 @@ class Browser extends Prompt
 
     public QueryEditor $editor;
 
+    public string $sqlMode = 'normal';
+
+    public Vim $vim;
+
     public bool $resultsFromQuery = false;
 
     public string $focus = 'sidebar';
@@ -264,6 +269,7 @@ class Browser extends Prompt
         $this->registerRenderer(BrowserRenderer::class);
 
         $this->editor = new QueryEditor;
+        $this->vim = new Vim;
 
         // A server connection with no database named opens on the list of
         // them: asking the server for tables first would answer with every
@@ -743,52 +749,124 @@ class Browser extends Prompt
 
     private function openQuery(): bool
     {
-        $this->mode = 'query';
+        $this->enterQueryMode();
 
         if ($this->editor->isEmpty() && $this->lastStatement !== null) {
             $this->editor->set($this->lastStatement);
         }
 
-        $this->status = '↵ runs it · ⇧↵ adds a line · esc returns';
+        $this->status = $this->queryHint();
 
         return true;
     }
 
+    private function enterQueryMode(): void
+    {
+        if ($this->mode !== 'query') {
+            $this->vim->reset();
+            $this->sqlMode = $this->vim->mode;
+        }
+
+        $this->mode = 'query';
+    }
+
+    private function queryHint(): string
+    {
+        return Layout::sqlEditor() === 'vim'
+            ? 'i types · :r runs it · esc returns'
+            : 'ctrl+r runs it · ↵ adds a line · esc returns';
+    }
+
+    private function runKey(): string
+    {
+        return Layout::sqlEditor() === 'vim'
+            ? ':r'
+            : 'ctrl+r';
+    }
+
+    private function runOrReload(): bool
+    {
+        return $this->mode === 'query'
+            ? $this->runFromEditor()
+            : $this->reload();
+    }
+
     private function handleQueryKey(string $key): void
     {
+        if ($this->command !== null) {
+            $this->handleCommandKey($key);
+
+            return;
+        }
+
         if (in_array(Keymap::action($key), ['palette', 'focus_tables', 'focus_rows', 'focus_sql'], true) && ! Input::isText($key)) {
             $this->runAction((string) Keymap::action($key));
 
             return;
         }
 
-        if ($key === Key::TAB || $key === Key::SHIFT_TAB) {
-            $this->toggleFocus($key === Key::SHIFT_TAB ? -1 : 1);
+        if (Layout::sqlEditor() === 'vim') {
+            $this->handleVimKey($key);
+
+            return;
+        }
+
+        if ($key === QueryEditor::RUN) {
+            $this->runQueryBuffer();
 
             return;
         }
 
         if ($key === Key::ESCAPE) {
-            $this->mode = 'browse';
-            $this->status = null;
+            $this->leaveQuery();
 
             return;
         }
 
-        // Enter runs it, shift+enter adds a line. ctrl+r still runs it too.
         if (in_array($key, self::NEWLINE, true)) {
             $this->editor->handle(Key::ENTER);
 
             return;
         }
 
-        if ($key === Key::ENTER || $key === QueryEditor::RUN) {
-            $this->runQueryBuffer();
+        $this->editor->handle($key);
+    }
 
-            return;
+    private function handleVimKey(string $key): void
+    {
+        $outcome = $this->vim->press($this->editor, $key);
+
+        $this->sqlMode = $this->vim->mode;
+
+        if ($this->vim->message !== null) {
+            $this->status = $this->vim->message;
         }
 
-        $this->editor->handle($key);
+        match ($outcome) {
+            Vim::LEAVE => $this->leaveQuery(),
+            Vim::NEXT_PANE => $this->toggleFocus(),
+            Vim::PREVIOUS_PANE => $this->toggleFocus(-1),
+            Vim::COMMAND => $this->openCommandLine(),
+            default => null,
+        };
+    }
+
+    private function leaveQuery(): void
+    {
+        $this->mode = 'browse';
+        $this->status = null;
+    }
+
+    private function runFromEditor(): bool
+    {
+        $selected = $this->vim->selectedText($this->editor);
+
+        $this->vim->leaveVisual();
+        $this->sqlMode = $this->vim->mode;
+
+        $this->runQueryBuffer($selected);
+
+        return true;
     }
 
     private function followQueryTable(string $statement): void
@@ -807,15 +885,17 @@ class Browser extends Prompt
         }
     }
 
-    private function runQueryBuffer(): void
+    private function runQueryBuffer(?string $statement = null): void
     {
-        if ($this->editor->isEmpty()) {
+        $statement ??= $this->editor->buffer();
+
+        if (trim($statement) === '') {
             $this->status = 'nothing to run';
 
             return;
         }
 
-        $result = $this->runner->run($this->connection, $this->editor->buffer(), 'tui');
+        $result = $this->runner->run($this->connection, $statement, 'tui');
 
         if ($result->failed()) {
             $this->fail((string) $result->error, [], 'THE DATABASE SAID NO');
@@ -835,9 +915,9 @@ class Browser extends Prompt
 
         // The marker follows the query. A statement you ran yourself decides
         // what is sorted, not whichever header was clicked before it.
-        [$this->sortColumn, $this->sortDirection] = OrderBy::of($this->editor->buffer()) ?? [null, 'asc'];
+        [$this->sortColumn, $this->sortDirection] = OrderBy::of($statement) ?? [null, 'asc'];
 
-        $this->followQueryTable($this->editor->buffer());
+        $this->followQueryTable($statement);
 
         $this->status = "{$result->count()} rows · {$result->durationMs}ms";
     }
@@ -2427,8 +2507,8 @@ class Browser extends Prompt
     {
         $entering = $this->mode !== 'query';
 
-        $this->mode = 'query';
-        $this->status = '↵ runs it · ⇧↵ adds a line · esc returns';
+        $this->enterQueryMode();
+        $this->status = $this->queryHint();
 
         if (! $entering || $localRow >= 0) {
             $this->editor->toLineColumn(...$this->editorIsland->positionAt($localRow, $localColumn));
@@ -3218,8 +3298,8 @@ class Browser extends Prompt
         $this->editor->set($this->annotate($answer));
         $this->editor->toStart();
 
-        $this->mode = 'query';
-        $this->status = '↵ runs it · read it first · esc returns';
+        $this->enterQueryMode();
+        $this->status = $this->runKey().' runs it · read it first · esc returns';
 
         return true;
     }
@@ -3463,7 +3543,9 @@ class Browser extends Prompt
             'c', 'connections' => $this->quit('connections'),
             'tables' => $this->focusOn('sidebar'),
             'rows' => $this->focusOn('grid'),
-            'r', 'reload' => $this->reload(),
+            'r' => $this->runOrReload(),
+            'run' => $this->runFromEditor(),
+            'reload' => $this->reload(),
             'w', 'write' => $this->writePending(),
             'sql' => $this->openQuery(),
             'export', 'export sql' => $this->export(),

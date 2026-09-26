@@ -21,6 +21,11 @@ class Layout
         return (bool) config('tql.ui.sql_always', false);
     }
 
+    public static function sqlEditor(): string
+    {
+        return strtolower((string) config('tql.ui.sql_editor', 'simple')) === 'vim' ? 'vim' : 'simple';
+    }
+
     public static function sqlHeight(int $frameHeight): int
     {
         $configured = (int) config('tql.ui.sql_height', 0);

@@ -120,7 +120,7 @@ it('cycles panes forward with tab and backward with shift+tab', function () {
 });
 
 it('includes the sql pane in the cycle when it is always shown', function () {
-    config(['tql.ui.sql_always' => true]);
+    config(['tql.ui.sql_always' => true, 'tql.ui.sql_editor' => 'vim']);
 
     $browser = themed();
 

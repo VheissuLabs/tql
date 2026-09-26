@@ -3,6 +3,7 @@
 use App\Database\QueryRunner;
 use App\Models\Connection;
 use App\Tui\Browser;
+use App\Tui\QueryEditor;
 use App\Tui\RowFormatter;
 use Illuminate\Support\Facades\Artisan;
 
@@ -163,7 +164,7 @@ it('refuses on query results, which have no table to add to', function () {
 
     $browser->emit('key', 's');
     $browser->editor->set('select 1 as one');
-    $browser->emit('key', "\n");
+    $browser->emit('key', QueryEditor::RUN);
 
     $browser->emit('key', "\e");
     $browser->emit('key', 'N');

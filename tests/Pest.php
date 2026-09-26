@@ -5,8 +5,11 @@ putenv('NO_ALT_SCREEN=1');
 putenv('NO_MOUSE=1');
 putenv('NO_TTY_SETUP=1');
 
+use App\Database\QueryRunner;
+use App\Models\Connection;
 use App\Tui\Browser;
 use App\Tui\RowDocument;
+use App\Tui\RowFormatter;
 use Tests\TestCase;
 
 /*
@@ -79,4 +82,49 @@ function expanded(Browser $browser): Browser
     }
 
     return settled($browser);
+}
+
+function sqlPane(string $style = 'simple'): Browser
+{
+    config(['tql.ui.sql_editor' => $style]);
+
+    $path = sys_get_temp_dir().'/tql-sql-'.uniqid().'.sqlite';
+    touch($path);
+
+    $pdo = new PDO('sqlite:'.$path);
+    $pdo->exec('create table fruit (id integer primary key, name text, qty integer)');
+    $pdo->exec("insert into fruit (name, qty) values ('cherry', 3), ('apple', 9), ('banana', 1)");
+
+    $connection = Connection::create([
+        'name' => 'sql'.uniqid(), 'driver' => 'sqlite', 'database' => $path,
+    ]);
+
+    $browser = new Browser($connection, app(QueryRunner::class), app(RowFormatter::class));
+
+    $render = new ReflectionMethod($browser, 'renderTheme');
+    $render->setAccessible(true);
+    $render->invoke($browser);
+
+    $browser->emit('key', "\n");
+    $render->invoke($browser);
+
+    $browser->emit('key', 's');
+    $browser->editor->set('');
+
+    return $browser;
+}
+
+function typeSql(Browser $browser, string $text): void
+{
+    foreach (mb_str_split($text) as $char) {
+        $browser->emit('key', $char);
+    }
+}
+
+function paintSql(Browser $browser): string
+{
+    $method = new ReflectionMethod($browser, 'renderTheme');
+    $method->setAccessible(true);
+
+    return preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser));
 }

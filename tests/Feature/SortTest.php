@@ -739,7 +739,7 @@ it('yanks the row as an object with Y', function () {
     expect($browser->status)->toContain('yanked row');
 });
 
-it('runs the query on enter and adds a line on shift+enter', function () {
+it('adds a line on shift+enter and runs only on ctrl+r', function () {
     $browser = sortable();
 
     $browser->emit('key', 's');
@@ -752,7 +752,7 @@ it('runs the query on enter and adds a line on shift+enter', function () {
     expect($browser->editor->buffer())->toBe("select * from fruit\nwhere qty > 1")
         ->and($browser->resultsFromQuery)->toBeFalse();
 
-    $browser->emit('key', "\n");
+    $browser->emit('key', QueryEditor::RUN);
 
     expect($browser->resultsFromQuery)->toBeTrue()
         ->and(array_column($browser->raw, 'name'))->toBe(['cherry', 'apple']);

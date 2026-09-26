@@ -84,9 +84,12 @@ class BrowserRenderer extends Renderer
                 $prompt->mode === 'query',
                 $prompt->lastStatement,
                 $style,
+                $prompt->mode === 'query' && Layout::sqlEditor() === 'vim'
+                    ? $prompt->vim->selection($prompt->editor)
+                    : null,
             );
             $editor->focused = $prompt->mode === 'query';
-            $editor->title = $this->paneKey('focus_sql').$editor->title;
+            $editor->title = $this->paneKey('focus_sql').$editor->title.$this->vimModeLabel($prompt);
 
             if (Layout::sqlPosition() === 'bottom') {
                 $tableY = $top;
@@ -370,7 +373,10 @@ class BrowserRenderer extends Renderer
             $prompt->mode === 'inspect' => $this->inspectorOffers($prompt),
             $prompt->mode === 'edit' && $prompt->editable => [['↵', 'Keep'], ['⇧↵', 'New line'], ['esc', 'Cancel']],
             $prompt->mode === 'edit' => [['V', 'Select'], ['y', 'Yank'], ['e', 'Edit'], ['esc', 'Close']],
-            $prompt->mode === 'query' => [['↵', 'Run'], ['⇧↵', 'New line'], ['esc', 'Grid'], $more],
+            $prompt->mode === 'query' && Layout::sqlEditor() === 'simple' => [['ctrl+r', 'Run'], ['↵', 'New line'], ['esc', 'Grid'], $more],
+            $prompt->mode === 'query' && $prompt->sqlMode === 'insert' => [['↵', 'New line'], ['tab', 'Indent'], ['esc', 'Normal']],
+            $prompt->mode === 'query' && str_starts_with($prompt->sqlMode, 'visual') => [[':r', 'Run selection'], ['y', 'Yank'], ['d', 'Delete'], ['esc', 'Normal']],
+            $prompt->mode === 'query' => [[':r', 'Run'], ['i', 'Insert'], ['u', 'Undo'], ['esc', 'Grid'], $more],
             $prompt->focus === 'sidebar' => [
                 ['↵', 'Open'],
                 [$key('filter_tables'), 'Filter'],
@@ -439,6 +445,26 @@ class BrowserRenderer extends Renderer
         $chosen = $keys[$which] ?? $keys[0] ?? null;
 
         return $chosen === null ? '' : Keys::glyph($chosen);
+    }
+
+    private function commandHint(Browser $prompt): string
+    {
+        if ($prompt->command !== 'r') {
+            return '';
+        }
+
+        return $prompt->mode === 'query'
+            ? '  runs the query'
+            : '  reloads the table';
+    }
+
+    private function vimModeLabel(Browser $prompt): string
+    {
+        if ($prompt->mode !== 'query' || Layout::sqlEditor() !== 'vim') {
+            return '';
+        }
+
+        return ' · '.strtoupper($prompt->sqlMode);
     }
 
     private function paneKey(string $action): string
@@ -730,7 +756,7 @@ class BrowserRenderer extends Renderer
     private function status(Browser $prompt): string
     {
         if ($prompt->command !== null) {
-            return ' :'.$prompt->command.$this->paint(Theme::cursor(), '█');
+            return ' :'.$prompt->command.$this->paint(Theme::cursor(), '█').$this->dim($this->commandHint($prompt));
         }
 
         if ($prompt->filtering) {

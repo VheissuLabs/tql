@@ -44,6 +44,7 @@ tql notices and tells you which ones.
 | `sql_position` | `"top"` | where the SQL editor sits: `"top"` or `"bottom"` |
 | `sql_always` | `false` | keep it on screen instead of only after `s` |
 | `sql_height` | `0` | rows it takes; 0 picks a third of the frame |
+| `sql_editor` | `"simple"` | how it takes keys: `"simple"` types and `↵` adds a line, `"vim"` is vim, from normal mode; `ctrl+r` runs the statement in simple, `:r` in vim |
 | `row_style` | `"marker"` | how the current row is shown: `"marker"`, `"dim-others"`, `"bold"`, `"inverse"`, `"underline"` |
 | `top_margin` | `1` | blank rows above the frame |
 | `sidebar_width` | `24` | width of the table list |

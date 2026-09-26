@@ -4,6 +4,7 @@ namespace App\Tui\Islands;
 
 use App\Tui\QueryEditor;
 use App\Tui\Sql;
+use App\Tui\Vim\Range;
 
 class EditorIsland extends Island
 {
@@ -17,6 +18,7 @@ class EditorIsland extends Island
         private bool $showCursor = true,
         private ?string $running = null,
         private ?Styler $style = null,
+        private ?Range $selection = null,
     ) {}
 
     public function content(int $innerWidth, int $innerHeight): array
@@ -55,6 +57,7 @@ class EditorIsland extends Island
         $this->firstLine = $rows[$start][0] ?? 0;
         $this->rows = array_map(fn (array $row) => [$row[0], $row[1]], array_slice($rows, $start, $innerHeight));
 
+        $lineOffsets = $this->lineOffsets();
         $out = [];
 
         foreach (array_slice($rows, $start, $innerHeight, true) as $index => [$number, $from, $chars]) {
@@ -62,6 +65,7 @@ class EditorIsland extends Island
                 $chars,
                 $innerWidth,
                 $this->showCursor && $index === $cursorRow ? $cursorColumn - $from : null,
+                $lineOffsets[$number] + $from,
             );
         }
 
@@ -96,7 +100,7 @@ class EditorIsland extends Island
         return $starts;
     }
 
-    private function paintRow(array $chars, int $width, ?int $cursor): string
+    private function paintRow(array $chars, int $width, ?int $cursor, int $offset): string
     {
         $inverse = fn (string $t) => $this->style?->color('cursor', $t) ?? $t;
         $paint = fn (string $type, string $t) => $this->style?->color($type, $t) ?? $t;
@@ -104,16 +108,49 @@ class EditorIsland extends Island
         $rendered = '';
 
         foreach ($chars as $index => [$type, $char]) {
-            $rendered .= $index === $cursor
-                ? $inverse($char)
-                : ($type === 'plain' ? $char : $paint($type, $char));
+            $rendered .= match (true) {
+                $index === $cursor => $inverse($char),
+                $this->isSelected($offset + $index) => $paint('selection', $char),
+                $type === 'plain' => $char,
+                default => $paint($type, $char),
+            };
         }
 
         if ($cursor !== null && $cursor >= count($chars) && count($chars) < $width) {
             $rendered .= $inverse(' ');
         }
 
+        if ($cursor === null && $chars === [] && $this->isSelected($offset)) {
+            $rendered .= $paint('selection', ' ');
+        }
+
         return $rendered;
+    }
+
+    private function isSelected(int $offset): bool
+    {
+        if ($this->selection === null) {
+            return false;
+        }
+
+        $end = $this->selection->linewise
+            ? $this->selection->end + 1
+            : $this->selection->end;
+
+        return $offset >= $this->selection->start && $offset < $end;
+    }
+
+    private function lineOffsets(): array
+    {
+        $offsets = [];
+        $offset = 0;
+
+        foreach ($this->editor->lines() as $line) {
+            $offsets[] = $offset;
+            $offset += mb_strlen($line) + 1;
+        }
+
+        return $offsets;
     }
 
     private function highlight(string $line, int $width, ?int $cursor): string
