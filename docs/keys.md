@@ -295,7 +295,7 @@ scrollback back.
 
 | | |
 | --- | --- |
-| click | select a table, a row or a cell |
+| click | select a table, a row or a cell, and focus that pane; a click on a pane's border focuses it too |
 | double click | edit the cell |
 | click a header | sort by that column |
 | drag a header border | resize the column |

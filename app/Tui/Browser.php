@@ -2302,6 +2302,8 @@ class Browser extends Prompt
 
     private function press(int $column, int $row): bool
     {
+        $this->focusPaneUnder($column, $row);
+
         if ($this->sidebar !== null
             && $column === $this->sidebar->x + $this->sidebar->width - 1
             && $row >= $this->sidebar->y
@@ -2333,6 +2335,26 @@ class Browser extends Prompt
         }
 
         return $this->click($column, $row);
+    }
+
+    private function focusPaneUnder(int $column, int $row): void
+    {
+        $pane = match (true) {
+            $this->sidebar?->contains($column, $row) === true => 'sidebar',
+            $this->table?->contains($column, $row) === true => 'grid',
+            default => null,
+        };
+
+        if ($pane === null) {
+            return;
+        }
+
+        if ($this->mode === 'query') {
+            $this->mode = 'browse';
+            $this->status = null;
+        }
+
+        $this->focus = $pane;
     }
 
     public function isDragging(): bool
@@ -2423,9 +2445,7 @@ class Browser extends Prompt
             return true;
         }
 
-        $this->focus = 'sidebar';
         $this->selectTable($target);
-        $this->focus = 'grid';
 
         return true;
     }
