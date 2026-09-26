@@ -61,8 +61,20 @@ packages must agree about it.
 Formulae live in a tap, which is a repository named `homebrew-<tap>`:
 
 1. Create `VheissuLabs/homebrew-tap`, public, with a `Formula/` directory.
-2. Make a fine-grained token with **contents: write** on that repository and add
-   it to this repository as the secret `HOMEBREW_TAP_TOKEN`.
+2. Give the release workflow a deploy key: an SSH key added to the tap with
+   write access, whose private half is this repository's secret
+   `HOMEBREW_TAP_DEPLOY_KEY`. It can touch the tap and nothing else, and it
+   does not expire. Deploy keys must be allowed in the organisation's settings.
+
+   ```bash
+   ssh-keygen -t ed25519 -N '' -f tap_key
+   gh repo deploy-key add tap_key.pub --repo VheissuLabs/homebrew-tap --allow-write
+   gh secret set HOMEBREW_TAP_DEPLOY_KEY --repo VheissuLabs/tql < tap_key
+   rm tap_key tap_key.pub
+   ```
+
+   A GitHub App (`TAP_APP_ID` and `TAP_APP_PRIVATE_KEY`) or a token
+   (`HOMEBREW_TAP_TOKEN`) work too, when there is no deploy key.
 
 Then every release updates `Formula/tql.rb` by itself, installs it from the tap
 on a macOS runner to check it, and people install with:

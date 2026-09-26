@@ -177,7 +177,7 @@ jobs:
           path: dist
 
   # Both of these need a one-time account setup, and skip themselves until the
-  # secret is there: a tap repository for brew, an AUR account for pacman.
+  # secret is there: HOMEBREW_TAP_DEPLOY_KEY for the tap, AUR_SSH_KEY for pacman.
   recipes:
     needs: publish
     if: startsWith(github.ref, 'refs/tags/v')
@@ -212,14 +212,15 @@ jobs:
 
       - name: Update the Homebrew tap
         env:
+          TAP_DEPLOY_KEY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
           TAP_TOKEN: ${{ steps.tap.outputs.token || secrets.HOMEBREW_TAP_TOKEN }}
           VERSION: ${{ steps.sums.outputs.version }}
           SHA_MACOS_ARM: ${{ steps.sums.outputs.macos_aarch64 }}
           SHA_LINUX_ARM: ${{ steps.sums.outputs.linux_aarch64 }}
           SHA_LINUX_INTEL: ${{ steps.sums.outputs.linux_x86_64 }}
         run: |
-          if [ -z "$TAP_TOKEN" ]; then
-            echo 'No tap app or HOMEBREW_TAP_TOKEN, skipping the tap.'
+          if [ -z "$TAP_DEPLOY_KEY" ] && [ -z "$TAP_TOKEN" ]; then
+            echo 'No HOMEBREW_TAP_DEPLOY_KEY, tap app or HOMEBREW_TAP_TOKEN, skipping the tap.'
             exit 0
           fi
 
@@ -229,7 +230,14 @@ jobs:
               -e "s/SHA_LINUX_INTEL/$SHA_LINUX_INTEL/" \
               packaging/homebrew/tql.rb > /tmp/tql.rb
 
-          git clone "https://x-access-token:$TAP_TOKEN@github.com/VheissuLabs/homebrew-tap.git" /tmp/tap
+          if [ -n "$TAP_DEPLOY_KEY" ]; then
+            install -m 600 /dev/null ~/tap_key
+            printf '%s\n' "$TAP_DEPLOY_KEY" > ~/tap_key
+            export GIT_SSH_COMMAND="ssh -i $HOME/tap_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=accept-new"
+            git clone git@github.com:VheissuLabs/homebrew-tap.git /tmp/tap
+          else
+            git clone "https://x-access-token:$TAP_TOKEN@github.com/VheissuLabs/homebrew-tap.git" /tmp/tap
+          fi
           mkdir -p /tmp/tap/Formula
           cp /tmp/tql.rb /tmp/tap/Formula/tql.rb
 
@@ -307,11 +315,11 @@ jobs:
     steps:
       - name: Install from the tap and run it
         env:
-          TAP_READY: ${{ vars.TAP_APP_ID || secrets.HOMEBREW_TAP_TOKEN }}
+          TAP_READY: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY || vars.TAP_APP_ID || secrets.HOMEBREW_TAP_TOKEN }}
           TAG: ${{ github.ref_name }}
         run: |
           if [ -z "$TAP_READY" ]; then
-            echo 'No tap app or HOMEBREW_TAP_TOKEN, so the tap was not updated; skipping.'
+            echo 'No tap credential, so the tap was not updated; skipping.'
             exit 0
           fi
 
