@@ -54,7 +54,7 @@ class BrowserRenderer extends Renderer
 
         $top = Layout::topMargin() + 1;
         $prompt->firstBodyRow = $top + 1;
-        $frameHeight = max(6, $height - $top - 3);
+        $frameHeight = max(6, $height - $top - (Layout::hotkeyBar() ? 3 : 2));
 
         $style = $this->styler();
 
@@ -346,7 +346,9 @@ class BrowserRenderer extends Renderer
         $prompt->columnOffset = $table->columnOffset;
         $prompt->columnHandles = $table->handles();
 
-        $this->line($this->bar($this->offers($prompt), $width));
+        if (Layout::hotkeyBar()) {
+            $this->line($this->bar($this->offers($prompt), $width));
+        }
 
         $this->line($this->withCallout($this->status($prompt), $prompt, $width));
 

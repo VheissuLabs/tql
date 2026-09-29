@@ -90,6 +90,11 @@ class Layout
         return (bool) config('tql.ui.modal_ring', true);
     }
 
+    public static function hotkeyBar(): bool
+    {
+        return (bool) config('tql.ui.hotkey_bar', true);
+    }
+
     public static function statusSeconds(): float
     {
         return max(0.0, (float) config('tql.ui.status_seconds', 4));

@@ -480,6 +480,23 @@ it('aligns the status and hotkey lines with the island content', function () {
         ->and($indent($hotkeys))->toBe($contentColumn);
 });
 
+it('drops the hotkey bar and gives its row to the frame', function () {
+    $shown = browserFor(sqliteFixture());
+    $shownFrame = frameOf($shown);
+
+    config(['tql.ui.hotkey_bar' => false]);
+
+    $hidden = browserFor(sqliteFixture());
+    $hiddenFrame = frameOf($hidden);
+
+    config(['tql.ui.hotkey_bar' => true]);
+
+    expect($shownFrame)->toContain('Help')
+        ->and($hiddenFrame)->not->toContain('Help')
+        ->and($hidden->sidebar->height)->toBe($shown->sidebar->height + 1)
+        ->and(count(explode("\n", $hiddenFrame)))->toBe(count(explode("\n", $shownFrame)));
+});
+
 it('marks the selected row without underlining it', function () {
     config(['tql.ui.row_style' => 'marker']);
 
