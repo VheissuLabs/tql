@@ -3515,7 +3515,7 @@ class Browser extends Prompt
         $this->command = null;
 
         $items = array_map(
-            fn (array $run) => Palette::item(Palette::HISTORY, History::line($run['statement']), History::hint($run), $run['statement']),
+            fn (array $run) => Palette::item(Palette::HISTORY, History::oneLine($run['statement']), History::hint($run), $run['statement']),
             History::of($this->connection),
         );
 
