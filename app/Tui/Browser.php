@@ -27,6 +27,7 @@ use Chewie\Concerns\CreatesAnAltScreen;
 use Chewie\Concerns\RegistersRenderers;
 use Laravel\Prompts\Key;
 use Laravel\Prompts\Prompt;
+use Throwable;
 
 class Browser extends Prompt
 {
@@ -707,7 +708,7 @@ class Browser extends Prompt
             $result = $this->resultsFromQuery
                 ? $exporter->rows($this->connection, 'results', $this->headers, $this->raw)
                 : $exporter->table($this->connection, (string) $this->currentTable());
-        } catch (\Throwable $e) {
+        } catch (Throwable $e) {
             $this->status = 'export failed: '.$e->getMessage();
 
             return true;
@@ -812,9 +813,16 @@ class Browser extends Prompt
             return;
         }
 
-        if (Layout::sqlEditor() === 'vim') {
-            $this->handleVimKey($key);
+        $offered = $this->completion;
+        $this->completion = null;
 
+        if (Layout::sqlEditor() === 'vim') {
+            $this->handleVimKey($key, $offered);
+
+            return;
+        }
+
+        if ($offered !== null && $this->handleCompletionKey($key, $offered)) {
             return;
         }
 
@@ -826,6 +834,78 @@ class Browser extends Prompt
             in_array($key, self::NEWLINE, true) => $this->editWithUndo(Key::ENTER),
             default => $this->editWithUndo($key),
         };
+
+        $this->offerCompletionAfter($key);
+    }
+
+    private function handleCompletionKey(string $key, Completion $offered): bool
+    {
+        if ($key === Key::TAB) {
+            $this->complete($offered);
+
+            return true;
+        }
+
+        if (in_array($key, [Key::UP, Key::UP_ARROW, Key::CTRL_P, Key::DOWN, Key::DOWN_ARROW, Key::CTRL_N], true)) {
+            $offered->move(in_array($key, [Key::UP, Key::UP_ARROW, Key::CTRL_P], true)
+                ? -1
+                : 1);
+            $this->completion = $offered;
+
+            return true;
+        }
+
+        return $key === Key::ESCAPE;
+    }
+
+    private function complete(Completion $offered): void
+    {
+        $chosen = $offered->selected();
+
+        if ($chosen === null || $offered->end !== $this->editor->cursor()) {
+            return;
+        }
+
+        if (Layout::sqlEditor() === 'vim') {
+            for ($deleted = $offered->start; $deleted < $offered->end; $deleted++) {
+                $this->vim->press($this->editor, Key::BACKSPACE);
+            }
+
+            $this->vim->press($this->editor, $chosen['text']);
+
+            return;
+        }
+
+        $this->editor->commit();
+        $this->editor->checkpoint();
+        $this->editor->replace($offered->start, $offered->end, $chosen['text']);
+        $this->editor->commit();
+        $this->lastEditKind = null;
+    }
+
+    private function offerCompletionAfter(string $key): void
+    {
+        if (! Layout::sqlComplete() || ! (Input::isText($key) || in_array($key, [Key::BACKSPACE, Key::CTRL_H], true))) {
+            return;
+        }
+
+        $this->completion = Completion::at(
+            $this->editor->buffer(),
+            $this->editor->cursor(),
+            $this->tables,
+            $this->columnNamesOf(...),
+            $this->currentTable(),
+            fn (string $name) => $this->runner->grammarFor($this->connection)->wrap($name),
+        );
+    }
+
+    private function columnNamesOf(string $table): array
+    {
+        try {
+            return array_column($this->runner->columns($this->connection, $table), 'name');
+        } catch (Throwable) {
+            return [];
+        }
     }
 
     private function editWithUndo(string $key): void
@@ -885,9 +965,17 @@ class Browser extends Prompt
         }
     }
 
-    private function handleVimKey(string $key): void
+    private function handleVimKey(string $key, ?Completion $offered = null): void
     {
+        if ($offered !== null && $this->vim->mode === 'insert' && $this->handleCompletionKey($key, $offered)) {
+            return;
+        }
+
         $outcome = $this->vim->press($this->editor, $key);
+
+        if ($this->vim->mode === 'insert') {
+            $this->offerCompletionAfter($key);
+        }
 
         $this->sqlMode = $this->vim->mode;
 
@@ -906,6 +994,7 @@ class Browser extends Prompt
 
     private function leaveQuery(): void
     {
+        $this->completion = null;
         $this->editor->commit();
         $this->lastEditKind = null;
         $this->mode = 'browse';
@@ -1021,6 +1110,8 @@ class Browser extends Prompt
     public ?RecordForm $recordForm = null;
 
     public ?Palette $palette = null;
+
+    public ?Completion $completion = null;
 
     public int $documentLine = 0;
 

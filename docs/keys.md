@@ -123,6 +123,14 @@ With several statements in the editor, separated by `;`, only the one the
 cursor is in runs, and the status line says which: `statement 2 of 3`. A `;`
 inside quotes, a comment or a Postgres `$$` body does not count.
 
+As you type, a list offers what could finish the word: the columns of the
+tables the statement names (or of the open table, before it names one), the
+tables, and the keywords. After `from`, `join`, `into` or `update` it offers
+only tables, and after `u.` only the columns of whatever `u` stands for. `tab`
+takes the highlighted one, `↑` `↓` or `ctrl+p` `ctrl+n` move, and `esc` closes
+the list — in vim, a second `esc` leaves insert mode. `↵` still adds a line.
+With no list open, `tab` indents as before. `sql_complete = false` turns it off.
+
 `alt+h` opens the query history: what you have run from the editor, and what
 your agent ran over MCP, on this connection, newest first and once each. Type to
 narrow it, and `↵` puts the statement back in the editor without running it.

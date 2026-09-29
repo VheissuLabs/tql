@@ -231,12 +231,12 @@ it('only adds settings newer than the file says it is', function () {
 
 it('offers a setting from a newer version once, and not again after it is deleted', function () {
     withoutConfigFile(function (string $file) {
-        file_put_contents($file, "# tql configuration 0.6.0\n\n[ui]\nsidebar_width = 40\n");
+        file_put_contents($file, "# tql configuration 0.6.1\n\n[ui]\nsidebar_width = 40\n");
 
-        expect(ConfigFile::ensure()['added'])->toBe(['hotkey_bar'])
+        expect(ConfigFile::ensure()['added'])->toBe(['sql_complete'])
             ->and(file_get_contents($file))->toContain('# tql configuration '.ConfigTemplate::VERSION);
 
-        file_put_contents($file, preg_replace('/^hotkey_bar = .*$/m', '', file_get_contents($file)));
+        file_put_contents($file, preg_replace('/^sql_complete = .*$/m', '', file_get_contents($file)));
 
         expect(ConfigFile::ensure()['added'])->toBe([]);
     });

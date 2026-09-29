@@ -26,6 +26,11 @@ class Layout
         return strtolower((string) config('tql.ui.sql_editor', 'simple')) === 'vim' ? 'vim' : 'simple';
     }
 
+    public static function sqlComplete(): bool
+    {
+        return (bool) config('tql.ui.sql_complete', true);
+    }
+
     public static function sqlHeight(int $frameHeight): int
     {
         $configured = (int) config('tql.ui.sql_height', 0);

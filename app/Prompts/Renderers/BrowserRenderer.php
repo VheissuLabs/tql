@@ -6,8 +6,10 @@ use App\Keys\Keymap;
 use App\Keys\Keys;
 use App\Support\Now;
 use App\Tui\Browser;
+use App\Tui\Completion;
 use App\Tui\Concerns\RendersWithoutPadding;
 use App\Tui\Islands\AskIsland;
+use App\Tui\Islands\CompletionIsland;
 use App\Tui\Islands\EditorIsland;
 use App\Tui\Islands\ErrorIsland;
 use App\Tui\Islands\FilterIsland;
@@ -102,6 +104,10 @@ class BrowserRenderer extends Renderer
             $screen->add($editor);
 
             $prompt->editorIsland = $editor;
+
+            if ($prompt->mode === 'query' && $prompt->completion?->end === $prompt->editor->cursor()) {
+                $screen->overlay($this->completionUnder($editor, $prompt->completion, $style, $width, $top + $frameHeight - 1));
+            }
         }
 
         if ($prompt->filterForm !== null) {
@@ -356,6 +362,25 @@ class BrowserRenderer extends Renderer
         return $this;
     }
 
+    private function completionUnder(EditorIsland $editor, Completion $completion, Styler $style, int $width, int $bottom): CompletionIsland
+    {
+        $island = new CompletionIsland($completion, $style);
+        [$row, $column] = $editor->cursorPosition();
+
+        $cursorRow = $editor->y + 1 + $row;
+        $boxWidth = $island->columns();
+        $boxHeight = $island->rows();
+
+        $below = $cursorRow + 1;
+        $y = $below + $boxHeight - 1 <= $bottom
+            ? $below
+            : max(1, $cursorRow - $boxHeight);
+
+        $x = $editor->contentColumn($column - ($completion->end - $completion->start)) - 2;
+
+        return $island->place(max(1, min($x, $width - $boxWidth)), $y, $boxWidth, $boxHeight);
+    }
+
     private function offers(Browser $prompt): array
     {
         $key = fn (string $action, int $which = 0): string => $this->keyOf($action, $which);
@@ -377,6 +402,7 @@ class BrowserRenderer extends Renderer
             $prompt->mode === 'inspect' => $this->inspectorOffers($prompt),
             $prompt->mode === 'edit' && $prompt->editable => [['↵', 'Keep'], ['⇧↵', 'New line'], ['esc', 'Cancel']],
             $prompt->mode === 'edit' => [['V', 'Select'], ['y', 'Yank'], ['e', 'Edit'], ['esc', 'Close']],
+            $prompt->mode === 'query' && $prompt->completion !== null => [['tab', 'Complete'], ['↑↓', 'Choose'], ['esc', 'Close']],
             $prompt->mode === 'query' && Layout::sqlEditor() === 'simple' => [['ctrl+r', 'Run'], ['↵', 'New line'], ['esc', 'Grid'], $more],
             $prompt->mode === 'query' && $prompt->sqlMode === 'insert' => [['↵', 'New line'], ['tab', 'Indent'], ['esc', 'Normal']],
             $prompt->mode === 'query' && str_starts_with($prompt->sqlMode, 'visual') => [[':r', 'Run selection'], ['y', 'Yank'], ['d', 'Delete'], ['esc', 'Normal']],

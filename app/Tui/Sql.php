@@ -4,7 +4,7 @@ namespace App\Tui;
 
 class Sql
 {
-    private const KEYWORDS = [
+    public const KEYWORDS = [
         'select', 'from', 'where', 'and', 'or', 'not', 'null', 'is', 'in', 'like', 'ilike',
         'between', 'order', 'by', 'group', 'having', 'limit', 'offset', 'asc', 'desc',
         'insert', 'into', 'values', 'update', 'set', 'delete', 'truncate',

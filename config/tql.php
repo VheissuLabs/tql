@@ -99,6 +99,8 @@ return [
 
         'sql_height' => 0,
 
+        'sql_complete' => true,
+
         'export_path' => null,
 
         'sidebar_width' => 24,

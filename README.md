@@ -163,6 +163,7 @@ about each one.
 | `sql_always` | `false` | keep the SQL editor on screen instead of only after `s` |
 | `sql_height` | `0` | rows it takes, 0 picks a third of the frame |
 | `sql_editor` | `"simple"` | how the SQL editor takes keys: `"simple"` or `"vim"`, see [the SQL editor](docs/keys.md#the-sql-editor) |
+| `sql_complete` | `true` | offer tables, columns and keywords as you type in the SQL editor; `tab` takes one |
 | `row_style` | `"marker"` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
 | `top_margin` | `1` | blank rows above the frame |
 | `sidebar_width` | `24` | width of the tables pane |
@@ -643,7 +644,8 @@ viewer and equally careful never to drop a character while you type.
 
 
 Press `s` (or `:sql`) for the SQL editor, which opens above the results.
-`ctrl+r` runs what you have typed, `esc` returns to browsing. Results replace
+`ctrl+r` runs what you have typed, `esc` returns to browsing. As you type, it
+offers the tables, columns and keywords that fit, and `tab` takes one. Results replace
 the grid and are read-only, since they have no primary key to write back
 through — open a table to edit.
 

@@ -27,6 +27,36 @@ class EditorIsland extends Island
             return $this->showRunning($innerWidth, $innerHeight);
         }
 
+        [$rows, $cursorRow, $start] = $this->layout($innerWidth, $innerHeight);
+
+        $this->firstLine = $rows[$start][0] ?? 0;
+        $this->rows = array_map(fn (array $row) => [$row[0], $row[1]], array_slice($rows, $start, $innerHeight));
+
+        $lineOffsets = $this->lineOffsets();
+        $cursorColumn = $this->editor->cursorColumn();
+        $out = [];
+
+        foreach (array_slice($rows, $start, $innerHeight, true) as $index => [$number, $from, $chars]) {
+            $out[] = $this->paintRow(
+                $chars,
+                $innerWidth,
+                $this->showCursor && $index === $cursorRow ? $cursorColumn - $from : null,
+                $lineOffsets[$number] + $from,
+            );
+        }
+
+        return $out;
+    }
+
+    public function cursorPosition(): array
+    {
+        [$rows, $cursorRow, $start] = $this->layout($this->innerWidth(), $this->innerHeight());
+
+        return [$cursorRow - $start, $this->editor->cursorColumn() - ($rows[$cursorRow][1] ?? 0)];
+    }
+
+    private function layout(int $innerWidth, int $innerHeight): array
+    {
         $cursorLine = $this->editor->cursorLine();
         $cursorColumn = $this->editor->cursorColumn();
 
@@ -52,24 +82,7 @@ class EditorIsland extends Island
             }
         }
 
-        $start = max(0, $cursorRow - $innerHeight + 1);
-
-        $this->firstLine = $rows[$start][0] ?? 0;
-        $this->rows = array_map(fn (array $row) => [$row[0], $row[1]], array_slice($rows, $start, $innerHeight));
-
-        $lineOffsets = $this->lineOffsets();
-        $out = [];
-
-        foreach (array_slice($rows, $start, $innerHeight, true) as $index => [$number, $from, $chars]) {
-            $out[] = $this->paintRow(
-                $chars,
-                $innerWidth,
-                $this->showCursor && $index === $cursorRow ? $cursorColumn - $from : null,
-                $lineOffsets[$number] + $from,
-            );
-        }
-
-        return $out;
+        return [$rows, $cursorRow, max(0, $cursorRow - $innerHeight + 1)];
     }
 
     public array $rows = [];
