@@ -325,9 +325,9 @@ it('keeps every field inside the box', function () {
 
     $lines = explode("\n", formFrame($browser));
     $top = collect($lines)->search(fn (string $line) => str_contains($line, 'EDIT ROW'));
-    $right = mb_strrpos($lines[$top], '┐');
+    $right = mb_strrpos($lines[$top], '╮');
 
-    for ($row = $top + 1; ! str_contains($lines[$row], '┘'); $row++) {
+    for ($row = $top + 1; ! str_contains($lines[$row], '╯'); $row++) {
         expect(mb_substr($lines[$row], $right, 1))->toBe('│', "row {$row} spills over: {$lines[$row]}");
     }
 

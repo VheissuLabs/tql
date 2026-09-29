@@ -601,7 +601,7 @@ class BrowserRenderer extends Renderer
 
         $color = Theme::border($island->focused, $island->modal);
 
-        $lines[] = $edge('└').$this->border($inner, $joins, '┴', $color).$edge('┘');
+        $lines[] = $edge('╰').$this->border($inner, $joins, '┴', $color).$edge('╯');
 
         return $lines;
     }
@@ -683,9 +683,9 @@ class BrowserRenderer extends Renderer
 
         // No title, no gap to hold it: an unbroken line across the top.
         if ($island->title === '') {
-            return $this->paint($color, '┌')
-                .$this->run($this->borderChars($inner, $joins, '┬'), '┬', $color)
-                .$this->paint($color, '┐');
+            return $this->paint($color, '╭')
+                .$this->run($this->borderChars($inner, $joins, '┬'), $color)
+                .$this->paint($color, '╮');
         }
 
         $label = ' '.$style->truncate($island->title, max(1, $inner - 4)).' ';
@@ -704,12 +704,12 @@ class BrowserRenderer extends Renderer
             min($inner, $plain + 1),
         );
 
-        return $edge('┌─').$label.$this->run($tail, '┬', $color).$edge('┐');
+        return $edge('╭─').$label.$this->run($tail, $color).$edge('╮');
     }
 
     private function border(int $inner, array $joins, string $join, string $color): string
     {
-        return $this->run($this->borderChars($inner, $joins, $join), $join, $color);
+        return $this->run($this->borderChars($inner, $joins, $join), $color);
     }
 
     /**
@@ -729,28 +729,13 @@ class BrowserRenderer extends Renderer
     }
 
     /**
-     * Paint a border row so the column ticks carry the grid color and the
-     * rule between them carries the frame color, without a color code on
-     * every single character.
+     * Paint a border row, column ticks and all, in the frame's colour. A tick
+     * is where a column meets the frame, so it belongs to the frame: in the
+     * grid colour it cut a notch in a focused border at every column.
      */
-    private function run(array $chars, string $join, string $color): string
+    private function run(array $chars, string $color): string
     {
-        $out = '';
-        $buffer = '';
-        $grid = Theme::grid($this->painting);
-
-        foreach ($chars as $char) {
-            if ($char === $join) {
-                $out .= ($buffer === '' ? '' : $this->paint($color, $buffer)).$this->paint($grid, $join);
-                $buffer = '';
-
-                continue;
-            }
-
-            $buffer .= $char;
-        }
-
-        return $out.($buffer === '' ? '' : $this->paint($color, $buffer));
+        return $chars === [] ? '' : $this->paint($color, implode('', $chars));
     }
 
     private function status(Browser $prompt): string

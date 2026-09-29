@@ -727,7 +727,7 @@ it('scrolls a long path while it is typed, so the end and the cursor stay in vie
 
     $top = collect($plain)->search(fn (string $line) => str_contains($line, 'NEW CONNECTION'));
     $row = collect($plain)->search(fn (string $line) => str_contains($line, 'Path'));
-    $right = mb_strrpos($plain[$top], '┐');
+    $right = mb_strrpos($plain[$top], '╮');
 
     expect($plain[$row])->toMatch('/Path\s+…\S*lunar-project\.sqlite/')
         ->and($lines[$row])->toContain("sqlite\e[7m \e[27m")

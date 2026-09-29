@@ -227,7 +227,7 @@ it('draws each section as its own box', function () {
     $frame = preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser));
 
     // This table has no foreign keys, so there is nothing to relate.
-    expect($frame)->toContain('┌─ RECORD  (4)')
+    expect($frame)->toContain('╭─ RECORD  (4)')
         ->and($frame)->not->toContain('RELATED');
 });
 
@@ -253,7 +253,7 @@ it('collapses a box to its title bar', function () {
     $frame = preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser));
 
     // The box is down to its title bar: no bottom border follows it.
-    expect($frame)->toContain('┌─ RECORD  (4)')
+    expect($frame)->toContain('╭─ RECORD  (4)')
         ->and($browser->document->section(RowDocument::RECORD))->toBe([]);
 });
 
@@ -268,8 +268,8 @@ it('floats over the grid rather than taking the screen', function () {
     $frame = preg_replace('/\e\[[0-9;]*m/', '', $render->invoke($browser));
 
     // The panes are still there behind it.
-    expect($frame)->toMatch('/^┌─ /m')
-        ->and($frame)->toContain('┌─ RECORD')
+    expect($frame)->toMatch('/^╭─ /m')
+        ->and($frame)->toContain('╭─ RECORD')
         ->and($frame)->toContain('events');
 });
 

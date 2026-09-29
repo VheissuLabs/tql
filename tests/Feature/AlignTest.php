@@ -69,7 +69,7 @@ it('draws every framed row to the same width', function (int $cols) {
 
     $framed = collect(explode("\n", $method->invoke($browser)))
         ->map(fn (string $line) => preg_replace('/\e\[[0-9;]*m/', '', rtrim($line)))
-        ->filter(fn (string $line) => preg_match('/[┌│└├]/u', $line) === 1)
+        ->filter(fn (string $line) => preg_match('/[╭│╰├]/u', $line) === 1)
         ->map(fn (string $line) => mb_strlen($line))
         ->values()
         ->all();
@@ -355,7 +355,7 @@ it('floats the help over the panes instead of interleaving with them', function 
 
     // The modal is there, and so is what it is floating over.
     expect($plain)->toContain('HELP')
-        ->and($plain)->toMatch('/^┌─ /m')
+        ->and($plain)->toMatch('/^╭─ /m')
         ->and($plain)->toContain('SQL');
 
     // Every row is still exactly one terminal width, so nothing is doubled up.
@@ -445,7 +445,7 @@ it('draws an opaque backdrop behind a modal', function () {
     $top = null;
 
     foreach ($lines as $index => $line) {
-        if (str_contains($line, '┌─ HELP')) {
+        if (str_contains($line, '╭─ HELP')) {
             $top = $index;
             break;
         }
@@ -453,13 +453,13 @@ it('draws an opaque backdrop behind a modal', function () {
 
     expect($top)->not->toBeNull();
 
-    $at = mb_strpos($lines[$top], '┌');
+    $at = mb_strpos($lines[$top], '╭');
     $above = mb_substr($lines[$top - 1], $at, 10);
 
     putenv('COLUMNS');
     putenv('LINES');
 
-    expect($above)->toMatch('/^[\s─┌┐└┘│]*$/u');
+    expect($above)->toMatch('/^[\s─╭╮╰╯│]*$/u');
 
     // And the ring keeps its distance from the modal on the sides.
     expect(mb_substr($lines[$top + 1], $at - 2, 2))->toBe('  ');
@@ -519,7 +519,7 @@ it('rings the row inspector, and leaves it plain when the config says so', funct
     $corner = function (array $lines, int $rows, int $left = 3, int $width = 4): string {
         foreach ($lines as $index => $line) {
             if (str_contains($line, 'RECORD')) {
-                $at = mb_strpos($lines[$index], '┌');
+                $at = mb_strpos($lines[$index], '╭');
 
                 return mb_substr($lines[$index - $rows] ?? '', $at - $left, $width);
             }
@@ -532,12 +532,12 @@ it('rings the row inspector, and leaves it plain when the config says so', funct
     $plain = $render(false);
 
     // The ring sits two rows above the box: its corner, then a blank row.
-    expect($corner($ringed, 2))->toStartWith('┌')
+    expect($corner($ringed, 2))->toStartWith('╭')
         ->and($corner($ringed, 1))->toBe('│   ')
         // Without it the backdrop is a row and two columns of padding: blank
         // beside the box, and no ring drawn in it.
         ->and($corner($plain, 1, 2, 2))->toBe('  ')
-        ->and($corner($plain, 1))->not->toContain('┌');
+        ->and($corner($plain, 1))->not->toContain('╭');
 
     config(['tql.ui.modal_ring' => true]);
 

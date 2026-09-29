@@ -321,7 +321,7 @@ it('draws each island exactly where it claims to be', function () {
     $sidebarRow = null;
 
     foreach ($lines as $index => $line) {
-        if (str_starts_with($line, '┌─ ')) {
+        if (str_starts_with($line, '╭─ ')) {
             $sidebarRow = $index + 1;
             break;
         }
@@ -372,7 +372,7 @@ it('honours the configured top margin and keeps coordinates honest', function (i
     $drawn = null;
 
     foreach ($lines as $index => $line) {
-        if (str_starts_with($line, '┌─ ')) {
+        if (str_starts_with($line, '╭─ ')) {
             $drawn = $index + 1;
             break;
         }
@@ -462,7 +462,7 @@ it('aligns the status and hotkey lines with the island content', function () {
     $hotkeys = null;
 
     foreach ($lines as $line) {
-        if (str_contains($line, '·') && ! str_contains($line, '┌')) {
+        if (str_contains($line, '·') && ! str_contains($line, '╭')) {
             $status ??= $line;
         }
 
@@ -898,7 +898,7 @@ it('edits a value in a modal over the grid, sized to the value', function () {
         ->and($island->modal)->toBeTrue()
         ->and($island->width)->toBeLessThan($browser->terminal()->cols())
         ->and($island->innerHeight())->toBe(1)
-        ->and($frame)->toMatch('/^┌─ /m')
+        ->and($frame)->toMatch('/^╭─ /m')
         ->and($frame)->toContain('events');
 });
 
@@ -1030,7 +1030,7 @@ it('honours a configured sql height', function () {
             $start = $index;
         }
 
-        if ($start !== null && $index > $start && str_contains($line, '└')) {
+        if ($start !== null && $index > $start && str_contains($line, '╰')) {
             $end = $index;
             break;
         }
@@ -1562,10 +1562,10 @@ it('keeps a long pane title inside its own border', function () {
     $browser->filter = 'widgets_and_everything_else_that_matches';
 
     $lines = explode("\n", frameOf($browser));
-    $top = collect($lines)->first(fn (string $line) => str_starts_with($line, '┌─ '));
+    $top = collect($lines)->first(fn (string $line) => str_starts_with($line, '╭─ '));
     $body = collect($lines)->first(fn (string $line) => str_starts_with($line, '│'));
 
-    expect(mb_strpos($top, '┐'))->toBe(mb_strpos($body, '│', 1))
+    expect(mb_strpos($top, '╮'))->toBe(mb_strpos($body, '│', 1))
         ->and($top)->toContain('…');
 });
 
@@ -1573,7 +1573,7 @@ it('titles the table list with the database it is showing', function () {
     $path = sqliteFixture();
     $browser = browserFor($path);
 
-    $top = collect(explode("\n", frameOf($browser)))->first(fn (string $line) => str_starts_with($line, '┌─ '));
+    $top = collect(explode("\n", frameOf($browser)))->first(fn (string $line) => str_starts_with($line, '╭─ '));
 
     expect($top)->toContain(mb_substr(basename($path), 0, 12))
         ->and($top)->not->toContain('TABLES');
@@ -1593,7 +1593,7 @@ it('jumps to a pane by its number, and titles each pane with it', function () {
 
     $frame = frameOf($browser);
 
-    expect($frame)->toMatch('/┌─ \[1\] /')
+    expect($frame)->toMatch('/╭─ \[1\] /')
         ->and($frame)->toContain('─ [2] widgets ')
         ->and($frame)->toContain('─ [3] SQL ');
 
@@ -1630,7 +1630,7 @@ it('hides the table list with a backslash and gives the grid the width', functio
     expect($browser->tablesHidden)->toBeTrue()
         ->and($browser->focus)->toBe('grid')
         ->and($browser->table->x)->toBe(1)
-        ->and($frame)->not->toMatch('/┌─ \[1\] /')
+        ->and($frame)->not->toMatch('/╭─ \[1\] /')
         ->and($browser->status)->toContain('\\ shows it');
 
     $browser->emit('key', "\t");
@@ -1822,7 +1822,7 @@ it('asks for a bigger window rather than wrapping a layout that cannot fit', fun
     expect(implode("\n", $lines))->toContain(mb_substr('Make the window bigger', 0, $columns))
         ->and(max(array_map('mb_strlen', $lines)))->toBeLessThanOrEqual($columns)
         ->and(count($lines))->toBeLessThan($rows)
-        ->and(implode("\n", $lines))->not->toContain('┌');
+        ->and(implode("\n", $lines))->not->toContain('╭');
 })->with([[40, 30], [80, 8], [12, 4]]);
 
 it('draws the full layout from the smallest size it fits', function () {
@@ -1834,6 +1834,6 @@ it('draws the full layout from the smallest size it fits', function () {
     putenv('COLUMNS');
     putenv('LINES');
 
-    expect($frame)->toContain('┌')
+    expect($frame)->toContain('╭')
         ->and($frame)->not->toContain('Make the window bigger');
 });

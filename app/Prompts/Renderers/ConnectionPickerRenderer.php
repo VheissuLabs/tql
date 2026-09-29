@@ -61,7 +61,7 @@ class ConnectionPickerRenderer extends Renderer
                 .$this->paint(Theme::border(true), '│');
         }
 
-        $lines[] = $this->rule($prompt, '└', '┴', '┘', $widths, $inner);
+        $lines[] = $this->rule($prompt, '╰', '┴', '╯', $widths, $inner);
 
         if ($prompt->form !== null) {
             // A list of files takes over while it is open. Drawing it on top
@@ -166,14 +166,14 @@ class ConnectionPickerRenderer extends Renderer
         $edge = fn (string $text) => $this->paint(Theme::border(true, true), $text);
         $title = ' '.$box->title.' ';
 
-        $rows = [$edge('┌─').$this->bold($this->paint(Theme::title(true, true), $title))
-            .$edge(str_repeat('─', max(0, $inner - mb_strlen($title) - 1)).'┐')];
+        $rows = [$edge('╭─').$this->bold($this->paint(Theme::title(true, true), $title))
+            .$edge(str_repeat('─', max(0, $inner - mb_strlen($title) - 1)).'╮')];
 
         foreach ($box->content($inner, $box->height - 2) as $line) {
             $rows[] = $edge('│').$this->pad($line, $inner).$edge('│');
         }
 
-        $rows[] = $edge('└'.str_repeat('─', $inner).'┘');
+        $rows[] = $edge('╰'.str_repeat('─', $inner).'╯');
 
         return $rows;
     }
@@ -216,8 +216,8 @@ class ConnectionPickerRenderer extends Renderer
         $edge = fn (string $text) => $this->paint(Theme::border(true), $text);
         $title = $form->creating ? ' NEW CONNECTION ' : ' EDIT CONNECTION ';
 
-        $rows = [$edge('┌─').$this->bold($this->paint(Theme::title(true), $title))
-            .$edge(str_repeat('─', max(0, $inner - mb_strlen($title) - 1)).'┐')];
+        $rows = [$edge('╭─').$this->bold($this->paint(Theme::title(true), $title))
+            .$edge(str_repeat('─', max(0, $inner - mb_strlen($title) - 1)).'╮')];
 
         $rows[] = $this->row('', $inner);
 
@@ -262,7 +262,7 @@ class ConnectionPickerRenderer extends Renderer
                 default => '↵ change    ctrl+s save    esc cancel',
             }), $inner);
 
-        $rows[] = $edge('└'.str_repeat('─', $inner).'┘');
+        $rows[] = $edge('╰'.str_repeat('─', $inner).'╯');
 
         return $rows;
     }
@@ -383,10 +383,10 @@ class ConnectionPickerRenderer extends Renderer
 
         $edge = fn (string $text) => $this->paint(Theme::border(true), $text);
 
-        return $edge('┌─')
+        return $edge('╭─')
             .$this->bold($this->paint(Theme::title(true), $title))
             .$this->paint(Theme::grid(true), mb_substr($body, mb_strlen($title) + 1))
-            .$edge('┐');
+            .$edge('╮');
     }
 
     private function headerRow(array $widths, int $inner): string

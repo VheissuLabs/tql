@@ -77,7 +77,7 @@ it('moves the focus colour when the focus moves', function () {
 
     $sidebarEdge = function (Browser $browser) {
         foreach (explode("\n", frameFor($browser)) as $line) {
-            if (str_starts_with(preg_replace('/\e\[[0-9;]*m/', '', $line), '┌─ ')) {
+            if (str_starts_with(preg_replace('/\e\[[0-9;]*m/', '', $line), '╭─ ')) {
                 return str_starts_with($line, "\e[32m");
             }
         }
@@ -138,7 +138,7 @@ it('includes the sql pane in the cycle when it is always shown', function () {
     expect($browser->mode)->toBe('query');
 });
 
-it('keeps the frame colour off the column ticks and the interior grid', function () {
+it('joins the column ticks to the frame and keeps its colour off the interior grid', function () {
     config([
         'tql.theme.focus_border' => 'blue',
         'tql.theme.focus_title' => 'blue',
@@ -150,20 +150,20 @@ it('keeps the frame colour off the column ticks and the interior grid', function
 
     $frame = frameFor($browser);
 
-    // Every column tick on a border row is grid-coloured, never frame-coloured.
-    foreach (explode("\n", $frame) as $line) {
-        foreach (['┬', '┴'] as $tick) {
-            if (! str_contains($line, $tick)) {
-                continue;
-            }
+    // A tick on a border row is part of the border. Painted in the grid colour, a focused frame
+    // read as broken at every column: a bright line with a dim notch wherever a column met it.
+    $ticks = 0;
 
-            expect($line)->toContain("\e[90m".$tick);
-        }
+    foreach (explode("\n", $frame) as $line) {
+        $ticks += substr_count($line, '┬') + substr_count($line, '┴');
     }
 
-    // And the frame colour never immediately precedes a tick.
-    expect($frame)->not->toContain("\e[34m┬")
-        ->and($frame)->not->toContain("\e[34m┴")
+    expect($ticks)->toBeGreaterThan(0)
+        ->and($frame)->not->toContain("\e[90m┬")
+        ->and($frame)->not->toContain("\e[90m┴");
+
+    // Inside the frame the separators stay grid-coloured, so the frame does not bleed into them.
+    expect($frame)->toContain("\e[90m│")
         ->and($frame)->not->toContain("\e[34m│ ");
 });
 
@@ -202,7 +202,7 @@ it('tints the whole table with the pane colour when the grid inherits', function
 
     // ...and the unfocused sidebar keeps the resting colour.
     $sidebar = collect(explode("\n", $frame))
-        ->first(fn (string $line) => str_starts_with(preg_replace('/\e\[[0-9;]*m/', '', $line), '┌─ '));
+        ->first(fn (string $line) => str_starts_with(preg_replace('/\e\[[0-9;]*m/', '', $line), '╭─ '));
 
     expect($sidebar)->toStartWith("\e[90m");
 });

@@ -351,8 +351,8 @@ it('draws the record and related boxes', function () {
 
     $frame = structureFrame($browser);
 
-    expect($frame)->toContain('┌─ RECORD')
-        ->and($frame)->toContain('┌─ RELATED');
+    expect($frame)->toContain('╭─ RECORD')
+        ->and($frame)->toContain('╭─ RELATED');
 });
 
 it('shows related rows as a collection with one header', function () {
@@ -783,14 +783,14 @@ it('keeps every row inside the box, however long the type or the notes', functio
 
     $lines = explode("\n", structureFrame($browser));
     $top = collect($lines)->search(fn (string $line) => str_contains($line, 'STRUCTURE'));
-    $right = mb_strrpos($lines[$top], '┐');
+    $right = mb_strrpos($lines[$top], '╮');
 
-    for ($row = $top + 1; ! str_contains($lines[$row - 1], '┘') || $row === $top + 1; $row++) {
+    for ($row = $top + 1; ! str_contains($lines[$row - 1], '╯') || $row === $top + 1; $row++) {
         $edge = mb_substr($lines[$row], $right, 1);
 
-        expect(in_array($edge, ['│', '┘'], true))->toBeTrue("row {$row} spills over the border: {$lines[$row]}");
+        expect(in_array($edge, ['│', '╯'], true))->toBeTrue("row {$row} spills over the border: {$lines[$row]}");
 
-        if ($edge === '┘') {
+        if ($edge === '╯') {
             break;
         }
     }
