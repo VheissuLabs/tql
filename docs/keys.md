@@ -31,6 +31,7 @@ does where it does not. **They can be changed** — see [Rebinding](#rebinding).
 | `esc` / `ctrl+o` | go back where you followed from |
 | `a` | ask for a query in plain english |
 | `s` | the SQL editor |
+| `H` / `alt+h` | the query history; `alt+h` works from inside the SQL editor too |
 | `y` / `Y` | yank this value, or the whole row as an object |
 | `N` | add a row, in a form; `:w` writes it |
 | `d` / `u` | mark the row for deletion, or clear every mark |
@@ -88,6 +89,7 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 | `:r` `:reload` | reload the table; from the SQL editor, `:r` runs the statement |
 | `:run` | run the SQL editor's statement |
 | `:sql` | open the SQL editor |
+| `:history` | the query history |
 | `:tables` | focus the table list |
 | `:rows` | focus the rows |
 | `:export` | write this table to a `.sql` file |
@@ -120,6 +122,10 @@ needs. In the simple style `ctrl+r` runs it; in the vim style `:r` does, and
 With several statements in the editor, separated by `;`, only the one the
 cursor is in runs, and the status line says which: `statement 2 of 3`. A `;`
 inside quotes, a comment or a Postgres `$$` body does not count.
+
+`alt+h` opens the query history: what you have run from the editor, and what
+your agent ran over MCP, on this connection, newest first and once each. Type to
+narrow it, and `↵` puts the statement back in the editor without running it.
 
 A new line starts at the indentation of the one before it.
 
@@ -360,6 +366,7 @@ of is ignored and the default stands.
 | `structure` | `t` | structure |
 | `databases` | `b` | switch database |
 | `sql` | `s` | the SQL editor |
+| `history` | `H` `alt+h` | the query history |
 | `follow_link` | `L` | follow a link |
 | `jump_back` | `ctrl+o` | go back |
 | `next_page` / `previous_page` | `n` / `p` | paging |

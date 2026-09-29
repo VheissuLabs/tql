@@ -59,6 +59,7 @@ class Keymap
             new Binding('structure', ['t'], 'structure', 'Structure'),
             new Binding('databases', ['b'], 'switch database', 'Database'),
             new Binding('sql', ['s'], 'SQL editor', 'SQL'),
+            new Binding('history', ['H', "\eh"], 'query history'),
             new Binding('follow_link', ['L'], 'follow a link'),
             new Binding('jump_back', ["\x0f"], 'go back'),
             new Binding('next_page', ['n'], 'next page'),

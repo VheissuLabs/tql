@@ -14,11 +14,13 @@ class Palette
 
     public const CONNECTION = 'connection';
 
+    public const HISTORY = 'history';
+
     public int $index = 0;
 
     public QueryEditor $query;
 
-    public function __construct(private array $items)
+    public function __construct(private array $items, public string $title = 'COMMANDS')
     {
         $this->query = new QueryEditor(multiline: false);
     }

@@ -647,6 +647,12 @@ Press `s` (or `:sql`) for the SQL editor, which opens above the results.
 the grid and are read-only, since they have no primary key to write back
 through — open a table to edit.
 
+`H` from the grid, or `alt+h` from the editor, opens the history: every
+statement you have run from the editor on this connection, and every one your
+agent ran over MCP, newest first and once each. Type to narrow it; `↵` puts the
+statement back in the editor, ready to change or run. What tql runs by itself —
+paging the grid, the updates behind `:w` — is not in it.
+
 ## JSON columns
 
 A cell holding JSON opens in a full-width modal when you press `i`: pretty

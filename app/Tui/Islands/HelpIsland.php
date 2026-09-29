@@ -187,7 +187,7 @@ class HelpIsland extends Island
             ],
             'finding' => $this->each(
                 'filter_tables', 'filter_rows', 'structure', 'follow_link', 'jump_back',
-                'databases', 'sql', 'ask', 'palette', 'help', 'quit',
+                'databases', 'sql', 'history', 'ask', 'palette', 'help', 'quit',
             ),
             'viewing a value' => [
                 ['j k', 'move a line'],

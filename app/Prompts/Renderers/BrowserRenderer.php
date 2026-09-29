@@ -272,6 +272,7 @@ class BrowserRenderer extends Renderer
 
         if ($prompt->palette !== null) {
             $palette = new PaletteIsland($prompt->palette, $style);
+            $palette->title = $prompt->palette->title;
             $palette->focused = true;
 
             $this->modal($width, $top, $frameHeight, min($width - 4, PaletteIsland::WIDTH))
@@ -363,6 +364,7 @@ class BrowserRenderer extends Renderer
 
         return match (true) {
             $prompt->problem !== null => [['y', 'Copy'], ['esc', 'Close']],
+            $prompt->palette?->title === 'HISTORY' => [['↑↓', 'Move'], ['↵', 'Use'], ['esc', 'Close']],
             $prompt->palette !== null => [['↑↓', 'Move'], ['↵', 'Run'], ['esc', 'Close']],
             $prompt->recordForm?->editor !== null => [['↵', 'Keep'], ['tab', 'Next'], ['esc', 'Put back']],
             $prompt->recordForm !== null => [['↑↓', 'Field'], ['↵', 'Edit'], ['ctrl+s', 'Keep row'], ['esc', 'Cancel']],

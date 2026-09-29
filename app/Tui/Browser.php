@@ -642,6 +642,7 @@ class Browser extends Prompt
             'mark_delete' => $this->markDelete(),
             'clear_marks' => $this->unmarkAll(),
             'palette' => $this->openPalette(),
+            'history' => $this->openHistory(),
             'focus_tables' => $this->showTables(),
             'focus_rows' => $this->focusPane('grid'),
             'focus_sql' => $this->openQuery(),
@@ -805,7 +806,7 @@ class Browser extends Prompt
             return;
         }
 
-        if (in_array(Keymap::action($key), ['palette', 'focus_tables', 'focus_rows', 'focus_sql'], true) && ! Input::isText($key)) {
+        if (in_array(Keymap::action($key), ['palette', 'history', 'focus_tables', 'focus_rows', 'focus_sql'], true) && ! Input::isText($key)) {
             $this->runAction((string) Keymap::action($key));
 
             return;
@@ -955,7 +956,7 @@ class Browser extends Prompt
             return;
         }
 
-        $result = $this->runner->run($this->connection, $statement, 'tui');
+        $result = $this->runner->run($this->connection, $statement, 'editor');
 
         if ($result->failed()) {
             $this->fail((string) $result->error, [], 'THE DATABASE SAID NO');
@@ -3509,6 +3510,34 @@ class Browser extends Prompt
         return true;
     }
 
+    private function openHistory(): bool
+    {
+        $this->command = null;
+
+        $items = array_map(
+            fn (array $run) => Palette::item(Palette::HISTORY, History::line($run['statement']), History::hint($run), $run['statement']),
+            History::of($this->connection),
+        );
+
+        if ($items === []) {
+            $this->status = 'no history yet · statements you run from the SQL editor land here';
+
+            return true;
+        }
+
+        $this->palette = new Palette($items, 'HISTORY');
+        $this->status = null;
+
+        return true;
+    }
+
+    private function useStatement(string $statement): void
+    {
+        $this->enterQueryMode();
+        $this->editor->set($statement);
+        $this->status = $this->queryHint();
+    }
+
     private function keysOf(Binding $binding): string
     {
         return implode(' / ', array_values(array_unique(array_map(Keys::glyph(...), $binding->keys))));
@@ -3535,7 +3564,7 @@ class Browser extends Prompt
             return;
         }
 
-        if ($this->mode === 'query' && $item['target'] !== 'sql') {
+        if ($this->mode === 'query' && $item['target'] !== 'sql' && $item['kind'] !== Palette::HISTORY) {
             $this->mode = 'browse';
         }
 
@@ -3545,6 +3574,7 @@ class Browser extends Prompt
             Palette::TABLE => $this->goToTable($item['target']),
             Palette::DATABASE => $this->useDatabase($item['target']),
             Palette::CONNECTION => $this->quit('open:'.$item['target']),
+            Palette::HISTORY => $this->useStatement($item['target']),
             default => null,
         };
     }
@@ -3608,6 +3638,7 @@ class Browser extends Prompt
             'reload' => $this->reload(),
             'w', 'write' => $this->writePending(),
             'sql' => $this->openQuery(),
+            'history' => $this->openHistory(),
             'export', 'export sql' => $this->export(),
             default => $this->unknownCommand($command),
         };
