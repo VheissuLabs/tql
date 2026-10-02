@@ -288,6 +288,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - uses: actions/checkout@v4
+
       - uses: actions/download-artifact@v4
         with:
           path: release
@@ -295,6 +297,21 @@ jobs:
 
       - name: Name the phar for what it is
         run: mv release/tql release/tql.phar
+
+      - name: A PKGBUILD for this release, so Arch can makepkg it without the AUR
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          sed -e "s/VERSION/${TAG#v}/g" \
+              -e "s/SHA_LINUX_INTEL/$(sha256sum release/tql-linux-x86_64 | cut -d' ' -f1)/" \
+              -e "s/SHA_LINUX_ARM/$(sha256sum release/tql-linux-aarch64 | cut -d' ' -f1)/" \
+              packaging/aur/PKGBUILD > release/PKGBUILD
+
+      - name: Checksums for every file in the release
+        run: |
+          cd release
+          sha256sum -- * > SHA256SUMS
+          cat SHA256SUMS
 
       - uses: softprops/action-gh-release@v2
         with:

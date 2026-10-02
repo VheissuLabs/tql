@@ -82,8 +82,17 @@ not see new releases — `tql --version` says which one you have.
 
 ### Arch
 
-tql is not on the AUR yet. Until it is, use Homebrew, the binary by hand
-below, or the install script.
+tql is not on the AUR yet. Releases after 0.7.0 carry a `PKGBUILD` filled in
+for that release, so `makepkg` builds a proper pacman package from it — read it
+first, it is twenty lines:
+
+```bash
+mkdir tql && cd tql
+gh release download --repo VheissuLabs/tql --pattern PKGBUILD
+makepkg -si
+```
+
+Until then, use Homebrew, the binary by hand below, or the install script.
 
 ### The binary, by hand
 
@@ -95,6 +104,18 @@ your PATH:
 gh release download --repo VheissuLabs/tql --pattern tql-macos-aarch64
 chmod +x tql-macos-aarch64 && mv tql-macos-aarch64 /usr/local/bin/tql
 ```
+
+### Checking a download
+
+Releases after 0.7.0 carry `SHA256SUMS`, the checksum of every file in the
+release. Download it next to what you downloaded and check:
+
+```bash
+gh release download --repo VheissuLabs/tql --pattern SHA256SUMS
+sha256sum --check --ignore-missing SHA256SUMS          # macOS: shasum -a 256 --check --ignore-missing SHA256SUMS
+```
+
+`OK` beside your file means it is byte for byte what the release built.
 
 ### The install script
 

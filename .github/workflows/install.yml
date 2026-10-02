@@ -52,6 +52,20 @@ jobs:
               -e "s/SHA_LINUX_ARM/$(sha256sum "$RUNNER_TEMP/assets/tql-linux-aarch64" | cut -d' ' -f1)/" \
               packaging/aur/PKGBUILD > "$RUNNER_TEMP/pkg/PKGBUILD"
 
+          published=$(gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name')
+
+          if printf '%s\n' "$published" | grep -qx SHA256SUMS; then
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --dir "$RUNNER_TEMP/assets"
+            (cd "$RUNNER_TEMP/assets" && sha256sum --check --ignore-missing SHA256SUMS)
+          else
+            echo "$tag has no SHA256SUMS, so there are no published checksums to check."
+          fi
+
+          if [[ "$GITHUB_REF" == refs/tags/* ]] && printf '%s\n' "$published" | grep -qx PKGBUILD; then
+            gh release download "$tag" --repo "$GITHUB_REPOSITORY" --pattern PKGBUILD --dir "$RUNNER_TEMP/published"
+            diff "$RUNNER_TEMP/published/PKGBUILD" "$RUNNER_TEMP/pkg/PKGBUILD"
+          fi
+
           docker run --rm -v "$RUNNER_TEMP/pkg:/pkg" -w /pkg \
             -e EXPECTED_SIZE="$(stat -c %s "$RUNNER_TEMP/assets/tql-linux-x86_64")" \
             -e VERSION="${tag#v}" \
