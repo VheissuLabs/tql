@@ -555,7 +555,11 @@ class ConnectionPickerRenderer extends Renderer
             return ' :'.$prompt->command.'█';
         }
 
-        return $this->dim(' '.($prompt->status ?? $prompt->connections->count().' connections'));
+        if ($prompt->status !== null || $prompt->notice === null) {
+            return $this->dim(' '.($prompt->status ?? $prompt->connections->count().' connections'));
+        }
+
+        return $this->dim(' '.$prompt->connections->count().' connections · ').$this->cyan($prompt->notice);
     }
 
     /**

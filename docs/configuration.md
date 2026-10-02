@@ -130,6 +130,29 @@ only a Nerd Font draws; your file can hold the escape or the glyph itself.
 
 No Nerd Font? Any character works — `mysql = "M"` — or `""` for nothing.
 
+## `[updates]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `check` | `true` | look for a new release once a day |
+| `automatic` | `true` | install it by itself, for the next time you start tql |
+
+Once a day, when you start tql, it asks GitHub for the latest release in the
+background — nothing about you or your databases is sent, and a failed check
+says nothing. What happens next depends on how you installed it:
+
+- **The install script, or the binary by hand:** with `automatic` on, tql
+  downloads the new binary, checks it against the release's `SHA256SUMS`, makes
+  sure it runs, and swaps it in. The connection list says *tql 0.8.0 is ready ·
+  restart to use it*, and the next start is the new one. A download that does
+  not match its checksum is never installed.
+- **Homebrew, or a `.deb`, `.rpm` or `PKGBUILD`:** tql never replaces a file a
+  package manager owns. The connection list says what to run instead, such as
+  *tql 0.8.0 is out · brew upgrade tql*.
+
+`tql update` does the same on the spot. `check = false` stops tql from asking
+at all; so does `TQL_UPDATE_CHECK=false` in the environment.
+
 ## `[ai]`
 
 What answers when you press `a`. Only table and column names are sent, never

@@ -9,6 +9,9 @@ use App\Tui\Browser;
 use App\Tui\ConnectionPicker;
 use App\Tui\Layout;
 use App\Tui\RowFormatter;
+use App\Updates\Installation;
+use App\Updates\UpdateCheck;
+use App\Updates\Version;
 use LaravelZero\Framework\Commands\Command;
 
 use function Laravel\Prompts\error;
@@ -37,6 +40,8 @@ class BrowseCommand extends Command
         }
 
         Layout::followTheTerminal();
+
+        $this->checkForUpdatesInTheBackground();
 
         $next = null;
 
@@ -76,6 +81,7 @@ class BrowseCommand extends Command
         $connections = Connection::orderByDesc('last_used_at')->orderBy('name')->get();
 
         $picker = new ConnectionPicker($connections);
+        $picker->notice = UpdateCheck::notice($this->currentVersion(), Installation::running());
         $choice = $picker->prompt();
 
         // Drop the picker before anything else prompts, so its alt screen is
@@ -86,5 +92,21 @@ class BrowseCommand extends Command
             'quit', null => null,
             default => Connection::find((int) $choice),
         };
+    }
+
+    private function checkForUpdatesInTheBackground(): void
+    {
+        if (! UpdateCheck::due()) {
+            return;
+        }
+
+        $command = implode(' ', array_map(escapeshellarg(...), [...Installation::running()->relaunch(), 'update', '--background']));
+
+        exec("nohup {$command} > /dev/null 2>&1 &");
+    }
+
+    private function currentVersion(): string
+    {
+        return Version::of((string) config('app.version')) ?? '0.0.0';
     }
 }

@@ -87,6 +87,14 @@ return [
     // `tql config` says when two of them ask for the same key.
     'keys' => [],
 
+    'updates' => [
+
+        'check' => env('TQL_UPDATE_CHECK', true),
+
+        'automatic' => true,
+
+    ],
+
     'ui' => [
 
         'top_margin' => 1,

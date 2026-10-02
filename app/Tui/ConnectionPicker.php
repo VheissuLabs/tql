@@ -30,6 +30,8 @@ class ConnectionPicker extends Prompt
 
     public ?string $status = null;
 
+    public ?string $notice = null;
+
     public int $start = 0;
 
     public ?int $firstBodyRow = null;

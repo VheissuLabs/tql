@@ -17,7 +17,7 @@ class ConfigTemplate
      * enough to be worth adding: one that shipped before your file was last
      * topped up is one you deleted on purpose.
      */
-    public const VERSION = '0.6.2';
+    public const VERSION = '0.7.1';
 
     /**
      * @return array<int, array{section: string, key: string, default: string, comment: array<int, string>}>
@@ -58,6 +58,9 @@ class ConfigTemplate
             ['section' => 'theme', 'key' => 'modal_title', 'default' => '"white"', 'since' => '0.3.0', 'comment' => ['A modal title']],
             ['section' => 'theme', 'key' => 'modal_focus_title', 'default' => '"cyan"', 'since' => '0.3.0', 'comment' => ['The same, focused']],
 
+            ['section' => 'updates', 'key' => 'check', 'default' => 'true', 'since' => '0.7.1', 'comment' => ['Look for a new release once a day']],
+            ['section' => 'updates', 'key' => 'automatic', 'default' => 'true', 'since' => '0.7.1', 'comment' => ['Install it by itself, checked against its checksum, for the next start; never for Homebrew or a package']],
+
             ['section' => 'ai', 'key' => 'provider', 'default' => '"auto"', 'since' => '0.3.0', 'comment' => ['"auto" takes the first provider you have a key for']],
             ['section' => 'ai', 'key' => 'model', 'default' => '""', 'since' => '0.3.0', 'comment' => ['Empty picks a default for that provider']],
             ['section' => 'ai', 'key' => 'timeout', 'default' => '60', 'since' => '0.3.0', 'comment' => ['Seconds to wait for an answer']],
@@ -81,6 +84,7 @@ class ConfigTemplate
     {
         return [
             'theme' => 'Colors: dim, default, black, red, green, yellow, blue, magenta, cyan, white, gray',
+            'updates' => 'Once a day tql asks GitHub for the latest release. Nothing about you or your databases is sent.',
             'ai' => 'What answers when you press a. Only table and column names are sent, never rows.',
             'icons' => 'The glyph beside a connection name, by driver. Nerd Font devicons.',
         ];
