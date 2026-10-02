@@ -33,52 +33,90 @@ as happily as a Postgres server behind an SSH tunnel.
 
 ## Installing
 
+One file, no runtime to install — **tql does not need PHP on your machine**.
+The binary carries its own, statically linked, with the three database drivers
+built in. On first run it creates `~/.config/tql/` and migrates its own store,
+so there is nothing to set up.
+
+Use your package manager if it is listed here: nothing runs but the package
+itself, and it upgrades and removes tql like anything else.
+
+### macOS and Linux, with Homebrew
+
+```bash
+brew install vheissulabs/tap/tql
+brew upgrade tql                          # later, for a new release
+```
+
+Apple Silicon Macs, and Linux on x86_64 and ARM. It installs the same standalone
+binary, so Homebrew does not pull in PHP either. Homebrew checks the binary
+against the checksum in the formula before it installs it.
+
+### Debian and Ubuntu, with apt
+
+Every release carries a `.deb` for each architecture, with no dependencies.
+Download it from [the latest release](https://github.com/VheissuLabs/tql/releases/latest),
+or with the GitHub CLI:
+
+```bash
+gh release download --repo VheissuLabs/tql --pattern '*_amd64.deb'   # arm64: '*_arm64.deb'
+sudo apt install ./tql_*_amd64.deb
+```
+
+Install a newer `.deb` the same way to upgrade; `sudo apt remove tql` takes it
+off again.
+
+### Fedora and RHEL, with dnf
+
+The same again as an `.rpm`:
+
+```bash
+gh release download --repo VheissuLabs/tql --pattern '*.x86_64.rpm'  # ARM: '*.aarch64.rpm'
+sudo dnf install ./tql-*.x86_64.rpm
+```
+
+A newer `.rpm` upgrades it; `sudo dnf remove tql` removes it.
+
+There is no apt or dnf repository yet, so `apt upgrade` and `dnf upgrade` do
+not see new releases — `tql --version` says which one you have.
+
+### Arch
+
+tql is not on the AUR yet. Until it is, use Homebrew, the binary by hand
+below, or the install script.
+
+### The binary, by hand
+
+The releases carry `tql-linux-x86_64`, `tql-linux-aarch64`, and
+`tql-macos-aarch64` for Apple Silicon. Put the one for your machine anywhere on
+your PATH:
+
+```bash
+gh release download --repo VheissuLabs/tql --pattern tql-macos-aarch64
+chmod +x tql-macos-aarch64 && mv tql-macos-aarch64 /usr/local/bin/tql
+```
+
+### The install script
+
 ```bash
 curl -fsSL https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh | sh
 ```
 
-One file, no runtime to install — **tql does not need PHP on your machine**.
-The binary carries its own, statically linked, with the three database drivers
-built in.
-
-The installer picks the build for your platform, puts it somewhere on your PATH
-— `/usr/local/bin` if it can write there, `~/.local/bin` if not — and tells you
+It picks the build for your platform, puts it somewhere on your PATH —
+`/usr/local/bin` if it can write there, `~/.local/bin` if not — and tells you
 where it went. `TQL_BIN_DIR` chooses the directory, `TQL_VERSION=v0.4.1` pins a
-version. If you would rather read a script before running it, and you should,
-[it is here](install.sh).
+version.
 
-By hand: the releases carry `tql-linux-x86_64`, `tql-linux-aarch64`,
-and `tql-macos-aarch64`, for Apple Silicon.
-
-```bash
-curl -L -o tql https://github.com/VheissuLabs/tql/releases/latest/download/tql-macos-aarch64
-chmod +x tql && mv tql /usr/local/bin/
-```
-
-On first run tql creates `~/.config/tql/` and migrates its own store, so there
-is nothing to set up.
-
-### Homebrew
+Piping a script from the internet into a shell runs whatever it says, so if you
+would rather read it first, and you should, download it, read it, then run it:
 
 ```bash
-brew install vheissulabs/tap/tql
+curl -fsSLO https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh
+less install.sh
+sh install.sh
 ```
 
-Apple Silicon Macs, and Linux on x86_64 and ARM. It installs the same standalone
-binary, so Homebrew does not pull in PHP either. `brew upgrade tql` moves to a
-new release.
-
-### Packages
-
-Every release also carries a `.deb` and an `.rpm` per architecture, and neither
-depends on anything:
-
-```bash
-sudo dpkg -i tql_*_amd64.deb              # debian, ubuntu
-sudo dnf install ./tql-*.x86_64.rpm       # fedora, rhel
-```
-
-How the Homebrew formula is published is in
+How the Homebrew formula and the packages are published is in
 [docs/packaging.md](docs/packaging.md).
 
 ### With PHP, if you would rather
