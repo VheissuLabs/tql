@@ -1,6 +1,6 @@
 # tql
 
-![tql browsing a database](docs/tql.jpg)
+![tql browsing a database: filtering a column, sorting, inspecting a row and its related records, and writing a join in the SQL editor](docs/demo.gif)
 
 tql (pronounced *TEE-kwuhl*, like sequel) is a database client for the terminal,
 built with Laravel Zero, Laravel Prompts and Laravel MCP.
