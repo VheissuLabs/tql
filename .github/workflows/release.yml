@@ -75,6 +75,7 @@ jobs:
           - runner: macos-15
             spc: spc-macos-aarch64
             asset: tql-macos-aarch64
+            extra_extensions: ',sqlsrv,pdo_sqlsrv'
 
     steps:
       - uses: actions/checkout@v4
@@ -94,7 +95,7 @@ jobs:
       # does, so it is worth keeping between releases.
       - name: Name the interpreter for what goes into it
         id: interpreter
-        run: echo "key=micro-${{ matrix.asset }}-${{ matrix.runner }}-php${PHP_VERSION}-$(printf '%s' "$EXTENSIONS" | shasum -a 256 | cut -c1-16)" >> "$GITHUB_OUTPUT"
+        run: echo "key=micro-${{ matrix.asset }}-${{ matrix.runner }}-php${PHP_VERSION}-$(printf '%s' "$EXTENSIONS${{ matrix.extra_extensions }}" | shasum -a 256 | cut -c1-16)" >> "$GITHUB_OUTPUT"
 
       - name: Cache the interpreter
         id: cache
@@ -109,8 +110,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           ./spc doctor --auto-fix
-          ./spc download --with-php=${{ env.PHP_VERSION }} --for-extensions="$EXTENSIONS" --prefer-pre-built
-          ./spc build "$EXTENSIONS" --build-micro
+          extensions="$EXTENSIONS${{ matrix.extra_extensions }}"
+          ./spc download --with-php=${{ env.PHP_VERSION }} --for-extensions="$extensions" --prefer-pre-built
+          ./spc build "$extensions" --build-micro
 
       - name: Make the binary
         run: |
@@ -121,6 +123,10 @@ jobs:
         run: |
           ./${{ matrix.asset }} --version
           ./${{ matrix.asset }} list | grep -q 'mcp:start'
+
+          for extension in $(printf '%s' "${{ matrix.extra_extensions }}" | tr ',' ' '); do
+            strings ./${{ matrix.asset }} | grep -q "$extension" || { echo "$extension is missing from the binary"; exit 1; }
+          done
 
       - uses: actions/upload-artifact@v4
         with:

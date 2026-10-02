@@ -84,6 +84,10 @@ class Connection extends Model
      */
     private function sslConfig(): array
     {
+        if ($this->driver === 'sqlsrv') {
+            return $this->sqlServerEncryption();
+        }
+
         if (! $this->usesSsl()) {
             return [];
         }
@@ -102,6 +106,20 @@ class Connection extends Model
                 // verify-full is the only mode that checks the hostname.
                 PDO::MYSQL_ATTR_SSL_VERIFY_SERVER_CERT => $this->ssl_mode === 'verify-full',
             ], fn ($value) => $value !== null && $value !== '')];
+    }
+
+    private function sqlServerEncryption(): array
+    {
+        $mode = trim((string) $this->ssl_mode);
+
+        return [
+            'encrypt' => $mode === 'disable'
+                ? 'no'
+                : 'yes',
+            'trust_server_certificate' => in_array($mode, ['verify-ca', 'verify-full'], true)
+                ? 'false'
+                : 'true',
+        ];
     }
 
     public function describe(): string

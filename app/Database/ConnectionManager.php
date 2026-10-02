@@ -62,8 +62,19 @@ class ConnectionManager
 
             return null;
         } catch (\Throwable $e) {
-            return $e->getMessage();
+            return static::explain($e->getMessage());
         }
+    }
+
+    public static function explain(string $message): string
+    {
+        if (! str_contains($message, 'Microsoft ODBC Driver')) {
+            return $message;
+        }
+
+        return $message.(PHP_OS_FAMILY === 'Darwin'
+            ? ' Install it once with: brew tap microsoft/mssql-release && HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18'
+            : ' Install it once: https://learn.microsoft.com/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server');
     }
 
     public function touch(Connection $connection): void
