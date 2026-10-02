@@ -91,6 +91,7 @@ class BrowserRenderer extends Renderer
                     : null,
             );
             $editor->focused = $prompt->mode === 'query';
+            $editor->paintsCursor = ! $prompt->insertsAtTerminalCursor();
             $editor->title = $this->paneKey('focus_sql').$editor->title.$this->vimModeLabel($prompt);
 
             if (Layout::sqlPosition() === 'bottom') {

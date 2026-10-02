@@ -13,6 +13,8 @@ class EditorIsland extends Island
     /** First buffer line drawn, so a click can be mapped back through scroll. */
     public int $firstLine = 0;
 
+    public bool $paintsCursor = true;
+
     public function __construct(
         private QueryEditor $editor,
         private bool $showCursor = true,
@@ -40,7 +42,7 @@ class EditorIsland extends Island
             $out[] = $this->paintRow(
                 $chars,
                 $innerWidth,
-                $this->showCursor && $index === $cursorRow ? $cursorColumn - $from : null,
+                $this->showCursor && $this->paintsCursor && $index === $cursorRow ? $cursorColumn - $from : null,
                 $lineOffsets[$number] + $from,
             );
         }

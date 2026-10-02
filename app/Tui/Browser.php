@@ -992,6 +992,27 @@ class Browser extends Prompt
         };
     }
 
+    public function terminalCursor(): ?array
+    {
+        if (! $this->insertsAtTerminalCursor() || $this->editorIsland === null) {
+            return null;
+        }
+
+        [$row, $column] = $this->editorIsland->cursorPosition();
+
+        return [$this->editorIsland->y + 1 + $row, $this->editorIsland->contentColumn($column)];
+    }
+
+    public function insertsAtTerminalCursor(): bool
+    {
+        return $this->mode === 'query'
+            && Layout::sqlEditor() === 'vim'
+            && $this->vim->mode === 'insert'
+            && $this->command === null
+            && $this->palette === null
+            && $this->problem === null;
+    }
+
     private function leaveQuery(): void
     {
         $this->completion = null;

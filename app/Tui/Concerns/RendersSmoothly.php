@@ -76,9 +76,12 @@ trait RendersSmoothly
         $this->lastSize = $size;
 
         if (getenv('NO_SYNC_OUTPUT')) {
+            static::output()->write($this->lowerTerminalCursor());
             $this->clearIfAsked();
 
             parent::render();
+
+            static::output()->write($this->placeTerminalCursor($this->prevFrame));
 
             return;
         }
@@ -89,9 +92,12 @@ trait RendersSmoothly
         static::output()->write("\e[?2026h");
 
         try {
+            static::output()->write($this->lowerTerminalCursor());
             $this->clearIfAsked();
 
             parent::render();
+
+            static::output()->write($this->placeTerminalCursor($this->prevFrame));
         } finally {
             static::output()->write("\e[?2026l");
         }
@@ -110,6 +116,70 @@ trait RendersSmoothly
      * A previous frame of one line would make Prompts write \e[0A, which a
      * terminal reads as "up one", walking the whole app up a row.
      */
+    private int $terminalCursorLifted = 0;
+
+    private bool $terminalCursorShaped = false;
+
+    private function placeTerminalCursor(string $frame): string
+    {
+        $target = method_exists($this, 'terminalCursor')
+            ? $this->terminalCursor()
+            : null;
+
+        if ($target === null) {
+            return $this->restoreTerminalCursorShape();
+        }
+
+        [$row, $column] = $target;
+
+        $this->terminalCursorLifted = max(0, count(explode(PHP_EOL, $frame)) - $row);
+
+        if (! $this->terminalCursorShaped) {
+            $this->terminalCursorShaped = true;
+            $this->restoreTerminalCursorShapeOnExit();
+        }
+
+        return ($this->terminalCursorLifted > 0 ? "\e[{$this->terminalCursorLifted}A" : '')
+            ."\e[{$column}G\e[6 q\e[?25h";
+    }
+
+    private function restoreTerminalCursorShapeOnExit(): void
+    {
+        static $registered = false;
+
+        if ($registered) {
+            return;
+        }
+
+        $registered = true;
+
+        register_shutdown_function(fn () => static::output()->write("\e[0 q"));
+    }
+
+    private function lowerTerminalCursor(): string
+    {
+        if ($this->terminalCursorLifted === 0) {
+            return '';
+        }
+
+        $lowered = "\e[?25l\e[{$this->terminalCursorLifted}B";
+
+        $this->terminalCursorLifted = 0;
+
+        return $lowered;
+    }
+
+    private function restoreTerminalCursorShape(): string
+    {
+        if (! $this->terminalCursorShaped) {
+            return '';
+        }
+
+        $this->terminalCursorShaped = false;
+
+        return "\e[0 q";
+    }
+
     private function clearIfAsked(): void
     {
         if (! $this->repaint) {

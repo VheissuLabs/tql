@@ -119,6 +119,9 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 needs. In the simple style `ctrl+r` runs it; in the vim style `:r` does, and
 `ctrl+r` is redo.
 
+In vim insert mode the cursor is a line, like vim's, and back to a block in
+normal and visual mode. A terminal that ignores cursor shapes shows its own.
+
 With several statements in the editor, separated by `;`, only the one the
 cursor is in runs, and the status line says which: `statement 2 of 3`. A `;`
 inside quotes, a comment or a Postgres `$$` body does not count.
