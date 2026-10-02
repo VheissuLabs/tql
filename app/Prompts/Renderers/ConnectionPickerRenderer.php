@@ -359,7 +359,7 @@ class ConnectionPickerRenderer extends Renderer
         $body = $this->ruleBody($widths, $join, $inner);
 
         return $this->paint(Theme::border(true), $left)
-            .$this->paint(Theme::grid(true), $body)
+            .$this->paint(Theme::border(true), $body)
             .$this->paint(Theme::border(true), $right);
     }
 
@@ -385,7 +385,7 @@ class ConnectionPickerRenderer extends Renderer
 
         return $edge('╭─')
             .$this->bold($this->paint(Theme::title(true), $title))
-            .$this->paint(Theme::grid(true), mb_substr($body, mb_strlen($title) + 1))
+            .$this->paint(Theme::border(true), mb_substr($body, mb_strlen($title) + 1))
             .$edge('╮');
     }
 
@@ -398,7 +398,7 @@ class ConnectionPickerRenderer extends Renderer
             $cells[] = $this->bold(' '.$this->pad($this->truncate($labels[$i], $width), $width).' ');
         }
 
-        $grid = $this->paint(Theme::grid(true), '│');
+        $grid = $this->paint(Theme::border(true), '│');
 
         return $this->paint(Theme::border(true), '│')
             .$this->pad(implode($grid, $cells), $inner)
@@ -409,7 +409,7 @@ class ConnectionPickerRenderer extends Renderer
     {
         $cells = array_map(fn (int $w) => str_repeat(' ', $w + 2), $widths);
 
-        return $this->pad(implode($this->paint(Theme::grid(true), '│'), $cells), $inner);
+        return $this->pad(implode($this->paint(Theme::border(true), '│'), $cells), $inner);
     }
 
     private function rows(ConnectionPicker $prompt, array $widths, int $height): array
@@ -428,7 +428,7 @@ class ConnectionPickerRenderer extends Renderer
 
         $lines = [];
 
-        $grid = $this->paint(Theme::grid(true), '│');
+        $grid = $this->paint(Theme::border(true), '│');
         $inner = array_sum($widths) + 3 * count($widths) - 1;
 
         foreach (array_slice($rows, $start, $height) as $offset => $row) {

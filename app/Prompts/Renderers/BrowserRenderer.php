@@ -582,7 +582,7 @@ class BrowserRenderer extends Renderer
                 'literal' => $this->magenta($t),
                 'punctuation' => $this->dim($t),
                 'gutter' => $this->dim($t),
-                'grid' => $this->paint(Theme::grid($this->painting), $t),
+                'grid' => $this->paint(Theme::border($this->painting), $t),
                 'cursor' => $this->highlight(Theme::cursor(), $t),
                 'marked' => $this->highlight(Theme::color('deleted', 'red'), $t),
                 'edited' => $this->highlight(Theme::color('edited', 'yellow'), $t),

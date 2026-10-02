@@ -47,7 +47,6 @@ class ConfigTemplate
             ['section' => 'theme', 'key' => 'border', 'default' => '"dim"', 'since' => '0.3.0', 'comment' => ['A pane border that is not focused']],
             ['section' => 'theme', 'key' => 'focus_border', 'default' => '"cyan"', 'since' => '0.3.0', 'comment' => ['The border of the pane you are in']],
             ['section' => 'theme', 'key' => 'focus_title', 'default' => '"cyan"', 'since' => '0.3.0', 'comment' => ['Its title']],
-            ['section' => 'theme', 'key' => 'grid', 'default' => '"dim"', 'since' => '0.3.0', 'comment' => ['Column separators and the rule under the header, "inherit" follows the pane']],
             ['section' => 'theme', 'key' => 'cursor', 'default' => '"default"', 'since' => '0.3.0', 'comment' => ['The block you are on, "default" swaps the terminal\'s own colors']],
             ['section' => 'theme', 'key' => 'selection', 'default' => '"default"', 'since' => '0.3.0', 'comment' => ['Highlighted but not where you are: the selected table, a marked row']],
             ['section' => 'theme', 'key' => 'edited', 'default' => '"yellow"', 'since' => '0.3.0', 'comment' => ['A row you have changed, before :w']],

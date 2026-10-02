@@ -87,7 +87,6 @@ your terminal is already themed with, and follows it when you change it.
 | `border` | `"dim"` | a pane border that is not focused |
 | `focus_border` | `"cyan"` | the border of the pane you are in |
 | `focus_title` | `"cyan"` | its title |
-| `grid` | `"dim"` | column separators, and the rule under the header |
 | `cursor` | `"default"` | the block you are on: the selected cell, the caret |
 | `selection` | `"default"` | highlighted, but not where you are |
 | `edited` | `"yellow"` | a row you have changed, before `:w` |
@@ -98,17 +97,16 @@ your terminal is already themed with, and follows it when you change it.
 | `modal_title` | `"white"` | a modal's title |
 | `modal_focus_title` | `"cyan"` | the same, focused |
 
-Two special values:
+A table's column separators and the rule under its header are drawn in the
+pane's border color, so a whole frame is one color: `focus_border` when you are
+in it, `border` when you are not.
 
-- `grid = "inherit"` ties the grid to the pane border, so a focused table tints
-  all the way through rather than growing a colored outline.
-- `cursor = "default"` and `selection = "default"` swap the terminal's own
-  colors instead of painting one, which is what a terminal cursor has always
-  done and what looks right in any theme.
+`cursor = "default"` and `selection = "default"` swap the terminal's own colors
+instead of painting one, which is what a terminal cursor has always done and
+what looks right in any theme.
 
 ```toml
 [theme]
-grid = "inherit"
 cursor = "cyan"
 selection = "cyan"
 border = "dim"

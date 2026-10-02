@@ -138,54 +138,8 @@ it('includes the sql pane in the cycle when it is always shown', function () {
     expect($browser->mode)->toBe('query');
 });
 
-it('joins the column ticks to the frame and keeps its colour off the interior grid', function () {
+it('draws a whole frame in its pane colour, separators, ticks and rules included', function () {
     config([
-        'tql.theme.focus_border' => 'blue',
-        'tql.theme.focus_title' => 'blue',
-        'tql.theme.grid' => 'gray',
-    ]);
-
-    $browser = themed();
-    $browser->emit('key', "\n");
-
-    $frame = frameFor($browser);
-
-    // A tick on a border row is part of the border. Painted in the grid colour, a focused frame
-    // read as broken at every column: a bright line with a dim notch wherever a column met it.
-    $ticks = 0;
-
-    foreach (explode("\n", $frame) as $line) {
-        $ticks += substr_count($line, '┬') + substr_count($line, '┴');
-    }
-
-    expect($ticks)->toBeGreaterThan(0)
-        ->and($frame)->not->toContain("\e[90m┬")
-        ->and($frame)->not->toContain("\e[90m┴");
-
-    // Inside the frame the separators stay grid-coloured, so the frame does not bleed into them.
-    expect($frame)->toContain("\e[90m│")
-        ->and($frame)->not->toContain("\e[34m│ ");
-});
-
-it('paints the interior grid separately from the border', function () {
-    config(['tql.theme.grid' => 'red', 'tql.theme.focus_border' => 'blue']);
-
-    $browser = themed();
-    $browser->emit('key', "\n");
-
-    $frame = frameFor($browser);
-
-    expect($frame)->toContain("\e[31m│");
-
-    $rule = collect(explode("\n", $frame))->first(fn (string $line) => str_contains($line, '┼'));
-
-    expect($rule)->not->toBeNull()
-        ->and($rule)->toMatch('/\e\[31m[─┼]*┼/');
-});
-
-it('tints the whole table with the pane colour when the grid inherits', function () {
-    config([
-        'tql.theme.grid' => 'inherit',
         'tql.theme.focus_border' => 'blue',
         'tql.theme.border' => 'gray',
     ]);
@@ -196,11 +150,12 @@ it('tints the whole table with the pane colour when the grid inherits', function
     expect($browser->focus)->toBe('grid');
 
     $frame = frameFor($browser);
+    $rule = collect(explode("\n", $frame))->first(fn (string $line) => str_contains($line, '┼'));
 
-    // The focused table draws its separators in the focus colour...
-    expect($frame)->toContain("\e[34m│");
+    expect($frame)->toContain("\e[34m│")
+        ->and($frame)->toContain("\e[34m┬")
+        ->and($rule)->toMatch('/\e\[34m[─┼]*┼/');
 
-    // ...and the unfocused sidebar keeps the resting colour.
     $sidebar = collect(explode("\n", $frame))
         ->first(fn (string $line) => str_starts_with(preg_replace('/\e\[[0-9;]*m/', '', $line), '╭─ '));
 

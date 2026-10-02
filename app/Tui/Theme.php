@@ -31,13 +31,6 @@ class Theme
      * "inherit" ties the interior grid to the pane's border, so a focused
      * table tints as a whole rather than growing a colored outline.
      */
-    public static function grid(bool $focused): string
-    {
-        return config('tql.theme.grid') === 'inherit'
-            ? static::border($focused)
-            : static::color('grid');
-    }
-
     /**
      * The block you are on: the selected cell, and the caret in an editor.
      */

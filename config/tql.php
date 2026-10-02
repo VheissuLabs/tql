@@ -37,8 +37,6 @@ return [
 
         'focus_title' => 'cyan',
 
-        'grid' => 'dim',
-
         'modal_border' => 'gray',
 
         'modal_focus_border' => 'cyan',

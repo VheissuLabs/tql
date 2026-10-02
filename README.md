@@ -276,7 +276,6 @@ your terminal is already themed with.
 | `border` | `"dim"` | a pane border that is not focused |
 | `focus_border` | `"cyan"` | the border of the pane you are in |
 | `focus_title` | `"cyan"` | its title |
-| `grid` | `"dim"` | column separators and the rule under the header |
 | `cursor` | `"default"` | the block you are on |
 | `selection` | `"default"` | highlighted but not where you are |
 | `edited` | `"yellow"` | a row you have changed, before `:w` |
@@ -286,8 +285,9 @@ your terminal is already themed with.
 | `modal_title` | `"white"` | modal titles |
 | `modal_focus_title` | `"cyan"` | the same when focused |
 
-`grid = "inherit"` ties the grid to the pane border, so a focused table tints
-all the way through instead of growing a colored outline.
+A table's column separators and the rule under its header are drawn in the
+pane's border color, so a whole frame is one color: `focus_border` when you are
+in it, `border` when you are not.
 
 ### `[icons]`
 
