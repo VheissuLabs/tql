@@ -3,7 +3,8 @@
 ![tql browsing a database: filtering a column, sorting, inspecting a row and its related records, and writing a join in the SQL editor](docs/demo.gif)
 
 tql (pronounced *TEE-kwuhl*, like sequel) is a database client for the terminal,
-built with Laravel Zero, Laravel Prompts and Laravel MCP.
+for MySQL, MariaDB, PostgreSQL and SQLite — and the hosted databases that speak
+their protocol. It is built with Laravel Zero, Laravel Prompts and Laravel MCP.
 
 ## Why
 
@@ -30,6 +31,29 @@ tends not to do:
 
 It is one binary, no configuration required to start, and it opens a SQLite file
 as happily as a Postgres server behind an SSH tunnel.
+
+## Databases
+
+| Database | |
+| --- | --- |
+| **MySQL** and **MariaDB** | built in |
+| **PostgreSQL** | built in |
+| **SQLite** | built in — any `.sqlite`, `.sqlite3` or `.db` file |
+| **SQL Server** | from `tql.phar`, on a PHP with `pdo_sqlsrv` and Microsoft's ODBC driver; not in the standalone binary yet |
+
+A hosted database that speaks the MySQL or PostgreSQL protocol connects the same
+way, with a connection string or the connection form, over [TLS](#tls) and, if
+it needs one, [an SSH tunnel](#databases-behind-ssh):
+
+- **MySQL protocol:** Laravel Cloud, Amazon RDS and Aurora, Google Cloud SQL,
+  Azure Database, DigitalOcean, PlanetScale, TiDB, SingleStore
+- **PostgreSQL protocol:** Neon, Supabase, Amazon RDS and Aurora, Google Cloud
+  SQL, Azure Database, DigitalOcean, Crunchy Bridge, Timescale, CockroachDB
+
+tql is developed against MySQL 9 locally and MySQL 8.4 on Laravel Cloud. The
+rest speak the same protocol and should behave the same; if one does not — some report their schema a
+little differently — [open an issue](https://github.com/VheissuLabs/tql/issues)
+and say which.
 
 ## Installing
 
