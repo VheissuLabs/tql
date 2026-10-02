@@ -2,6 +2,8 @@
 
 namespace App\Tui\Concerns;
 
+use Closure;
+use Laravel\Prompts\Key;
 use Laravel\Prompts\Support\Result;
 
 trait RedrawsOnResize
@@ -35,7 +37,7 @@ trait RedrawsOnResize
                     continue;
                 }
 
-                $key = static::terminal()->read();
+                $key = $this->joinSplitEscape(static::terminal()->read(), $this->keyFollowingAtOnce(...));
 
                 if ($key === '') {
                     continue;
@@ -52,6 +54,33 @@ trait RedrawsOnResize
                 pcntl_signal(SIGWINCH, SIG_DFL);
             }
         }
+    }
+
+    private function joinSplitEscape(string $key, Closure $following): string
+    {
+        if ($key !== Key::ESCAPE) {
+            return $key;
+        }
+
+        return $key.($following() ?? '');
+    }
+
+    private function keyFollowingAtOnce(): ?string
+    {
+        $read = [STDIN];
+        $write = null;
+        $except = null;
+
+        if (@stream_select($read, $write, $except, 0, $this->escapeWaitMicroseconds()) !== 1) {
+            return null;
+        }
+
+        return static::terminal()->read();
+    }
+
+    protected function escapeWaitMicroseconds(): int
+    {
+        return 30_000;
     }
 
     public function idle(bool $timedOut): bool
