@@ -2,6 +2,8 @@
 
 namespace App\Updates;
 
+use App\Support\Executable;
+
 class Installation
 {
     public const HOMEBREW = 'homebrew';
@@ -16,11 +18,9 @@ class Installation
 
     public static function running(): self
     {
-        $path = PHP_SAPI === 'micro'
-            ? PHP_BINARY
-            : (string) ($_SERVER['SCRIPT_FILENAME'] ?? '');
+        $executable = Executable::running();
 
-        return self::of(PHP_SAPI, realpath($path) ?: $path);
+        return self::of($executable->sapi, $executable->path);
     }
 
     public static function of(string $sapi, string $path): self
@@ -50,8 +50,6 @@ class Installation
 
     public function relaunch(): array
     {
-        return PHP_SAPI === 'micro'
-            ? [PHP_BINARY]
-            : [PHP_BINARY, $this->path];
+        return Executable::running()->command();
     }
 }

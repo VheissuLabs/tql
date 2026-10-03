@@ -141,9 +141,12 @@ says nothing. What happens next depends on how you installed it:
 
 - **The install script, or the binary by hand:** with `automatic` on, tql
   downloads the new binary, checks it against the release's `SHA256SUMS`, makes
-  sure it runs, and swaps it in. The connection list says *tql 0.8.0 is ready ·
-  restart to use it*, and the next start is the new one. A download that does
-  not match its checksum is never installed.
+  sure it runs, and keeps it in a `.tql-versions` folder beside `tql`. The
+  connection list says *tql 0.8.0 is ready · restart to use it*, and the next
+  start switches `tql` to it — a symlink into that folder, so a tql that is
+  already running, an MCP server included, keeps its own file and carries on.
+  The last three versions are kept. A download that does not match its checksum
+  is never installed.
 - **Homebrew, or a `.deb`, `.rpm` or `PKGBUILD`:** tql never replaces a file a
   package manager owns. The connection list says what to run instead, such as
   *tql 0.8.0 is out · brew upgrade tql*.

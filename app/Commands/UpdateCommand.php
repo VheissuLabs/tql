@@ -9,6 +9,7 @@ use App\Updates\UpdateCheck;
 use App\Updates\UpdateFailed;
 use App\Updates\Updater;
 use App\Updates\Version;
+use App\Updates\Versions;
 use LaravelZero\Framework\Commands\Command;
 
 class UpdateCommand extends Command
@@ -64,7 +65,11 @@ class UpdateCommand extends Command
 
         Setting::write(UpdateCheck::INSTALLED, $latest);
 
-        $this->info("Updated to {$latest}, checked against its published checksum. The next tql you start is the new one.");
+        $versions = Versions::forInstalled($installation->path);
+
+        $this->info($versions->switchesSafelyNow() && $versions->activate()
+            ? "Updated to {$latest}, checked against its published checksum. The next tql you start is the new one."
+            : "Downloaded {$latest} and checked it against its published checksum. It takes over the next time you start tql.");
 
         return self::SUCCESS;
     }

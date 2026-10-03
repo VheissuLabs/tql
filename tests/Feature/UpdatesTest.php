@@ -6,6 +6,7 @@ use App\Updates\UpdateCheck;
 use App\Updates\UpdateFailed;
 use App\Updates\Updater;
 use App\Updates\Version;
+use App\Updates\Versions;
 use Illuminate\Support\Facades\Http;
 
 beforeEach(function () {
@@ -71,7 +72,7 @@ it('tells each kind of install how to upgrade', function (string $how, string $s
     [Installation::PHP, 'releases'],
 ]);
 
-it('replaces the binary with the release once its checksum matches', function () {
+it('stages a release once its checksum matches, without touching the binary that is running', function () {
     $target = installedAt();
     $binary = fakeBinary('0.8.0');
 
@@ -79,9 +80,65 @@ it('replaces the binary with the release once its checksum matches', function ()
 
     (new Updater)->install('0.8.0', $target);
 
-    expect(file_get_contents($target))->toBe($binary)
-        ->and(is_executable($target))->toBeTrue()
-        ->and(glob(dirname($target).'/.tql-*'))->toBe([]);
+    $versions = Versions::forInstalled($target);
+
+    expect(file_get_contents($target))->toBe(fakeBinary('0.7.0'))
+        ->and(file_get_contents($versions->file('0.8.0')))->toBe($binary)
+        ->and(is_executable($versions->file('0.8.0')))->toBeTrue()
+        ->and(glob($versions->directory().'/.download-*'))->toBe([]);
+});
+
+it('switches to a staged version through a symlink, so a running tql keeps its own file', function () {
+    $target = installedAt();
+    $binary = fakeBinary('0.8.0');
+
+    fakeRelease('0.8.0', $binary, hash('sha256', $binary).'  '.Updater::asset()."\n");
+    (new Updater)->install('0.8.0', $target);
+
+    expect(Versions::forInstalled($target)->activate(fn () => false))->toBeTrue()
+        ->and(is_link($target))->toBeTrue()
+        ->and(readlink($target))->toBe('.tql-versions/tql-0.8.0')
+        ->and(file_get_contents($target))->toBe($binary)
+        ->and(Versions::forInstalled($target)->activate(fn () => false))->toBeFalse();
+});
+
+it('waits to turn a plain binary into a symlink while another tql is running from it', function () {
+    $target = installedAt();
+    $binary = fakeBinary('0.8.0');
+
+    fakeRelease('0.8.0', $binary, hash('sha256', $binary).'  '.Updater::asset()."\n");
+    (new Updater)->install('0.8.0', $target);
+
+    expect(Versions::forInstalled($target)->activate(fn () => true))->toBeFalse()
+        ->and(is_link($target))->toBeFalse()
+        ->and(file_get_contents($target))->toBe(fakeBinary('0.7.0'))
+        ->and(Versions::forInstalled($target)->activate(fn () => false))->toBeTrue();
+});
+
+it('switches between versions once it is a symlink, even with another tql running', function () {
+    $target = installedAt();
+
+    foreach (['0.8.0', '0.8.1'] as $version) {
+        $binary = fakeBinary($version);
+        fakeRelease($version, $binary, hash('sha256', $binary).'  '.Updater::asset()."\n");
+        (new Updater)->install($version, $target);
+        Versions::forInstalled($target)->activate(fn () => $version === '0.8.1');
+    }
+
+    expect(readlink($target))->toBe('.tql-versions/tql-0.8.1')
+        ->and(Versions::forInstalled(dirname($target).'/.tql-versions/tql-0.8.1')->link)->toBe($target);
+});
+
+it('keeps only the last three versions', function () {
+    $target = installedAt();
+
+    foreach (['0.8.0', '0.8.1', '0.8.2', '0.9.0'] as $version) {
+        $binary = fakeBinary($version);
+        fakeRelease($version, $binary, hash('sha256', $binary).'  '.Updater::asset()."\n");
+        (new Updater)->install($version, $target);
+    }
+
+    expect(array_map('basename', glob(dirname($target).'/.tql-versions/tql-*')))->toBe(['tql-0.8.1', 'tql-0.8.2', 'tql-0.9.0']);
 });
 
 it('refuses a binary that does not match its checksum and leaves the old one alone', function () {
@@ -135,7 +192,7 @@ it('updates by itself when it can, and says a restart will use it', function () 
 
     UpdateCheck::run('0.7.0', $installation, new Updater);
 
-    expect(file_get_contents($target))->toBe($binary)
+    expect(file_get_contents(Versions::forInstalled($target)->file('0.8.0')))->toBe($binary)
         ->and(UpdateCheck::notice('0.7.0', $installation))->toBe('tql 0.8.0 is ready · restart to use it')
         ->and(UpdateCheck::notice('0.8.0', $installation))->toBeNull();
 });
@@ -193,4 +250,15 @@ it('says so from the command line when it is already the latest', function () {
     $this->artisan('update')
         ->expectsOutputToContain('0.8.0 is the latest')
         ->assertExitCode(0);
+});
+
+it('reads the version from tql\'s own line, not from whatever else the download prints', function () {
+    $target = installedAt();
+    $binary = "#!/bin/sh\necho 'Using PHP 8.4.26'\necho 'Tql v0.8.0'\n";
+
+    fakeRelease('0.8.0', $binary, hash('sha256', $binary).'  '.Updater::asset()."\n");
+
+    (new Updater)->install('0.8.0', $target);
+
+    expect(file_get_contents(Versions::forInstalled($target)->file('0.8.0')))->toBe($binary);
 });

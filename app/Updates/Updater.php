@@ -33,7 +33,7 @@ class Updater
             throw new UpdateFailed("the download for v{$version} does not match its checksum, so it was not installed");
         }
 
-        $this->swapIn($binary, $version, $target);
+        Versions::forInstalled($target)->stage($version, $binary);
     }
 
     private function checksumFor(string $version): string
@@ -62,35 +62,5 @@ class Updater
         return $response->successful()
             ? $response->body()
             : null;
-    }
-
-    private function swapIn(string $binary, string $version, string $target): void
-    {
-        $directory = dirname($target);
-
-        if (! is_writable($directory)) {
-            throw new UpdateFailed("{$directory} is not writable; run tql update with sudo");
-        }
-
-        $staged = $directory.'/.tql-'.$version.'-'.bin2hex(random_bytes(4));
-
-        try {
-            file_put_contents($staged, $binary);
-            chmod($staged, 0755);
-
-            exec(escapeshellarg($staged).' --version 2>&1', $output, $status);
-
-            if ($status !== 0 || Version::of(implode("\n", $output)) !== $version) {
-                throw new UpdateFailed("the download for v{$version} did not run as v{$version}, so it was not installed");
-            }
-
-            if (! rename($staged, $target)) {
-                throw new UpdateFailed("could not replace {$target}");
-            }
-        } finally {
-            if (file_exists($staged)) {
-                unlink($staged);
-            }
-        }
     }
 }
