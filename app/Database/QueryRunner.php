@@ -272,8 +272,8 @@ class QueryRunner
             .' join '.$grammar->wrapTable($pivot)
             .' on '.$grammar->wrapTable($pivot).'.'.$grammar->wrap($far['on'])
             .' = '.$grammar->wrapTable($far['table']).'.'.$grammar->wrap($far['references'])
-            .' where '.$grammar->wrapTable($pivot).'.'.$grammar->wrap($joinedOn).' = ?'
-            .' limit '.($limit + 1);
+            .' where '.$grammar->wrapTable($pivot).'.'.$grammar->wrap($joinedOn).' = ?';
+        $statement = self::page($connection->driver, $statement, $limit + 1);
 
         try {
             return array_map(fn ($row) => (array) $row, $db->select($statement, [$value]));
@@ -349,8 +349,11 @@ class QueryRunner
         $db = $this->connections->resolve($connection);
         $grammar = $db->getQueryGrammar();
 
-        $statement = 'select * from '.$grammar->wrapTable($table).
-            ' where '.$grammar->wrap($column).' = ? limit '.($limit + 1);
+        $statement = self::page(
+            $connection->driver,
+            'select * from '.$grammar->wrapTable($table).' where '.$grammar->wrap($column).' = ?',
+            $limit + 1,
+        );
 
         try {
             return array_map(fn ($row) => (array) $row, $db->select($statement, [$value]));
@@ -593,7 +596,7 @@ class QueryRunner
 
         return $this->run(
             $connection,
-            "select * from {$wrapped}{$where}{$order} limit {$limit} offset {$offset}",
+            self::page($connection->driver, "select * from {$wrapped}{$where}{$order}", $limit, $offset),
             'tui',
             $built[1] ?? [],
         );
@@ -615,18 +618,32 @@ class QueryRunner
      *
      * @param  array<string, mixed>  $values
      */
+    public static function page(string $driver, string $statement, int $limit, int $offset = 0): string
+    {
+        if ($driver !== 'sqlsrv') {
+            return "{$statement} limit {$limit} offset {$offset}";
+        }
+
+        $ordered = preg_match('/\border\s+by\b/i', $statement) === 1
+            ? $statement
+            : "{$statement} order by (select null)";
+
+        return "{$ordered} offset {$offset} rows fetch next {$limit} rows only";
+    }
+
+    public static function defaultsOnly(string $driver, string $wrappedTable): string
+    {
+        return in_array($driver, ['mysql', 'mariadb'], true)
+            ? "insert into {$wrappedTable} () values ()"
+            : "insert into {$wrappedTable} default values";
+    }
+
     public function insert(Connection $connection, string $table, array $values, string $source = 'tui'): QueryResult
     {
         $grammar = $this->grammarFor($connection);
 
         if ($values === []) {
-            // Every column defaulted: still a row, and every driver spells
-            // that differently.
-            $statement = $connection->driver === 'sqlite'
-                ? 'insert into '.$grammar->wrapTable($table).' default values'
-                : 'insert into '.$grammar->wrapTable($table).' () values ()';
-
-            return $this->run($connection, $statement, $source);
+            return $this->run($connection, self::defaultsOnly($connection->driver, $grammar->wrapTable($table)), $source);
         }
 
         $columns = array_map(fn (string $column) => $grammar->wrap($column), array_keys($values));

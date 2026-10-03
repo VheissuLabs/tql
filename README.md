@@ -39,7 +39,7 @@ as happily as a Postgres server behind an SSH tunnel.
 | **MySQL** and **MariaDB** | built in |
 | **PostgreSQL** | built in |
 | **SQLite** | built in — any `.sqlite`, `.sqlite3` or `.db` file |
-| **SQL Server** | from `tql.phar`, on a PHP with `pdo_sqlsrv` and Microsoft's ODBC driver; not in the standalone binary yet |
+| **SQL Server** | built into the macOS binary, with Microsoft's ODBC driver installed once — [below](#sql-server-on-macos); on Linux, from `tql.phar` on a PHP with `pdo_sqlsrv` |
 
 A hosted database that speaks the MySQL or PostgreSQL protocol connects the same
 way, with a connection string or the connection form, over [TLS](#tls) and, if
@@ -54,6 +54,28 @@ tql is developed against MySQL 9 locally and MySQL 8.4 on Laravel Cloud. The
 rest speak the same protocol and should behave the same; if one does not — some report their schema a
 little differently — [open an issue](https://github.com/VheissuLabs/tql/issues)
 and say which.
+
+### SQL Server on macOS
+
+SQL Server goes through Microsoft's ODBC driver, which tql cannot bundle.
+Install it, and OpenSSL 3 beside it, once:
+
+```bash
+brew tap microsoft/mssql-release
+brew trust microsoft/mssql-release      # newer Homebrew asks for this first
+HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 openssl@3
+```
+
+The `HOMEBREW_ACCEPT_EULA=Y` accepts Microsoft's licence for the driver.
+Microsoft's driver only works with OpenSSL 1.0 to 3, and Homebrew now defaults
+to OpenSSL 4, so tql points the driver at OpenSSL 3 by itself when it is there.
+
+A connection is encrypted by default without checking the server's certificate,
+which is what a local or self-signed SQL Server needs; `ssl_mode` `verify-ca` or
+`verify-full` checks it, and `disable` turns encryption off.
+
+The Linux binary is fully static, and a static binary cannot load Microsoft's
+driver, so on Linux SQL Server needs `tql.phar` on a PHP with `pdo_sqlsrv`.
 
 ## Installing
 

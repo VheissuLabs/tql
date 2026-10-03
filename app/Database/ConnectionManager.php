@@ -68,12 +68,16 @@ class ConnectionManager
 
     public static function explain(string $message): string
     {
+        if (str_contains($message, 'OpenSSL library could not be loaded')) {
+            return $message.' Microsoft\'s driver needs OpenSSL 3, and Homebrew now defaults to OpenSSL 4. Run: brew install openssl@3, then start tql again.';
+        }
+
         if (! str_contains($message, 'Microsoft ODBC Driver')) {
             return $message;
         }
 
         return $message.(PHP_OS_FAMILY === 'Darwin'
-            ? ' Install it once with: brew tap microsoft/mssql-release && HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18'
+            ? ' Install it once with: brew tap microsoft/mssql-release && HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 openssl@3 (newer Homebrew first asks you to run: brew trust microsoft/mssql-release)'
             : ' Install it once: https://learn.microsoft.com/sql/connect/odbc/linux-mac/installing-the-microsoft-odbc-driver-for-sql-server');
     }
 

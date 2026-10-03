@@ -146,7 +146,7 @@ class SqlExporter
             }
 
             $order = $key === null ? '' : ' order by '.$grammar->wrap($key);
-            $sql = "select * from {$wrappedTable}{$order} limit {$take} offset {$offset}";
+            $sql = QueryRunner::page($connection->driver, "select * from {$wrappedTable}{$order}", $take, $offset);
 
             $rows = $db->select($sql);
 

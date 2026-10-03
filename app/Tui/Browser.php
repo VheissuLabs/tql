@@ -4010,7 +4010,7 @@ class Browser extends Prompt
         $this->queryTable = null;
         $this->lastStatement = $result->statement === null
             ? null
-            : preg_replace('/\blimit \d+/i', 'limit '.self::PAGE, $result->statement);
+            : preg_replace(['/\blimit \d+/i', '/\bfetch next \d+ rows only/i'], ['limit '.self::PAGE, 'fetch next '.self::PAGE.' rows only'], $result->statement);
         $this->headers = $result->headers();
         $this->raw = $rows;
         $this->rows = $this->formatter->rows($rows);
