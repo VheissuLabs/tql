@@ -135,7 +135,7 @@ the list — in vim, a second `esc` leaves insert mode. `↵` still adds a line.
 With no list open, `tab` indents as before. `sql_complete = false` turns it off.
 
 `alt+h` opens the query history: what you have run from the editor, and what
-your agent ran over MCP, on this connection, newest first and once each. Type to
+your agent ran with `tql query` or over MCP, on this connection, newest first and once each. Type to
 narrow it, and `↵` puts the statement back in the editor without running it.
 
 A new line starts at the indentation of the one before it.

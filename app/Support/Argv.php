@@ -6,6 +6,8 @@ use App\Database\Dsn;
 
 class Argv
 {
+    public const COMMANDS = ['browse', 'open', 'export', 'config', 'update', 'connections', 'tables', 'describe', 'query', 'list', 'help', 'mcp:start'];
+
     /**
      * Let `tql some.sqlite` or `tql mysql://…` mean `tql open …`.
      *
@@ -20,7 +22,7 @@ class Argv
     {
         $first = $argv[1] ?? null;
 
-        if ($first === null || str_starts_with($first, '-') || ! static::isPath($first)) {
+        if ($first === null || str_starts_with($first, '-') || in_array($first, self::COMMANDS, true) || ! static::isPath($first)) {
             return $argv;
         }
 

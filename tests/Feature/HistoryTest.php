@@ -32,9 +32,11 @@ it('lists what you and the agent ran, newest first, once each, and leaves out wh
     ran($browser, 'select 1');
     ran($browser, 'select * from "fruit" limit 50 offset 0', 'tui');
     ran($browser, 'select 2', 'mcp');
+    ran($browser, 'select 3', 'cli');
     ran($browser, 'select 1');
 
-    expect(array_column(History::of($browser->connection), 'statement'))->toBe(['select 1', 'select 2']);
+    expect(array_column(History::of($browser->connection), 'statement'))->toBe(['select 1', 'select 3', 'select 2'])
+        ->and(History::hint(History::of($browser->connection)[1]))->toStartWith('cli');
 });
 
 it('keeps each connection to its own history', function () {

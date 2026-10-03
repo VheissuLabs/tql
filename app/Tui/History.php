@@ -7,7 +7,7 @@ use App\Models\QueryExecution;
 
 class History
 {
-    public const SOURCES_SOMEONE_TYPED = ['editor', 'mcp'];
+    public const SOURCES_SOMEONE_TYPED = ['editor', 'mcp', 'cli'];
 
     public const LIMIT = 200;
 
@@ -40,9 +40,9 @@ class History
     public static function hint(array $run): string
     {
         return implode(' · ', array_filter([
-            $run['source'] === 'mcp'
-                ? 'mcp'
-                : null,
+            $run['source'] === 'editor'
+                ? null
+                : $run['source'],
             self::outcome($run),
             $run['at']?->diffForHumans(short: true),
         ]));

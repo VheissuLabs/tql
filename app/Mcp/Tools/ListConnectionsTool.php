@@ -2,7 +2,8 @@
 
 namespace App\Mcp\Tools;
 
-use App\Models\Connection;
+use App\Database\AgentAccess;
+use App\Mcp\Tools\Concerns\RespondsWithJson;
 use Illuminate\Contracts\JsonSchema\JsonSchema;
 use Laravel\Mcp\Request;
 use Laravel\Mcp\Response;
@@ -12,21 +13,19 @@ use Laravel\Mcp\Server\Tool;
 #[Description('List every database connection tql knows about. Use the returned name with the other tql tools.')]
 class ListConnectionsTool extends Tool
 {
+    use RespondsWithJson;
+
+    public function __construct(private AgentAccess $access) {}
+
     public function handle(Request $request): Response
     {
-        $connections = Connection::orderBy('name')->get()->map(fn (Connection $c) => [
-            'name' => $c->name,
-            'driver' => $c->driver,
-            'target' => $c->describe(),
-            'read_only' => $c->read_only,
-            'last_used_at' => $c->last_used_at?->toIso8601String(),
-        ]);
+        $connections = $this->access->connections();
 
-        if ($connections->isEmpty()) {
+        if ($connections === []) {
             return Response::text('No connections are configured in tql yet.');
         }
 
-        return Response::text(json_encode($connections, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES));
+        return self::json($connections);
     }
 
     public function schema(JsonSchema $schema): array
