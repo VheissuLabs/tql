@@ -396,6 +396,7 @@ class BrowserRenderer extends Renderer
             $prompt->recordForm !== null => [['↑↓', 'Field'], ['↵', 'Edit'], ['ctrl+s', 'Keep row'], ['esc', 'Cancel']],
             $prompt->filterForm !== null => [['↑↓', 'Move'], ['ctrl+s', 'Apply'], ['esc', 'Cancel']],
             $prompt->question !== null => [['↵', 'Ask'], ['⇧↵', 'New line'], ['esc', 'Cancel']],
+            $prompt->databasePicker?->creates => [['↑↓', 'Move'], ['↵', 'Choose'], ['ctrl+d', 'Drop'], ['esc', 'Cancel']],
             $prompt->databasePicker !== null, $prompt->linkPicker !== null => [['↑↓', 'Move'], ['↵', 'Choose'], ['esc', 'Cancel']],
             $prompt->command !== null => [['↵', 'Run'], ['esc', 'Cancel']],
             $prompt->filtering => [['↵', 'Keep'], ['esc', 'Clear']],

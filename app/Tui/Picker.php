@@ -2,6 +2,8 @@
 
 namespace App\Tui;
 
+use Laravel\Prompts\Key;
+
 /**
  * A type-to-filter list, in the shape of Laravel Prompts' search prompt but
  * drawn inside our own frame. Prompts' own select and search block the loop
@@ -9,6 +11,10 @@ namespace App\Tui;
  */
 class Picker
 {
+    public const UP = [Key::UP, Key::UP_ARROW, Key::CTRL_P];
+
+    public const DOWN = [Key::DOWN, Key::DOWN_ARROW, Key::CTRL_N];
+
     public int $index = 0;
 
     public QueryEditor $query;
@@ -26,6 +32,7 @@ class Picker
         public array $options,
         public string $chosen = '',
         public array $colors = [],
+        public bool $creates = false,
     ) {
         $this->query = new QueryEditor(multiline: false);
 
@@ -54,7 +61,7 @@ class Picker
 
     public function move(int $by): void
     {
-        $count = count($this->matches());
+        $count = count($this->matches()) + ($this->newOption() === null ? 0 : 1);
 
         if ($count === 0) {
             $this->index = 0;
@@ -81,6 +88,18 @@ class Picker
 
     public function selected(): ?string
     {
-        return $this->matches()[$this->index] ?? null;
+        return $this->matches()[$this->index] ?? $this->newOption();
+    }
+
+    public function newOption(): ?string
+    {
+        $name = trim($this->query->buffer());
+
+        return $this->creates && $name !== '' && ! in_array($name, $this->options, true) ? $name : null;
+    }
+
+    public function creating(): bool
+    {
+        return $this->newOption() !== null && $this->index === count($this->matches());
     }
 }

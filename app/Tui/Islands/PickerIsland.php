@@ -21,7 +21,7 @@ class PickerIsland extends Island
 
     public function rows(): int
     {
-        return min(count($this->picker->options), self::ROWS) + 5;
+        return min(count($this->picker->options) + ($this->picker->creates ? 1 : 0), self::ROWS) + 5;
     }
 
     public function content(int $innerWidth, int $innerHeight): array
@@ -38,8 +38,9 @@ class PickerIsland extends Island
         ];
 
         $matches = $this->picker->matches();
+        $newOption = $this->picker->newOption();
 
-        if ($matches === []) {
+        if ($matches === [] && $newOption === null) {
             $lines[] = '  '.$this->style->dim('nothing matches');
 
             return array_slice($lines, 0, $innerHeight);
@@ -47,10 +48,19 @@ class PickerIsland extends Island
 
         // Three rows go above the list: a blank, the query, another blank.
         $room = max(1, $innerHeight - 3);
-        $start = $this->window($this->picker->index, count($matches), $room);
+        $rows = $newOption === null ? $matches : [...$matches, $newOption];
+        $start = $this->window($this->picker->index, count($rows), $room);
 
-        foreach (array_slice($matches, $start, $room) as $offset => $option) {
-            $here = ($start + $offset) === $this->picker->index;
+        foreach (array_slice($rows, $start, $room, true) as $at => $option) {
+            $here = $at === $this->picker->index;
+
+            if ($at === count($matches)) {
+                $text = $this->style->pad('  + create '.$this->style->truncate($option, $width - 9), $innerWidth);
+                $lines[] = $here ? $this->style->color('selection', $text) : $this->style->dim($text);
+
+                continue;
+            }
+
             $color = $this->picker->colorOf($option);
 
             // Padded to the full inner width, so the highlight runs the whole

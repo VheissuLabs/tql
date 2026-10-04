@@ -392,6 +392,39 @@ class QueryRunner
         )));
     }
 
+    public function createDatabase(Connection $connection, string $name): QueryResult
+    {
+        return $this->onDatabase($connection, 'create database', $name);
+    }
+
+    public function dropDatabase(Connection $connection, string $name): QueryResult
+    {
+        return $this->onDatabase($connection, 'drop database', $name);
+    }
+
+    private function onDatabase(Connection $connection, string $verb, string $name): QueryResult
+    {
+        $statement = "{$verb} {$name}";
+        $started = microtime(true);
+
+        try {
+            $db = $this->connections->resolve($connection);
+            $statement = $verb.' '.$db->getQueryGrammar()->wrap($name);
+            $db->unprepared($statement);
+            $duration = (int) ((microtime(true) - $started) * 1000);
+
+            $this->record($connection, $statement, 'tui', true, null, null, $duration);
+
+            return new QueryResult(rows: [], durationMs: $duration, statement: $statement);
+        } catch (Throwable $e) {
+            $duration = (int) ((microtime(true) - $started) * 1000);
+
+            $this->record($connection, $statement, 'tui', false, $e->getMessage(), null, $duration);
+
+            return new QueryResult(rows: [], durationMs: $duration, error: $e->getMessage(), statement: $statement);
+        }
+    }
+
     public function indexes(Connection $connection, string $table): array
     {
         $this->prefetch($connection);

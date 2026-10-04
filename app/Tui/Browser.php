@@ -2871,6 +2871,7 @@ class Browser extends Prompt
             'DATABASE',
             $databases,
             (string) $this->connection->activeDatabase(),
+            creates: ! $this->connection->read_only,
         );
 
         return true;
@@ -2881,9 +2882,11 @@ class Browser extends Prompt
         $picker = $this->databasePicker;
 
         match (true) {
-            $key === Key::ESCAPE, $key === 'q' => $this->databasePicker = null,
-            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $picker->move(-1),
-            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $picker->move(1),
+            $key === Key::ESCAPE => $this->databasePicker = null,
+            in_array($key, Picker::UP, true) => $picker->move(-1),
+            in_array($key, Picker::DOWN, true) => $picker->move(1),
+            $key === Key::ENTER && $picker->creating() => $this->createDatabase((string) $picker->newOption()),
+            $key === Key::CTRL_D && ! $picker->creating() => $this->askToDrop($picker->selected()),
             $key === Key::ENTER => $this->useDatabase($picker->selected()),
             default => $picker->type($key),
         };
@@ -2900,22 +2903,10 @@ class Browser extends Prompt
         // Held on the instance, not the record: opening a connection saves it
         // to record last used, and that must not persist a session choice.
         $this->connection->sessionDatabase = $chosen;
-
-        $this->jumps = [];
-        $this->filters = null;
-        $this->filter = null;
-        $this->sortColumn = null;
-        $this->offset = 0;
-        $this->pendingDeletes = [];
-        $this->pendingEdits = [];
-
+        $this->forgetDatabase();
         $this->tables = $this->runner->tables($this->connection);
-        $this->tableIndex = 0;
 
         if ($this->tables === []) {
-            $this->headers = [];
-            $this->rows = [];
-            $this->raw = [];
             $this->status = $chosen.' has no tables';
 
             return;
@@ -2924,6 +2915,157 @@ class Browser extends Prompt
         $this->load();
 
         $this->status = 'using '.$chosen;
+    }
+
+    private function forgetDatabase(): void
+    {
+        $this->jumps = [];
+        $this->filters = null;
+        $this->filter = null;
+        $this->sortColumn = null;
+        $this->offset = 0;
+        $this->pendingDeletes = [];
+        $this->pendingEdits = [];
+        $this->tables = [];
+        $this->tableIndex = 0;
+        $this->headers = [];
+        $this->rows = [];
+        $this->raw = [];
+    }
+
+    private function cannotChangeDatabases(): ?string
+    {
+        return match (true) {
+            $this->connection->driver === 'sqlite' => 'a sqlite connection is one file',
+            (bool) $this->connection->read_only => 'this connection is marked read-only',
+            default => null,
+        };
+    }
+
+    private static function databaseName(string $typed): string
+    {
+        return trim($typed, " \t`\"'[]");
+    }
+
+    private function createDatabase(string $name): bool
+    {
+        $this->databasePicker = null;
+        $this->status = $this->cannotChangeDatabases();
+        $name = self::databaseName($name);
+
+        if ($this->status !== null) {
+            return true;
+        }
+
+        if ($name === '') {
+            $this->command = 'create database ';
+
+            return true;
+        }
+
+        $result = $this->runner->createDatabase($this->connection, $name);
+
+        if ($result->error !== null) {
+            return $this->fail($result->error, [], 'THE DATABASE SAID NO');
+        }
+
+        $this->useDatabase($name);
+        $this->status = "created {$name} · using it";
+
+        return true;
+    }
+
+    private function askToDrop(?string $name): void
+    {
+        $this->databasePicker = null;
+        $this->status = $this->cannotChangeDatabases();
+
+        if ($this->status === null && $name !== null) {
+            $this->command = 'drop database '.$name;
+        }
+    }
+
+    private function dropDatabase(string $name): bool
+    {
+        $this->status = $this->cannotChangeDatabases();
+        $name = self::databaseName($name);
+
+        if ($this->status !== null) {
+            return true;
+        }
+
+        if ($name === '') {
+            $this->command = 'drop database ';
+
+            return true;
+        }
+
+        $inUse = $name === $this->connection->activeDatabase();
+
+        if ($inUse) {
+            $stepAside = $this->somewhereOtherThan($name);
+
+            if ($stepAside === null) {
+                $this->status = "tql is using {$name} and there is no other database to drop it from";
+
+                return true;
+            }
+
+            $this->connection->sessionDatabase = $stepAside;
+        }
+
+        $result = $this->runner->dropDatabase($this->connection, $name);
+
+        if ($result->error !== null) {
+            if ($inUse) {
+                $this->connection->sessionDatabase = $name;
+            }
+
+            return $this->fail($result->error, [], 'THE DATABASE SAID NO');
+        }
+
+        if ($inUse) {
+            $this->pickAfterDropping($name);
+
+            return true;
+        }
+
+        $this->status = "dropped {$name}";
+
+        return true;
+    }
+
+    private function pickAfterDropping(string $name): void
+    {
+        $databases = $this->runner->databases($this->connection);
+
+        $this->connection->sessionDatabase = '';
+        $this->forgetDatabase();
+
+        $this->databasePicker = $databases === []
+            ? null
+            : new Picker('DATABASE', $databases, creates: ! $this->connection->read_only);
+
+        $this->status = "dropped {$name}";
+    }
+
+    private const SYSTEM_DATABASES = [
+        'information_schema', 'mysql', 'performance_schema', 'sys',
+        'master', 'model', 'msdb', 'tempdb',
+    ];
+
+    private function somewhereOtherThan(string $name): ?string
+    {
+        $saved = (string) $this->connection->database;
+
+        if ($saved !== '' && $saved !== $name) {
+            return $saved;
+        }
+
+        $others = array_values(array_diff($this->runner->databases($this->connection), [$name]));
+        $ours = array_values(array_diff($others, self::SYSTEM_DATABASES));
+
+        return $ours[0] ?? $others[0] ?? null;
     }
 
     private function toggleStructure(): bool
@@ -3148,9 +3290,9 @@ class Browser extends Prompt
         $picker = $this->linkPicker;
 
         match (true) {
-            $key === Key::ESCAPE, $key === 'q' => $this->linkPicker = null,
-            in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $picker->move(-1),
-            in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $picker->move(1),
+            $key === Key::ESCAPE => $this->linkPicker = null,
+            in_array($key, Picker::UP, true) => $picker->move(-1),
+            in_array($key, Picker::DOWN, true) => $picker->move(1),
             $key === Key::ENTER => $this->chooseBackLink(),
             default => $picker->type($key),
         };
@@ -3282,8 +3424,8 @@ class Browser extends Prompt
             match (true) {
                 $key === Key::ESCAPE => $form->closePicker(),
                 $key === Key::ENTER => $form->choose(),
-                in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $form->picker->move(-1),
-                in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $form->picker->move(1),
+                in_array($key, Picker::UP, true) => $form->picker->move(-1),
+                in_array($key, Picker::DOWN, true) => $form->picker->move(1),
                 default => $form->picker->type($key),
             };
 
@@ -3578,6 +3720,8 @@ class Browser extends Prompt
     private const PALETTE_COMMANDS = [
         'w' => 'write the pending changes',
         'export' => 'export this table as SQL',
+        'create database' => 'create a database on this server',
+        'drop database' => 'drop a database on this server',
         'tables' => 'focus the table list',
         'rows' => 'focus the rows',
     ];
@@ -3739,6 +3883,12 @@ class Browser extends Prompt
     private function runCommand(string $command): bool
     {
         $this->command = null;
+
+        if (preg_match('/^(create|drop)\s+database(?:\s+(.*))?$/i', $command, $match) === 1) {
+            return strtolower($match[1]) === 'create'
+                ? $this->createDatabase(trim($match[2] ?? ''))
+                : $this->dropDatabase(trim($match[2] ?? ''));
+        }
 
         return match ($command) {
             'q', 'q!', 'quit' => $this->quit(),

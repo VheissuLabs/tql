@@ -93,6 +93,8 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 | `:tables` | focus the table list |
 | `:rows` | focus the rows |
 | `:export` | write this table to a `.sql` file |
+| `:create database <name>` | create a database on this server and switch to it |
+| `:drop database <name>` | drop a database on this server; drop the one in use and the database list opens |
 
 ## Viewing a value
 
@@ -304,10 +306,15 @@ answers the same way.
 
 | Key | Action |
 | --- | --- |
-| `j` / `k` | move |
-| type | narrow the list |
+| `↑ ↓` / `ctrl+p` `ctrl+n` | move |
+| type | narrow the list — every letter types, `j`, `k` and `q` included |
 | `↵` | take it |
 | `esc` | close it |
+
+The database list does two things more, unless the connection is read-only. Type
+a name that is not there and the last row offers `+ create` it. `ctrl+d` on a
+database puts `:drop database` and its name on the command line, so nothing is
+dropped until `↵` there.
 
 ## The connection list
 
