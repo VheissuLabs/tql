@@ -463,3 +463,50 @@ it('drops nothing when the confirmation is cancelled', function () {
     expect($runner->dropped)->toBe([])
         ->and($browser->command)->toBeNull();
 });
+
+it('creates and drops a sql server database from master', function () {
+    $manager = new class extends ConnectionManager
+    {
+        public array $databases = [];
+
+        public function resolve(Connection $connection): Illuminate\Database\Connection
+        {
+            $this->databases[] = $connection->activeDatabase();
+
+            throw new RuntimeException('no server here');
+        }
+    };
+
+    $connection = new Connection([
+        'name' => 'mssql', 'driver' => 'sqlsrv', 'host' => '127.0.0.1', 'database' => 'shop',
+    ]);
+
+    $runner = new QueryRunner($manager);
+    $runner->createDatabase($connection, 'kmstools');
+    $runner->dropDatabase($connection, 'kmstools');
+
+    expect($manager->databases)->toBe(['master', 'master'])
+        ->and($connection->activeDatabase())->toBe('shop');
+});
+
+it('creates a database from the one in use everywhere else', function () {
+    $manager = new class extends ConnectionManager
+    {
+        public array $databases = [];
+
+        public function resolve(Connection $connection): Illuminate\Database\Connection
+        {
+            $this->databases[] = $connection->activeDatabase();
+
+            throw new RuntimeException('no server here');
+        }
+    };
+
+    $connection = new Connection([
+        'name' => 'pg', 'driver' => 'pgsql', 'host' => '127.0.0.1', 'database' => 'shop',
+    ]);
+
+    (new QueryRunner($manager))->createDatabase($connection, 'kmstools');
+
+    expect($manager->databases)->toBe(['shop']);
+});

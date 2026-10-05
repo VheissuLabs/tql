@@ -408,7 +408,7 @@ class QueryRunner
         $started = microtime(true);
 
         try {
-            $db = $this->connections->resolve($connection);
+            $db = $this->connections->resolve($this->fromWhereDatabasesAreMade($connection));
             $statement = $verb.' '.$db->getQueryGrammar()->wrap($name);
             $db->unprepared($statement);
             $duration = (int) ((microtime(true) - $started) * 1000);
@@ -423,6 +423,19 @@ class QueryRunner
 
             return new QueryResult(rows: [], durationMs: $duration, error: $e->getMessage(), statement: $statement);
         }
+    }
+
+    private function fromWhereDatabasesAreMade(Connection $connection): Connection
+    {
+        if ($connection->driver !== 'sqlsrv') {
+            return $connection;
+        }
+
+        // Azure SQL Database only accepts CREATE and DROP DATABASE from master.
+        $master = clone $connection;
+        $master->sessionDatabase = 'master';
+
+        return $master;
     }
 
     public function indexes(Connection $connection, string $table): array
