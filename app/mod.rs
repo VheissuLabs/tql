@@ -1,5 +1,6 @@
 zerorust::app!();
 
+pub mod argv;
 pub mod database;
 pub mod dsn;
 pub mod encrypter;
