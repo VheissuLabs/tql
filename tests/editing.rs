@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use app::database;
 use app::settings::{self, Settings};
 use app::store::Connection;
+use app::tui::clipboard::Recorded;
 use app::tui::{Browser, Exit, State};
 use zerorust_tui::Fake;
 
@@ -34,6 +35,26 @@ fn open(path: &Path, read_only: bool) -> Fake<Browser> {
     fake.press("\t");
     fake
 }
+
+fn recorded(path: &Path) -> (Recorded, Fake<Browser>) {
+    settings::install(Settings::default());
+    let clipboard = Recorded::default();
+    let connection = Connection::sqlite("shop", path.to_str().unwrap());
+    let database = database::connect(&connection, None).unwrap();
+    let browser = Browser::new(connection, database)
+        .unwrap()
+        .with_clipboard(clipboard.clone());
+    let mut fake = Fake::sized(browser, 100, 30);
+    fake.press("\t");
+    (clipboard, fake)
+}
+
+const LINKED: &str = "
+    create table albums (id integer primary key, title text, artist_id integer references artists(id));
+    create table artists (id integer primary key, name text not null);
+    insert into artists (name) values ('AC/DC'), ('Accept');
+    insert into albums (title, artist_id) values ('Powerage', 1), ('Balls to the Wall', 2);
+";
 
 fn widgets(name: &str) -> (PathBuf, Fake<Browser>) {
     let path = fixture(
@@ -854,4 +875,99 @@ fn a_failed_write_uses_the_shared_error_box() {
         fake.app.problem_notes,
         ["The row is still here — fix it and :w again, or u to drop it."]
     );
+}
+
+#[test]
+fn following_a_link_and_coming_back_drop_the_pending_changes() {
+    let path = fixture("link-pending", LINKED);
+    let mut fake = open(&path, false);
+
+    fake.press(&format!("dN\nNew\n{SAVE}"));
+    assert!(fake.app.edits.pending());
+
+    fake.press("jllL");
+    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert!(!fake.app.edits.pending());
+
+    fake.press("le!\n");
+    assert!(fake.app.edits.pending());
+
+    fake.press("\x0f");
+    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert!(!fake.app.edits.pending());
+    assert_eq!(
+        column(&path, "select name from artists order by id"),
+        some(&["AC/DC", "Accept"])
+    );
+}
+
+#[test]
+fn a_row_reached_through_a_link_is_edited_and_written_in_place() {
+    let path = fixture("link-write", LINKED);
+    let mut fake = open(&path, false);
+
+    fake.press("jllL");
+    fake.press("le!\n:w\n");
+
+    assert_eq!(
+        column(&path, "select name from artists order by id"),
+        some(&["AC/DC", "Accept!"])
+    );
+    assert!(fake.app.filters.is_some());
+    assert_eq!(fake.app.rows, [["2", "Accept!"]]);
+}
+
+#[test]
+fn e_in_the_inspector_edits_the_value_on_its_line_through_the_editor() {
+    let path = fixture("inspect-edit", LINKED);
+    let mut fake = open(&path, false);
+
+    fake.press("i");
+    assert!(fake.screen().contains("e Edit"));
+
+    fake.press("je");
+    assert!(fake.app.inspector.is_none());
+    assert!(fake.app.edits.editable());
+    assert_eq!(fake.app.headers[fake.app.column_index], "title");
+    assert_eq!(fake.app.edits.editing().as_deref(), Some("Powerage"));
+
+    fake.press("!\n:w\n");
+    assert_eq!(
+        column(&path, "select title from albums where id = 1"),
+        some(&["Powerage!"])
+    );
+}
+
+#[test]
+fn y_in_the_viewer_yanks_the_selected_lines() {
+    let path = fixture(
+        "viewer-yank",
+        "create table things (id integer primary key, body text);
+         insert into things (body) values ('one\ntwo\nthree');",
+    );
+    let (clipboard, mut fake) = recorded(&path);
+
+    fake.press("lIgjVjy");
+
+    assert_eq!(clipboard.last().as_deref(), Some("two\nthree"));
+    assert_eq!(fake.app.status(), "yanked 2 lines to the system clipboard");
+    assert!(fake.screen().contains("y Yank"));
+}
+
+#[test]
+fn y_copies_a_failed_write_without_closing_it() {
+    let path = fixture(
+        "copy-failure",
+        "create table widgets (code text not null primary key, name text not null);
+         insert into widgets values ('a', 'alpha');",
+    );
+    let (clipboard, mut fake) = recorded(&path);
+
+    fake.press(&format!("N\nb\n{SAVE}:w\n"));
+    assert!(fake.screen().contains("y Copy"));
+    fake.press("y");
+
+    assert!(clipboard.last().unwrap().contains("NOT NULL"));
+    assert_eq!(fake.app.status(), "copied the error");
+    assert!(fake.app.problem.is_some());
 }

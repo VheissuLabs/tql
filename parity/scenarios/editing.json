@@ -94,5 +94,13 @@
   {"name": "mark-then-filter", "size": [100, 30], "keys": ["j", "\t", "d", "N", "\u0013", "l", "f", "0", "0", "5", "\u0013"]},
   {"name": "edit-then-query", "size": [120, 30], "keys": ["j", "\t", "l", "e", "!", "\n", "s", "\u0012"]},
   {"name": "edit-then-query-view", "size": [100, 30], "keys": ["j", "\t", "l", "e", "!", "\n", "s", "\u0012", "\u001b", "e"]},
-  {"name": "edit-then-query-back", "size": [100, 30], "keys": ["j", "\t", "l", "e", "!", "\n", "s", "\u0012", "\u001b", "\u001b"]}
+  {"name": "edit-then-query-back", "size": [100, 30], "keys": ["j", "\t", "l", "e", "!", "\n", "s", "\u0012", "\u001b", "\u001b"]},
+  {"name": "mark-then-follow-link", "size": [100, 30], "keys": ["j", "j", "j", "j", "j", "j", "\t", "d", "k", "l", "l", "L"]},
+  {"name": "edit-after-link", "size": [100, 30], "keys": ["j", "j", "j", "j", "j", "j", "\t", "d", "k", "l", "l", "L", "l", "e", "!", "\n"]},
+  {"name": "edit-after-link-back", "size": [100, 30], "keys": ["j", "j", "j", "j", "j", "j", "\t", "d", "k", "l", "l", "L", "l", "e", "!", "\n", "\u000f"]},
+  {"name": "edit-after-link-written", "size": [100, 30], "keys": ["j", "j", "j", "j", "j", "j", "\t", "l", "l", "L", "l", "e", "!", "\n", ":", "w", "\n"]},
+  {"name": "inspect-then-edit", "size": [100, 30], "keys": ["j", "\t", "i", "j", "e"]},
+  {"name": "inspect-then-edit-kept", "size": [100, 30], "keys": ["j", "\t", "i", "j", "e", "!", "\n"]},
+  {"name": "view-yank", "size": [100, 30], "keys": ["j", "\t", "j", "j", "j", "j", "l", "l", "l", "l", "I", "j", "V", "j", "y"]},
+  {"name": "view-yank-closed", "size": [100, 30], "keys": ["j", "\t", "j", "j", "j", "j", "l", "l", "l", "l", "I", "j", "V", "j", "y", "q"]}
 ]
