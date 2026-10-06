@@ -146,6 +146,8 @@ fn normalize(frame: &str) -> Vec<String> {
                 }
                 if character == 'm' && rest.starts_with('s') && !digits.is_empty() {
                     normalized.push_str("Nm");
+                } else if character == 's' && rest.starts_with(" ago") && !digits.is_empty() {
+                    normalized.push_str("Ns");
                 } else {
                     normalized.push_str(&digits);
                     normalized.push(character);
