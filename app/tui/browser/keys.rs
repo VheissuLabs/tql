@@ -75,7 +75,7 @@ impl Browser {
             "rows" => self.focus = Focus::Grid,
             "r" => self.run_or_reload(),
             "reload" => self.reload(),
-            "run" => self.run_statement_at_cursor(),
+            "run" => self.run_from_editor(),
             "sql" => self.open_query(),
             "history" => self.open_history(),
             "w" | "write" => self.write_pending(),

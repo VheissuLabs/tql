@@ -1,3 +1,4 @@
+use std::ops::Range;
 use std::sync::LazyLock;
 
 use regex::Regex;
@@ -194,19 +195,34 @@ struct Row {
     characters: Painted,
 }
 
+#[derive(Debug, Clone)]
+pub struct Marks {
+    pub paints_cursor: bool,
+    pub selection: Option<Range<usize>>,
+}
+
+impl Default for Marks {
+    fn default() -> Self {
+        Marks {
+            paints_cursor: true,
+            selection: None,
+        }
+    }
+}
+
 pub fn pane(
     editor: &QueryEditor,
     running: Option<&str>,
     show_cursor: bool,
-    inner_width: usize,
-    inner_height: usize,
+    marks: &Marks,
+    (inner_width, inner_height): (usize, usize),
 ) -> Pane {
     if let Some(running) = running.filter(|_| !show_cursor && editor.is_empty()) {
         return Pane {
             lines: split(running, inner_width)
                 .iter()
                 .take(inner_height)
-                .map(|line| paint(&characters(line), inner_width, None))
+                .map(|line| paint(&characters(line), inner_width, None, None))
                 .collect(),
             rows: Vec::new(),
             first_line: 0,
@@ -218,13 +234,27 @@ pub fn pane(
     let start = (cursor_row + 1).saturating_sub(inner_height);
     let cursor_column = editor.cursor_column();
     let shown = rows.iter().enumerate().skip(start).take(inner_height);
+    let line_offsets: Vec<usize> = editor
+        .lines()
+        .iter()
+        .scan(0, |offset, line| {
+            let line_offset = *offset;
+            *offset += line.chars().count() + 1;
+            Some(line_offset)
+        })
+        .collect();
 
     Pane {
         lines: shown
             .clone()
             .map(|(index, row)| {
-                let cursor = (show_cursor && index == cursor_row).then(|| cursor_column - row.from);
-                paint(&row.characters, inner_width, cursor)
+                let cursor = (show_cursor && marks.paints_cursor && index == cursor_row)
+                    .then(|| cursor_column - row.from);
+                let selected = marks.selection.as_ref().map(|selection| {
+                    let offset = line_offsets[row.line] + row.from;
+                    selection.start.saturating_sub(offset)..selection.end.saturating_sub(offset)
+                });
+                paint(&row.characters, inner_width, cursor, selected)
             })
             .collect(),
         rows: shown.map(|(_, row)| (row.line, row.from)).collect(),
@@ -275,14 +305,22 @@ fn paint(
     characters: &[(&'static str, char)],
     width: usize,
     cursor: Option<usize>,
+    selected: Option<Range<usize>>,
 ) -> Line<'static> {
     let mut spans: Vec<Span<'static>> = Vec::new();
     let mut run = String::new();
     let mut style = Style::new();
+    let is_selected = |index: usize| {
+        selected
+            .as_ref()
+            .is_some_and(|selected| selected.contains(&index))
+    };
 
     for (index, (kind, character)) in characters.iter().enumerate() {
         let wanted = if Some(index) == cursor {
             theme::cursor()
+        } else if is_selected(index) {
+            theme::selection()
         } else {
             theme::sql(kind)
         };
@@ -297,6 +335,9 @@ fn paint(
     }
     if cursor.is_some_and(|cursor| cursor >= characters.len()) && characters.len() < width {
         spans.push(Span::styled(" ", theme::cursor()));
+    }
+    if cursor.is_none() && characters.is_empty() && is_selected(0) {
+        spans.push(Span::styled(" ", theme::selection()));
     }
     Line::from(spans)
 }
@@ -360,7 +401,7 @@ mod tests {
         if let Some(column) = cursor {
             editor.move_to_line_column(0, column);
         }
-        pane(&editor, None, true, width, height)
+        pane(&editor, None, true, &Marks::default(), (width, height))
             .lines
             .iter()
             .map(|line| {
@@ -413,7 +454,7 @@ mod tests {
 
         let mut editor = QueryEditor::new(false);
         editor.set(&"word ".repeat(30));
-        let scrolled = pane(&editor, None, true, 10, 3);
+        let scrolled = pane(&editor, None, true, &Marks::default(), (10, 3));
         assert_eq!(scrolled.lines.len(), 3);
         assert!(scrolled.position_at(0, 0).1 > 0);
     }
@@ -423,7 +464,7 @@ mod tests {
         let mut editor = QueryEditor::new(false);
         editor.set("select id, name, email from customers");
         editor.move_to_start();
-        let laid_out = pane(&editor, None, true, 20, 10);
+        let laid_out = pane(&editor, None, true, &Marks::default(), (20, 10));
 
         assert_eq!(laid_out.position_at(1, 2), (0, 19));
         assert_eq!(laid_out.position_at(0, 3), (0, 3));
@@ -431,11 +472,17 @@ mod tests {
 
     #[test]
     fn shows_what_ran_when_the_editor_is_empty_and_not_focused() {
-        let text: Vec<String> = pane(&QueryEditor::new(false), Some("select 1"), false, 20, 5)
-            .lines
-            .iter()
-            .map(|line| line.to_string())
-            .collect();
+        let text: Vec<String> = pane(
+            &QueryEditor::new(false),
+            Some("select 1"),
+            false,
+            &Marks::default(),
+            (20, 5),
+        )
+        .lines
+        .iter()
+        .map(|line| line.to_string())
+        .collect();
         assert_eq!(text, ["select 1"]);
     }
 }
