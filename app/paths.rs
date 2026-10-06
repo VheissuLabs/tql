@@ -23,10 +23,7 @@ pub fn key() -> PathBuf {
 }
 
 pub fn expand(path: &str) -> String {
-    if path == "~" || path.starts_with("~/") {
-        return format!("{}{}", home().display(), &path[1..]);
-    }
-    path.to_string()
+    expand_from(path, &home())
 }
 
 pub fn shorten(path: &str) -> String {
@@ -41,7 +38,7 @@ pub fn shorten_from(path: &str, home: &Path) -> String {
     }
 }
 
-pub fn expand(path: &str, home: &Path) -> String {
+pub fn expand_from(path: &str, home: &Path) -> String {
     match path.strip_prefix('~') {
         Some(rest) if rest.is_empty() || rest.starts_with('/') => {
             format!("{}{rest}", home.display())
@@ -51,7 +48,7 @@ pub fn expand(path: &str, home: &Path) -> String {
 }
 
 pub fn resolve(path: &str, home: &Path, from: &Path) -> String {
-    let expanded = expand(path.trim(), home);
+    let expanded = expand_from(path.trim(), home);
     let absolute = if expanded.starts_with('/') {
         PathBuf::from(&expanded)
     } else {
@@ -101,7 +98,7 @@ mod tests {
             shorten_from("/home/meadow/db.sqlite", home),
             "/home/meadow/db.sqlite"
         );
-        assert_eq!(expand("~", home), "/home/me");
-        assert_eq!(expand("~other/x", home), "~other/x");
+        assert_eq!(expand_from("~", home), "/home/me");
+        assert_eq!(expand_from("~other/x", home), "~other/x");
     }
 }
