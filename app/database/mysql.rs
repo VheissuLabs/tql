@@ -52,8 +52,7 @@ impl MySql {
                     .filter(|database| !database.trim().is_empty()),
             );
 
-        let attempt = Conn::new(options.clone().ssl_opts(settings.mysql_options()));
-        let plain_when_preferred = match attempt {
+        let connected = match Conn::new(options.clone().ssl_opts(settings.mysql_options())) {
             Err(mysql::Error::DriverError(DriverError::TlsNotSupported))
                 if settings.mode == Mode::Prefer =>
             {
@@ -62,7 +61,7 @@ impl MySql {
             other => other,
         };
         Ok(MySql {
-            connection: plain_when_preferred
+            connection: connected
                 .with_context(|| format!("cannot connect to {}", connection.describe()))?,
             _tunnel: tunnel,
         })

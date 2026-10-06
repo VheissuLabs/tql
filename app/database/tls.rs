@@ -143,9 +143,10 @@ impl Tls {
         &self,
         provider: &Arc<CryptoProvider>,
     ) -> anyhow::Result<Arc<dyn ServerCertVerifier>> {
-        let algorithms = provider.signature_verification_algorithms;
         if !self.checks_chain() {
-            return Ok(Arc::new(Unverified { algorithms }));
+            return Ok(Arc::new(Unverified {
+                algorithms: provider.signature_verification_algorithms,
+            }));
         }
 
         let mut roots = RootCertStore::empty();
