@@ -25,6 +25,7 @@ impl Browser {
         let column = self.headers.get(self.column_index).cloned();
         let row = self.row_index;
 
+        self.schema.learn_links(self.database.as_mut());
         let started = Instant::now();
         let page = match self.database.filtered_rows(
             &table,
@@ -38,6 +39,7 @@ impl Browser {
                 self.say(error.to_string());
                 self.headers.clear();
                 self.rows.clear();
+                self.raw.clear();
                 return;
             }
         };
@@ -62,6 +64,7 @@ impl Browser {
                     .collect()
             })
             .collect();
+        self.raw = rows;
         self.row_index = 0;
         self.column_index = 0;
         self.column_offset = 0;
@@ -154,6 +157,7 @@ impl Browser {
 
     pub(super) fn reload(&mut self) {
         let table = self.current_table();
+        self.schema.forget();
         self.query.forget_schema();
         self.keys = self.database.primary_keys().unwrap_or_default();
         match self.database.tables() {

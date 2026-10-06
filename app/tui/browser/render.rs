@@ -27,7 +27,7 @@ impl Browser {
                 ("esc".into(), "Cancel"),
             ];
         }
-        if self.databases.is_some() {
+        if self.databases.is_some() || self.link_picker.is_some() {
             return vec![
                 ("↑↓".into(), "Move"),
                 ("↵".into(), "Choose"),
@@ -40,8 +40,11 @@ impl Browser {
         if self.filtering {
             return vec![("↵".into(), "Keep"), ("esc".into(), "Clear")];
         }
-        if self.mode == Mode::Help {
+        if self.mode == Mode::Help || self.structure.is_some() {
             return vec![("j k".into(), "Scroll"), ("esc".into(), "Close")];
+        }
+        if let Some(inspector) = &self.inspector {
+            return self.inspector_offers(inspector);
         }
         if self.mode == Mode::Query && self.query.completion.is_some() {
             return vec![
@@ -100,8 +103,9 @@ impl Browser {
         }
         offers.push((key(Action::FilterRows, 0), "Filter"));
         offers.push((key(Action::SortColumn, 0), "Sort"));
+        offers.push((key(Action::InspectRow, 0), "Inspect"));
         offers.push((key(Action::Sql, 0), "SQL"));
-        if self.filters.is_some() {
+        if self.can_go_back() {
             offers.push(("esc".into(), "Back"));
         }
         offers.push(more);
@@ -135,6 +139,9 @@ impl Browser {
                 Span::styled("   ? or esc closes", theme::dim()),
             ]);
         }
+        if self.inspector.is_some() {
+            return inspect::inspector_status();
+        }
 
         let name = match self.connection.tag_color().and_then(theme::named) {
             Some(color) => Span::styled(self.connection.name.clone(), theme::bold().fg(color)),
@@ -159,12 +166,15 @@ impl Browser {
         } else {
             String::new()
         };
-        let left = Line::from(vec![
+        let mut left = Line::from(vec![
             Span::raw(" "),
             name,
             tag,
             Span::styled(format!("{position}{back}"), theme::dim()),
         ]);
+        if self.structure.is_none() {
+            left.spans.extend(self.link_hint());
+        }
 
         let Some(said) = self.status.as_deref().filter(|said| !said.is_empty()) else {
             return left;
@@ -364,6 +374,10 @@ impl Browser {
                 frame_height,
             );
         }
+
+        self.draw_link_picker(frame, frame_height);
+        self.draw_inspector(frame, frame_height);
+        self.draw_structure(frame, frame_height);
 
         if self.mode == Mode::Help {
             let help_width = help::width_for(area.width.saturating_sub(4) as usize) as u16;

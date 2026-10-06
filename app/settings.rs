@@ -25,6 +25,7 @@ pub struct Settings {
     pub double_click_ms: u64,
     pub mouse_row_offset: i64,
     pub mouse_column_offset: i64,
+    pub inspect_related: usize,
     theme: HashMap<String, String>,
     icons: HashMap<String, String>,
 }
@@ -45,6 +46,7 @@ impl Default for Settings {
             double_click_ms: 400,
             mouse_row_offset: 0,
             mouse_column_offset: 0,
+            inspect_related: 10,
             theme: [
                 ("border", "dim"),
                 ("focus_border", "cyan"),
@@ -130,6 +132,7 @@ impl Settings {
             "ui.mouse_column_offset" => {
                 self.mouse_column_offset = value.as_integer().unwrap_or_default()
             }
+            "ui.inspect_related" => self.inspect_related = number(),
             _ => {
                 if let Some(name) = key.strip_prefix("theme.") {
                     self.theme.insert(name.to_string(), text());

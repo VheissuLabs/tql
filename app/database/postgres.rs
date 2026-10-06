@@ -3,9 +3,10 @@ use std::collections::HashMap;
 use anyhow::{Context, bail};
 use postgres::{Client, NoTls, SimpleQueryMessage};
 
+use super::schema::{fill, keys_by_table};
 use super::{
-    Database, Filters, Outcome, Page, Sort, outcome_or_affected, quote_double, select_page,
-    single_column_keys,
+    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, outcome_or_affected,
+    quote_double, select_page, single_column_keys, split_list,
 };
 use crate::store::Connection;
 
@@ -161,6 +162,96 @@ impl Database for Postgres {
         }
         Ok(outcome_or_affected(headers, rows, affected))
     }
+
+    fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
+        if values.iter().any(|value| value.contains('\0')) {
+            bail!("a value cannot contain a NUL character in PostgreSQL");
+        }
+        let filled = fill(statement, values, escaped_literal);
+        let mut page = self.query(&filled)?;
+        page.statement = filled;
+        Ok(page)
+    }
+
+    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+        Ok(self
+            .select(
+                "select a.attname as name, t.typname as type_name, not a.attnotnull as nullable, \
+                 (select pg_get_expr(adbin, adrelid) from pg_attrdef where c.oid = pg_attrdef.adrelid and pg_attrdef.adnum = a.attnum) as default, \
+                 a.attgenerated as generated \
+                 from pg_attribute a, pg_class c, pg_type t, pg_namespace n \
+                 where c.relname = ? and n.nspname = current_schema() and a.attnum > 0 and a.attrelid = c.oid \
+                 and a.atttypid = t.oid and n.oid = c.relnamespace order by a.attnum",
+                &[table.to_string()],
+            )?
+            .rows
+            .into_iter()
+            .map(|mut row| {
+                let generated = row[4].as_deref().is_some_and(|kind| !kind.is_empty());
+                let default = row[3].take();
+                Column {
+                    name: row[0].take().unwrap_or_default(),
+                    type_name: row[1].take().unwrap_or_default(),
+                    nullable: truthy(&row[2]),
+                    auto_increment: default
+                        .as_deref()
+                        .is_some_and(|default| default.starts_with("nextval(")),
+                    default: default.filter(|_| !generated),
+                }
+            })
+            .collect())
+    }
+
+    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>> {
+        Ok(self
+            .select(
+                "select ic.relname as name, string_agg(a.attname, ',' order by indseq.ord) as columns, \
+                 i.indisunique as \"unique\", i.indisprimary as \"primary\" \
+                 from pg_index i \
+                 join pg_class tc on tc.oid = i.indrelid \
+                 join pg_namespace tn on tn.oid = tc.relnamespace \
+                 join pg_class ic on ic.oid = i.indexrelid \
+                 join pg_am am on am.oid = ic.relam \
+                 join lateral unnest(i.indkey) with ordinality as indseq(num, ord) on true \
+                 left join pg_attribute a on a.attrelid = i.indrelid and a.attnum = indseq.num \
+                 where tc.relname = ? and tn.nspname = current_schema() \
+                 group by ic.relname, am.amname, i.indisunique, i.indisprimary",
+                &[table.to_string()],
+            )?
+            .rows
+            .into_iter()
+            .map(|mut row| Index {
+                name: row[0].take().unwrap_or_default().to_lowercase(),
+                columns: split_list(row[1].take()),
+                unique: truthy(&row[2]),
+                primary: truthy(&row[3]),
+            })
+            .collect())
+    }
+
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+        Ok(keys_by_table(
+            self.query(
+                "select tc.relname as table, string_agg(la.attname, ',' order by conseq.ord) as columns, \
+                 fc.relname as foreign_table, string_agg(fa.attname, ',' order by conseq.ord) as foreign_columns \
+                 from pg_constraint c \
+                 join pg_class tc on c.conrelid = tc.oid \
+                 join pg_namespace tn on tn.oid = tc.relnamespace \
+                 join pg_class fc on c.confrelid = fc.oid \
+                 join pg_namespace fn on fn.oid = fc.relnamespace \
+                 join lateral unnest(c.conkey) with ordinality as conseq(num, ord) on true \
+                 join pg_attribute la on la.attrelid = c.conrelid and la.attnum = conseq.num \
+                 join pg_attribute fa on fa.attrelid = c.confrelid and fa.attnum = c.confkey[conseq.ord] \
+                 where c.contype = 'f' and tn.nspname = current_schema() \
+                 group by tc.relname, c.conname, fn.nspname, fc.relname, c.confupdtype, c.confdeltype",
+            )?
+            .rows,
+        ))
+    }
+}
+
+fn truthy(value: &Option<String>) -> bool {
+    value.as_deref() == Some("t")
 }
 
 #[cfg(test)]

@@ -2,6 +2,7 @@ mod filters;
 mod mysql;
 pub mod order_by;
 mod postgres;
+mod schema;
 mod sqlite;
 
 use std::collections::HashMap;
@@ -13,7 +14,11 @@ use regex::Regex;
 use crate::encrypter::Encrypter;
 use crate::store::Connection;
 
-pub use filters::{Condition, Filter, Filters, Joiner, OPERATORS, operator_names};
+pub use filters::{Condition, Filter, Filters, Joiner, OPERATORS, operator_names, readable_value};
+pub use schema::{
+    BackLink, Column, Count, ForeignKey, Index, Link, Pivot, Relations, is_plumbing, links,
+    primary_key, unique_columns,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -73,6 +78,14 @@ pub trait Database {
     ) -> anyhow::Result<Page>;
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>>;
+
+    fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page>;
+
+    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>>;
+
+    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>>;
+
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>>;
 
     fn databases(&mut self) -> anyhow::Result<Vec<String>> {
         Ok(Vec::new())
@@ -169,6 +182,12 @@ pub(crate) fn select_page(
 
 pub(crate) fn quote_double(identifier: &str) -> String {
     format!("\"{}\"", identifier.replace('"', "\"\""))
+}
+
+pub(crate) fn split_list(list: Option<String>) -> Vec<String> {
+    list.filter(|list| !list.is_empty())
+        .map(|list| list.split(',').map(String::from).collect())
+        .unwrap_or_default()
 }
 
 pub(crate) fn outcome_or_affected(

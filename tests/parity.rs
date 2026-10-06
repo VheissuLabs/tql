@@ -10,11 +10,12 @@ use zerorust_tui::Fake;
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
 
+const EMPTY_TABLE_HEADERS: &str = "an empty table shows its column headers; tql shows 'no columns' because it reads headers from the rows";
+
 const DELIBERATE: &[(&str, &str)] = &[
-    (
-        "empty-table",
-        "an empty table shows its column headers; tql shows 'no columns' because it reads headers from the rows",
-    ),
+    ("empty-table", EMPTY_TABLE_HEADERS),
+    ("inspect-empty-table", EMPTY_TABLE_HEADERS),
+    ("yank-empty-table", EMPTY_TABLE_HEADERS),
     (
         "sql-error",
         "the database's own words without PDO's 'SQLSTATE[HY000]: General error: 1' in front",

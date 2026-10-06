@@ -6,6 +6,7 @@ use crate::encrypter::Encrypter;
 use crate::paths;
 use crate::settings::{self, Settings};
 use crate::store::Store;
+use crate::tui::clipboard::SystemClipboard;
 use crate::tui::{Browser, Exit, Picker};
 
 #[command("browse", description = "Browse and query your databases")]
@@ -34,7 +35,11 @@ fn browse(cmd: &mut Cmd) -> Result {
 
         let opened = database::connect(&connection, encrypter.as_ref())
             .and_then(|database| Browser::new(connection.clone(), database))
-            .map(|browser| browser.with_store(paths::store()));
+            .map(|browser| {
+                browser
+                    .with_store(paths::store())
+                    .with_clipboard(SystemClipboard)
+            });
         let mut browser = match opened {
             Ok(browser) => browser,
             Err(error) => {

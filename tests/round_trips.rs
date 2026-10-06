@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use app::database::{self, Database, Filters, Page, Sort};
+use app::database::{self, Column, Database, Filters, ForeignKey, Index, Page, Sort};
 use app::store::Connection;
 use app::tui::Browser;
 use zerorust_tui::Fake;
@@ -42,6 +42,30 @@ impl Database for Counted {
         self.log("primary keys".into());
         self.inner.primary_keys()
     }
+
+    fn quote(&self, identifier: &str) -> String {
+        self.inner.quote(identifier)
+    }
+
+    fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
+        self.log(statement.to_string());
+        self.inner.select(statement, values)
+    }
+
+    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+        self.log(format!("columns {table}"));
+        self.inner.columns(table)
+    }
+
+    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>> {
+        self.log(format!("indexes {table}"));
+        self.inner.indexes(table)
+    }
+
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+        self.log("foreign keys".into());
+        self.inner.foreign_keys()
+    }
 }
 
 fn counted() -> (Fake<Browser>, Rc<RefCell<Vec<String>>>) {
@@ -78,10 +102,13 @@ fn take(queries: &Rc<RefCell<Vec<String>>>) -> Vec<String> {
 }
 
 #[test]
-fn opening_costs_three_queries_like_tqls_prefetch() {
+fn opening_prefetches_keys_and_links_like_tqls_prefetch() {
     let (_fake, queries) = counted();
 
-    assert_eq!(take(&queries), ["tables", "primary keys", "rows a"]);
+    assert_eq!(
+        take(&queries),
+        ["tables", "primary keys", "foreign keys", "rows a"]
+    );
 }
 
 #[test]
