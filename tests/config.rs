@@ -141,3 +141,25 @@ fn the_browser_says_what_happened_to_the_config_file() {
     assert_eq!(fake.app.status(), wrote);
     assert!(fake.screen().contains("wrote "), "{}", fake.screen());
 }
+
+#[test]
+fn starting_never_tidies_and_only_tql_config_tidy_does() {
+    let directory = directory("opt-in");
+    fs::create_dir_all(&directory).unwrap();
+    let path = directory.join("config.toml");
+    let scrambled = format!(
+        "# tql configuration {}\n\n\n[ai]\nkey = \"secret\"\nprovider = \"auto\"\n[ui]\nsidebar_width = 40\nsql_position = \"bottom\"\n",
+        template::VERSION
+    );
+    fs::write(&path, &scrambled).unwrap();
+
+    config_file::prepare(&path);
+    config(&[]);
+    config(&["--path"]);
+
+    assert_eq!(fs::read_to_string(&path).unwrap(), scrambled);
+    assert!(!directory.join("config.toml.bak").exists());
+
+    config(&["--tidy"]);
+    assert_ne!(fs::read_to_string(&path).unwrap(), scrambled);
+}
