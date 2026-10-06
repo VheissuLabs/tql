@@ -1,0 +1,910 @@
+[
+  {
+    "name": "structure-open",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t"
+    ]
+  },
+  {
+    "name": "structure-tickets",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t"
+    ]
+  },
+  {
+    "name": "structure-scrolled",
+    "size": [
+      80,
+      16
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "structure-scrolled-to-end",
+    "size": [
+      80,
+      16
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t",
+      "G"
+    ]
+  },
+  {
+    "name": "structure-closed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t",
+      "t"
+    ]
+  },
+  {
+    "name": "inspect-open",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i"
+    ]
+  },
+  {
+    "name": "inspect-switch",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t"
+    ]
+  },
+  {
+    "name": "inspect-unfold-shipments",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n"
+    ]
+  },
+  {
+    "name": "inspect-unfold-tickets",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "inspect-unfold-everything",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "j",
+      "\n",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "inspect-through",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "inspect-has-one",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "inspect-fold-record",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "k",
+      "\n"
+    ]
+  },
+  {
+    "name": "inspect-fold-related",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "k",
+      "\n"
+    ]
+  },
+  {
+    "name": "inspect-related-record",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "j",
+      "j",
+      "i"
+    ]
+  },
+  {
+    "name": "inspect-related-record-back",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "j",
+      "j",
+      "i",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "inspect-related-record-closed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "j",
+      "j",
+      "i",
+      "\u001b",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "inspect-not-on-a-record",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "i",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "inspect-shipment",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "i",
+      "\t",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "inspect-select",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "V",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "inspect-g-and-G",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "G"
+    ]
+  },
+  {
+    "name": "inspect-empty-table",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "\n",
+      "i"
+    ]
+  },
+  {
+    "name": "inspect-no-related",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "i"
+    ]
+  },
+  {
+    "name": "inspect-limit-zero",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i"
+    ],
+    "config": {
+      "ui.inspect_related": 0
+    }
+  },
+  {
+    "name": "inspect-limit-three",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "\n"
+    ],
+    "config": {
+      "ui.inspect_related": 3
+    }
+  },
+  {
+    "name": "inspect-standard-80x24",
+    "size": [
+      80,
+      24
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "inspect-wide",
+    "size": [
+      160,
+      40
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "link-hint",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l"
+    ]
+  },
+  {
+    "name": "link-hint-off-the-link",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "l"
+    ]
+  },
+  {
+    "name": "follow-link",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L"
+    ]
+  },
+  {
+    "name": "follow-link-sql",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "follow-link-back",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L",
+      "\u000f"
+    ]
+  },
+  {
+    "name": "follow-link-escape",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "j",
+      "l",
+      "l",
+      "L",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "follow-link-twice",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L",
+      "L"
+    ]
+  },
+  {
+    "name": "follow-link-unwind",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L",
+      "L",
+      "\u001b",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "follow-back-picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "L"
+    ]
+  },
+  {
+    "name": "follow-back-picker-typed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "L",
+      "t",
+      "i",
+      "c"
+    ]
+  },
+  {
+    "name": "follow-back-chosen",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "L",
+      "t",
+      "i",
+      "c",
+      "\n"
+    ]
+  },
+  {
+    "name": "follow-back-picker-cancelled",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "L",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "follow-back-single",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "\n",
+      "L"
+    ]
+  },
+  {
+    "name": "follow-link-hidden-by-filter",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "/",
+      "s",
+      "h",
+      "i",
+      "p",
+      "\n",
+      "\t",
+      "l",
+      "l",
+      "L"
+    ]
+  },
+  {
+    "name": "not-a-link",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "L"
+    ]
+  },
+  {
+    "name": "nowhere-to-go-back",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "\u000f"
+    ]
+  },
+  {
+    "name": "yank-value",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "y"
+    ]
+  },
+  {
+    "name": "yank-null",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "l",
+      "l",
+      "l",
+      "y"
+    ]
+  },
+  {
+    "name": "yank-row",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "Y"
+    ]
+  },
+  {
+    "name": "yank-empty-table",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "\n",
+      "y"
+    ]
+  }
+]

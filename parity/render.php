@@ -12,6 +12,7 @@ putenv('NO_ALT_SCREEN=1');
 putenv('NO_MOUSE=1');
 putenv('NO_TTY_SETUP=1');
 
+require __DIR__.'/clipboard.php';
 require $tql.'/vendor/autoload.php';
 $app = require $tql.'/bootstrap/app.php';
 $app->make(Illuminate\Contracts\Console\Kernel::class)->bootstrap();

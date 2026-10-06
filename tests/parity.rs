@@ -10,10 +10,13 @@ use zerorust_tui::Fake;
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
 
-const DELIBERATE: &[(&str, &str)] = &[(
-    "empty-table",
-    "an empty table shows its column headers; tql shows 'no columns' because it reads headers from the rows",
-)];
+const EMPTY_TABLE_HEADERS: &str = "an empty table shows its column headers; tql shows 'no columns' because it reads headers from the rows";
+
+const DELIBERATE: &[(&str, &str)] = &[
+    ("empty-table", EMPTY_TABLE_HEADERS),
+    ("inspect-empty-table", EMPTY_TABLE_HEADERS),
+    ("yank-empty-table", EMPTY_TABLE_HEADERS),
+];
 
 const HOTKEY_BAR_REASON: &str =
     "the hotkey bar only offers what tql-rust can do; tql also offers features not ported yet";
