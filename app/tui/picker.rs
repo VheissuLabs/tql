@@ -1,13 +1,20 @@
+use std::path::{Path, PathBuf};
+
 use zerorust_tui::prelude::*;
 
 use super::ago::{ago, now};
 use super::chrome::{self, theme};
+use super::connection_form::{ConnectionForm, Places, Step};
 use super::text::{pad, truncate, width, window};
-use crate::store::Connection;
+use crate::encrypter::Encrypter;
+use crate::settings;
+use crate::store::{Connection, Store};
+use crate::store_writer::StoreWriter;
 
 const MIN_LINES: u16 = 10;
 const FIRST_BODY_ROW: i64 = 4;
-const BAR: &str = " ↑↓ Move    ↵ Open    :q Quit";
+const BAR: &str = " ↑↓ Move    ↵ Open    e Edit    n New    d Mark    :w Write    :q Quit";
+const FORM_BAR: &str = " ↑↓ Move    ↵ Select";
 
 pub struct Picker {
     pub connections: Vec<Connection>,
@@ -15,7 +22,11 @@ pub struct Picker {
     pub notice: Option<String>,
     pub status: Option<String>,
     pub command: Option<String>,
+    pub form: Option<ConnectionForm>,
+    pub pending_deletes: Vec<i64>,
     start: usize,
+    store: Option<(PathBuf, PathBuf)>,
+    places: Places,
 }
 
 struct Row {
@@ -25,6 +36,7 @@ struct Row {
     driver: String,
     place: String,
     used: String,
+    marked: bool,
 }
 
 impl Picker {
@@ -35,8 +47,179 @@ impl Picker {
             notice,
             status: None,
             command: None,
+            form: None,
+            pending_deletes: Vec::new(),
             start: 0,
+            store: None,
+            places: Places::here(),
         }
+    }
+
+    pub fn with_store(mut self, store: &Path, key: &Path) -> Self {
+        self.store = Some((store.to_path_buf(), key.to_path_buf()));
+        self
+    }
+
+    pub fn with_places(mut self, places: Places) -> Self {
+        self.places = places;
+        self
+    }
+
+    pub fn is_marked(&self, id: i64) -> bool {
+        self.pending_deletes.contains(&id)
+    }
+
+    fn writer(&self) -> anyhow::Result<StoreWriter> {
+        let Some((store, key)) = &self.store else {
+            anyhow::bail!("there is no tql store to write to");
+        };
+        StoreWriter::open(store, key)
+    }
+
+    fn reload(&mut self) -> anyhow::Result<()> {
+        let Some((store, _)) = &self.store else {
+            return Ok(());
+        };
+        self.connections = Store::open(store)?.connections()?;
+        Ok(())
+    }
+
+    fn move_by(&mut self, steps: isize) {
+        let last = self.connections.len().saturating_sub(1);
+        self.index = self.index.saturating_add_signed(steps).min(last);
+    }
+
+    fn create(&mut self) {
+        self.form = Some(ConnectionForm::creating(self.places.clone()));
+        self.status = None;
+    }
+
+    fn edit(&mut self) {
+        let Some(connection) = self.connections.get(self.index) else {
+            return;
+        };
+        let encrypter = self
+            .store
+            .as_ref()
+            .and_then(|(_, key)| Encrypter::from_file(key).ok());
+        self.form = Some(ConnectionForm::editing(
+            connection,
+            encrypter.as_ref(),
+            self.places.clone(),
+        ));
+        self.status = None;
+    }
+
+    fn mark(&mut self) {
+        let Some(id) = self
+            .connections
+            .get(self.index)
+            .map(|connection| connection.id)
+        else {
+            return;
+        };
+        match self.pending_deletes.iter().position(|marked| *marked == id) {
+            Some(position) => {
+                self.pending_deletes.remove(position);
+            }
+            None => self.pending_deletes.push(id),
+        }
+        self.move_by(1);
+        let count = self.pending_deletes.len();
+        self.status = Some(match count {
+            0 => "marks cleared".to_string(),
+            count => format!("{count} marked for deletion · :w writes · u clears"),
+        });
+    }
+
+    fn unmark_all(&mut self) {
+        self.pending_deletes.clear();
+        self.status = Some("marks cleared".to_string());
+    }
+
+    fn write_pending(&mut self) {
+        if self.pending_deletes.is_empty() {
+            self.status = Some("nothing to write".to_string());
+            return;
+        }
+        let count = self.pending_deletes.len();
+        let deleted = self
+            .writer()
+            .and_then(|writer| writer.delete(&self.pending_deletes))
+            .and_then(|_| self.reload());
+        if let Err(error) = deleted {
+            self.status = Some(format!("{error:#}"));
+            return;
+        }
+        self.pending_deletes.clear();
+        self.index = self.index.min(self.connections.len().saturating_sub(1));
+        self.status = Some(format!(
+            "deleted {count} connection{}",
+            if count == 1 { "" } else { "s" }
+        ));
+    }
+
+    fn quit(&mut self) -> Flow<Option<Connection>> {
+        if self.pending_deletes.is_empty() {
+            return Flow::Exit(None);
+        }
+        let count = self.pending_deletes.len();
+        self.pending_deletes.clear();
+        self.status = Some(format!(
+            "{count} unwritten mark{} dropped — quit again to leave",
+            if count == 1 { "" } else { "s" }
+        ));
+        Flow::Continue
+    }
+
+    fn on_form_key(&mut self, key: Key) {
+        let Some(form) = self.form.as_mut() else {
+            return;
+        };
+        match form.on_key(key) {
+            Step::Stay => {}
+            Step::Cancel => self.close_form("nothing changed".to_string()),
+            Step::Save => self.save_form(),
+        }
+    }
+
+    fn save_form(&mut self) {
+        let writer = self.writer();
+        let Some(form) = self.form.as_mut() else {
+            return;
+        };
+        let saved = writer.and_then(|writer| form.save(&writer));
+        let refusal = match saved {
+            Ok(refusal) => refusal,
+            Err(error) => Some(format!("{error:#}")),
+        };
+        if let Some(refusal) = refusal {
+            form.error = Some(refusal);
+            return;
+        }
+
+        let creating = form.creating;
+        let id = form.id;
+        let name = form.name().to_string();
+        if let Err(error) = self.reload() {
+            self.status = Some(format!("{error:#}"));
+        }
+        if creating {
+            self.index = self
+                .connections
+                .iter()
+                .position(|connection| Some(connection.id) == id)
+                .unwrap_or(0);
+        }
+        self.close_form(format!(
+            "{} {name}",
+            if creating { "added" } else { "saved" }
+        ));
+    }
+
+    fn close_form(&mut self, status: String) {
+        self.form = None;
+        self.status = Some(status);
     }
 
     fn rows(&self) -> Vec<Row> {
@@ -59,8 +242,9 @@ impl Picker {
                     },
                     tag_color: connection.tag_color().and_then(theme::named),
                     driver: connection.driver.clone(),
-                    place: connection.describe(),
+                    place: connection.describe_from(&self.places.home),
                     used: ago(connection.last_used_at.as_deref(), now),
+                    marked: self.is_marked(connection.id),
                 }
             })
             .collect()
@@ -109,14 +293,17 @@ impl Picker {
     fn row_line(&self, row: &Row, selected: bool, widths: &[usize; 4]) -> Line<'static> {
         let grid = theme::border(true, false);
         let icon = icon(&row.driver);
-        let marker = if selected { "▸" } else { " " };
+        let marker = match selected && settings::with(|settings| settings.row_style == "marker") {
+            true => "▸",
+            false => " ",
+        };
         let label = pad(
             &truncate(&row.name, widths[0].saturating_sub(4)),
             widths[0].saturating_sub(4),
         );
         let cell = |text: &str, width: usize| format!(" {} ", pad(&truncate(text, width), width));
 
-        if selected {
+        if selected || row.marked {
             let text = format!(
                 " {marker} {icon} {label} │{}│{}│{}",
                 cell(&row.tag, widths[1]),
@@ -124,7 +311,13 @@ impl Picker {
                 cell(&row.used, widths[3])
             );
             let room = widths.iter().sum::<usize>() + 3 * widths.len() - 1;
-            return Line::styled(pad(&text, room), theme::selection());
+            let style = match row.marked {
+                true => {
+                    theme::highlight(&settings::with(|settings| settings.color("deleted", "red")))
+                }
+                false => theme::selection(),
+            };
+            return Line::styled(pad(&text, room), style);
         }
 
         let shade = row.tag_color.unwrap_or_else(|| driver_color(&row.driver));
@@ -170,9 +363,9 @@ impl Picker {
                 let command = command.trim().to_string();
                 self.command = None;
                 match command.as_str() {
-                    "q" | "q!" | "quit" => return Flow::Exit(None),
-                    "w" | "write" => self.status = Some("nothing to write".to_string()),
-                    "new" => self.status = Some("adding connections is not ported yet".to_string()),
+                    "q" | "q!" | "quit" => return self.quit(),
+                    "w" | "write" => self.write_pending(),
+                    "new" => self.create(),
                     other => self.status = Some(format!("unknown command: :{other}")),
                 }
             }
@@ -210,25 +403,25 @@ impl Tui for Picker {
     type Output = Option<Connection>;
 
     fn on_key(&mut self, key: Key) -> Flow<Option<Connection>> {
+        if self.form.is_some() {
+            self.on_form_key(key);
+            return Flow::Continue;
+        }
+
         if self.command.is_some() {
             return self.type_into_command(key);
         }
 
-        let last = self.connections.len().saturating_sub(1);
         match key {
             Key::Char(':') => self.command = Some(String::new()),
-            Key::Char('q') | Key::Escape | Key::Ctrl('c') => return Flow::Exit(None),
-            Key::Char('n') => {
-                self.status = Some("adding connections is not ported yet".to_string())
-            }
-            Key::Char('e') => {
-                self.status = Some("editing connections is not ported yet".to_string())
-            }
-            Key::Char('d' | 'u') => {
-                self.status = Some("deleting connections is not ported yet".to_string())
-            }
-            Key::Up | Key::Char('k') => self.index = self.index.saturating_sub(1),
-            Key::Down | Key::Char('j') => self.index = (self.index + 1).min(last),
+            Key::Ctrl('c') => return Flow::Exit(None),
+            Key::Char('q') | Key::Escape => return self.quit(),
+            Key::Char('n') => self.create(),
+            Key::Char('e') => self.edit(),
+            Key::Char('d') => self.mark(),
+            Key::Char('u') => self.unmark_all(),
+            Key::Up | Key::Char('k') => self.move_by(-1),
+            Key::Down | Key::Char('j') => self.move_by(1),
             Key::Enter => {
                 if let Some(connection) = self.connections.get(self.index) {
                     return Flow::Exit(Some(connection.clone()));
@@ -244,6 +437,9 @@ impl Tui for Picker {
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Option<Connection>> {
+        if self.form.is_some() {
+            return Flow::Continue;
+        }
         let last = self.connections.len().saturating_sub(1);
         match mouse.button {
             Button::WheelUp => self.index = self.index.saturating_sub(1),
@@ -338,7 +534,7 @@ impl Tui for Picker {
 
         let body: Vec<Line<'static>> = if rows.is_empty() {
             vec![Line::styled(
-                "  No connections yet — add one with the PHP tql: tql open <path or url>",
+                "  No connections yet — press n to add one.",
                 theme::dim(),
             )]
         } else {
@@ -360,11 +556,20 @@ impl Tui for Picker {
             format!("╰{}╯", Self::rule(&widths, '┴', inner)),
             edge,
         ));
-        lines.push(Line::styled(BAR, theme::dim()));
+        let frame_lines = lines.len() as u16;
+        let bar = if self.form.is_some() { FORM_BAR } else { BAR };
+        lines.push(Line::styled(
+            truncate(bar, area.width as usize),
+            theme::dim(),
+        ));
         lines.push(self.status_line());
 
         for (row, line) in lines.into_iter().enumerate() {
             chrome::line_at(frame, row as u16, line);
+        }
+
+        if let Some(form) = &self.form {
+            form.draw(frame.buffer_mut(), area.width, frame_lines);
         }
     }
 }

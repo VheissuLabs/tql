@@ -47,6 +47,10 @@ impl LineEditor {
         self.characters.iter().collect()
     }
 
+    pub fn cursor(&self) -> usize {
+        self.cursor
+    }
+
     pub fn handle(&mut self, key: Key) {
         match key {
             Key::Backspace | Key::Ctrl('h') if self.cursor > 0 => {

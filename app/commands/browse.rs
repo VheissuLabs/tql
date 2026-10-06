@@ -6,6 +6,7 @@ use crate::encrypter::Encrypter;
 use crate::paths;
 use crate::settings::{self, Settings};
 use crate::store::Store;
+use crate::store_writer::StoreWriter;
 use crate::tui::clipboard::SystemClipboard;
 use crate::tui::{Browser, Exit, Picker};
 
@@ -17,15 +18,16 @@ fn browse(cmd: &mut Cmd) -> Result {
         Err(error) => notice = Some(format!("{error:#}")),
     }
 
+    StoreWriter::prepare(&paths::store())?;
     let store = Store::open(&paths::store())?;
-    let encrypter = Encrypter::from_file(&paths::key()).ok();
 
     let mut chosen = None;
     loop {
         let connection = match chosen.take() {
             Some(connection) => connection,
             None => {
-                let mut picker = Picker::new(store.connections()?, notice.take());
+                let mut picker = Picker::new(store.connections()?, notice.take())
+                    .with_store(&paths::store(), &paths::key());
                 let Some(connection) = cmd.tui(&mut picker)? else {
                     return Ok(());
                 };
@@ -33,6 +35,7 @@ fn browse(cmd: &mut Cmd) -> Result {
             }
         };
 
+        let encrypter = Encrypter::from_file(&paths::key()).ok();
         let opened = database::connect(&connection, encrypter.as_ref())
             .and_then(|database| Browser::new(connection.clone(), database))
             .map(|browser| {
@@ -47,6 +50,9 @@ fn browse(cmd: &mut Cmd) -> Result {
                 continue;
             }
         };
+
+        let _ = StoreWriter::open(&paths::store(), &paths::key())
+            .and_then(|writer| writer.touch(connection.id));
 
         match cmd.tui(&mut browser)? {
             Exit::Quit => return Ok(()),
