@@ -5,8 +5,9 @@ use postgres::{Client, NoTls, SimpleQueryMessage};
 
 use super::schema::{fill, keys_by_table};
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, outcome_or_affected,
-    quote_double, select_page, single_column_keys, split_list,
+    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, Values, delete_statement,
+    insert_statement, outcome_or_affected, quote_double, refused, select_page, single_column_keys,
+    split_list, update_statement,
 };
 use crate::store::Connection;
 
@@ -55,6 +56,20 @@ impl Postgres {
             .into_iter()
             .filter_map(|mut row| row.swap_remove(0))
             .collect())
+    }
+}
+
+fn literal(value: Option<&str>) -> String {
+    value
+        .map(escaped_literal)
+        .unwrap_or_else(|| "null".to_string())
+}
+
+impl Postgres {
+    fn write(&mut self, sql: String) -> anyhow::Result<()> {
+        self.client
+            .batch_execute(&sql)
+            .map_err(|error| refused(error, &sql))
     }
 }
 
@@ -135,6 +150,60 @@ impl Database for Postgres {
             .with_context(|| format!("cannot switch to {name}"))?;
         self.config = config;
         Ok(())
+    }
+
+    fn highest(&mut self, table: &str, column: &str) -> anyhow::Result<Option<String>> {
+        let page = self.query(&format!(
+            "select max({}) from {}",
+            quote_double(column),
+            quote_double(table)
+        ))?;
+        Ok(page
+            .rows
+            .into_iter()
+            .next()
+            .and_then(|mut row| row.swap_remove(0)))
+    }
+
+    fn update(
+        &mut self,
+        table: &str,
+        column: &str,
+        key: &str,
+        key_value: &str,
+        value: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let values = [value, Some(key_value)];
+        let sql = update_statement(
+            quote_double,
+            |position| literal(values[position - 1]),
+            table,
+            column,
+            key,
+        );
+        self.write(sql)
+    }
+
+    fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
+        let sql = insert_statement(
+            quote_double,
+            |position| literal(values[position - 1].1.as_deref()),
+            table,
+            values,
+            "default values",
+        );
+        self.write(sql)
+    }
+
+    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
+        let sql = delete_statement(
+            quote_double,
+            |position| literal(Some(&key_values[position - 1])),
+            table,
+            key,
+            key_values.len(),
+        );
+        self.write(sql)
     }
 
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {

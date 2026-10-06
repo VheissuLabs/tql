@@ -140,7 +140,7 @@ impl Browser {
                 self.column_index = index;
             }
             if self.is_double_click() {
-                self.say("editing is not ported yet");
+                self.start_editing(false);
             }
             return;
         }

@@ -87,7 +87,11 @@ impl Browser {
         match key {
             Key::Up | Key::Char('k') => self.problem_offset = self.problem_offset.saturating_sub(1),
             Key::Down | Key::Char('j') => self.problem_offset += 1,
-            Key::Char('y') => self.say("copying is not ported yet"),
+            Key::Char('y') => {
+                let problem = self.problem.clone().unwrap_or_default();
+                self.clipboard.copy(&problem);
+                self.say("copied the error");
+            }
             _ => {
                 self.problem = None;
                 self.problem_notes.clear();
@@ -325,6 +329,7 @@ impl Browser {
                     .collect()
             })
             .collect();
+        self.raw = outcome.rows;
         self.row_index = 0;
         self.column_index = 0;
         self.column_offset = 0;
@@ -355,6 +360,9 @@ impl Browser {
         else {
             return;
         };
+        if index != self.table_index {
+            self.edits.forget();
+        }
         self.table_index = index;
         self.query.table = Some(named.to_string());
     }

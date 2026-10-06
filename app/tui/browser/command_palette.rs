@@ -178,7 +178,7 @@ impl Browser {
             Kind::Database => self.use_database(Some(item.target)),
             Kind::Connection => {
                 if let Ok(id) = item.target.parse() {
-                    return Flow::Exit(Exit::Open(id));
+                    return self.leave(Exit::Open(id));
                 }
             }
             Kind::History => self.use_statement(&item.target),

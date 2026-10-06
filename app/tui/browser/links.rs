@@ -193,6 +193,7 @@ impl Browser {
         self.filters = filters;
         self.offset = 0;
         self.sort = None;
+        self.edits.forget();
         self.focus = Focus::Grid;
         self.load(false);
     }

@@ -44,7 +44,7 @@ fn the_mouse_setting_turns_capture_off() {
 }
 
 #[test]
-fn double_clicking_a_cell_asks_to_edit_it() {
+fn double_clicking_a_cell_opens_it_for_editing() {
     settings::install(Settings::default());
     let path = std::env::temp_dir().join(format!("tql-mouse-{}.sqlite", std::process::id()));
     let _ = std::fs::remove_file(&path);
@@ -58,6 +58,7 @@ fn double_clicking_a_cell_asks_to_edit_it() {
 
     fake.click(40, 5);
     assert_eq!(fake.app.row_index, 1);
+    assert_eq!(fake.app.edits.editing(), None);
     fake.click(40, 5);
-    assert_eq!(fake.app.status(), "editing is not ported yet");
+    assert_eq!(fake.app.edits.editing().as_deref(), Some("b"));
 }

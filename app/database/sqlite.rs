@@ -6,8 +6,9 @@ use rusqlite::types::ValueRef;
 
 use super::schema::keys_by_table;
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, outcome_or_affected,
-    primary_key, quote_double, select_page, single_column_keys, split_list,
+    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, Values, delete_statement,
+    insert_statement, outcome_or_affected, primary_key, quote_double, refused, select_page,
+    single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 
@@ -192,6 +193,57 @@ impl Database for Sqlite {
         }
         Ok(keys)
     }
+
+    fn highest(&mut self, table: &str, column: &str) -> anyhow::Result<Option<String>> {
+        let sql = format!(
+            "select max({}) from {}",
+            quote_double(column),
+            quote_double(table)
+        );
+        let highest: Option<i64> = self
+            .connection
+            .query_row(&sql, [], |row| row.get(0))
+            .unwrap_or_default();
+        Ok(highest.map(|number| number.to_string()))
+    }
+
+    fn update(
+        &mut self,
+        table: &str,
+        column: &str,
+        key: &str,
+        key_value: &str,
+        value: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let sql = update_statement(quote_double, numbered, table, column, key);
+        self.connection
+            .execute(&sql, rusqlite::params![value, key_value])
+            .map_err(|error| refused(error, &sql))?;
+        Ok(())
+    }
+
+    fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
+        let sql = insert_statement(quote_double, numbered, table, values, "default values");
+        self.connection
+            .execute(
+                &sql,
+                rusqlite::params_from_iter(values.iter().map(|(_, value)| value)),
+            )
+            .map_err(|error| refused(error, &sql))?;
+        Ok(())
+    }
+
+    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
+        let sql = delete_statement(quote_double, numbered, table, key, key_values.len());
+        self.connection
+            .execute(&sql, rusqlite::params_from_iter(key_values))
+            .map_err(|error| refused(error, &sql))?;
+        Ok(())
+    }
+}
+
+fn numbered(position: usize) -> String {
+    format!("?{position}")
 }
 
 fn plain(error: rusqlite::Error) -> anyhow::Error {

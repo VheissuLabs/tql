@@ -429,6 +429,9 @@ impl Browser {
         if level.document.has_related() {
             offers.push(("tab".into(), "Switch"));
         }
+        if !inspector.nested() {
+            offers.push(("e".into(), "Edit"));
+        }
         offers.push(("y".into(), "Yank"));
         offers.push((
             "esc".into(),

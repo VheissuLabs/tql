@@ -6,6 +6,7 @@ use zerorust_tui::prelude::*;
 
 mod command_palette;
 mod databases;
+mod editing;
 mod filters;
 mod inspect;
 mod keys;
@@ -17,6 +18,7 @@ mod render;
 mod structure;
 mod yank;
 
+pub use editing::Edits;
 pub use inspect::Inspector;
 use links::{Jump, LinkPicker};
 use mouse::{Area, Drag, Hits};
@@ -75,7 +77,8 @@ pub struct Browser {
     pub mode: Mode,
     pub headers: Vec<String>,
     pub rows: Vec<Vec<String>>,
-    raw: Vec<Vec<Option<String>>>,
+    pub raw: Vec<Vec<Option<String>>>,
+    pub edits: Edits,
     pub row_index: usize,
     pub column_index: usize,
     pub column_offset: usize,
@@ -143,6 +146,7 @@ impl Browser {
             headers: Vec::new(),
             rows: Vec::new(),
             raw: Vec::new(),
+            edits: Edits::default(),
             row_index: 0,
             column_index: 0,
             column_offset: 0,
@@ -239,6 +243,10 @@ impl Tui for Browser {
         if key == Key::Ctrl('c') {
             return Flow::Exit(Exit::Quit);
         }
+        if self.edits.form().is_some() {
+            self.type_into_edits(key);
+            return Flow::Continue;
+        }
         if self.palette.is_some() {
             return self.type_into_palette(key);
         }
@@ -256,6 +264,10 @@ impl Tui for Browser {
         }
         if self.mode == Mode::Query {
             return self.type_into_query(key);
+        }
+        if self.edits.captures_keys() {
+            self.type_into_edits(key);
+            return Flow::Continue;
         }
         if self.databases.is_some() {
             self.type_into_databases(key);
@@ -300,6 +312,10 @@ impl Tui for Browser {
             || self.mode == Mode::Help
             || self.modal_over_grid()
         {
+            return Flow::Continue;
+        }
+        if self.edits.captures_keys() {
+            self.mouse_in_edits(mouse, row);
             return Flow::Continue;
         }
 

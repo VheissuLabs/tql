@@ -52,6 +52,7 @@ impl Browser {
         }
 
         self.active_database = Some(chosen.clone());
+        self.edits.forget();
         self.query.forget_schema();
         self.filter.clear();
         self.sort = None;
@@ -60,6 +61,7 @@ impl Browser {
         self.table_index = 0;
         self.headers.clear();
         self.rows.clear();
+        self.raw.clear();
         self.forget_links();
         self.keys = self.database.primary_keys().unwrap_or_default();
         self.tables = match self.database.tables() {

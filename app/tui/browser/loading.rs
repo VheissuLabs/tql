@@ -64,7 +64,9 @@ impl Browser {
                     .collect()
             })
             .collect();
+        let fetched = rows.len();
         self.raw = rows;
+        self.prepend_pending_rows();
         self.row_index = 0;
         self.column_index = 0;
         self.column_offset = 0;
@@ -76,15 +78,11 @@ impl Browser {
             self.row_index = row.min(self.rows.len().saturating_sub(1));
         }
 
-        let first = if self.rows.is_empty() {
-            0
-        } else {
-            self.offset + 1
-        };
+        let first = if fetched == 0 { 0 } else { self.offset + 1 };
         let more = if self.has_more { "+" } else { "" };
         self.say(format!(
             "rows {first}-{}{more} · {elapsed}ms",
-            self.offset + self.rows.len()
+            self.offset + fetched
         ));
     }
 
@@ -94,6 +92,7 @@ impl Browser {
         }
         self.table_index = index;
         self.offset = 0;
+        self.edits.forget();
         self.sort = None;
         self.filters = None;
         self.queue_load(false);
@@ -106,6 +105,7 @@ impl Browser {
         }
         self.table_index = self.table_index.min(count - 1);
         self.offset = 0;
+        self.edits.forget();
         self.sort = None;
         self.filters = None;
         self.queue_load(false);

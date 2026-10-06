@@ -18,6 +18,12 @@ impl QueryEditor {
         }
     }
 
+    pub fn holding(buffer: &str) -> Self {
+        let mut editor = QueryEditor::new(false);
+        editor.set(buffer);
+        editor
+    }
+
     pub fn buffer(&self) -> String {
         self.characters.iter().collect()
     }
@@ -107,6 +113,10 @@ impl QueryEditor {
 
     pub fn move_to_start(&mut self) {
         self.cursor = 0;
+    }
+
+    pub fn move_to_end(&mut self) {
+        self.cursor = self.characters.len();
     }
 
     pub fn move_to_line_column(&mut self, line: usize, column: usize) {
@@ -317,6 +327,22 @@ mod tests {
 
         assert_eq!(editor.buffer(), "select");
         assert!(QueryEditor::new(false).is_empty() && typed("   ").is_empty());
+    }
+
+    #[test]
+    fn opens_holding_a_value_with_the_cursor_after_it_and_jumps_between_lines() {
+        let mut editor = QueryEditor::holding("a\nbb\nc");
+        assert_eq!(editor.cursor(), 6);
+
+        editor.move_to_line_column(1, 0);
+        assert_eq!((editor.cursor_line(), editor.cursor_column()), (1, 0));
+
+        editor.move_to_line_column(40, 0);
+        assert_eq!(editor.cursor_line(), 2);
+
+        editor.move_to_start();
+        editor.move_to_end();
+        assert_eq!(editor.cursor(), 6);
     }
 
     #[test]

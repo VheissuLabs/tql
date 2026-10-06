@@ -69,8 +69,8 @@ impl Browser {
     pub(super) fn run_command(&mut self, command: &str) -> Flow<Exit> {
         self.command = None;
         match command {
-            "q" | "q!" | "quit" => return Flow::Exit(Exit::Quit),
-            "c" | "connections" => return Flow::Exit(Exit::Connections),
+            "q" | "q!" | "quit" => return self.leave(Exit::Quit),
+            "c" | "connections" => return self.leave(Exit::Connections),
             "tables" => self.focus = Focus::Sidebar,
             "rows" => self.focus = Focus::Grid,
             "r" => self.run_or_reload(),
@@ -78,7 +78,7 @@ impl Browser {
             "run" => self.run_statement_at_cursor(),
             "sql" => self.open_query(),
             "history" => self.open_history(),
-            "w" | "write" => self.say("nothing to write"),
+            "w" | "write" => self.write_pending(),
             "export" | "export sql" | "create database" | "drop database" => {
                 self.say(format!(":{command} is not ported yet"));
             }
@@ -199,7 +199,7 @@ impl Browser {
             }
             Action::NextPage | Action::PreviousPage => self.page(action == Action::NextPage),
             Action::Reload => self.reload(),
-            Action::Connections => return Flow::Exit(Exit::Connections),
+            Action::Connections => return self.leave(Exit::Connections),
             Action::Narrow => self.resize(Some(-4)),
             Action::Widen => self.resize(Some(4)),
             Action::ResetWidth => self.resize(None),
@@ -207,9 +207,14 @@ impl Browser {
                 self.help_offset = 0;
                 self.mode = Mode::Help;
             }
-            Action::Quit => return Flow::Exit(Exit::Quit),
+            Action::Quit => return self.leave(Exit::Quit),
             Action::Databases => self.open_databases(),
-            Action::Activate => self.say("editing is not ported yet"),
+            Action::Activate | Action::EditValue => self.start_editing(false),
+            Action::ViewValue => self.start_editing(true),
+            Action::EditRow => self.open_record(),
+            Action::MarkDelete => self.mark_delete(),
+            Action::ClearMarks => self.clear_marks(),
+            Action::NewRow => self.new_row(),
             Action::InspectRow => self.inspect_row(),
             Action::Structure => self.toggle_structure(),
             Action::FollowLink => self.follow_link(),

@@ -82,6 +82,8 @@ impl Browser {
         form.commit();
         self.filters = Some(form.to_filters()).filter(|filters| filters.usable());
         self.offset = 0;
+        self.edits.deletes.clear();
+        self.edits.updates.clear();
         self.load(false);
     }
 
