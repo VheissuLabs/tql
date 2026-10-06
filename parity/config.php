@@ -11,6 +11,12 @@ require $tql.'/vendor/autoload.php';
 foreach ($cases as $case) {
     $name = $case['name'];
 
+    if ($case['kind'] === 'version') {
+        file_put_contents("{$out}/{$name}.toml", App\Support\ConfigTemplate::VERSION);
+
+        continue;
+    }
+
     if ($case['kind'] === 'template') {
         file_put_contents("{$out}/{$name}.toml", App\Support\ConfigTemplate::render());
 
