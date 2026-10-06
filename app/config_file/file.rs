@@ -7,10 +7,20 @@ use toml::{Table, Value};
 
 use super::template::{self, SETTINGS, Setting, VERSION};
 
-static WRITTEN_FOR: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)^#\s*tql configuration\s+([0-9]+\.[0-9]+\.[0-9]+)").unwrap());
-static STAMP: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?m)^#[ \t]*tql configuration([ \t]+[0-9.]+)?[ \t]*$").unwrap());
+const SPACE: &str = r"[\t\n\x0B\x0C\r ]";
+
+static WRITTEN_FOR: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(
+        r"(?m)^#{SPACE}*tql configuration{SPACE}+([0-9]+\.[0-9]+\.[0-9]+)"
+    ))
+    .unwrap()
+});
+static STAMP: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(&format!(
+        r"(?m)^#{SPACE}*tql configuration({SPACE}+[0-9.]+)?{SPACE}*$"
+    ))
+    .unwrap()
+});
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Ensured {
@@ -57,6 +67,9 @@ fn restrict(_path: &Path, _mode: u32) -> std::io::Result<()> {
 
 pub fn top_up(contents: &str) -> (String, Vec<String>) {
     let since = written_for(contents);
+    if since.as_deref().is_some_and(|since| !newer(VERSION, since)) {
+        return (contents.to_string(), Vec::new());
+    }
     let mut contents = contents.to_string();
     let mut added = Vec::new();
 
@@ -95,18 +108,22 @@ fn newer(version: &str, than: &str) -> bool {
 
 fn stamp(contents: &str) -> String {
     let line = format!("# tql configuration {VERSION}");
-    if STAMP.is_match(contents) {
-        return STAMP.replace(contents, line.as_str()).into_owned();
+    if !STAMP.is_match(contents) {
+        return stamp(&format!("{line}\n{contents}"));
     }
-    format!("{line}\n{contents}")
+    let stamped = STAMP.replace(contents, line.as_str()).into_owned();
+    if stamped == contents {
+        return stamped;
+    }
+    stamp(&stamped)
 }
 
 fn assigns(key: &str) -> Regex {
-    Regex::new(&format!(r"^\s*{}\s*=", regex::escape(key))).unwrap()
+    Regex::new(&format!(r"^{SPACE}*{}{SPACE}*=", regex::escape(key))).unwrap()
 }
 
 fn has(contents: &str, key: &str) -> bool {
-    Regex::new(&format!(r"(?m)^\s*{}\s*=", regex::escape(key)))
+    Regex::new(&format!(r"(?m)^{SPACE}*{}{SPACE}*=", regex::escape(key)))
         .unwrap()
         .is_match(contents)
 }
@@ -225,7 +242,7 @@ mod tests {
 
         assert_eq!(added, ["sql_complete", "hotkey_bar", "check", "automatic"]);
         assert!(topped.starts_with(
-            "# tql configuration 0.7.1\n\n[ui]\n# mine\nsql_editor = \"simple\"\n\n# Offer tables"
+            "# tql configuration 0.7.1\n[ui]\n# mine\nsql_editor = \"simple\"\n\n# Offer tables"
         ));
     }
 
@@ -241,10 +258,31 @@ mod tests {
         let (topped, added) = top_up("# tql configuration 0.6.2\n\n[ui]\nsidebar_width = 40\n");
 
         assert_eq!(added, ["check", "automatic"]);
-        assert!(topped.starts_with(&format!("# tql configuration {VERSION}\n\n[ui]")));
+        assert!(topped.starts_with(&format!("# tql configuration {VERSION}\n[ui]")));
 
         let deleted = topped.replace("automatic = true", "");
         assert_eq!(top_up(&deleted), (deleted, Vec::new()));
+    }
+
+    #[test]
+    fn leaves_a_file_at_this_version_or_newer_exactly_as_it_is() {
+        for file in [
+            "# tql configuration 0.7.1\n\n\n[ui]\nsidebar_width = 40\n",
+            "#tql configuration 0.7.1   \r\n[ui]\r\nsidebar_width = 40\r\n",
+            "# tql configuration 0.9.0\n[ui]\nsidebar_width = 40\n",
+            "# tql configuration 1.0.0\n",
+        ] {
+            assert_eq!(top_up(file), (file.to_string(), Vec::new()), "{file:?}");
+        }
+    }
+
+    #[test]
+    fn stamps_an_older_file_until_tql_would_leave_it_alone() {
+        let (topped, added) = top_up("# tql configuration 0.6.2\n\n\n[ui]\nsidebar_width = 40\n");
+
+        assert_eq!(added, ["check", "automatic"]);
+        assert!(topped.starts_with("# tql configuration 0.7.1\n[ui]\n"));
+        assert_eq!(stamp(&topped), topped);
     }
 
     #[test]
