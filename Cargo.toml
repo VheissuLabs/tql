@@ -25,6 +25,10 @@ regex = "1.13.1"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 serde_json = { version = "1.0.151", features = ["preserve_order"] }
 sha2 = "0.10"
+futures-util = { version = "0.3", default-features = false }
+tiberius = { version = "0.13", default-features = false, features = ["tds73", "rustls"] }
+tokio = { version = "1", features = ["rt", "net", "time"] }
+tokio-util = { version = "0.7", features = ["compat"] }
 toml = "1.1.6"
 unicode-width = "0.2.2"
 zerorust = { path = "/Users/karlm/Code/zeroRust/zerorust" }

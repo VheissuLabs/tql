@@ -6,6 +6,7 @@ pub mod order_by;
 mod postgres;
 mod schema;
 mod sqlite;
+mod sqlsrv;
 
 use std::collections::HashMap;
 use std::sync::LazyLock;
@@ -24,6 +25,7 @@ pub use schema::{
     BackLink, Column, Count, ForeignKey, Index, Link, Pivot, Relations, is_plumbing, links,
     primary_key, unique_columns,
 };
+pub use sqlsrv::{Encryption, encryption};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -131,8 +133,16 @@ pub trait Database {
         bail!("this connection cannot run statements")
     }
 
+    fn run_server_wide(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        self.run(statement)
+    }
+
     fn quote(&self, identifier: &str) -> String {
         quote_double(identifier)
+    }
+
+    fn page(&self, statement: &str, limit: usize, offset: usize) -> String {
+        format!("{statement} limit {limit} offset {offset}")
     }
 
     fn scalars(&mut self, statement: &str) -> anyhow::Result<Scalars> {
@@ -282,6 +292,7 @@ pub fn connect(
         "sqlite" => Ok(Box::new(sqlite::Sqlite::open(connection)?)),
         "pgsql" => Ok(Box::new(postgres::Postgres::open(connection, password)?)),
         "mysql" | "mariadb" => Ok(Box::new(mysql::MySql::open(connection, password)?)),
+        "sqlsrv" => Ok(Box::new(sqlsrv::SqlServer::open(connection, password)?)),
         other => bail!("the {other} driver is not ported yet"),
     }
 }

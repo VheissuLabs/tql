@@ -206,7 +206,7 @@ impl Browser {
 
     fn run_on_server(&mut self, statement: &str) -> anyhow::Result<()> {
         let started = Instant::now();
-        let ran = self.database.run(statement);
+        let ran = self.database.run_server_wide(statement);
         if let Some(store) = &self.store {
             let error = ran.as_ref().err().map(|error| format!("{error:#}"));
             history::record(

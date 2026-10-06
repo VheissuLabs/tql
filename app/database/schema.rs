@@ -158,11 +158,14 @@ impl<Driver: Database + ?Sized> Relations for Driver {
         value: &str,
         limit: usize,
     ) -> anyhow::Result<Page> {
-        let statement = format!(
-            "select * from {} where {} = ? limit {} offset 0",
-            self.quote(table),
-            self.quote(column),
-            limit + 1
+        let statement = self.page(
+            &format!(
+                "select * from {} where {} = ?",
+                self.quote(table),
+                self.quote(column)
+            ),
+            limit + 1,
+            0,
         );
         self.select(&statement, &[value.to_string()])
     }
@@ -177,13 +180,16 @@ impl<Driver: Database + ?Sized> Relations for Driver {
     ) -> anyhow::Result<Page> {
         let far_table = self.quote(&far.table);
         let pivot_table = self.quote(pivot);
-        let statement = format!(
-            "select {far_table}.* from {far_table} join {pivot_table} on {pivot_table}.{} = {far_table}.{} \
-             where {pivot_table}.{} = ? limit {} offset 0",
-            self.quote(&far.on),
-            self.quote(&far.references),
-            self.quote(joined_on),
-            limit + 1
+        let statement = self.page(
+            &format!(
+                "select {far_table}.* from {far_table} join {pivot_table} on {pivot_table}.{} = {far_table}.{} \
+                 where {pivot_table}.{} = ?",
+                self.quote(&far.on),
+                self.quote(&far.references),
+                self.quote(joined_on)
+            ),
+            limit + 1,
+            0,
         );
         self.select(&statement, &[value.to_string()])
     }
