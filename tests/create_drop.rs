@@ -368,3 +368,82 @@ fn drops_nothing_when_the_confirmation_is_cancelled() {
     assert!(ledger.borrow().dropped.is_empty());
     assert_eq!(fake.app.command, None);
 }
+
+#[test]
+fn records_creates_and_drops_in_the_history_as_tui() {
+    let store = std::env::temp_dir().join(format!(
+        "tql-rust-create-drop-history-{}.sqlite",
+        std::process::id()
+    ));
+    let _ = std::fs::remove_file(&store);
+    rusqlite::Connection::open(&store)
+        .unwrap()
+        .execute_batch(
+            "create table query_executions (id integer primary key autoincrement, connection_id integer,
+                statement text, source text, succeeded integer, error text, row_count integer,
+                duration_ms integer, created_at text, updated_at text);",
+        )
+        .unwrap();
+    let ledger = Rc::new(RefCell::new(Ledger {
+        databases: vec!["jobs".into(), "shop".into()],
+        refuse: true,
+        ..Ledger::default()
+    }));
+    let connection = Connection {
+        id: 4,
+        name: "server".into(),
+        driver: "mysql".into(),
+        database: Some("shop".into()),
+        ..Connection::default()
+    };
+    let server = Server {
+        current: "shop".into(),
+        ledger: ledger.clone(),
+    };
+    let browser = Browser::new(connection, Box::new(server))
+        .unwrap()
+        .with_store(store.clone());
+    let mut fake = Fake::sized(browser, 100, 30);
+
+    command(&mut fake, "create database kmstools");
+    command(&mut fake, "drop database jobs");
+
+    let reader = rusqlite::Connection::open(&store).unwrap();
+    let mut statement = reader
+        .prepare("select connection_id, statement, source, succeeded, error from query_executions order by id")
+        .unwrap();
+    let recorded: Vec<(i64, String, String, bool, Option<String>)> = statement
+        .query_map([], |row| {
+            Ok((
+                row.get(0)?,
+                row.get(1)?,
+                row.get(2)?,
+                row.get(3)?,
+                row.get(4)?,
+            ))
+        })
+        .unwrap()
+        .collect::<Result<_, _>>()
+        .unwrap();
+    std::fs::remove_file(&store).unwrap();
+
+    assert_eq!(
+        recorded,
+        [
+            (
+                4,
+                "create database `kmstools`".into(),
+                "tui".into(),
+                true,
+                None
+            ),
+            (
+                4,
+                "drop database `jobs`".into(),
+                "tui".into(),
+                false,
+                Some("database is being accessed by other users".into())
+            ),
+        ]
+    );
+}

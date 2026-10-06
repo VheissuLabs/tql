@@ -1,4 +1,5 @@
 use super::*;
+use crate::tui::history::{self, Execution};
 
 const SYSTEM_DATABASES: [&str; 8] = [
     "information_schema",
@@ -145,7 +146,7 @@ impl Browser {
         }
 
         let statement = format!("create database {}", self.database.quote(&name));
-        if let Err(error) = self.database.run(&statement) {
+        if let Err(error) = self.run_on_server(&statement) {
             self.fail(format!("{error:#}"), Vec::new(), REFUSED);
             return;
         }
@@ -189,7 +190,7 @@ impl Browser {
         }
 
         let statement = format!("drop database {}", self.database.quote(&name));
-        if let Err(error) = self.database.run(&statement) {
+        if let Err(error) = self.run_on_server(&statement) {
             if in_use {
                 let _ = self.database.use_database(&name);
             }
@@ -201,6 +202,26 @@ impl Browser {
             self.pick_after_dropping();
         }
         self.say(format!("dropped {name}"));
+    }
+
+    fn run_on_server(&mut self, statement: &str) -> anyhow::Result<()> {
+        let started = Instant::now();
+        let ran = self.database.run(statement);
+        if let Some(store) = &self.store {
+            let error = ran.as_ref().err().map(|error| format!("{error:#}"));
+            history::record(
+                store,
+                "tui",
+                Execution {
+                    connection_id: self.connection.id,
+                    statement,
+                    error: error.as_deref(),
+                    rows: None,
+                    duration_ms: started.elapsed().as_millis(),
+                },
+            );
+        }
+        ran.map(|_| ())
     }
 
     fn pick_after_dropping(&mut self) {
