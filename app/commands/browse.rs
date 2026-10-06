@@ -10,23 +10,36 @@ use crate::store::Store;
 use crate::store_writer::StoreWriter;
 use crate::tui::clipboard::SystemClipboard;
 use crate::tui::{Browser, Exit, Picker};
+use crate::updates::{self, Installation, Releases, Remembered, check};
 
 #[command("browse", description = "Browse and query your databases")]
 fn browse(cmd: &mut Cmd) -> Result {
     let loaded = config_file::prepare(&paths::config_file());
     let message = loaded.message();
-    let mut notice = loaded.error.clone();
+    let update_check = check::enabled(loaded.settings.update_check);
     settings::install(loaded.settings);
 
     StoreWriter::prepare(&paths::store())?;
     let store = Store::open(&paths::store())?;
+
+    let remembered = Remembered::new(&paths::store());
+    check::in_the_background(update_check, &remembered);
+    let update_notice = || {
+        check::notice(
+            &updates::current_version(),
+            &Installation::running(),
+            &Releases::configured(),
+            &remembered,
+        )
+    };
+    let mut notice = loaded.error.clone();
 
     let mut chosen = None;
     loop {
         let connection = match chosen.take() {
             Some(connection) => connection,
             None => {
-                let mut picker = Picker::new(store.connections()?, notice.take())
+                let mut picker = Picker::new(store.connections()?, notice.take().or_else(update_notice))
                     .with_store(&paths::store(), &paths::key());
                 let Some(connection) = cmd.tui(&mut picker)? else {
                     return Ok(());
