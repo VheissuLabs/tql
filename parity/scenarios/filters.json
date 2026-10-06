@@ -1,0 +1,578 @@
+[
+  {
+    "name": "rows-filter-form-open",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "f"
+    ]
+  },
+  {
+    "name": "rows-filter-typing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "4",
+      "2"
+    ]
+  },
+  {
+    "name": "rows-filter-form-steps-out",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "4",
+      "2",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "rows-filter-operator-cell",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "\u001b",
+      "\u001b[Z"
+    ]
+  },
+  {
+    "name": "rows-filter-column-picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "\u001b",
+      "\u001b[Z",
+      "\u001b[Z",
+      "\n"
+    ]
+  },
+  {
+    "name": "rows-filter-picker-typing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "\u001b",
+      "\u001b[Z",
+      "\u001b[Z",
+      "\n",
+      "e",
+      "m"
+    ]
+  },
+  {
+    "name": "rows-filter-operator-picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "\u001b",
+      "\u001b[Z",
+      "\n"
+    ]
+  },
+  {
+    "name": "rows-filter-picker-chosen",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "\u001b",
+      "\u001b[Z",
+      "\u001b[Z",
+      "\n",
+      "e",
+      "m",
+      "\n"
+    ]
+  },
+  {
+    "name": "rows-filter-operator-cycled",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "\u001b",
+      "\u001b[Z",
+      "l",
+      "l"
+    ]
+  },
+  {
+    "name": "rows-filter-applied",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "4",
+      "2",
+      "\n",
+      "\n"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "rows-filter-applied-ctrl-s",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "C",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      " ",
+      "0",
+      "4",
+      "\u0013"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "rows-filter-quote-bound",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "\u001b",
+      "\u001b[Z",
+      "\n",
+      "i",
+      "s",
+      " ",
+      "n",
+      "o",
+      "t",
+      "\n",
+      "\t",
+      "O",
+      "'",
+      "B",
+      "r",
+      "i",
+      "e",
+      "n",
+      "\u0013"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "rows-filter-cleared",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "4",
+      "2",
+      "\u0013",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "rows-filter-reopened",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "4",
+      "2",
+      "\u0013",
+      "f"
+    ]
+  },
+  {
+    "name": "rows-filter-two-conditions",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "1",
+      "\n",
+      "+",
+      "l",
+      "l",
+      "\t",
+      "\t",
+      "2",
+      "\n"
+    ]
+  },
+  {
+    "name": "rows-filter-two-applied",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "1",
+      "\n",
+      "+",
+      "\t",
+      "\t",
+      "2",
+      "\u0013"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "rows-filter-or-joiner",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "1",
+      "\n",
+      "+",
+      "o"
+    ]
+  },
+  {
+    "name": "rows-filter-removed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "1",
+      "\n",
+      "+",
+      "-"
+    ]
+  },
+  {
+    "name": "rows-filter-is-empty",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "l",
+      "l",
+      "f",
+      "\u001b",
+      "\u001b[Z",
+      "\n",
+      "i",
+      "s",
+      " ",
+      "e",
+      "m",
+      "p",
+      "t",
+      "y",
+      "\n",
+      "\u0013"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "rows-filter-one-of",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "f",
+      "\u001b",
+      "\u001b[Z",
+      "\n",
+      "o",
+      "n",
+      "e",
+      " ",
+      "o",
+      "f",
+      "\n",
+      "\t",
+      "3",
+      ",",
+      " ",
+      "5",
+      ",",
+      "7",
+      "\u0013"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "rows-filter-number",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "f",
+      "\u001b",
+      "\u001b[Z",
+      "\n",
+      "g",
+      "r",
+      "e",
+      "a",
+      "t",
+      "e",
+      "r",
+      "\n",
+      "\t",
+      "2",
+      "4",
+      "5",
+      "\u0013"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "rows-filter-sorted",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "1",
+      "\u0013",
+      "o"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "rows-filter-next-page",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "1",
+      "\u0013",
+      "n"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "rows-filter-nothing-matches",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "z",
+      "z",
+      "z",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "rows-filter-empty-applies-nothing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "rows-filter-cancelled",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "4",
+      "2",
+      "\u001b",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "rows-filter-needs-a-table",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "f"
+    ]
+  },
+  {
+    "name": "rows-filter-table-switch",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "4",
+      "2",
+      "\u0013",
+      "\u001b1",
+      "k",
+      "j"
+    ]
+  },
+  {
+    "name": "rows-filter-narrow",
+    "size": [
+      62,
+      20
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "4",
+      "2"
+    ]
+  }
+]

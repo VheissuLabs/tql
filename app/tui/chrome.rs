@@ -77,10 +77,6 @@ pub mod theme {
         highlight(&color("selection", "default"))
     }
 
-    pub fn problem() -> Style {
-        paint(&color("deleted", "red"))
-    }
-
     pub fn fresh() -> Style {
         title(true, false)
     }

@@ -26,10 +26,13 @@ impl Browser {
         let row = self.row_index;
 
         let started = Instant::now();
-        let page = match self
-            .database
-            .rows(&table, PAGE + 1, self.offset, self.sort.as_ref())
-        {
+        let page = match self.database.filtered_rows(
+            &table,
+            PAGE + 1,
+            self.offset,
+            self.sort.as_ref(),
+            self.filters.as_ref(),
+        ) {
             Ok(page) => page,
             Err(error) => {
                 self.say(error.to_string());
@@ -46,6 +49,11 @@ impl Browser {
         rows.truncate(PAGE);
 
         self.last_statement = Some(sql::shown(&page.statement, PAGE));
+        self.query.results = false;
+        self.query.table = None;
+        if self.mode != Mode::Query {
+            self.query.editor.set(&sql::shown(&page.statement, PAGE));
+        }
         self.headers = page.headers;
         self.rows = rows
             .iter()
@@ -85,6 +93,7 @@ impl Browser {
         self.offset = 0;
         self.edits.forget();
         self.sort = None;
+        self.filters = None;
         self.queue_load(false);
     }
 
@@ -97,6 +106,7 @@ impl Browser {
         self.offset = 0;
         self.edits.forget();
         self.sort = None;
+        self.filters = None;
         self.queue_load(false);
     }
 
@@ -107,6 +117,10 @@ impl Browser {
     }
 
     pub(super) fn sort_by(&mut self, column: String) {
+        if self.query.results {
+            self.sort_query_results(column);
+            return;
+        }
         self.sort = match self.sort.take() {
             Some(sort) if sort.column == column && sort.direction == Direction::Asc => Some(Sort {
                 column,
@@ -142,11 +156,12 @@ impl Browser {
 
     pub(super) fn reload(&mut self) {
         let table = self.current_table();
+        self.query.forget_schema();
         self.keys = self.database.primary_keys().unwrap_or_default();
         match self.database.tables() {
             Ok(tables) => self.tables = tables,
             Err(error) => {
-                self.problem = Some(error.to_string());
+                self.fail(error.to_string(), Vec::new(), "ERROR");
                 return;
             }
         }

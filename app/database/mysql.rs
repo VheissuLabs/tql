@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
 use anyhow::Context;
-use mysql::prelude::Queryable;
-use mysql::{Conn, OptsBuilder, Value};
+use mysql::prelude::{Protocol, Queryable};
+use mysql::{Conn, OptsBuilder, QueryResult, Value};
 
 use super::{
-    Column, Database, Page, Sort, Values, delete_statement, insert_statement, refused, select_page,
-    single_column_keys, update_statement,
+    Column, Database, Filters, Outcome, Page, Sort, Values, delete_statement, insert_statement,
+    outcome_or_affected, refused, select_page, single_column_keys, update_statement,
 };
 use crate::store::Connection;
 
@@ -39,23 +39,36 @@ impl MySql {
     }
 
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
-        let mut result = self.connection.query_iter(sql)?;
-        let mut page = Page::default();
-
-        if let Some(set) = result.iter() {
-            page.headers = set
-                .columns()
-                .as_ref()
-                .iter()
-                .map(|column| column.name_str().into_owned())
-                .collect();
-            for row in set {
-                page.rows
-                    .push(row?.unwrap().into_iter().map(text).collect());
-            }
-        }
-        Ok(page)
+        page_of(self.connection.query_iter(sql).map_err(said)?)
     }
+
+    fn bound_query(&mut self, sql: &str, bindings: Vec<String>) -> anyhow::Result<Page> {
+        page_of(self.connection.exec_iter(sql, bindings).map_err(said)?)
+    }
+}
+
+fn said(error: mysql::Error) -> anyhow::Error {
+    match error {
+        mysql::Error::MySqlError(server) => anyhow::anyhow!(server.message),
+        other => other.into(),
+    }
+}
+
+fn page_of<P: Protocol>(mut result: QueryResult<'_, '_, '_, P>) -> anyhow::Result<Page> {
+    let mut page = Page::default();
+    if let Some(set) = result.iter() {
+        page.headers = set
+            .columns()
+            .as_ref()
+            .iter()
+            .map(|column| column.name_str().into_owned())
+            .collect();
+        for row in set {
+            page.rows
+                .push(row.map_err(said)?.unwrap().into_iter().map(text).collect());
+        }
+    }
+    Ok(page)
 }
 
 fn text(value: Value) -> Option<String> {
@@ -112,17 +125,35 @@ impl Database for MySql {
             .collect())
     }
 
-    fn rows(
+    fn filtered_rows(
         &mut self,
         table: &str,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
+        filters: Option<&Filters>,
     ) -> anyhow::Result<Page> {
-        let statement = select_page(&quote_backtick(table), quote_backtick, limit, offset, sort);
-        let mut page = self.query(&statement)?;
-        page.statement = statement;
-        Ok(page)
+        let condition = filters.and_then(|filters| filters.condition(&quote_backtick));
+        let page = |shown: Option<String>| {
+            select_page(
+                &quote_backtick(table),
+                quote_backtick,
+                limit,
+                offset,
+                sort,
+                shown.as_deref(),
+            )
+        };
+        let Some(condition) = condition else {
+            let statement = page(None);
+            let mut rows = self.query(&statement)?;
+            rows.statement = statement;
+            return Ok(rows);
+        };
+        let mut rows =
+            self.bound_query(&page(Some(condition.placeheld())), condition.bindings())?;
+        rows.statement = page(Some(condition.readable()));
+        Ok(rows)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
@@ -150,7 +181,8 @@ impl Database for MySql {
 
     fn use_database(&mut self, name: &str) -> anyhow::Result<()> {
         self.connection
-            .query_drop(format!("use {}", quote_backtick(name)))?;
+            .query_drop(format!("use {}", quote_backtick(name)))
+            .map_err(said)?;
         Ok(())
     }
 
@@ -201,7 +233,7 @@ impl Database for MySql {
         let sql = update_statement(quote_backtick, question, table, column, key);
         self.connection
             .exec_drop(&sql, vec![bound(value), bound(Some(key_value))])
-            .map_err(|error| refused(error, &sql))
+            .map_err(|error| refused(said(error), &sql))
     }
 
     fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
@@ -215,7 +247,7 @@ impl Database for MySql {
         } else {
             self.connection.exec_drop(&sql, bindings)
         };
-        outcome.map_err(|error| refused(error, &sql))
+        outcome.map_err(|error| refused(said(error), &sql))
     }
 
     fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
@@ -226,6 +258,17 @@ impl Database for MySql {
             .collect();
         self.connection
             .exec_drop(&sql, bindings)
-            .map_err(|error| refused(error, &sql))
+            .map_err(|error| refused(said(error), &sql))
+    }
+
+    fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        let result = self.connection.query_iter(statement).map_err(said)?;
+        let affected = result.affected_rows() as usize;
+        let page = page_of(result)?;
+        Ok(outcome_or_affected(page.headers, page.rows, affected))
+    }
+
+    fn quote(&self, identifier: &str) -> String {
+        quote_backtick(identifier)
     }
 }

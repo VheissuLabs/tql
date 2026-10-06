@@ -1,11 +1,11 @@
 use std::collections::HashMap;
 
-use anyhow::Context;
+use anyhow::{Context, bail};
 use postgres::{Client, NoTls, SimpleQueryMessage};
 
 use super::{
-    Column, Database, Page, Sort, Values, delete_statement, insert_statement, quote_double,
-    refused, select_page, single_column_keys, update_statement,
+    Column, Database, Filters, Outcome, Page, Sort, Values, delete_statement, insert_statement,
+    outcome_or_affected, quote_double, refused, select_page, single_column_keys, update_statement,
 };
 use crate::store::Connection;
 
@@ -39,26 +39,12 @@ impl Postgres {
     }
 
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
-        let mut page = Page::default();
-        for message in self.client.simple_query(sql)? {
-            match message {
-                SimpleQueryMessage::RowDescription(columns) => {
-                    page.headers = columns
-                        .iter()
-                        .map(|column| column.name().to_string())
-                        .collect();
-                }
-                SimpleQueryMessage::Row(row) => {
-                    page.rows.push(
-                        (0..row.len())
-                            .map(|index| row.get(index).map(String::from))
-                            .collect(),
-                    );
-                }
-                _ => {}
-            }
-        }
-        Ok(page)
+        let outcome = self.run(sql)?;
+        Ok(Page {
+            headers: outcome.headers,
+            rows: outcome.rows,
+            ..Page::default()
+        })
     }
 
     fn column(&mut self, sql: &str) -> anyhow::Result<Vec<String>> {
@@ -73,7 +59,7 @@ impl Postgres {
 
 fn literal(value: Option<&str>) -> String {
     value
-        .map(|value| format!("'{}'", value.replace('\'', "''")))
+        .map(escaped_literal)
         .unwrap_or_else(|| "null".to_string())
 }
 
@@ -85,6 +71,10 @@ impl Postgres {
     }
 }
 
+fn escaped_literal(value: &str) -> String {
+    format!("E'{}'", value.replace('\\', "\\\\").replace('\'', "''"))
+}
+
 impl Database for Postgres {
     fn tables(&mut self) -> anyhow::Result<Vec<String>> {
         self.column(
@@ -93,17 +83,40 @@ impl Database for Postgres {
         )
     }
 
-    fn rows(
+    fn filtered_rows(
         &mut self,
         table: &str,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
+        filters: Option<&Filters>,
     ) -> anyhow::Result<Page> {
-        let statement = select_page(&quote_double(table), quote_double, limit, offset, sort);
-        let mut page = self.query(&statement)?;
-        page.statement = statement;
-        Ok(page)
+        let condition = filters.and_then(|filters| filters.condition(&quote_double));
+        let page = |shown: Option<String>| {
+            select_page(
+                &quote_double(table),
+                quote_double,
+                limit,
+                offset,
+                sort,
+                shown.as_deref(),
+            )
+        };
+        if let Some(condition) = &condition
+            && condition
+                .bindings()
+                .iter()
+                .any(|value| value.contains('\0'))
+        {
+            bail!("a filter value cannot contain a NUL character in PostgreSQL");
+        }
+        let mut rows = self.query(&page(
+            condition
+                .as_ref()
+                .map(|condition| condition.render(escaped_literal)),
+        ))?;
+        rows.statement = page(condition.as_ref().map(|condition| condition.readable()));
+        Ok(rows)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
@@ -220,5 +233,46 @@ impl Database for Postgres {
             key_values.len(),
         );
         self.write(sql)
+    }
+
+    fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        let mut headers = Vec::new();
+        let mut rows = Vec::new();
+        let mut affected = 0;
+        for message in self.client.simple_query(statement)? {
+            match message {
+                SimpleQueryMessage::RowDescription(columns) => {
+                    headers = columns
+                        .iter()
+                        .map(|column| column.name().to_string())
+                        .collect();
+                }
+                SimpleQueryMessage::Row(row) => {
+                    rows.push(
+                        (0..row.len())
+                            .map(|index| row.get(index).map(String::from))
+                            .collect(),
+                    );
+                }
+                SimpleQueryMessage::CommandComplete(count) => affected = count as usize,
+                _ => {}
+            }
+        }
+        Ok(outcome_or_affected(headers, rows, affected))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escaped_literal;
+
+    #[test]
+    fn escapes_quotes_and_backslashes_whatever_the_server_thinks_of_backslashes() {
+        assert_eq!(escaped_literal("plain"), "E'plain'");
+        assert_eq!(escaped_literal("O'Brien"), "E'O''Brien'");
+        assert_eq!(
+            escaped_literal("\\'; drop table x; --"),
+            "E'\\\\''; drop table x; --'"
+        );
     }
 }

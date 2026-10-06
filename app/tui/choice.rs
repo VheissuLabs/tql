@@ -1,6 +1,7 @@
 use zerorust_tui::prelude::*;
+use zerorust_tui::ratatui::buffer::Buffer;
 
-use super::chrome::theme;
+use super::chrome::{Island, Modal, theme};
 use super::text::{pad, truncate, window};
 
 pub const WIDTH: u16 = 40;
@@ -82,6 +83,20 @@ impl Choice {
 
     pub fn rows(&self) -> u16 {
         (self.options.len() + usize::from(self.creates)).min(ROWS) as u16 + 5
+    }
+
+    pub fn draw_modal(&self, buffer: &mut Buffer, frame_width: u16, frame_height: u16) {
+        let width = frame_width.saturating_sub(4).min(WIDTH);
+        let height = self.rows();
+        let island = Island {
+            title: self.title.clone(),
+            content: self.content(
+                width.saturating_sub(2) as usize,
+                height.saturating_sub(2) as usize,
+            ),
+            ..Island::default()
+        };
+        Modal::new(frame_width, 1, frame_height, width).draw(buffer, island, height);
     }
 
     pub fn content(&self, inner_width: usize, inner_height: usize) -> Vec<Line<'static>> {

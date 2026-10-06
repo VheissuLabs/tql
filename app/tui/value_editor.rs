@@ -1,7 +1,7 @@
 use zerorust_tui::prelude::*;
 
-use super::buffer::TextBuffer;
 use super::chrome::{Island, theme};
+use super::editor::QueryEditor;
 use super::json;
 use super::text::{pad, window};
 
@@ -9,7 +9,7 @@ pub const WIDTH: usize = 76;
 
 pub struct ValueView<'a> {
     pub title: String,
-    pub buffer: &'a TextBuffer,
+    pub buffer: &'a QueryEditor,
     pub json: bool,
     pub show_cursor: bool,
     pub selection: Option<(usize, usize)>,

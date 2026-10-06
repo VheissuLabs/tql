@@ -2,14 +2,13 @@ use std::borrow::Cow;
 
 use super::*;
 use crate::database::{Column, Named, Values};
-use crate::tui::buffer::TextBuffer;
+use crate::tui::editor::QueryEditor;
 use crate::tui::grid::Tone;
 use crate::tui::record_form::RecordForm;
 use crate::tui::value_editor::ValueView;
 use crate::tui::{json, now};
 
 const READ_ONLY: &str = "this connection is marked read-only";
-const ERROR_WIDTH: usize = 76;
 
 #[derive(Default)]
 pub struct Edits {
@@ -18,12 +17,11 @@ pub struct Edits {
     pub inserts: Vec<Values>,
     value: Option<ValueEditor>,
     form: Option<RecordForm>,
-    failure: Option<Failure>,
     viewer: Option<(Area, usize)>,
 }
 
 struct ValueEditor {
-    buffer: TextBuffer,
+    buffer: QueryEditor,
     column: String,
     column_type: Option<String>,
     json: bool,
@@ -45,10 +43,9 @@ impl ValueEditor {
 }
 
 struct Failure {
-    title: String,
-    message: String,
-    notes: Vec<&'static str>,
-    offset: usize,
+    title: &'static str,
+    error: anyhow::Error,
+    note: &'static str,
 }
 
 impl Edits {
@@ -57,7 +54,7 @@ impl Edits {
     }
 
     pub fn editing(&self) -> Option<String> {
-        self.value.as_ref().map(|value| value.buffer.text())
+        self.value.as_ref().map(|value| value.buffer.buffer())
     }
 
     pub fn editable(&self) -> bool {
@@ -72,14 +69,8 @@ impl Edits {
         self.form.as_ref()
     }
 
-    pub fn failure(&self) -> Option<&str> {
-        self.failure
-            .as_ref()
-            .map(|failure| failure.message.as_str())
-    }
-
     pub(super) fn captures_keys(&self) -> bool {
-        self.value.is_some() || self.form.is_some() || self.failure.is_some()
+        self.value.is_some() || self.form.is_some()
     }
 
     pub(super) fn forget(&mut self) {
@@ -142,12 +133,15 @@ impl Browser {
     }
 
     fn on_added_row(&self) -> bool {
-        self.row_index < self.edits.inserts.len()
+        !self.query.results && self.row_index < self.edits.inserts.len()
     }
 
     fn why_read_only(&self) -> Option<String> {
         if self.connection.read_only {
             return Some(READ_ONLY.to_string());
+        }
+        if self.query.results {
+            return Some("query results have no row to write back to".to_string());
         }
         if self.on_added_row() || self.key_column().is_some() {
             return None;
@@ -184,9 +178,9 @@ impl Browser {
             .flatten()
             .unwrap_or_default();
         let json = json::looks_like_json(Some(&text));
-        let mut buffer = TextBuffer::holding(&if json { json::pretty(&text) } else { text });
+        let mut buffer = QueryEditor::holding(&if json { json::pretty(&text) } else { text });
         if json {
-            buffer.jump_to_start();
+            buffer.move_to_start();
         }
         let column = self
             .headers
@@ -211,23 +205,10 @@ impl Browser {
     }
 
     pub(super) fn type_into_edits(&mut self, key: Key) {
-        if self.edits.failure.is_some() {
-            self.type_into_failure(key);
-        } else if self.edits.form.is_some() {
+        if self.edits.form.is_some() {
             self.type_into_form(key);
         } else if self.edits.value.is_some() {
             self.type_into_value(key);
-        }
-    }
-
-    fn type_into_failure(&mut self, key: Key) {
-        let Some(failure) = self.edits.failure.as_mut() else {
-            return;
-        };
-        match key {
-            Key::Up | Key::Char('k') => failure.offset = failure.offset.saturating_sub(1),
-            Key::Down | Key::Char('j') => failure.offset += 1,
-            _ => self.edits.failure = None,
         }
     }
 
@@ -289,9 +270,9 @@ impl Browser {
             Key::Up | Key::Char('k') => {
                 (0..typed.max(1)).for_each(|_| value.buffer.handle(Key::Up))
             }
-            Key::Char('g') => value.buffer.jump_to_line(0),
-            Key::Char('G') if typed == 0 => value.buffer.jump_to_end(),
-            Key::Char('G') => value.buffer.jump_to_line(typed - 1),
+            Key::Char('g') => value.buffer.move_to_line_column(0, 0),
+            Key::Char('G') if typed == 0 => value.buffer.move_to_end(),
+            Key::Char('G') => value.buffer.move_to_line_column(typed - 1, 0),
             Key::Char('V') => {
                 value.anchor = match value.anchor {
                     Some(_) => None,
@@ -316,7 +297,7 @@ impl Browser {
         let Some(value) = self.edits.value.as_ref().filter(|value| value.editable()) else {
             return;
         };
-        let typed = value.buffer.text();
+        let typed = value.buffer.buffer();
         if value.json && !json::looks_like_json(Some(&typed)) {
             self.say("not valid json — fix it or press esc to cancel");
             return;
@@ -355,6 +336,10 @@ impl Browser {
     }
 
     pub(super) fn mark_delete(&mut self) {
+        if self.query.results {
+            self.say("query results have no row to delete — open the table itself");
+            return;
+        }
         if self.key_column().is_none() {
             self.say("no primary key on this table, so a row cannot be deleted safely");
             return;
@@ -447,6 +432,10 @@ impl Browser {
     }
 
     pub(super) fn new_row(&mut self) {
+        if self.query.results {
+            self.say("query results have no table to add to");
+            return;
+        }
         let Some(table) = self.current_table().filter(|_| !self.headers.is_empty()) else {
             self.say("no table to add to");
             return;
@@ -648,7 +637,11 @@ impl Browser {
 
         if let Err(failure) = self.write_all(&table, key.as_deref().unwrap_or_default()) {
             self.load(true);
-            self.edits.failure = Some(failure);
+            self.fail(
+                failure.error.to_string(),
+                vec![failure.note.to_string()],
+                failure.title,
+            );
             return;
         }
 
@@ -668,12 +661,7 @@ impl Browser {
     }
 
     fn write_all(&mut self, table: &str, key: &str) -> Result<(), Failure> {
-        let failed = |title: &str, error: anyhow::Error, note: &'static str| Failure {
-            title: title.to_string(),
-            message: error.to_string(),
-            notes: vec![note],
-            offset: 0,
-        };
+        let failed = |title, error, note| Failure { title, error, note };
 
         while let Some(values) = self.edits.inserts.first() {
             self.database.insert(table, values).map_err(|error| {
@@ -745,7 +733,7 @@ impl Browser {
     }
 
     pub(super) fn shown_rows(&self) -> Cow<'_, [Vec<String>]> {
-        if self.edits.updates.is_empty() || self.key_column().is_none() {
+        if self.query.results || self.edits.updates.is_empty() || self.key_column().is_none() {
             return Cow::Borrowed(&self.rows);
         }
         let mut rows = self.rows.clone();
@@ -766,7 +754,7 @@ impl Browser {
     }
 
     pub(super) fn tones(&self) -> Vec<Option<Tone>> {
-        if !self.edits.pending() {
+        if self.query.results || !self.edits.pending() {
             return Vec::new();
         }
         (0..self.rows.len())
@@ -802,24 +790,22 @@ impl Browser {
     }
 
     pub(super) fn editing_offers(&self) -> Option<Vec<(String, &'static str)>> {
-        let offers: &[(&str, &'static str)] =
-            match (&self.edits.failure, &self.edits.form, &self.edits.value) {
-                (Some(_), _, _) => &[("esc", "Close")],
-                (None, Some(form), _) if form.editor.is_some() => {
-                    &[("↵", "Keep"), ("tab", "Next"), ("esc", "Put back")]
-                }
-                (None, Some(_), _) => &[
-                    ("↑↓", "Field"),
-                    ("↵", "Edit"),
-                    ("ctrl+s", "Keep row"),
-                    ("esc", "Cancel"),
-                ],
-                (None, None, Some(value)) if value.editable() => {
-                    &[("↵", "Keep"), ("⇧↵", "New line"), ("esc", "Cancel")]
-                }
-                (None, None, Some(_)) => &[("V", "Select"), ("e", "Edit"), ("esc", "Close")],
-                (None, None, None) => return None,
-            };
+        let offers: &[(&str, &'static str)] = match (&self.edits.form, &self.edits.value) {
+            (Some(form), _) if form.editor.is_some() => {
+                &[("↵", "Keep"), ("tab", "Next"), ("esc", "Put back")]
+            }
+            (Some(_), _) => &[
+                ("↑↓", "Field"),
+                ("↵", "Edit"),
+                ("ctrl+s", "Keep row"),
+                ("esc", "Cancel"),
+            ],
+            (None, Some(value)) if value.editable() => {
+                &[("↵", "Keep"), ("⇧↵", "New line"), ("esc", "Cancel")]
+            }
+            (None, Some(_)) => &[("V", "Select"), ("e", "Edit"), ("esc", "Close")],
+            (None, None) => return None,
+        };
         Some(
             offers
                 .iter()
@@ -974,43 +960,6 @@ impl Browser {
                 draw_view(frame, &view, room, frame_height);
             }
         }
-
-        if let Some(failure) = &self.edits.failure {
-            let width = room.min(ERROR_WIDTH);
-            let wrapped = wrap(&failure.message, width.saturating_sub(6));
-            let notes = failure.notes.len();
-            let rows = wrapped.len() + notes + if notes == 0 { 5 } else { 6 };
-            let height = frame_height.saturating_sub(2).min(rows as u16);
-
-            let mut content = vec![Line::default()];
-            content.extend(
-                wrapped
-                    .into_iter()
-                    .skip(failure.offset)
-                    .map(|line| Line::raw(format!("  {line}"))),
-            );
-            if notes > 0 {
-                content.push(Line::default());
-                content.extend(failure.notes.iter().map(|note| {
-                    Line::from(vec![Span::raw("  "), Span::styled(*note, theme::dim())])
-                }));
-            }
-            content.push(Line::default());
-            content.push(Line::from(vec![
-                Span::raw("  "),
-                Span::styled("esc closes", theme::dim()),
-            ]));
-            let island = Island {
-                title: failure.title.clone(),
-                content,
-                ..Island::default()
-            };
-            Modal::new(frame_width, 1, frame_height, width as u16).draw(
-                frame.buffer_mut(),
-                island,
-                height,
-            );
-        }
     }
 
     pub(super) fn mouse_in_edits(&mut self, mouse: Mouse, row: u16) {
@@ -1030,11 +979,11 @@ impl Browser {
             (Button::WheelDown, _) => value.buffer.handle(Key::Down),
             (Button::Drag, Some(line)) => {
                 value.anchor = value.anchor.or(Some(value.buffer.cursor_line()));
-                value.buffer.jump_to_line(line);
+                value.buffer.move_to_line_column(line, 0);
             }
             (Button::Left, Some(line)) => {
                 value.anchor = None;
-                value.buffer.jump_to_line(line);
+                value.buffer.move_to_line_column(line, 0);
             }
             _ => {}
         }
@@ -1053,31 +1002,4 @@ fn draw_view(frame: &mut Frame, view: &ValueView, room: usize, frame_height: u16
         width,
         height,
     }
-}
-
-fn wrap(message: &str, width: usize) -> Vec<String> {
-    let width = width.max(10);
-    let mut lines = Vec::new();
-    for paragraph in message.split('\n') {
-        let mut line = String::new();
-        for word in paragraph.split(' ') {
-            let mut word: Vec<char> = word.chars().collect();
-            while word.len() > width {
-                if !line.is_empty() {
-                    lines.push(std::mem::take(&mut line));
-                }
-                lines.push(word.drain(..width).collect());
-            }
-            let word: String = word.into_iter().collect();
-            if !line.is_empty() && line.chars().count() + 1 + word.chars().count() > width {
-                lines.push(std::mem::take(&mut line));
-            }
-            if !line.is_empty() {
-                line.push(' ');
-            }
-            line.push_str(&word);
-        }
-        lines.push(line);
-    }
-    lines
 }

@@ -1,8 +1,8 @@
 use zerorust_tui::Key;
 use zerorust_tui::prelude::*;
 
-use super::buffer::TextBuffer;
 use super::chrome::theme;
+use super::editor::QueryEditor;
 use super::json;
 use super::now;
 use super::text::{pad, truncate, window};
@@ -40,7 +40,7 @@ pub struct RecordForm {
     pub key_value: Option<String>,
     pub insert_at: Option<usize>,
     pub index: usize,
-    pub editor: Option<TextBuffer>,
+    pub editor: Option<QueryEditor>,
     pub expanded: bool,
     pub json: bool,
     pub error: Option<String>,
@@ -207,9 +207,9 @@ impl RecordForm {
         self.json = json::looks_like_json(Some(&text));
         self.expanded =
             self.json || text.contains('\n') || text.chars().count() >= self.room(&field);
-        let mut editor = TextBuffer::holding(&if self.json { json::pretty(&text) } else { text });
+        let mut editor = QueryEditor::holding(&if self.json { json::pretty(&text) } else { text });
         if self.json {
-            editor.jump_to_start();
+            editor.move_to_start();
         }
         self.editor = Some(editor);
         self.error = None;
@@ -220,7 +220,7 @@ impl RecordForm {
             return;
         };
         editor.handle(key);
-        if editor.text().contains('\n') {
+        if editor.buffer().contains('\n') {
             self.expanded = true;
         }
     }
@@ -236,7 +236,7 @@ impl RecordForm {
         let Some(editor) = &self.editor else {
             return true;
         };
-        let typed = editor.text();
+        let typed = editor.buffer();
         if self.json && !json::looks_like_json(Some(&typed)) {
             self.error = Some("not valid json — fix it, or esc to put it back".to_string());
             return false;
@@ -401,7 +401,7 @@ impl RecordForm {
             .map(|error| {
                 Line::from(vec![
                     Span::raw("  "),
-                    Span::styled(truncate(error, room), theme::problem()),
+                    Span::styled(truncate(error, room), problem()),
                 ])
             })
             .unwrap_or_default();
@@ -414,6 +414,10 @@ impl RecordForm {
             ]),
         ]
     }
+}
+
+fn problem() -> Style {
+    theme::paint(&settings::with(|settings| settings.color("deleted", "red")))
 }
 
 fn changed() -> Style {
@@ -453,8 +457,8 @@ fn clamp(value: &str, room: usize) -> String {
     format!("{kept}… ↗")
 }
 
-fn typing(editor: &TextBuffer, room: usize) -> Vec<Span<'static>> {
-    let text: Vec<char> = editor.text().chars().collect();
+fn typing(editor: &QueryEditor, room: usize) -> Vec<Span<'static>> {
+    let text: Vec<char> = editor.buffer().chars().collect();
     let cursor = editor.cursor();
     let start = (cursor + 1).saturating_sub(room);
     let visible: Vec<char> = text.iter().skip(start).take(room).copied().collect();
@@ -599,7 +603,7 @@ mod tests {
             form.editor
                 .as_ref()
                 .unwrap()
-                .text()
+                .buffer()
                 .contains("\"year\": 1979")
         );
 

@@ -51,6 +51,7 @@ pub(super) struct Hits {
     pub(super) row_start: usize,
     pub(super) widths: Vec<usize>,
     pub(super) editor: Option<Area>,
+    pub(super) editor_pane: Option<sql::Pane>,
 }
 
 #[derive(Debug, Clone)]
@@ -61,6 +62,14 @@ pub(super) enum Drag {
 
 impl Browser {
     pub(super) fn press(&mut self, column: u16, row: u16) {
+        let on_a_pane = [self.hits.sidebar, self.hits.table]
+            .iter()
+            .flatten()
+            .any(|area| area.contains(column, row));
+        if on_a_pane && self.mode == Mode::Query {
+            self.mode = Mode::Browse;
+            self.hush();
+        }
         if self
             .hits
             .sidebar
@@ -136,12 +145,10 @@ impl Browser {
             return;
         }
 
-        if self
-            .hits
-            .editor
-            .is_some_and(|editor| editor.contains(column, row))
+        if let Some(editor) = self.hits.editor
+            && editor.contains(column, row)
         {
-            self.say("the SQL editor is not ported yet");
+            self.click_editor(editor.local_row(row), editor.local_column(column));
         }
     }
 
