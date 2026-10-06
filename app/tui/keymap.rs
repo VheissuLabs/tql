@@ -115,7 +115,7 @@ pub const BINDINGS: &[Binding] = &[
     later(Action::ClearMarks, &[Key::Char('u')], "drop changes"),
     later(Action::NewRow, &[Key::Char('N')], "add a row"),
     later(Action::Ask, &[Key::Char('a')], "ask in english"),
-    later(Action::FilterRows, &[Key::Char('f')], "filter rows"),
+    ported(Action::FilterRows, &[Key::Char('f')], "filter rows"),
     ported(Action::FilterTables, &[Key::Char('/')], "filter tables"),
     later(Action::Structure, &[Key::Char('t')], "structure"),
     ported(Action::Databases, &[Key::Char('b')], "switch database"),

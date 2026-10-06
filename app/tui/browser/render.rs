@@ -20,6 +20,13 @@ impl Browser {
                 ("esc".into(), "Close"),
             ];
         }
+        if self.filter_form.is_some() {
+            return vec![
+                ("↑↓".into(), "Move"),
+                ("ctrl+s".into(), "Apply"),
+                ("esc".into(), "Cancel"),
+            ];
+        }
         if self.databases.is_some() {
             return vec![
                 ("↑↓".into(), "Move"),
@@ -91,8 +98,12 @@ impl Browser {
                 "Page",
             ));
         }
+        offers.push((key(Action::FilterRows, 0), "Filter"));
         offers.push((key(Action::SortColumn, 0), "Sort"));
         offers.push((key(Action::Sql, 0), "SQL"));
+        if self.filters.is_some() {
+            offers.push(("esc".into(), "Back"));
+        }
         offers.push(more);
         offers.push(help);
         offers
@@ -241,10 +252,18 @@ impl Browser {
     pub(super) fn grid(&mut self, x: u16, y: u16, width: u16, height: u16) -> Island {
         let mut island = Island::placed(x, y, width, height);
         island.focused = self.focus == Focus::Grid && self.mode != Mode::Query;
+        let filtered = if self.filters.is_some() {
+            " ·  filtered"
+        } else {
+            ""
+        };
         let title = match (&self.query.table, self.query.results) {
             (Some(table), true) => table.clone(),
             (None, true) => "RESULTS".to_string(),
-            _ => self.current_table().unwrap_or_else(|| "ROWS".to_string()),
+            _ => format!(
+                "{}{filtered}",
+                self.current_table().unwrap_or_else(|| "ROWS".to_string())
+            ),
         };
         island.title = format!("[2] {title}");
 
@@ -369,18 +388,12 @@ impl Browser {
             );
         }
 
+        if let Some(form) = &self.filter_form {
+            form.draw_modal(frame.buffer_mut(), area.width, frame_height);
+        }
+
         if let Some(choice) = &self.databases {
-            let width = area.width.saturating_sub(4).min(choice::WIDTH);
-            let height = choice.rows();
-            let island = Island {
-                title: choice.title.clone(),
-                content: choice.content(
-                    width.saturating_sub(2) as usize,
-                    height.saturating_sub(2) as usize,
-                ),
-                ..Island::default()
-            };
-            Modal::new(area.width, 1, frame_height, width).draw(frame.buffer_mut(), island, height);
+            choice.draw_modal(frame.buffer_mut(), area.width, frame_height);
         }
 
         if let Some(palette) = &self.palette {

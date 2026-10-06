@@ -537,3 +537,23 @@ fn a_vim_editor_setting_falls_back_to_the_simple_editor() {
     assert_eq!(fake.app.query.editor.buffer(), "x");
     assert!(!fake.screen().contains("NORMAL"));
 }
+
+#[test]
+fn a_filtered_table_opens_the_editor_on_its_filtered_statement_and_escape_clears_the_filter_first()
+{
+    let mut fake = browser("filtered");
+    fake.press("\tl").press("f").press("an").press("\x13");
+    assert_eq!(names(&fake), ["banana"]);
+
+    fake.press("s");
+    assert!(fake.app.query.editor.buffer().contains("like"));
+    fake.press(RUN);
+    assert!(fake.app.query.results);
+    assert_eq!(names(&fake), ["banana"]);
+
+    fake.press(ESCAPE);
+    fake.press(ESCAPE);
+    assert!(fake.app.filters.is_none());
+    assert!(!fake.app.query.results);
+    assert_eq!(names(&fake), ["apple", "banana", "cherry"]);
+}

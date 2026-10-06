@@ -55,6 +55,7 @@ impl Browser {
         self.query.forget_schema();
         self.filter.clear();
         self.sort = None;
+        self.filters = None;
         self.offset = 0;
         self.table_index = 0;
         self.headers.clear();

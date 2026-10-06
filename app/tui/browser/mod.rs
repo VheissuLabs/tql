@@ -6,6 +6,7 @@ use zerorust_tui::prelude::*;
 
 mod command_palette;
 mod databases;
+mod filters;
 mod keys;
 mod loading;
 mod mouse;
@@ -15,16 +16,17 @@ mod render;
 use mouse::{Area, Drag, Hits};
 pub use query::Query;
 
-use super::choice::{self, Choice};
+use super::choice::Choice;
 use super::chrome::{self, Island, Modal, theme};
 use super::error::{self, ErrorBox};
+use super::filters::FilterForm;
 use super::grid::{self, Grid};
 use super::help;
 use super::keymap::{self, Action};
 use super::palette::{self, Palette};
 use super::sql;
 use super::text::{self, pad, truncate, window};
-use crate::database::{Database, Direction, Sort};
+use crate::database::{Database, Direction, Filters, Sort};
 use crate::settings;
 use crate::store::Connection;
 
@@ -71,6 +73,8 @@ pub struct Browser {
     pub offset: usize,
     pub has_more: bool,
     pub sort: Option<Sort>,
+    pub filters: Option<Filters>,
+    pub filter_form: Option<FilterForm>,
     status: Option<String>,
     status_since: Instant,
     status_fresh: bool,
@@ -129,6 +133,8 @@ impl Browser {
             offset: 0,
             has_more: false,
             sort: None,
+            filters: None,
+            filter_form: None,
             status: None,
             status_since: Instant::now(),
             status_fresh: false,
@@ -219,6 +225,10 @@ impl Tui for Browser {
             self.type_into_databases(key);
             return Flow::Continue;
         }
+        if self.filter_form.is_some() {
+            self.type_into_filter_form(key);
+            return Flow::Continue;
+        }
         if self.command.is_some() {
             return self.type_into_command(key);
         }
@@ -246,6 +256,7 @@ impl Tui for Browser {
         if self.problem.is_some()
             || self.palette.is_some()
             || self.databases.is_some()
+            || self.filter_form.is_some()
             || self.mode == Mode::Help
         {
             return Flow::Continue;

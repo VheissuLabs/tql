@@ -47,6 +47,14 @@ const DELIBERATE: &[(&str, &str)] = &[
         "sql-small",
         "a long status cuts the line by what is visible; tql counts colour codes too and cuts it early",
     ),
+    (
+        "rows-filter-nothing-matches",
+        "a filter that matches nothing keeps the column headers, so f can still reopen the filter; tql shows 'no columns' and then refuses to open it",
+    ),
+    (
+        "mysql-filter-quote",
+        "a filter that matches nothing keeps the column headers; the escaped where clause in the SQL pane matches tql exactly",
+    ),
 ];
 
 const HOTKEY_BAR_REASON: &str =

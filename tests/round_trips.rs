@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use app::database::{self, Database, Page, Sort};
+use app::database::{self, Database, Filters, Page, Sort};
 use app::store::Connection;
 use app::tui::Browser;
 use zerorust_tui::Fake;
@@ -25,15 +25,17 @@ impl Database for Counted {
         self.inner.tables()
     }
 
-    fn rows(
+    fn filtered_rows(
         &mut self,
         table: &str,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
+        filters: Option<&Filters>,
     ) -> anyhow::Result<Page> {
         self.log(format!("rows {table}"));
-        self.inner.rows(table, limit, offset, sort)
+        self.inner
+            .filtered_rows(table, limit, offset, sort, filters)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {

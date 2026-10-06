@@ -26,10 +26,13 @@ impl Browser {
         let row = self.row_index;
 
         let started = Instant::now();
-        let page = match self
-            .database
-            .rows(&table, PAGE + 1, self.offset, self.sort.as_ref())
-        {
+        let page = match self.database.filtered_rows(
+            &table,
+            PAGE + 1,
+            self.offset,
+            self.sort.as_ref(),
+            self.filters.as_ref(),
+        ) {
             Ok(page) => page,
             Err(error) => {
                 self.say(error.to_string());
@@ -89,6 +92,7 @@ impl Browser {
         self.table_index = index;
         self.offset = 0;
         self.sort = None;
+        self.filters = None;
         self.queue_load(false);
     }
 
@@ -100,6 +104,7 @@ impl Browser {
         self.table_index = self.table_index.min(count - 1);
         self.offset = 0;
         self.sort = None;
+        self.filters = None;
         self.queue_load(false);
     }
 
