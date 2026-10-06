@@ -1,0 +1,20 @@
+[package]
+name = "tql-rust"
+version = "0.1.0"
+edition = "2024"
+
+[lib]
+name = "app"
+path = "app/mod.rs"
+
+[[bin]]
+name = "tql-rust"
+path = "main.rs"
+
+[dependencies]
+zerorust = { path = "/Users/karlm/Code/zeroRust/zerorust" }
+
+[build-dependencies]
+zerorust-build = { path = "/Users/karlm/Code/zeroRust/zerorust-build" }
+
+[workspace]

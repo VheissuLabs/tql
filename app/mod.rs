@@ -1,0 +1,1 @@
+zerorust::app!();
