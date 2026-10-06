@@ -19,6 +19,7 @@ pub use exporter::{Exported, Exporter, Scalar, Scalars};
 
 use crate::encrypter::Encrypter;
 use crate::store::Connection;
+use crate::tunnel;
 
 pub use filters::{Condition, Filter, Filters, Joiner, OPERATORS, operator_names, readable_value};
 pub use schema::{
@@ -262,28 +263,40 @@ pub fn connect(
     connection: &Connection,
     encrypter: Option<&Encrypter>,
 ) -> anyhow::Result<Box<dyn Database>> {
-    if connection.uses_ssh() {
-        bail!(
-            "SSH tunnels are not ported yet; use the PHP tql for {}",
-            connection.name
-        );
+    let password = decrypted(&connection.password, encrypter)?;
+
+    match connection.driver.as_str() {
+        "sqlite" => return Ok(Box::new(sqlite::Sqlite::open(connection)?)),
+        "pgsql" | "mysql" | "mariadb" => {}
+        other => bail!("the {other} driver is not ported yet"),
     }
 
-    let password = match (&connection.password, encrypter) {
-        (None, _) => None,
-        (Some(payload), Some(encrypter)) => Some(encrypter.decrypt_string(payload)?),
-        (Some(_), None) => {
-            return Err(anyhow!(
-                "the tql key is missing, so the saved password cannot be read"
-            ));
-        }
+    let tunnel = match connection.uses_ssh() {
+        true => Some(tunnel::for_connection(
+            connection,
+            decrypted(&connection.ssh_password, encrypter)?,
+        )?),
+        false => None,
     };
 
     match connection.driver.as_str() {
-        "sqlite" => Ok(Box::new(sqlite::Sqlite::open(connection)?)),
-        "pgsql" => Ok(Box::new(postgres::Postgres::open(connection, password)?)),
-        "mysql" | "mariadb" => Ok(Box::new(mysql::MySql::open(connection, password)?)),
-        other => bail!("the {other} driver is not ported yet"),
+        "pgsql" => Ok(Box::new(postgres::Postgres::open(
+            connection, password, tunnel,
+        )?)),
+        _ => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
+    }
+}
+
+fn decrypted(
+    secret: &Option<String>,
+    encrypter: Option<&Encrypter>,
+) -> anyhow::Result<Option<String>> {
+    match (secret, encrypter) {
+        (None, _) => Ok(None),
+        (Some(payload), Some(encrypter)) => Ok(Some(encrypter.decrypt_string(payload)?)),
+        (Some(_), None) => Err(anyhow!(
+            "the tql key is missing, so the saved password cannot be read"
+        )),
     }
 }
 
