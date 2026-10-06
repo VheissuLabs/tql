@@ -207,4 +207,55 @@ mod tests {
         assert!(connections[0].read_only);
         assert_eq!(connections[0].tag, None);
     }
+
+    fn tunnelled() -> Connection {
+        Connection {
+            name: "prod".to_string(),
+            driver: "mysql".to_string(),
+            host: Some("db.internal".to_string()),
+            port: Some(3306),
+            database: Some("shop".to_string()),
+            username: Some("alice".to_string()),
+            ssh_host: Some("bastion.example.com".to_string()),
+            ssh_user: Some("karl".to_string()),
+            ..Connection::default()
+        }
+    }
+
+    #[test]
+    fn knows_when_a_connection_goes_through_ssh() {
+        let without = |ssh_host: Option<&str>| Connection {
+            ssh_host: ssh_host.map(String::from),
+            ..tunnelled()
+        };
+
+        assert!(tunnelled().uses_ssh());
+        assert!(!without(None).uses_ssh());
+        assert!(!without(Some("  ")).uses_ssh());
+    }
+
+    #[test]
+    fn never_tunnels_a_sqlite_file() {
+        let file = Connection {
+            ssh_host: Some("bastion.example.com".to_string()),
+            ..Connection::sqlite("local", "/tmp/app.sqlite")
+        };
+
+        assert!(!file.uses_ssh());
+    }
+
+    #[test]
+    fn says_in_the_connection_list_that_it_goes_through_ssh() {
+        let anonymous = Connection {
+            ssh_user: None,
+            ..tunnelled()
+        };
+
+        assert!(
+            tunnelled()
+                .describe()
+                .ends_with("  ssh karl@bastion.example.com")
+        );
+        assert!(anonymous.describe().ends_with("  ssh bastion.example.com"));
+    }
 }
