@@ -6,6 +6,13 @@ impl Browser {
         if self.problem.is_some() {
             return vec![("esc".into(), "Close")];
         }
+        if self.filter_form.is_some() {
+            return vec![
+                ("↑↓".into(), "Move"),
+                ("ctrl+s".into(), "Apply"),
+                ("esc".into(), "Cancel"),
+            ];
+        }
         if self.databases.is_some() {
             return vec![
                 ("↑↓".into(), "Move"),
@@ -53,7 +60,11 @@ impl Browser {
                 "Page",
             ));
         }
+        offers.push((key(Action::FilterRows, 0), "Filter"));
         offers.push((key(Action::SortColumn, 0), "Sort"));
+        if self.filters.is_some() {
+            offers.push(("esc".into(), "Back"));
+        }
         offers.push((key(Action::Help, 0), "Help"));
         offers
     }
@@ -194,8 +205,13 @@ impl Browser {
         let mut island = Island::placed(x, y, width, height);
         island.focused = self.focus == Focus::Grid;
         island.title = format!(
-            "[2] {}",
-            self.current_table().unwrap_or_else(|| "ROWS".to_string())
+            "[2] {}{}",
+            self.current_table().unwrap_or_else(|| "ROWS".to_string()),
+            if self.filters.is_some() {
+                " ·  filtered"
+            } else {
+                ""
+            }
         );
 
         if self.pending.is_some() {
@@ -322,18 +338,12 @@ impl Browser {
             );
         }
 
+        if let Some(form) = &self.filter_form {
+            form.draw_modal(frame.buffer_mut(), area.width, frame_height);
+        }
+
         if let Some(choice) = &self.databases {
-            let width = area.width.saturating_sub(4).min(choice::WIDTH);
-            let height = choice.rows();
-            let island = Island {
-                title: choice.title.clone(),
-                content: choice.content(
-                    width.saturating_sub(2) as usize,
-                    height.saturating_sub(2) as usize,
-                ),
-                ..Island::default()
-            };
-            Modal::new(area.width, 1, frame_height, width).draw(frame.buffer_mut(), island, height);
+            choice.draw_modal(frame.buffer_mut(), area.width, frame_height);
         }
 
         if let Some(problem) = &self.problem {

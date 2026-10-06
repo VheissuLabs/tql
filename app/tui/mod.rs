@@ -2,6 +2,7 @@ mod ago;
 mod browser;
 mod choice;
 mod chrome;
+mod filters;
 mod grid;
 mod help;
 mod keymap;
