@@ -4,7 +4,7 @@ use anyhow::{Context, bail};
 use rusqlite::OpenFlags;
 use rusqlite::types::ValueRef;
 
-use crate::paths;
+use crate::{paths, tag};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Connection {
@@ -19,6 +19,14 @@ pub struct Connection {
     pub read_only: bool,
     pub tag: Option<String>,
     pub ssh_host: Option<String>,
+    pub ssh_port: Option<u16>,
+    pub ssh_user: Option<String>,
+    pub ssh_key: Option<String>,
+    pub ssh_password: Option<String>,
+    pub ssl_mode: Option<String>,
+    pub ssl_ca: Option<String>,
+    pub ssl_cert: Option<String>,
+    pub ssl_key: Option<String>,
     pub last_used_at: Option<String>,
 }
 
@@ -33,38 +41,48 @@ impl Connection {
     }
 
     pub fn tag_color(&self) -> Option<&'static str> {
-        match self.tag.as_deref()?.trim().to_lowercase().as_str() {
-            "production" => Some("red"),
-            "staging" => Some("yellow"),
-            "dev" => Some("blue"),
-            "local" => Some("green"),
-            _ => None,
-        }
+        tag::color_of(self.tag.as_deref())
     }
 
     pub fn uses_ssh(&self) -> bool {
-        self.ssh_host
-            .as_deref()
-            .is_some_and(|host| !host.trim().is_empty())
+        self.driver != "sqlite"
+            && self
+                .ssh_host
+                .as_deref()
+                .is_some_and(|host| !host.trim().is_empty())
     }
 
     pub fn describe(&self) -> String {
+        self.describe_from(&paths::home())
+    }
+
+    pub fn describe_from(&self, home: &Path) -> String {
         if self.driver == "sqlite" {
             return format!(
                 "sqlite:{}",
-                paths::shorten(self.database.as_deref().unwrap_or_default())
+                paths::shorten_from(self.database.as_deref().unwrap_or_default(), home)
             );
         }
 
         let text = |value: &Option<String>| value.clone().unwrap_or_default();
-        format!(
+        let place = format!(
             "{}://{}@{}:{}/{}",
             self.driver,
             text(&self.username),
             text(&self.host),
             self.port.map(|port| port.to_string()).unwrap_or_default(),
             text(&self.database)
-        )
+        );
+        if !self.uses_ssh() {
+            return place;
+        }
+        let user = self
+            .ssh_user
+            .as_deref()
+            .filter(|user| !user.is_empty())
+            .map(|user| format!("{user}@"))
+            .unwrap_or_default();
+        format!("{place}  ssh {user}{}", text(&self.ssh_host))
     }
 }
 
@@ -88,16 +106,32 @@ impl Store {
     }
 
     pub fn connections(&self) -> anyhow::Result<Vec<Connection>> {
-        let mut statement = self
-            .connection
-            .prepare("select * from connections order by last_used_at desc, name")?;
+        self.read(
+            "select * from connections order by last_used_at desc, name",
+            [],
+        )
+    }
+
+    pub fn connection(&self, id: i64) -> anyhow::Result<Option<Connection>> {
+        Ok(self
+            .read("select * from connections where id = ?1", [id])?
+            .into_iter()
+            .next())
+    }
+
+    fn read(
+        &self,
+        sql: &str,
+        parameters: impl rusqlite::Params,
+    ) -> anyhow::Result<Vec<Connection>> {
+        let mut statement = self.connection.prepare(sql)?;
         let columns: Vec<String> = statement
             .column_names()
             .into_iter()
             .map(String::from)
             .collect();
 
-        let connections = statement.query_map([], |row| {
+        let connections = statement.query_map(parameters, |row| {
             let text = |name: &str| -> Option<String> {
                 let index = columns.iter().position(|column| column == name)?;
                 match row.get_ref(index).ok()? {
@@ -124,6 +158,14 @@ impl Store {
                 read_only: text("read_only").is_some_and(|flag| flag == "1"),
                 tag: text("tag").filter(|tag| !tag.trim().is_empty()),
                 ssh_host: text("ssh_host"),
+                ssh_port: text("ssh_port").and_then(|port| port.parse().ok()),
+                ssh_user: text("ssh_user"),
+                ssh_key: text("ssh_key"),
+                ssh_password: text("ssh_password").filter(|password| !password.is_empty()),
+                ssl_mode: text("ssl_mode"),
+                ssl_ca: text("ssl_ca"),
+                ssl_cert: text("ssl_cert"),
+                ssl_key: text("ssl_key"),
                 last_used_at: text("last_used_at"),
             })
         })?;
