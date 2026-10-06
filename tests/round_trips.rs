@@ -100,10 +100,13 @@ fn take(queries: &Rc<RefCell<Vec<String>>>) -> Vec<String> {
 }
 
 #[test]
-fn opening_costs_three_queries_like_tqls_prefetch() {
+fn opening_prefetches_keys_and_links_like_tqls_prefetch() {
     let (_fake, queries) = counted();
 
-    assert_eq!(take(&queries), ["tables", "primary keys", "rows a"]);
+    assert_eq!(
+        take(&queries),
+        ["tables", "primary keys", "foreign keys", "rows a"]
+    );
 }
 
 #[test]

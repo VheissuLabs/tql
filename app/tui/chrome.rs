@@ -111,6 +111,8 @@ pub struct Island {
     pub focused: bool,
     pub modal: bool,
     pub bare: bool,
+    pub collapsed: bool,
+    pub title_under_cursor: bool,
     pub content: Vec<Line<'static>>,
     pub joins: Vec<usize>,
     pub rules: Vec<usize>,
@@ -167,13 +169,21 @@ impl Island {
                 .iter()
                 .skip((width(&label) + 1).min(inner))
                 .collect();
+            let label_style = if self.title_under_cursor {
+                theme::cursor()
+            } else {
+                theme::title(self.focused, self.modal)
+            };
             Line::from(vec![
                 Span::styled("╭─", edge),
-                Span::styled(label, theme::title(self.focused, self.modal)),
+                Span::styled(label, label_style),
                 Span::styled(format!("{tail}╮"), edge),
             ])
         };
         self.write(buffer, 0, top);
+        if self.collapsed {
+            return;
+        }
 
         for row in 0..self.inner_height() {
             let (left, right) = if self.rules.contains(&row) {
@@ -237,31 +247,44 @@ impl Modal {
     }
 
     pub fn draw(&self, buffer: &mut Buffer, mut island: Island, height: u16) {
+        island.focused = true;
+        self.draw_stack(buffer, vec![(island, height)]);
+    }
+
+    pub fn draw_stack(&self, buffer: &mut Buffer, boxes: Vec<(Island, u16)>) {
+        const GAP: u16 = 1;
+        if boxes.is_empty() {
+            return;
+        }
+        let total =
+            boxes.iter().map(|(_, height)| height).sum::<u16>() + (boxes.len() as u16 - 1) * GAP;
         let x = ((self.frame_width.saturating_sub(self.box_width)) / 2 + 1).max(1);
-        let y = self.top + self.frame_height.saturating_sub(height) / 2;
+        let mut y = self.top + self.frame_height.saturating_sub(total) / 2;
 
         let ring = crate::settings::with(|settings| settings.modal_ring);
         let (pad, margin) = if ring { (3u16, 2u16) } else { (2u16, 1u16) };
         let first = self.top.max(y.saturating_sub(margin));
-        let last = (self.top + self.frame_height - 1).min(y + height - 1 + margin);
+        let last = (self.top + self.frame_height - 1).min(y + total - 1 + margin);
         let mut backdrop = Island::placed(
             x.saturating_sub(pad).max(1),
             first,
             self.frame_width.min(self.box_width + pad * 2),
-            height.max(last - first + 1),
+            total.max(last - first + 1),
         );
         backdrop.modal = true;
         backdrop.focused = true;
         backdrop.bare = !ring;
         backdrop.draw(buffer);
 
-        island.x = x;
-        island.y = y;
-        island.width = self.box_width;
-        island.height = height;
-        island.modal = true;
-        island.focused = true;
-        island.draw(buffer);
+        for (mut island, height) in boxes {
+            island.x = x;
+            island.y = y;
+            island.width = self.box_width;
+            island.height = height.max(3);
+            island.modal = true;
+            island.draw(buffer);
+            y += height + GAP;
+        }
     }
 }
 

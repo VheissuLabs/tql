@@ -58,6 +58,7 @@ impl Browser {
         self.table_index = 0;
         self.headers.clear();
         self.rows.clear();
+        self.forget_links();
         self.keys = self.database.primary_keys().unwrap_or_default();
         self.tables = match self.database.tables() {
             Ok(tables) => tables,

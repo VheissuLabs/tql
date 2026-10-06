@@ -6,7 +6,7 @@ impl Browser {
         if self.problem.is_some() {
             return vec![("esc".into(), "Close")];
         }
-        if self.databases.is_some() {
+        if self.databases.is_some() || self.link_picker.is_some() {
             return vec![
                 ("↑↓".into(), "Move"),
                 ("↵".into(), "Choose"),
@@ -19,8 +19,11 @@ impl Browser {
         if self.filtering {
             return vec![("↵".into(), "Keep"), ("esc".into(), "Clear")];
         }
-        if self.mode == Mode::Help {
+        if self.mode == Mode::Help || self.structure.is_some() {
             return vec![("j k".into(), "Scroll"), ("esc".into(), "Close")];
+        }
+        if let Some(inspector) = &self.inspector {
+            return self.inspector_offers(inspector);
         }
         let database_offer = if self.connection.driver == "sqlite" {
             String::new()
@@ -54,6 +57,10 @@ impl Browser {
             ));
         }
         offers.push((key(Action::SortColumn, 0), "Sort"));
+        offers.push((key(Action::InspectRow, 0), "Inspect"));
+        if self.can_go_back() {
+            offers.push(("esc".into(), "Back"));
+        }
         offers.push((key(Action::Help, 0), "Help"));
         offers
     }
@@ -84,6 +91,9 @@ impl Browser {
                 Span::styled("   ? or esc closes", theme::dim()),
             ]);
         }
+        if self.inspector.is_some() {
+            return inspect::inspector_status();
+        }
 
         let name = match self.connection.tag_color().and_then(theme::named) {
             Some(color) => Span::styled(self.connection.name.clone(), theme::bold().fg(color)),
@@ -100,12 +110,15 @@ impl Browser {
         } else {
             format!(" · col {}/{}", self.column_index + 1, self.headers.len())
         };
-        let left = Line::from(vec![
+        let mut left = Line::from(vec![
             Span::raw(" "),
             name,
             tag,
             Span::styled(position, theme::dim()),
         ]);
+        if self.structure.is_none() {
+            left.spans.extend(self.link_hint());
+        }
 
         let Some(said) = self.status.as_deref().filter(|said| !said.is_empty()) else {
             return left;
@@ -193,8 +206,13 @@ impl Browser {
     pub(super) fn grid(&mut self, x: u16, y: u16, width: u16, height: u16) -> Island {
         let mut island = Island::placed(x, y, width, height);
         island.focused = self.focus == Focus::Grid;
+        let filtered = if self.link_filter.is_some() {
+            " ·  filtered"
+        } else {
+            ""
+        };
         island.title = format!(
-            "[2] {}",
+            "[2] {}{filtered}",
             self.current_table().unwrap_or_else(|| "ROWS".to_string())
         );
 
@@ -298,6 +316,10 @@ impl Browser {
             );
             editor.draw(frame.buffer_mut());
         }
+
+        self.draw_link_picker(frame, frame_height);
+        self.draw_inspector(frame, frame_height);
+        self.draw_structure(frame, frame_height);
 
         if self.mode == Mode::Help {
             let help_width = help::width_for(area.width.saturating_sub(4) as usize) as u16;

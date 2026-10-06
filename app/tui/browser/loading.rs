@@ -1,4 +1,5 @@
 use super::*;
+use crate::database::Relations;
 
 impl Browser {
     pub(super) fn default_sort(&self) -> Option<Sort> {
@@ -25,16 +26,27 @@ impl Browser {
         let column = self.headers.get(self.column_index).cloned();
         let row = self.row_index;
 
+        self.schema.learn_links(self.database.as_mut());
         let started = Instant::now();
-        let page = match self
-            .database
-            .rows(&table, PAGE + 1, self.offset, self.sort.as_ref())
-        {
+        let fetched = match &self.link_filter {
+            Some(filter) => self.database.rows_where(
+                &table,
+                (PAGE + 1, self.offset),
+                self.sort.as_ref(),
+                &filter.column,
+                &filter.value,
+            ),
+            None => self
+                .database
+                .rows(&table, PAGE + 1, self.offset, self.sort.as_ref()),
+        };
+        let page = match fetched {
             Ok(page) => page,
             Err(error) => {
                 self.say(error.to_string());
                 self.headers.clear();
                 self.rows.clear();
+                self.raw.clear();
                 return;
             }
         };
@@ -54,6 +66,7 @@ impl Browser {
                     .collect()
             })
             .collect();
+        self.raw = rows;
         self.row_index = 0;
         self.column_index = 0;
         self.column_offset = 0;
@@ -84,6 +97,7 @@ impl Browser {
         self.table_index = index;
         self.offset = 0;
         self.sort = None;
+        self.link_filter = None;
         self.queue_load(false);
     }
 
@@ -95,6 +109,7 @@ impl Browser {
         self.table_index = self.table_index.min(count - 1);
         self.offset = 0;
         self.sort = None;
+        self.link_filter = None;
         self.queue_load(false);
     }
 
@@ -140,6 +155,7 @@ impl Browser {
 
     pub(super) fn reload(&mut self) {
         let table = self.current_table();
+        self.schema.forget();
         self.keys = self.database.primary_keys().unwrap_or_default();
         match self.database.tables() {
             Ok(tables) => self.tables = tables,

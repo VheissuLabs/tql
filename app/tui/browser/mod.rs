@@ -5,18 +5,28 @@ use std::time::{Duration, Instant};
 use zerorust_tui::prelude::*;
 
 mod databases;
+mod inspect;
 mod keys;
+mod links;
 mod loading;
 mod mouse;
 mod render;
+mod structure;
+mod yank;
 
+pub use inspect::Inspector;
+pub use links::RowFilter;
+use links::{Jump, LinkPicker};
 use mouse::{Area, Drag, Hits};
+use structure::StructureView;
 
 use super::choice::{self, Choice};
 use super::chrome::{self, Island, Modal, theme};
+use super::clipboard::{Clipboard, Recorded};
 use super::grid::{self, Grid};
 use super::help;
 use super::keymap::{self, Action};
+use super::schema::Schema;
 use super::sql;
 use super::text::{self, pad, truncate, window};
 use crate::database::{Database, Direction, Sort};
@@ -57,6 +67,7 @@ pub struct Browser {
     pub mode: Mode,
     pub headers: Vec<String>,
     pub rows: Vec<Vec<String>>,
+    raw: Vec<Vec<Option<String>>>,
     pub row_index: usize,
     pub column_index: usize,
     pub column_offset: usize,
@@ -79,6 +90,13 @@ pub struct Browser {
     help_hidden: usize,
     keys: HashMap<String, String>,
     pending: Option<bool>,
+    schema: Schema,
+    pub structure: Option<StructureView>,
+    pub inspector: Option<Inspector>,
+    jumps: Vec<Jump>,
+    pub link_filter: Option<RowFilter>,
+    link_picker: Option<LinkPicker>,
+    clipboard: Box<dyn Clipboard>,
 }
 
 impl Browser {
@@ -109,6 +127,7 @@ impl Browser {
             mode: Mode::Browse,
             headers: Vec::new(),
             rows: Vec::new(),
+            raw: Vec::new(),
             row_index: 0,
             column_index: 0,
             column_offset: 0,
@@ -131,6 +150,13 @@ impl Browser {
             help_hidden: 0,
             keys,
             pending: None,
+            schema: Schema::default(),
+            structure: None,
+            inspector: None,
+            jumps: Vec::new(),
+            link_filter: None,
+            link_picker: None,
+            clipboard: Box::new(Recorded::default()),
         };
         if undecided {
             browser.open_databases();
@@ -138,6 +164,11 @@ impl Browser {
             browser.load(false);
         }
         Ok(browser)
+    }
+
+    pub fn with_clipboard(mut self, clipboard: impl Clipboard + 'static) -> Self {
+        self.clipboard = Box::new(clipboard);
+        self
     }
 
     pub fn status(&self) -> &str {
@@ -192,8 +223,20 @@ impl Tui for Browser {
             self.type_into_help(key);
             return Flow::Continue;
         }
+        if self.structure.is_some() {
+            self.type_into_structure(key);
+            return Flow::Continue;
+        }
+        if self.inspector.is_some() {
+            self.type_into_inspector(key);
+            return Flow::Continue;
+        }
         if self.databases.is_some() {
             self.type_into_databases(key);
+            return Flow::Continue;
+        }
+        if self.link_picker.is_some() {
+            self.type_into_link_picker(key);
             return Flow::Continue;
         }
         if self.command.is_some() {
@@ -220,7 +263,11 @@ impl Tui for Browser {
         let column = (mouse.column as i64 - column_offset).max(0) as u16;
         let row = (mouse.row as i64 - row_offset).max(0) as u16;
 
-        if self.problem.is_some() || self.databases.is_some() || self.mode == Mode::Help {
+        if self.problem.is_some()
+            || self.databases.is_some()
+            || self.mode == Mode::Help
+            || self.modal_over_grid()
+        {
             return Flow::Continue;
         }
 
@@ -236,6 +283,9 @@ impl Tui for Browser {
     }
 
     fn idle(&mut self) -> bool {
+        if self.load_related() {
+            return true;
+        }
         if let Some(keep_cursor) = self.pending {
             self.load(keep_cursor);
             return true;

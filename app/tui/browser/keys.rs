@@ -195,7 +195,14 @@ impl Browser {
             Action::Quit => return Flow::Exit(Exit::Quit),
             Action::Databases => self.open_databases(),
             Action::Activate => self.say("editing is not ported yet"),
-            Action::Escape | Action::Redraw => {}
+            Action::InspectRow => self.inspect_row(),
+            Action::Structure => self.toggle_structure(),
+            Action::FollowLink => self.follow_link(),
+            Action::JumpBack => self.jump_back(),
+            Action::YankValue => self.yank_value(),
+            Action::YankRow => self.yank_row(),
+            Action::Escape => self.escape(),
+            Action::Redraw => {}
             other => {
                 let description = keymap::binding(other).description;
                 self.say(format!("{description}: not ported yet"));
