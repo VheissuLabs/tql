@@ -106,7 +106,7 @@ fn scenario_json(exports: &Path) -> Vec<serde_json::Value> {
         .collect();
     files.sort_by_key(|file| {
         let name = file.file_name().unwrap().to_string_lossy().into_owned();
-        (name.starts_with("mysql-"), name)
+        (name != "sql-editor.json", name.starts_with("mysql-"), name)
     });
 
     files
