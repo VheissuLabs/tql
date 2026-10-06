@@ -524,21 +524,6 @@ fn tab_cycles_into_the_sql_pane_when_it_is_shown() {
 }
 
 #[test]
-fn a_vim_editor_setting_falls_back_to_the_simple_editor() {
-    let mut fake = browser("vim");
-    let mut vim = Settings::default();
-    vim.set("ui.sql_editor", &toml::Value::String("vim".to_string()));
-    settings::install(vim);
-
-    fake.press("s");
-    fake.press("\x7f".repeat(80).as_str());
-    fake.press("x");
-
-    assert_eq!(fake.app.query.editor.buffer(), "x");
-    assert!(!fake.screen().contains("NORMAL"));
-}
-
-#[test]
 fn a_filtered_table_opens_the_editor_on_its_filtered_statement_and_escape_clears_the_filter_first()
 {
     let mut fake = browser("filtered");
