@@ -15,6 +15,7 @@ const EMPTY_TABLE_HEADERS: &str = "an empty table shows its column headers; tql 
 const DELIBERATE: &[(&str, &str)] = &[
     ("empty-table", EMPTY_TABLE_HEADERS),
     ("inspect-empty-table", EMPTY_TABLE_HEADERS),
+    ("mysql-inspect-empty-table", EMPTY_TABLE_HEADERS),
     ("yank-empty-table", EMPTY_TABLE_HEADERS),
     (
         "sql-error",
