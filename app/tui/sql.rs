@@ -98,6 +98,10 @@ static TOKEN: LazyLock<Regex> = LazyLock::new(|| {
 static LIMIT: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)\blimit \d+").expect("the limit pattern is valid"));
 
+static FETCH_NEXT: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)\bfetch next \d+ rows only").expect("the fetch next pattern is valid")
+});
+
 const KINDS: [&str; 7] = [
     "comment",
     "comment",
@@ -136,8 +140,9 @@ pub fn tokenise(line: &str) -> Vec<(&'static str, String)> {
 }
 
 pub fn shown(statement: &str, page: usize) -> String {
-    LIMIT
-        .replace_all(statement, format!("limit {page}"))
+    let limited = LIMIT.replace_all(statement, format!("limit {page}"));
+    FETCH_NEXT
+        .replace_all(&limited, format!("fetch next {page} rows only"))
         .into_owned()
 }
 
@@ -392,6 +397,13 @@ mod tests {
         assert_eq!(
             shown("select * from \"t\" limit 101 offset 0", 100),
             "select * from \"t\" limit 100 offset 0"
+        );
+        assert_eq!(
+            shown(
+                "select * from [t] order by (select null) offset 0 rows fetch next 101 rows only",
+                100
+            ),
+            "select * from [t] order by (select null) offset 0 rows fetch next 100 rows only"
         );
     }
 

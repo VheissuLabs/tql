@@ -100,12 +100,16 @@ fn refuses_a_scheme_it_does_not_understand() {
 }
 
 #[test]
-fn says_sql_server_is_not_supported_yet() {
-    assert!(
-        opener::target("sqlsrv://sa:pw@host/db")
-            .unwrap_err()
-            .contains("not supported")
-    );
+fn takes_a_sql_server_connection_string() {
+    for scheme in ["sqlsrv", "mssql"] {
+        let parsed = opener::target(&format!("{scheme}://sa:pw@db.example.com/shop")).unwrap();
+
+        assert_eq!(parsed.driver, "sqlsrv");
+        assert_eq!(parsed.host.as_deref(), Some("db.example.com"));
+        assert_eq!(parsed.port, Some(1433));
+        assert_eq!(parsed.database.as_deref(), Some("shop"));
+        assert_eq!(parsed.username.as_deref(), Some("sa"));
+    }
 }
 
 #[test]

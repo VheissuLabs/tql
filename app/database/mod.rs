@@ -6,6 +6,7 @@ pub mod order_by;
 mod postgres;
 mod schema;
 mod sqlite;
+mod sqlsrv;
 pub mod tls;
 
 use std::collections::HashMap;
@@ -133,8 +134,16 @@ pub trait Database {
         bail!("this connection cannot run statements")
     }
 
+    fn run_server_wide(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        self.run(statement)
+    }
+
     fn quote(&self, identifier: &str) -> String {
         quote_double(identifier)
+    }
+
+    fn page(&self, statement: &str, limit: usize, offset: usize) -> String {
+        format!("{statement} limit {limit} offset {offset}")
     }
 
     fn scalars(&mut self, statement: &str) -> anyhow::Result<Scalars> {
@@ -267,7 +276,7 @@ pub fn connect(
 
     match connection.driver.as_str() {
         "sqlite" => return Ok(Box::new(sqlite::Sqlite::open(connection)?)),
-        "pgsql" | "mysql" | "mariadb" => {}
+        "pgsql" | "mysql" | "mariadb" | "sqlsrv" => {}
         other => bail!("the {other} driver is not ported yet"),
     }
 
@@ -281,6 +290,9 @@ pub fn connect(
 
     match connection.driver.as_str() {
         "pgsql" => Ok(Box::new(postgres::Postgres::open(
+            connection, password, tunnel,
+        )?)),
+        "sqlsrv" => Ok(Box::new(sqlsrv::SqlServer::through(
             connection, password, tunnel,
         )?)),
         _ => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),

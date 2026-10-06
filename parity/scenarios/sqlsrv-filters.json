@@ -1,0 +1,8 @@
+[
+  {"name": "sqlsrv-filter-applied", "connection": "mssql", "size": [100, 30], "config": {"ui.sql_always": true, "ui.sql_position": "bottom"}, "keys": ["j", "\t", "l", "l", "l", "f", "v", "i", "p", "\n", "\n"]},
+  {"name": "sqlsrv-filter-quote", "connection": "mssql", "size": [100, 30], "config": {"ui.sql_always": true, "ui.sql_position": "bottom"}, "keys": ["j", "\t", "l", "f", "O", "'", "B", "\n", "\n"]},
+  {"name": "sqlsrv-filter-then-sort", "connection": "mssql", "size": [100, 30], "config": {"ui.sql_always": true, "ui.sql_position": "bottom"}, "keys": ["j", "\t", "l", "l", "l", "f", "v", "i", "p", "\n", "\n", "h", "h", "o", "o"]},
+  {"name": "sqlsrv-filter-next-page", "connection": "mssql", "size": [100, 30], "keys": ["j", "\t", "l", "f", "C", "u", "s", "t", "\n", "\n", "n"]},
+  {"name": "sqlsrv-values", "connection": "mssql", "size": [100, 30], "keys": ["j", "j", "j", "j", "\n"]},
+  {"name": "sqlsrv-values-dates", "connection": "mssql", "size": [100, 30], "keys": ["j", "j", "j", "\n"]}
+]

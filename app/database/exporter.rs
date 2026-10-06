@@ -51,8 +51,10 @@ impl Scalar {
             Scalar::Null => "null".to_string(),
             Scalar::Number(number) => number.clone(),
             Scalar::Text(text) if matches!(driver, "mysql" | "mariadb") => mysql_quoted(text),
+            Scalar::Text(text) if driver == "sqlsrv" => format!("N'{}'", text.replace('\'', "''")),
             Scalar::Text(text) => format!("'{}'", text.replace('\'', "''")),
             Scalar::Bytes(bytes) if driver == "pgsql" => format!("'\\x{}'", hex(bytes)),
+            Scalar::Bytes(bytes) if driver == "sqlsrv" => format!("0x{}", hex(bytes)),
             Scalar::Bytes(bytes) => format!("X'{}'", hex(bytes)),
         }
     }
@@ -324,9 +326,10 @@ impl<'a> Exporter<'a> {
             if take == 0 {
                 break;
             }
-            let page = database.scalars(&format!(
-                "select * from {}{order} limit {take} offset {written}",
-                statements.table
+            let page = database.scalars(&database.page(
+                &format!("select * from {}{order}", statements.table),
+                take,
+                written,
             ))?;
             if page.rows.is_empty() {
                 break;

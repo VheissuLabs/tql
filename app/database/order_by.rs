@@ -12,6 +12,7 @@ static SELECT: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?i)^\s*select\s"));
 static UNION: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?i)\bunion\b"));
 static ORDER_BY: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?i)\border\s+by\b"));
 static LIMIT: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?i)\s(limit|offset)\s"));
+static OFFSET_ROWS: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?i)\soffset\s+\d+\s+rows?\b"));
 static SPACES: LazyLock<Regex> = LazyLock::new(|| pattern(r"\s{2,}"));
 static ORDERED: LazyLock<Regex> = LazyLock::new(|| {
     pattern(r#"(?i)\border\s+by\s+[`"\[]?([A-Za-z0-9_]+)[`"\]]?(?:\s+(asc|desc))?"#)
@@ -28,15 +29,15 @@ pub fn apply(
     }
 
     let statement = strip(statement);
-    let Some(sort) = sort else {
-        return Some(statement);
+    let clause = match sort {
+        Some(sort) => format!(
+            "order by {} {}",
+            quote(&sort.column),
+            sort.direction.keyword()
+        ),
+        None if OFFSET_ROWS.is_match(&statement) => "order by (select null)".to_string(),
+        None => return Some(statement),
     };
-
-    let clause = format!(
-        "order by {} {}",
-        quote(&sort.column),
-        sort.direction.keyword()
-    );
     Some(match LIMIT.find(&statement) {
         Some(limit) => format!(
             "{} {clause} {}",
@@ -144,6 +145,30 @@ mod tests {
             )
             .as_deref(),
             Some("select * from events limit 10")
+        );
+    }
+
+    #[test]
+    fn keeps_an_order_sql_server_needs_to_offset_when_the_sort_is_cleared() {
+        assert_eq!(
+            apply(
+                "select * from [events] order by [id] desc offset 0 rows fetch next 100 rows only",
+                None,
+                quoted
+            )
+            .as_deref(),
+            Some(
+                "select * from [events] order by (select null) offset 0 rows fetch next 100 rows only"
+            )
+        );
+        assert_eq!(
+            apply(
+                "select * from [events] order by (select null) offset 0 rows fetch next 100 rows only",
+                Some(&sorted("name", Direction::Asc)),
+                quoted
+            )
+            .as_deref(),
+            Some("select * from [events] order by \"name\" asc offset 0 rows fetch next 100 rows only")
         );
     }
 
