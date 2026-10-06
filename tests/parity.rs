@@ -142,6 +142,7 @@ fn frames_match_the_php_tql() {
         .unwrap()
         .execute_batch(&fs::read_to_string(Path::new(ROOT).join("parity/fixture.sql")).unwrap())
         .unwrap();
+    let pristine = fs::read(&fixture).unwrap();
 
     let mysql = std::env::var_os("TQL_PARITY_MYSQL").is_some();
     if mysql {
@@ -180,6 +181,7 @@ fn frames_match_the_php_tql() {
         .clone();
 
     for scenario in scenarios() {
+        fs::write(&fixture, &pristine).unwrap();
         if scenario.connection.is_some() && !mysql {
             continue;
         }

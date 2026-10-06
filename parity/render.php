@@ -40,11 +40,15 @@ foreach ([
 }
 
 @mkdir($out, 0777, true);
+$pristine = $fixture.'.pristine';
+copy($fixture, $pristine);
+
 $defaults = config('tql');
 foreach ($scenarios as $scenario) {
     if (isset($scenario['connection']) && ! getenv('TQL_PARITY_MYSQL')) {
         continue;
     }
+    copy($pristine, $fixture);
     config(['tql' => $defaults]);
     foreach ($scenario['config'] ?? [] as $key => $value) {
         config(['tql.'.$key => $value]);
