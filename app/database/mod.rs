@@ -6,6 +6,7 @@ pub mod order_by;
 mod postgres;
 mod schema;
 mod sqlite;
+pub mod tls;
 
 use std::collections::HashMap;
 use std::sync::LazyLock;

@@ -19,14 +19,17 @@ cbc = "0.1"
 getrandom = "0.3"
 hmac = "0.12"
 jiff = "0.2.37"
-mysql = { version = "28.0.3", default-features = false, features = ["minimal"] }
+mysql = { version = "28.0.3", default-features = false, features = ["minimal", "rustls-tls-ring"] }
 postgres = "0.19.14"
 regex = "1.13.1"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde_json = { version = "1.0.151", features = ["preserve_order"] }
 sha2 = "0.10"
+tokio-postgres-rustls = { version = "0.14", default-features = false, features = ["ring"] }
 toml = "1.1.6"
 unicode-width = "0.2.2"
+webpki-roots = "1"
 zerorust = { path = "/Users/karlm/Code/zeroRust/zerorust" }
 zerorust-tui = { path = "/Users/karlm/Code/zeroRust/zerorust-tui" }
 
@@ -40,3 +43,6 @@ opt-level = 1
 
 [profile.dev.package."*"]
 opt-level = 3
+
+[dev-dependencies]
+rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
