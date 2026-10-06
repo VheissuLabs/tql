@@ -1,14 +1,15 @@
 use std::collections::HashMap;
 
 use anyhow::Context;
+use mysql::consts::ColumnType;
 use mysql::prelude::{Protocol, Queryable};
 use mysql::{Conn, OptsBuilder, QueryResult, Value};
 
 use super::schema::keys_by_table;
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, Values, delete_statement,
-    insert_statement, outcome_or_affected, refused, select_page, single_column_keys, split_list,
-    update_statement,
+    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Scalar, Scalars, Sort, Values,
+    delete_statement, insert_statement, outcome_or_affected, refused, select_page,
+    single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 
@@ -71,6 +72,43 @@ fn page_of<P: Protocol>(mut result: QueryResult<'_, '_, '_, P>) -> anyhow::Resul
         }
     }
     Ok(page)
+}
+
+const BINARY: u16 = 63;
+
+fn scalar(value: Value, column_type: ColumnType, character_set: u16) -> Scalar {
+    let Value::Bytes(bytes) = value else {
+        return Scalar::text(text(value));
+    };
+    let numeric = matches!(
+        column_type,
+        ColumnType::MYSQL_TYPE_TINY
+            | ColumnType::MYSQL_TYPE_SHORT
+            | ColumnType::MYSQL_TYPE_LONG
+            | ColumnType::MYSQL_TYPE_LONGLONG
+            | ColumnType::MYSQL_TYPE_INT24
+            | ColumnType::MYSQL_TYPE_YEAR
+            | ColumnType::MYSQL_TYPE_FLOAT
+            | ColumnType::MYSQL_TYPE_DOUBLE
+    );
+    let binary = matches!(column_type, ColumnType::MYSQL_TYPE_BIT)
+        || (character_set == BINARY
+            && matches!(
+                column_type,
+                ColumnType::MYSQL_TYPE_STRING
+                    | ColumnType::MYSQL_TYPE_VAR_STRING
+                    | ColumnType::MYSQL_TYPE_VARCHAR
+                    | ColumnType::MYSQL_TYPE_BLOB
+                    | ColumnType::MYSQL_TYPE_TINY_BLOB
+                    | ColumnType::MYSQL_TYPE_MEDIUM_BLOB
+                    | ColumnType::MYSQL_TYPE_LONG_BLOB
+            ));
+    match String::from_utf8(bytes) {
+        Ok(text) if numeric => Scalar::Number(text),
+        Ok(text) if !binary => Scalar::Text(text),
+        Ok(text) => Scalar::Bytes(text.into_bytes()),
+        Err(error) => Scalar::Bytes(error.into_bytes()),
+    }
 }
 
 fn text(value: Value) -> Option<String> {
@@ -249,6 +287,39 @@ impl Database for MySql {
 
     fn quote(&self, identifier: &str) -> String {
         quote_backtick(identifier)
+    }
+
+    fn scalars(&mut self, statement: &str) -> anyhow::Result<Scalars> {
+        let mut result = self.connection.query_iter(statement).map_err(said)?;
+        let mut scalars = Scalars::default();
+        let Some(set) = result.iter() else {
+            return Ok(scalars);
+        };
+        let columns: Vec<(ColumnType, u16)> = set
+            .columns()
+            .as_ref()
+            .iter()
+            .map(|column| (column.column_type(), column.character_set()))
+            .collect();
+        scalars.headers = set
+            .columns()
+            .as_ref()
+            .iter()
+            .map(|column| column.name_str().into_owned())
+            .collect();
+        for row in set {
+            let values = row.map_err(said)?.unwrap();
+            scalars.rows.push(
+                values
+                    .into_iter()
+                    .zip(&columns)
+                    .map(|(value, (column_type, character_set))| {
+                        scalar(value, *column_type, *character_set)
+                    })
+                    .collect(),
+            );
+        }
+        Ok(scalars)
     }
 
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {

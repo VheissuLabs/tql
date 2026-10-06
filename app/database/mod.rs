@@ -1,4 +1,5 @@
 mod column_default;
+mod exporter;
 mod filters;
 mod mysql;
 pub mod order_by;
@@ -13,6 +14,7 @@ use anyhow::{anyhow, bail};
 use regex::Regex;
 
 pub use column_default::ColumnDefault;
+pub use exporter::{Exported, Exporter, Scalar, Scalars};
 
 use crate::encrypter::Encrypter;
 use crate::store::Connection;
@@ -131,6 +133,18 @@ pub trait Database {
 
     fn quote(&self, identifier: &str) -> String {
         quote_double(identifier)
+    }
+
+    fn scalars(&mut self, statement: &str) -> anyhow::Result<Scalars> {
+        let page = self.select(statement, &[])?;
+        Ok(Scalars {
+            headers: page.headers,
+            rows: page
+                .rows
+                .into_iter()
+                .map(|row| row.into_iter().map(Scalar::text).collect())
+                .collect(),
+        })
     }
 
     fn column_names(&mut self, table: &str) -> anyhow::Result<Vec<String>> {
