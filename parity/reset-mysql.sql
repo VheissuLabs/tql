@@ -1,0 +1,14 @@
+use tql_rust_scratch;
+set foreign_key_checks = 0;
+truncate table customers;
+truncate table orders;
+truncate table products;
+truncate table audit_log;
+truncate table empty_things;
+truncate table regions;
+truncate table shipments;
+truncate table tags;
+truncate table taggings;
+truncate table tickets;
+truncate table wallets;
+set foreign_key_checks = 1;

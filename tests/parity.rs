@@ -89,7 +89,10 @@ fn scenario_json() -> Vec<serde_json::Value> {
                 .is_some_and(|extension| extension == "json")
         })
         .collect();
-    files.sort();
+    files.sort_by_key(|file| {
+        let name = file.file_name().unwrap().to_string_lossy().into_owned();
+        (name.starts_with("mysql-"), name)
+    });
 
     files
         .iter()
@@ -178,6 +181,18 @@ fn herd(sql: &str) {
     );
 }
 
+fn mysql_data() -> String {
+    fs::read_to_string(Path::new(ROOT).join("parity/fixture-mysql-data.sql")).unwrap()
+}
+
+fn mysql_reset() -> String {
+    format!(
+        "{}use tql_rust_scratch;\n{}",
+        fs::read_to_string(Path::new(ROOT).join("parity/reset-mysql.sql")).unwrap(),
+        mysql_data()
+    )
+}
+
 fn diff(expected: &[String], actual: &[String]) -> Vec<String> {
     let mut report = Vec::new();
     for number in 0..expected.len().max(actual.len()) {
@@ -216,8 +231,9 @@ fn frames_match_the_php_tql() {
     let mysql = std::env::var_os("TQL_PARITY_MYSQL").is_some();
     if mysql {
         herd(&format!(
-            "drop database if exists tql_rust_scratch;\n{}",
-            fs::read_to_string(Path::new(ROOT).join("parity/fixture-mysql.sql")).unwrap()
+            "drop database if exists tql_rust_scratch;\n{}\n{}",
+            fs::read_to_string(Path::new(ROOT).join("parity/fixture-mysql.sql")).unwrap(),
+            mysql_data()
         ));
     }
 
@@ -267,6 +283,9 @@ fn frames_match_the_php_tql() {
         fs::write(&fixture, &pristine).unwrap();
         if scenario.connection.is_some() && !mysql {
             continue;
+        }
+        if scenario.connection.is_some() {
+            herd(&mysql_reset());
         }
         settings::install(scenario.settings.clone());
         let screen = if scenario.picker {

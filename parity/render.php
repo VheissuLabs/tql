@@ -50,6 +50,13 @@ foreach ($scenarios as $scenario) {
         continue;
     }
     copy($pristine, $fixture);
+    if (isset($scenario['connection'])) {
+        $reset = file_get_contents(__DIR__.'/reset-mysql.sql')."use tql_rust_scratch;\n".file_get_contents(__DIR__.'/fixture-mysql-data.sql');
+        $process = proc_open(['mysql', '-uroot', '-h127.0.0.1', '-P3306'], [0 => ['pipe', 'r']], $pipes);
+        fwrite($pipes[0], $reset);
+        fclose($pipes[0]);
+        proc_close($process);
+    }
     config(['tql' => $defaults]);
     foreach ($scenario['config'] ?? [] as $key => $value) {
         config(['tql.'.$key => $value]);
