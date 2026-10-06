@@ -12,3 +12,4 @@ pub mod store;
 pub mod store_writer;
 pub mod tag;
 pub mod tui;
+pub mod tunnel;
