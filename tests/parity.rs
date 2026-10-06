@@ -28,14 +28,29 @@ struct Scenario {
     keys: Vec<String>,
 }
 
-fn scenarios() -> Vec<Scenario> {
-    let json: serde_json::Value = serde_json::from_str(
-        &fs::read_to_string(Path::new(ROOT).join("parity/scenarios.json")).unwrap(),
-    )
-    .unwrap();
-
-    json.as_array()
+fn scenario_json() -> Vec<serde_json::Value> {
+    let mut files: Vec<_> = fs::read_dir(Path::new(ROOT).join("parity/scenarios"))
         .unwrap()
+        .map(|entry| entry.unwrap().path())
+        .filter(|path| {
+            path.extension()
+                .is_some_and(|extension| extension == "json")
+        })
+        .collect();
+    files.sort();
+
+    files
+        .iter()
+        .flat_map(|file| {
+            let json: serde_json::Value = serde_json::from_str(&fs::read_to_string(file).unwrap())
+                .unwrap_or_else(|error| panic!("{} is not valid JSON: {error}", file.display()));
+            json.as_array().unwrap().clone()
+        })
+        .collect()
+}
+
+fn scenarios() -> Vec<Scenario> {
+    scenario_json()
         .iter()
         .map(|scenario| Scenario {
             name: scenario["name"].as_str().unwrap().to_string(),
@@ -152,11 +167,18 @@ fn frames_match_the_php_tql() {
         ));
     }
 
+    let scenario_file = work.join("scenarios.json");
+    fs::write(
+        &scenario_file,
+        serde_json::to_string(&scenario_json()).unwrap(),
+    )
+    .unwrap();
+
     let php_frames = work.join("php");
     let status = Command::new("php")
         .arg(Path::new(ROOT).join("parity/render.php"))
         .arg(&fixture)
-        .arg(Path::new(ROOT).join("parity/scenarios.json"))
+        .arg(&scenario_file)
         .arg(&php_frames)
         .status()
         .expect("php is installed");
