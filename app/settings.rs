@@ -1,16 +1,14 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
-
-use anyhow::Context;
 use toml::{Table, Value};
+
+use crate::tui::Keymap;
 
 const COLORS: [&str; 11] = [
     "dim", "default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "gray",
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Settings {
     pub modal_ring: bool,
     pub hotkey_bar: bool,
@@ -28,6 +26,7 @@ pub struct Settings {
     pub mouse_column_offset: i64,
     pub time_zone: String,
     pub inspect_related: usize,
+    pub keymap: Keymap,
     pub export_path: String,
     theme: HashMap<String, String>,
     icons: HashMap<String, String>,
@@ -52,6 +51,7 @@ impl Default for Settings {
             mouse_column_offset: 0,
             time_zone: "UTC".to_string(),
             inspect_related: 10,
+            keymap: Keymap::default(),
             export_path: String::new(),
             theme: [
                 ("border", "dim"),
@@ -85,17 +85,9 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn load(path: &Path) -> anyhow::Result<Self> {
+    pub fn from_table(table: &Table) -> Self {
         let mut settings = Settings::default();
-        if !path.is_file() {
-            return Ok(settings);
-        }
-
-        let source =
-            fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
-        let table: Table = toml::from_str(&source)
-            .with_context(|| format!("{} is not valid TOML", path.display()))?;
-        for (section, values) in &table {
+        for (section, values) in table {
             let Value::Table(values) = values else {
                 continue;
             };
@@ -103,10 +95,10 @@ impl Settings {
                 settings.set(&format!("{section}.{key}"), value);
             }
         }
-        Ok(settings)
+        settings
     }
 
-    pub fn set(&mut self, key: &str, value: &Value) {
+    pub fn set(&mut self, key: &str, value: &Value) -> bool {
         let flag = || value.as_bool().unwrap_or_default();
         let number = || {
             value
@@ -147,9 +139,14 @@ impl Settings {
                     self.theme.insert(name.to_string(), text());
                 } else if let Some(driver) = key.strip_prefix("icons.") {
                     self.icons.insert(driver.to_string(), text());
+                } else if let Some(action) = key.strip_prefix("keys.") {
+                    return self.keymap.rebind(action, value);
+                } else {
+                    return false;
                 }
             }
         }
+        true
     }
 
     pub fn color(&self, key: &str, fallback: &str) -> String {
@@ -193,17 +190,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_tqls_config_file_and_ignores_unknown_colors() {
-        let path = std::env::temp_dir().join(format!("tql-settings-{}.toml", std::process::id()));
-        fs::write(
-            &path,
+    fn reads_tqls_settings_and_ignores_unknown_colors() {
+        let table: Table = toml::from_str(
             "[ui]\nsql_always = true\nsql_position = \"bottom\"\nmodal_ring = false\nsidebar_width = 30\n\
              [theme]\nselection = \"cyan\"\ngrid = \"inherit\"\nborder = \"rainbow\"\n[ai]\nkey = \"never read\"\n",
         )
         .unwrap();
 
-        let settings = Settings::load(&path).unwrap();
-        fs::remove_file(&path).unwrap();
+        let settings = Settings::from_table(&table);
 
         assert!(settings.sql_always && settings.sql_at_bottom && !settings.modal_ring);
         assert_eq!(settings.sidebar_width, 30);

@@ -2,10 +2,11 @@ use std::path::{Path, PathBuf};
 
 use zerorust::prelude::*;
 
+use crate::config_file;
 use crate::database::{self, Database, Exporter};
 use crate::encrypter::Encrypter;
 use crate::paths;
-use crate::settings::{self, Settings};
+use crate::settings;
 use crate::store::{Connection, Store};
 
 const EVERY_TABLE: &str = "every table";
@@ -15,10 +16,11 @@ const EVERY_TABLE: &str = "every table";
     description = "Export a table, or a whole database, to re-importable SQL"
 )]
 fn export(cmd: &mut Cmd) -> Result {
-    match Settings::load(&paths::config_file()) {
-        Ok(loaded) => settings::install(loaded),
-        Err(error) => cmd.warn(format!("{error:#}")),
+    let loaded = config_file::prepare(&paths::config_file());
+    if let Some(error) = &loaded.error {
+        cmd.warn(error);
     }
+    settings::install(loaded.settings);
 
     let store = paths::store();
     let connections = Store::open(&store)

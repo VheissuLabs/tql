@@ -61,6 +61,7 @@ foreach ($scenarios as $scenario) {
     foreach ($scenario['config'] ?? [] as $key => $value) {
         config(['tql.'.$key => $value]);
     }
+    App\Keys\Keymap::forget();
     [$cols, $lines] = $scenario['size'];
     putenv("COLUMNS={$cols}");
     $picker = ($scenario['screen'] ?? 'browser') === 'picker';

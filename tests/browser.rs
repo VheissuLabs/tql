@@ -92,9 +92,16 @@ fn tab_moves_between_panes_and_hjkl_move_the_cursor() {
     assert_eq!(fake.app.focus, Focus::Grid);
     assert_eq!((fake.app.row_index, fake.app.column_index), (2, 1));
 
-    fake.press("hhhkkkk");
+    fake.press("hkkkk");
     assert_eq!((fake.app.row_index, fake.app.column_index), (0, 0));
     assert!(fake.screen().contains(" ▸"));
+
+    fake.press("h");
+    assert_eq!(fake.app.focus, Focus::Sidebar);
+
+    fake.press("l");
+    assert_eq!(fake.app.focus, Focus::Grid);
+    assert_eq!(fake.app.column_index, 0);
 }
 
 #[test]

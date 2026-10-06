@@ -1,0 +1,504 @@
+[
+  {
+    "name": "keys-count-sidebar-down",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "3",
+      "j"
+    ]
+  },
+  {
+    "name": "keys-count-sidebar-past-the-end",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "9",
+      "9",
+      "j"
+    ]
+  },
+  {
+    "name": "keys-count-sidebar-up",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "5",
+      "j",
+      "2",
+      "k"
+    ]
+  },
+  {
+    "name": "keys-count-sidebar-right",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "2",
+      "l"
+    ]
+  },
+  {
+    "name": "keys-count-sidebar-left",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "2",
+      "h"
+    ]
+  },
+  {
+    "name": "keys-count-rows-down",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "5",
+      "j"
+    ]
+  },
+  {
+    "name": "keys-count-rows-two-digits",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "1",
+      "2",
+      "j"
+    ]
+  },
+  {
+    "name": "keys-count-rows-up",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "1",
+      "0",
+      "j",
+      "3",
+      "k"
+    ]
+  },
+  {
+    "name": "keys-count-rows-past-the-end",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "9",
+      "9",
+      "9",
+      "j"
+    ]
+  },
+  {
+    "name": "keys-count-columns-right",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "3",
+      "l"
+    ]
+  },
+  {
+    "name": "keys-count-columns-left",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "3",
+      "l",
+      "2",
+      "h"
+    ]
+  },
+  {
+    "name": "keys-count-columns-past-the-end",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "9",
+      "l"
+    ]
+  },
+  {
+    "name": "keys-count-zero-alone",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "0",
+      "j"
+    ]
+  },
+  {
+    "name": "keys-count-one",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "1",
+      "j"
+    ]
+  },
+  {
+    "name": "keys-count-dropped-by-another-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "5",
+      "o",
+      "j"
+    ]
+  },
+  {
+    "name": "keys-count-arrows",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "4",
+      "\u001b[B"
+    ]
+  },
+  {
+    "name": "keys-rebound-filter",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "F"
+    ],
+    "config": {
+      "keys.filter_rows": "F"
+    }
+  },
+  {
+    "name": "keys-rebound-old-key-inert",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "f"
+    ],
+    "config": {
+      "keys.filter_rows": "F"
+    }
+  },
+  {
+    "name": "keys-rebound-help",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "?"
+    ],
+    "config": {
+      "keys.filter_rows": "F"
+    }
+  },
+  {
+    "name": "keys-rebound-palette",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "\u000b"
+    ],
+    "config": {
+      "keys.sort_column": "S"
+    }
+  },
+  {
+    "name": "keys-rebound-sort",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "S"
+    ],
+    "config": {
+      "keys.sort_column": "S"
+    }
+  },
+  {
+    "name": "keys-rebound-ctrl",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "\u000e"
+    ],
+    "config": {
+      "keys.new_row": "ctrl+n"
+    }
+  },
+  {
+    "name": "keys-rebound-several",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "\u0019"
+    ],
+    "config": {
+      "keys.yank_value": [
+        "y",
+        "ctrl+y"
+      ]
+    }
+  },
+  {
+    "name": "keys-rebound-several-help",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "?"
+    ],
+    "config": {
+      "keys.yank_value": [
+        "y",
+        "ctrl+y"
+      ],
+      "keys.narrow": [
+        "-"
+      ]
+    }
+  },
+  {
+    "name": "keys-rebound-hide-tables",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "T"
+    ],
+    "config": {
+      "keys.toggle_tables": "T"
+    }
+  },
+  {
+    "name": "keys-rebound-panes",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j"
+    ],
+    "config": {
+      "keys.focus_tables": "alt+t",
+      "keys.focus_rows": "ctrl+g",
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "keys-rebound-pane-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\u0007"
+    ],
+    "config": {
+      "keys.focus_rows": "ctrl+g"
+    }
+  },
+  {
+    "name": "keys-rebound-fixed-ignored",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "w"
+    ],
+    "config": {
+      "keys.move_up": "w",
+      "keys.activate": "x"
+    }
+  },
+  {
+    "name": "keys-rebound-nonsense-ignored",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "f"
+    ],
+    "config": {
+      "keys.filter_rows": "nonsense"
+    }
+  },
+  {
+    "name": "keys-clash-inert",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "r"
+    ],
+    "config": {
+      "keys.filter_rows": "r"
+    }
+  },
+  {
+    "name": "keys-rebound-space",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      " "
+    ],
+    "config": {
+      "keys.inspect_row": "space"
+    }
+  },
+  {
+    "name": "keys-rebound-help-alt",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b?"
+    ],
+    "config": {
+      "keys.help": "alt+?"
+    }
+  },
+  {
+    "name": "keys-right-from-sidebar",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "l"
+    ]
+  },
+  {
+    "name": "keys-left-from-first-column",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "h"
+    ]
+  },
+  {
+    "name": "keys-left-from-first-column-hidden",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\\",
+      "h"
+    ]
+  },
+  {
+    "name": "keys-left-in-sidebar",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "h"
+    ]
+  }
+]

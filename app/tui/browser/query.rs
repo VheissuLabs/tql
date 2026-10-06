@@ -121,8 +121,9 @@ impl Browser {
         if self.command.is_some() {
             return self.type_into_command(key);
         }
+        let action = keymap::action(key);
         let leaves_the_editor = matches!(
-            keymap::action(key).map(|binding| binding.action),
+            action,
             Some(
                 Action::Palette
                     | Action::History
@@ -131,8 +132,7 @@ impl Browser {
                     | Action::FocusSql
             )
         );
-        if leaves_the_editor && !matches!(key, Key::Char(_)) {
-            let action = keymap::action(key).expect("the key has an action").action;
+        if let Some(action) = action.filter(|_| leaves_the_editor && !matches!(key, Key::Char(_))) {
             return self.run(action);
         }
 

@@ -517,3 +517,299 @@ fn export_files_match_the_php_tql() {
         "{differing:?} differ from the PHP tql"
     );
 }
+
+const CONFIG_DELIBERATE: &[(&str, &str)] = &[
+    (
+        "ensure-current",
+        "a file already at the template's version is left exactly as it is; tql rewrites it to drop the blank line under the heading",
+    ),
+    (
+        "ensure-empty",
+        "tql-rust stamps until tql would leave the file alone; tql drops one blank line under the heading on each of its next starts",
+    ),
+    (
+        "ensure-newer",
+        "a file stamped by a newer tql is left exactly as it is; tql 0.7.1 stamps it back down to 0.7.1",
+    ),
+];
+
+fn config_cases() -> Vec<serde_json::Value> {
+    let template = app::config_file::template::render();
+    let pruned: String = template
+        .lines()
+        .filter(|line| !line.starts_with("sql_height") && !line.starts_with("check"))
+        .map(|line| format!("{line}\n"))
+        .collect();
+    let ensure = |name: &str, contents: Option<&str>| serde_json::json!({"name": format!("ensure-{name}"), "kind": "ensure", "contents": contents});
+    let tidy = |name: &str, contents: &str| serde_json::json!({"name": format!("tidy-{name}"), "kind": "tidy", "contents": contents});
+    vec![
+        serde_json::json!({"name": "template", "kind": "template"}),
+        ensure("fresh", None),
+        ensure("partial", Some("[ui]\nsql_position = \"bottom\"\n")),
+        ensure(
+            "user-values",
+            Some("[ui]\nsql_position = \"bottom\"\ntop_margin = 7\n"),
+        ),
+        ensure(
+            "own-note",
+            Some("# my own note\n[ui]\nsql_position = \"bottom\"\n"),
+        ),
+        ensure("only-a-comment", Some("# empty config\n")),
+        ensure("empty", Some("")),
+        ensure(
+            "current",
+            Some("# tql configuration 0.7.1\n\n[ui]\nsidebar_width = 40\n"),
+        ),
+        ensure(
+            "older",
+            Some("# tql configuration 0.6.2\n\n[ui]\nsidebar_width = 40\n"),
+        ),
+        ensure(
+            "older-in-place",
+            Some(
+                "# tql configuration 0.6.0\n[ui]\n# mine\nsql_editor = \"simple\"\n\nrow_style = \"bold\"\n[theme]\nborder = \"red\"\n",
+            ),
+        ),
+        ensure(
+            "older-sections-missing",
+            Some("# tql configuration 0.3.0\n[ui]\nmouse = false\n"),
+        ),
+        ensure("unversioned", Some("[ui]\nsidebar_width = 40\n")),
+        ensure(
+            "newer",
+            Some("# tql configuration 0.9.0\n[ui]\nsidebar_width = 40\n"),
+        ),
+        ensure(
+            "pruned-unversioned",
+            Some(&pruned.replace("# tql configuration 0.7.1\n", "")),
+        ),
+        ensure("pruned", Some(&pruned)),
+        ensure(
+            "keys",
+            Some("# tql configuration 0.7.0\n[keys]\nsql = \"S\"\n"),
+        ),
+        tidy(
+            "scrambled",
+            "# tql configuration 0.4.0\n\n[ai]\n\n# mine\nkey = \"secret\"\nprovider = \"auto\"\n\n[ui]\nsidebar_width = 40\n\n# Where the SQL editor sits: \"top\" or \"bottom\"\nsql_position = \"bottom\"",
+        ),
+        tidy(
+            "loose",
+            "# tql configuration 0.4.0\nmouse_row_offset = 1\n\n[ui]\nsidebar_width = 40\n",
+        ),
+        tidy(
+            "unknown-section",
+            "# tql configuration 0.4.0\n\n[mine]\nwhatever = true\n\n[ui]\nmystery = 1\nsidebar_width = 40\n",
+        ),
+        tidy("template", &template),
+        tidy("pruned", &pruned),
+        tidy(
+            "no-heading",
+            "[theme]\nborder = \"red\"\n[ui]\nmouse = false\n",
+        ),
+        tidy(
+            "keys-first",
+            "# tql configuration 0.7.1\n\n[keys]\nsql = \"S\"\n\n[ui]\n# a note\n\nmouse = false\nsidebar_width = 30\n",
+        ),
+    ]
+}
+
+fn rust_config_case(case: &serde_json::Value, work: &Path) -> (String, serde_json::Value) {
+    use app::config_file::{file, template, tidy};
+
+    let contents = case["contents"].as_str();
+    match case["kind"].as_str().unwrap() {
+        "template" => (template::render(), serde_json::Value::Null),
+        "tidy" => {
+            let (tidied, moved) = tidy::apply(contents.unwrap());
+            (tidied, serde_json::json!({ "moved": moved }))
+        }
+        _ => {
+            let path = work.join(format!(
+                "{}-home/tql/config.toml",
+                case["name"].as_str().unwrap()
+            ));
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            if let Some(contents) = contents {
+                fs::write(&path, contents).unwrap();
+            }
+            let ensured = file::ensure(&path).unwrap();
+            (
+                fs::read_to_string(&path).unwrap(),
+                serde_json::json!({ "created": ensured.created, "added": ensured.added }),
+            )
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs PHP and a tql checkout; run with --ignored"]
+fn the_config_file_matches_the_php_tql() {
+    let work = std::env::temp_dir().join(format!("tql-parity-config-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&work);
+    let php = work.join("php");
+    let rust = work.join("rust");
+    fs::create_dir_all(&rust).unwrap();
+
+    let cases = config_cases();
+    let case_file = work.join("cases.json");
+    fs::write(&case_file, serde_json::to_string(&cases).unwrap()).unwrap();
+    let status = Command::new("php")
+        .arg(Path::new(ROOT).join("parity/config.php"))
+        .arg(&case_file)
+        .arg(&php)
+        .status()
+        .expect("php is installed");
+    assert!(status.success(), "the PHP config renderer failed");
+
+    let blank_lines_under_heading = regex::Regex::new(r"0\.7\.1\n+").unwrap();
+    let mut differing = Vec::new();
+    let mut deliberate = Vec::new();
+    for case in &cases {
+        let name = case["name"].as_str().unwrap();
+        let (written, result) = rust_config_case(case, &rust);
+        let expected = fs::read_to_string(php.join(format!("{name}.toml"))).unwrap();
+        let expected_result = fs::read_to_string(php.join(format!("{name}.json")))
+            .map(|json| serde_json::from_str(&json).unwrap())
+            .unwrap_or(serde_json::Value::Null);
+        let same = written == expected && result == expected_result;
+        match CONFIG_DELIBERATE
+            .iter()
+            .find(|(deliberate, _)| *deliberate == name)
+        {
+            Some((_, reason)) => {
+                assert!(
+                    !same,
+                    "{name} is listed as deliberately different but matches"
+                );
+                let untouched = Some(written.as_str()) == case["contents"].as_str();
+                let settled = written == blank_lines_under_heading.replace(&expected, "0.7.1\n");
+                assert!(untouched || settled, "{name}");
+                assert_eq!(result, expected_result, "{name}");
+                deliberate.push(format!("{name} ({reason})"));
+            }
+            None if same => {}
+            None => differing.push(format!(
+                "{name}\n--- php {expected_result}\n{expected}\n--- rust {result}\n{written}"
+            )),
+        }
+    }
+
+    println!(
+        "config cases: {} matching, {} deliberately different: {}",
+        cases.len() - differing.len() - deliberate.len(),
+        deliberate.len(),
+        deliberate.join("; ")
+    );
+    assert!(differing.is_empty(), "{}", differing.join("\n\n"));
+}
+
+fn php_config(cases: &[serde_json::Value], work: &Path) -> PathBuf {
+    let case_file = work.join("cases.json");
+    let out = work.join("php");
+    fs::create_dir_all(work).unwrap();
+    fs::write(&case_file, serde_json::to_string(cases).unwrap()).unwrap();
+    let status = Command::new("php")
+        .arg(Path::new(ROOT).join("parity/config.php"))
+        .arg(&case_file)
+        .arg(&out)
+        .status()
+        .expect("php is installed");
+    assert!(status.success(), "the PHP config renderer failed");
+    out
+}
+
+fn shared_files() -> Vec<(&'static str, Option<String>)> {
+    let template = app::config_file::template::render();
+    let pruned: String = template
+        .lines()
+        .filter(|line| !line.starts_with("sql_height") && !line.starts_with("check"))
+        .map(|line| format!("{line}\n"))
+        .collect();
+    vec![
+        ("fresh", None),
+        ("template", Some(template.clone())),
+        ("partial", Some("[ui]\nsql_position = \"bottom\"\n".into())),
+        ("unversioned", Some("[ui]\nsidebar_width = 40\n".into())),
+        ("empty", Some(String::new())),
+        ("older-blank-line", Some("# tql configuration 0.6.2\n\n[ui]\nsidebar_width = 40\n".into())),
+        ("older-blank-lines", Some("# tql configuration 0.6.2\n\n\n\n[ui]\nsidebar_width = 40\n".into())),
+        ("older-in-place", Some("# tql configuration 0.6.0\n[ui]\n# mine\nsql_editor = \"vim\"\n\nrow_style = \"bold\"\n[theme]\nborder = \"red\"\n".into())),
+        ("older-crlf", Some("# tql configuration 0.6.0\r\n[ui]\r\nmouse = false\r\n".into())),
+        ("older-sections-missing", Some("# tql configuration 0.3.0\n[ui]\nmouse = false\n".into())),
+        ("current-blank-line", Some("# tql configuration 0.7.1\n\n[ui]\nsidebar_width = 40\n".into())),
+        ("pruned", Some(pruned.clone())),
+        ("pruned-unversioned", Some(pruned.replace("# tql configuration 0.7.1\n", ""))),
+        ("keys", Some("# tql configuration 0.7.0\n[keys]\nsql = \"S\"\nyank_value = [\"y\", \"ctrl+y\"]\n".into())),
+        ("newer", Some("# tql configuration 0.9.0\n[ui]\nsidebar_width = 40\n".into())),
+    ]
+}
+
+fn rust_starts(path: &Path) -> String {
+    app::config_file::prepare(path);
+    fs::read_to_string(path).unwrap()
+}
+
+#[test]
+#[ignore = "needs PHP and a tql checkout; run with --ignored"]
+fn tql_and_tql_rust_leave_each_others_config_file_alone() {
+    let work = std::env::temp_dir().join(format!("tql-parity-shared-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&work);
+    fs::create_dir_all(&work).unwrap();
+    let files = shared_files();
+    let ensure_case = |prefix: &str, name: &str, contents: Option<&str>| serde_json::json!({"name": format!("{prefix}-{name}"), "kind": "ensure", "contents": contents});
+
+    let mut first_round: Vec<serde_json::Value> = files
+        .iter()
+        .map(|(name, contents)| ensure_case("php", name, contents.as_deref()))
+        .collect();
+    first_round.push(serde_json::json!({"name": "version", "kind": "version"}));
+    let php_first = php_config(&first_round, &work.join("first"));
+
+    assert_eq!(
+        fs::read_to_string(php_first.join("version.toml")).unwrap(),
+        app::config_file::template::VERSION,
+        "tql-rust stamps the version of the template it ported"
+    );
+
+    let mut problems = Vec::new();
+    let mut rust_wrote = Vec::new();
+    for (name, contents) in &files {
+        let written_by_tql =
+            fs::read_to_string(php_first.join(format!("php-{name}.toml"))).unwrap();
+        let path = work.join(format!("rust-after-php/{name}/tql/config.toml"));
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        fs::write(&path, &written_by_tql).unwrap();
+        if rust_starts(&path) != written_by_tql {
+            problems.push(format!("tql-rust changed the file tql wrote for {name}"));
+        }
+
+        let path = work.join(format!("rust-first/{name}/tql/config.toml"));
+        fs::create_dir_all(path.parent().unwrap()).unwrap();
+        if let Some(contents) = contents {
+            fs::write(&path, contents).unwrap();
+        }
+        let written_by_rust = rust_starts(&path);
+        if contents.as_deref() != Some(written_by_rust.as_str()) {
+            rust_wrote.push((name.to_string(), written_by_rust));
+        }
+    }
+
+    let second_round: Vec<serde_json::Value> = rust_wrote
+        .iter()
+        .map(|(name, written)| ensure_case("rust", name, Some(written)))
+        .collect();
+    let php_second = php_config(&second_round, &work.join("second"));
+    for (name, written_by_rust) in &rust_wrote {
+        let after_tql = fs::read_to_string(php_second.join(format!("rust-{name}.toml"))).unwrap();
+        if &after_tql != written_by_rust {
+            problems.push(format!("tql changed the file tql-rust wrote for {name}"));
+        }
+    }
+
+    println!(
+        "shared config files: {} written by tql left alone by tql-rust, {} written by tql-rust left alone by tql",
+        files.len(),
+        rust_wrote.len()
+    );
+    assert!(problems.is_empty(), "{}", problems.join("\n"));
+}

@@ -16,7 +16,7 @@ impl Browser {
             self.focus = Focus::Grid;
         }
         if self.tables_hidden {
-            let key = keymap::key(Action::ToggleTables, 0);
+            let key = keymap::spelled(Action::ToggleTables);
             self.say(format!("table list hidden · {key} shows it"));
         } else {
             self.hush();
@@ -169,6 +169,58 @@ impl Browser {
         }
     }
 
+    pub(super) fn type_into_browse(&mut self, key: Key) -> Flow<Exit> {
+        if let Key::Char(digit) = key
+            && digit.is_ascii_digit()
+            && (digit != '0' || !self.count_prefix.is_empty())
+        {
+            self.count_prefix.push(digit);
+            return Flow::Continue;
+        }
+
+        let typed = std::mem::take(&mut self.count_prefix);
+        let count = if typed.is_empty() {
+            0
+        } else {
+            typed.parse().unwrap_or(usize::MAX)
+        };
+        let Some(action) = keymap::action(key) else {
+            return Flow::Continue;
+        };
+        let moves = matches!(
+            action,
+            Action::MoveUp | Action::MoveDown | Action::MoveLeft | Action::MoveRight
+        );
+        if count > 1 && moves {
+            return self.move_by(action, count);
+        }
+        self.run(action)
+    }
+
+    fn move_by(&mut self, action: Action, count: usize) -> Flow<Exit> {
+        if self.focus == Focus::Sidebar {
+            let last = self.visible_tables().len().saturating_sub(1);
+            match action {
+                Action::MoveUp => self.select_table(self.table_index.saturating_sub(count)),
+                Action::MoveDown => {
+                    self.select_table(self.table_index.saturating_add(count).min(last))
+                }
+                other => return self.run(other),
+            }
+            return Flow::Continue;
+        }
+
+        let last_row = self.rows.len().saturating_sub(1);
+        let last_column = self.headers.len().saturating_sub(1);
+        match action {
+            Action::MoveUp => self.row_index = self.row_index.saturating_sub(count),
+            Action::MoveDown => self.row_index = self.row_index.saturating_add(count).min(last_row),
+            Action::MoveLeft => self.column_index = self.column_index.saturating_sub(count),
+            _ => self.column_index = self.column_index.saturating_add(count).min(last_column),
+        }
+        Flow::Continue
+    }
+
     pub(super) fn run(&mut self, action: Action) -> Flow<Exit> {
         let sidebar = self.focus == Focus::Sidebar;
         match action {
@@ -181,7 +233,14 @@ impl Browser {
             Action::MoveDown => {
                 self.row_index = (self.row_index + 1).min(self.rows.len().saturating_sub(1))
             }
-            Action::MoveLeft => self.column_index = self.column_index.saturating_sub(1),
+            Action::MoveLeft if sidebar => {}
+            Action::MoveLeft if self.column_index == 0 => {
+                self.tables_hidden = false;
+                self.focus = Focus::Sidebar;
+                self.mode = Mode::Browse;
+            }
+            Action::MoveLeft => self.column_index -= 1,
+            Action::MoveRight if sidebar => self.toggle_focus(true),
             Action::MoveRight => {
                 self.column_index =
                     (self.column_index + 1).min(self.headers.len().saturating_sub(1));

@@ -1,21 +1,21 @@
 use zerorust::prelude::*;
 use zerorust_tui::CmdTui;
 
+use crate::config_file;
 use crate::database;
 use crate::encrypter::Encrypter;
 use crate::paths;
-use crate::settings::{self, Settings};
+use crate::settings;
 use crate::store::Store;
 use crate::tui::clipboard::SystemClipboard;
 use crate::tui::{Browser, Exit, Picker};
 
 #[command("browse", description = "Browse and query your databases")]
 fn browse(cmd: &mut Cmd) -> Result {
-    let mut notice = None;
-    match Settings::load(&paths::config_file()) {
-        Ok(loaded) => settings::install(loaded),
-        Err(error) => notice = Some(format!("{error:#}")),
-    }
+    let loaded = config_file::prepare(&paths::config_file());
+    let message = loaded.message();
+    let mut notice = loaded.error.clone();
+    settings::install(loaded.settings);
 
     let store = Store::open(&paths::store())?;
     let encrypter = Encrypter::from_file(&paths::key()).ok();
@@ -39,6 +39,7 @@ fn browse(cmd: &mut Cmd) -> Result {
                 browser
                     .with_store(paths::store())
                     .with_clipboard(SystemClipboard)
+                    .with_status(message.clone())
             });
         let mut browser = match opened {
             Ok(browser) => browser,
