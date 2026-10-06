@@ -1,27 +1,47 @@
 use std::collections::HashMap;
 
+use std::net::Ipv4Addr;
+use std::sync::Arc;
+
 use anyhow::{Context, bail};
-use postgres::{Client, NoTls, SimpleQueryMessage};
+use postgres::{Client, SimpleQueryMessage};
+use tokio_postgres_rustls::MakeRustlsConnect;
 
 use super::schema::{fill, keys_by_table};
+use super::tls::Tls;
 use super::{
     Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, Values, delete_statement,
     insert_statement, outcome_or_affected, quote_double, refused, select_page, single_column_keys,
     split_list, update_statement,
 };
 use crate::store::Connection;
+use crate::tunnel::Tunnel;
 
 pub struct Postgres {
     client: Client,
     config: postgres::Config,
+    tls: MakeRustlsConnect,
+    _tunnel: Option<Arc<Tunnel>>,
 }
 
 impl Postgres {
-    pub fn open(connection: &Connection, password: Option<String>) -> anyhow::Result<Self> {
+    pub fn open(
+        connection: &Connection,
+        password: Option<String>,
+        tunnel: Option<Arc<Tunnel>>,
+    ) -> anyhow::Result<Self> {
+        let settings = Tls::of(connection)?;
         let mut config = postgres::Config::new();
         config
             .host(connection.host.as_deref().unwrap_or("127.0.0.1"))
-            .port(connection.port.unwrap_or(5432))
+            .port(
+                tunnel
+                    .as_ref()
+                    .map(|tunnel| tunnel.port)
+                    .or(connection.port)
+                    .unwrap_or(5432),
+            )
+            .ssl_mode(settings.postgres_mode())
             .user(connection.username.as_deref().unwrap_or("postgres"))
             .dbname(
                 connection
@@ -33,11 +53,20 @@ impl Postgres {
         if let Some(password) = password {
             config.password(password);
         }
+        if tunnel.is_some() {
+            config.hostaddr(Ipv4Addr::LOCALHOST.into());
+        }
 
+        let tls = MakeRustlsConnect::new(settings.client_config()?);
         let client = config
-            .connect(NoTls)
+            .connect(tls.clone())
             .with_context(|| format!("cannot connect to {}", connection.describe()))?;
-        Ok(Postgres { client, config })
+        Ok(Postgres {
+            client,
+            config,
+            tls,
+            _tunnel: tunnel,
+        })
     }
 
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
@@ -146,7 +175,7 @@ impl Database for Postgres {
         let mut config = self.config.clone();
         config.dbname(name);
         self.client = config
-            .connect(NoTls)
+            .connect(self.tls.clone())
             .with_context(|| format!("cannot switch to {name}"))?;
         self.config = config;
         Ok(())

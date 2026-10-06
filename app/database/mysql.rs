@@ -1,32 +1,48 @@
 use std::collections::HashMap;
+use std::sync::Arc;
 
 use anyhow::Context;
 use mysql::consts::ColumnType;
 use mysql::prelude::{Protocol, Queryable};
-use mysql::{Conn, OptsBuilder, QueryResult, Value};
+use mysql::{Conn, DriverError, OptsBuilder, QueryResult, Value};
 
 use super::schema::keys_by_table;
+use super::tls::{Mode, Tls};
 use super::{
     Column, Database, Filters, ForeignKey, Index, Outcome, Page, Scalar, Scalars, Sort, Values,
     delete_statement, insert_statement, outcome_or_affected, refused, select_page,
     single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
+use crate::tunnel::Tunnel;
 
 pub struct MySql {
     connection: Conn,
+    _tunnel: Option<Arc<Tunnel>>,
 }
 
 impl MySql {
-    pub fn open(connection: &Connection, password: Option<String>) -> anyhow::Result<Self> {
+    pub fn open(
+        connection: &Connection,
+        password: Option<String>,
+        tunnel: Option<Arc<Tunnel>>,
+    ) -> anyhow::Result<Self> {
+        let settings = Tls::of(connection)?;
         let options = OptsBuilder::new()
-            .ip_or_hostname(Some(
-                connection
+            .ip_or_hostname(Some(match &tunnel {
+                Some(_) => "127.0.0.1".to_string(),
+                None => connection
                     .host
                     .clone()
                     .unwrap_or_else(|| "127.0.0.1".to_string()),
-            ))
-            .tcp_port(connection.port.unwrap_or(3306))
+            }))
+            .tcp_port(
+                tunnel
+                    .as_ref()
+                    .map(|tunnel| tunnel.port)
+                    .or(connection.port)
+                    .unwrap_or(3306),
+            )
             .user(connection.username.clone())
             .pass(password)
             .db_name(
@@ -36,9 +52,19 @@ impl MySql {
                     .filter(|database| !database.trim().is_empty()),
             );
 
-        let connection = Conn::new(options)
-            .with_context(|| format!("cannot connect to {}", connection.describe()))?;
-        Ok(MySql { connection })
+        let connected = match Conn::new(options.clone().ssl_opts(settings.mysql_options())) {
+            Err(mysql::Error::DriverError(DriverError::TlsNotSupported))
+                if settings.mode == Mode::Prefer =>
+            {
+                Conn::new(options)
+            }
+            other => other,
+        };
+        Ok(MySql {
+            connection: connected
+                .with_context(|| format!("cannot connect to {}", connection.describe()))?,
+            _tunnel: tunnel,
+        })
     }
 
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
