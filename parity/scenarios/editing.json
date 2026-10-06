@@ -88,5 +88,11 @@
   {"name": "record-form-g-G", "size": [100, 30], "keys": ["j", "\t", "E", "G"]},
   {"name": "mark-row-style-inverse", "size": [100, 30], "config": {"ui.row_style": "inverse"}, "keys": ["j", "\t", "d", "d", "k"]},
   {"name": "edit-sql-pane", "size": [100, 30], "config": {"ui.sql_always": true}, "keys": ["j", "\t", "l", "e", "!", "\n", ":", "w", "\n"]},
-  {"name": "double-click-edits", "size": [100, 30], "keys": ["j", "\t", "\u001b[<0;45;5M", "\u001b[<0;45;5m", "\u001b[<0;45;5M", "\u001b[<0;45;5m"]}
+  {"name": "double-click-edits", "size": [100, 30], "keys": ["j", "\t", "\u001b[<0;45;5M", "\u001b[<0;45;5m", "\u001b[<0;45;5M", "\u001b[<0;45;5m"]},
+  {"name": "edit-filtered", "size": [100, 30], "keys": ["j", "\t", "l", "f", "0", "0", "5", "\u0013", "l", "e", "!", "\n"]},
+  {"name": "edit-filtered-written", "size": [100, 30], "keys": ["j", "\t", "l", "f", "0", "0", "5", "\u0013", "l", "e", "!", "\n", ":", "w", "\n"]},
+  {"name": "mark-then-filter", "size": [100, 30], "keys": ["j", "\t", "d", "N", "\u0013", "l", "f", "0", "0", "5", "\u0013"]},
+  {"name": "edit-then-query", "size": [120, 30], "keys": ["j", "\t", "l", "e", "!", "\n", "s", "\u0012"]},
+  {"name": "edit-then-query-view", "size": [100, 30], "keys": ["j", "\t", "l", "e", "!", "\n", "s", "\u0012", "\u001b", "e"]},
+  {"name": "edit-then-query-back", "size": [100, 30], "keys": ["j", "\t", "l", "e", "!", "\n", "s", "\u0012", "\u001b", "\u001b"]}
 ]

@@ -741,3 +741,117 @@ fn marked_edited_and_added_rows_are_drawn_as_one_coloured_bar() {
         "{highlighted:?}"
     );
 }
+
+fn run_sql(fake: &mut Fake<Browser>, statement: &str) {
+    fake.press("s");
+    for _ in 0..fake.app.query.editor.buffer().chars().count() {
+        fake.press("\x7f");
+    }
+    fake.press(statement);
+    fake.press("\x12");
+    fake.press("\x1b");
+}
+
+#[test]
+fn an_edit_made_while_filtered_is_written_and_the_filter_stays() {
+    let (path, mut fake) = widgets("filtered-write");
+
+    fake.press("lf");
+    fake.press(&format!("ga{SAVE}"));
+    assert_eq!(fake.app.rows.len(), 1);
+
+    fake.press("le!\n:w\n");
+
+    assert_eq!(names(&path), some(&["alpha", "beta", "gamma!"]));
+    assert!(fake.app.filters.is_some());
+    assert_eq!(fake.app.rows.len(), 1);
+    assert_eq!(fake.app.rows[0][1], "gamma!");
+}
+
+#[test]
+fn applying_a_filter_drops_marks_and_edits_but_keeps_added_rows() {
+    let (_, mut fake) = widgets("filter-pending");
+
+    fake.press("dle!\n");
+    fake.press(&format!("N\nnew\n{SAVE}"));
+    fake.press("f");
+    fake.press(&format!("ga{SAVE}"));
+
+    assert!(fake.app.edits.deletes.is_empty());
+    assert!(fake.app.edits.updates.is_empty());
+    assert_eq!(fake.app.edits.inserts.len(), 1);
+    assert_eq!(fake.app.rows[0][1], "new");
+    assert_eq!(fake.app.rows[1][1], "gamma");
+}
+
+#[test]
+fn query_results_cannot_be_edited_and_pending_changes_wait_for_the_table() {
+    let (path, mut fake) = widgets("query-pending");
+
+    fake.press("jle!\n");
+    run_sql(&mut fake, "select name from widgets where id = 2");
+    assert!(fake.app.query.results);
+    assert!(fake.app.edits.pending());
+    assert!(status_line(&mut fake).ends_with("1 row edited · :w writes · u clears"));
+
+    fake.press("e");
+    assert!(!fake.app.edits.editable());
+    assert_eq!(
+        fake.app.edits.read_only_reason(),
+        Some("query results have no row to write back to")
+    );
+    fake.press("\x1b");
+
+    fake.press("d");
+    assert_eq!(
+        fake.app.status(),
+        "query results have no row to delete — open the table itself"
+    );
+    fake.press("N");
+    assert!(fake.app.edits.form().is_none());
+    assert_eq!(fake.app.status(), "query results have no table to add to");
+
+    fake.press("\x1b");
+    assert!(!fake.app.query.results);
+    assert!(fake.screen().contains("beta!"));
+
+    fake.press(":w\n");
+    assert_eq!(names(&path), some(&["alpha", "beta!", "gamma"]));
+}
+
+#[test]
+fn a_query_that_moves_to_another_table_drops_the_pending_changes() {
+    let path = fixture(
+        "query-other-table",
+        "create table a (id integer primary key); create table b (id integer primary key);
+         insert into a values (1); insert into b values (1);",
+    );
+    let mut fake = open(&path, false);
+
+    fake.press("d");
+    run_sql(&mut fake, "select * from a");
+    assert!(fake.app.edits.pending());
+
+    run_sql(&mut fake, "select * from b");
+    assert!(!fake.app.edits.pending());
+    assert_eq!(fake.app.current_table().as_deref(), Some("b"));
+}
+
+#[test]
+fn a_failed_write_uses_the_shared_error_box() {
+    let path = fixture(
+        "failed-write-box",
+        "create table widgets (code text not null primary key, name text not null);
+         insert into widgets values ('a', 'alpha');",
+    );
+    let mut fake = open(&path, false);
+
+    fake.press(&format!("N\nb\n{SAVE}:w\n"));
+
+    assert_eq!(fake.app.problem_title, "COULD NOT ADD THE ROW");
+    assert!(fake.app.problem.as_deref().unwrap().contains("NOT NULL"));
+    assert_eq!(
+        fake.app.problem_notes,
+        ["The row is still here — fix it and :w again, or u to drop it."]
+    );
+}
