@@ -1,0 +1,6 @@
+[
+  {"name": "ssh-host-typed", "screen": "picker", "size": [100, 30], "keys": ["e", "j", "j", "j", "j", "j", "j", "j", " ", "j", "\n", "bastion.example.com", "\n"]},
+  {"name": "ssh-saved-in-list", "screen": "picker", "size": [220, 14], "keys": ["e", "j", "j", "j", "j", "j", "j", "j", " ", "j", "\n", "bastion.example.com", "\n", "j", "j", "\n", "karl", "\n", "\u0013"]},
+  {"name": "ssh-saved-without-user", "screen": "picker", "size": [220, 14], "keys": ["e", "j", "j", "j", "j", "j", "j", "j", " ", "j", "\n", "bastion.example.com", "\n", "\u0013"]},
+  {"name": "tls-require-saved", "screen": "picker", "size": [100, 30], "keys": ["e", "j", "j", "j", "j", "j", "j", "\u001b[C", "\u001b[C", "\u001b[C", "\u0013"]}
+]
