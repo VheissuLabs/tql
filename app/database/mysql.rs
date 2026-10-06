@@ -4,7 +4,10 @@ use anyhow::Context;
 use mysql::prelude::Queryable;
 use mysql::{Conn, OptsBuilder, Value};
 
-use super::{Database, Page, Sort, select_page, single_column_keys};
+use super::{
+    Column, Database, Page, Sort, Values, delete_statement, insert_statement, refused, select_page,
+    single_column_keys, update_statement,
+};
 use crate::store::Connection;
 
 pub struct MySql {
@@ -81,6 +84,16 @@ fn text(value: Value) -> Option<String> {
     })
 }
 
+fn bound(value: Option<&str>) -> Value {
+    value
+        .map(|value| Value::Bytes(value.as_bytes().to_vec()))
+        .unwrap_or(Value::NULL)
+}
+
+fn question(_: usize) -> String {
+    "?".to_string()
+}
+
 fn quote_backtick(identifier: &str) -> String {
     format!("`{}`", identifier.replace('`', "``"))
 }
@@ -139,5 +152,80 @@ impl Database for MySql {
         self.connection
             .query_drop(format!("use {}", quote_backtick(name)))?;
         Ok(())
+    }
+
+    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+        let rows: Vec<mysql::Row> = self.connection.exec(
+            "select column_name, data_type, is_nullable, column_default, extra \
+             from information_schema.columns where table_schema = database() and table_name = ? \
+             order by ordinal_position",
+            (table,),
+        )?;
+        Ok(rows
+            .into_iter()
+            .map(|row| {
+                let cells: Vec<Option<String>> = row.unwrap().into_iter().map(text).collect();
+                let cell = |index: usize| cells.get(index).cloned().flatten();
+                Column {
+                    name: cell(0).unwrap_or_default(),
+                    type_name: cell(1).unwrap_or_default(),
+                    nullable: cell(2).as_deref() == Some("YES"),
+                    default: cell(3),
+                    auto_increment: cell(4).as_deref() == Some("auto_increment"),
+                }
+            })
+            .collect())
+    }
+
+    fn highest(&mut self, table: &str, column: &str) -> anyhow::Result<Option<String>> {
+        let page = self.query(&format!(
+            "select max({}) from {}",
+            quote_backtick(column),
+            quote_backtick(table)
+        ))?;
+        Ok(page
+            .rows
+            .into_iter()
+            .next()
+            .and_then(|mut row| row.swap_remove(0)))
+    }
+
+    fn update(
+        &mut self,
+        table: &str,
+        column: &str,
+        key: &str,
+        key_value: &str,
+        value: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let sql = update_statement(quote_backtick, question, table, column, key);
+        self.connection
+            .exec_drop(&sql, vec![bound(value), bound(Some(key_value))])
+            .map_err(|error| refused(error, &sql))
+    }
+
+    fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
+        let sql = insert_statement(quote_backtick, question, table, values, "() values ()");
+        let bindings: Vec<Value> = values
+            .iter()
+            .map(|(_, value)| bound(value.as_deref()))
+            .collect();
+        let outcome = if bindings.is_empty() {
+            self.connection.query_drop(&sql)
+        } else {
+            self.connection.exec_drop(&sql, bindings)
+        };
+        outcome.map_err(|error| refused(error, &sql))
+    }
+
+    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
+        let sql = delete_statement(quote_backtick, question, table, key, key_values.len());
+        let bindings: Vec<Value> = key_values
+            .iter()
+            .map(|key_value| bound(Some(key_value)))
+            .collect();
+        self.connection
+            .exec_drop(&sql, bindings)
+            .map_err(|error| refused(error, &sql))
     }
 }

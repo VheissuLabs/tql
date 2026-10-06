@@ -37,6 +37,42 @@ pub struct Page {
     pub rows: Vec<Vec<Option<String>>>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Column {
+    pub name: String,
+    pub type_name: String,
+    pub nullable: bool,
+    pub default: Option<String>,
+    pub auto_increment: bool,
+}
+
+pub type Values = Vec<(String, Option<String>)>;
+
+pub trait Named {
+    fn named(&self, name: &str) -> Option<&Option<String>>;
+    fn put(&mut self, name: &str, value: Option<String>);
+    fn forget(&mut self, name: &str);
+}
+
+impl Named for Values {
+    fn named(&self, name: &str) -> Option<&Option<String>> {
+        self.iter()
+            .find(|(column, _)| column == name)
+            .map(|(_, value)| value)
+    }
+
+    fn put(&mut self, name: &str, value: Option<String>) {
+        match self.iter_mut().find(|(column, _)| column == name) {
+            Some((_, held)) => *held = value,
+            None => self.push((name.to_string(), value)),
+        }
+    }
+
+    fn forget(&mut self, name: &str) {
+        self.retain(|(column, _)| column != name);
+    }
+}
+
 pub trait Database {
     fn tables(&mut self) -> anyhow::Result<Vec<String>>;
 
@@ -57,6 +93,95 @@ pub trait Database {
     fn use_database(&mut self, _name: &str) -> anyhow::Result<()> {
         Ok(())
     }
+
+    fn columns(&mut self, _table: &str) -> anyhow::Result<Vec<Column>> {
+        Ok(Vec::new())
+    }
+
+    fn highest(&mut self, _table: &str, _column: &str) -> anyhow::Result<Option<String>> {
+        Ok(None)
+    }
+
+    fn update(
+        &mut self,
+        _table: &str,
+        _column: &str,
+        _key: &str,
+        _key_value: &str,
+        _value: Option<&str>,
+    ) -> anyhow::Result<()> {
+        bail!("this database cannot change rows")
+    }
+
+    fn insert(&mut self, _table: &str, _values: &Values) -> anyhow::Result<()> {
+        bail!("this database cannot add rows")
+    }
+
+    fn delete(&mut self, _table: &str, _key: &str, _key_values: &[String]) -> anyhow::Result<()> {
+        bail!("this database cannot delete rows")
+    }
+}
+
+fn listed(count: usize, placeholder: &impl Fn(usize) -> String) -> String {
+    (1..=count).map(placeholder).collect::<Vec<_>>().join(", ")
+}
+
+pub(crate) fn update_statement(
+    quote: impl Fn(&str) -> String,
+    placeholder: impl Fn(usize) -> String,
+    table: &str,
+    column: &str,
+    key: &str,
+) -> String {
+    format!(
+        "update {} set {} = {} where {} = {}",
+        quote(table),
+        quote(column),
+        placeholder(1),
+        quote(key),
+        placeholder(2)
+    )
+}
+
+pub(crate) fn insert_statement(
+    quote: impl Fn(&str) -> String,
+    placeholder: impl Fn(usize) -> String,
+    table: &str,
+    values: &Values,
+    defaults_only: &str,
+) -> String {
+    if values.is_empty() {
+        return format!("insert into {} {defaults_only}", quote(table));
+    }
+    format!(
+        "insert into {} ({}) values ({})",
+        quote(table),
+        values
+            .iter()
+            .map(|(column, _)| quote(column))
+            .collect::<Vec<_>>()
+            .join(", "),
+        listed(values.len(), &placeholder)
+    )
+}
+
+pub(crate) fn delete_statement(
+    quote: impl Fn(&str) -> String,
+    placeholder: impl Fn(usize) -> String,
+    table: &str,
+    key: &str,
+    count: usize,
+) -> String {
+    format!(
+        "delete from {} where {} in ({})",
+        quote(table),
+        quote(key),
+        listed(count, &placeholder)
+    )
+}
+
+pub(crate) fn refused(error: impl std::fmt::Display, statement: &str) -> anyhow::Error {
+    anyhow!("{error}\n\n{statement}")
 }
 
 pub fn connect(

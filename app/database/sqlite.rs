@@ -4,7 +4,10 @@ use std::path::Path;
 use anyhow::{Context, bail};
 use rusqlite::types::ValueRef;
 
-use super::{Database, Page, Sort, quote_double, select_page, single_column_keys};
+use super::{
+    Column, Database, Page, Sort, Values, delete_statement, insert_statement, quote_double,
+    refused, select_page, single_column_keys, update_statement,
+};
 use crate::store::Connection;
 
 pub struct Sqlite {
@@ -80,4 +83,87 @@ impl Database for Sqlite {
             .collect::<Result<_, _>>()?;
         Ok(single_column_keys(pairs))
     }
+
+    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+        let mut statement = self.connection.prepare(
+            "select name, type, not \"notnull\", dflt_value, pk from pragma_table_xinfo(?1) order by cid",
+        )?;
+        let described: Vec<(String, String, bool, Option<String>, i64)> = statement
+            .query_map([table], |row| {
+                Ok((
+                    row.get(0)?,
+                    row.get::<_, Option<String>>(1)?.unwrap_or_default(),
+                    row.get(2)?,
+                    row.get(3)?,
+                    row.get(4)?,
+                ))
+            })?
+            .collect::<Result<_, _>>()?;
+        let single_key = described.iter().filter(|column| column.4 > 0).count() == 1;
+
+        Ok(described
+            .into_iter()
+            .map(|(name, declared, nullable, default, primary)| {
+                let declared = declared.to_lowercase();
+                Column {
+                    name,
+                    type_name: declared.split('(').next().unwrap_or_default().to_string(),
+                    nullable,
+                    default,
+                    auto_increment: single_key && primary > 0 && declared == "integer",
+                }
+            })
+            .collect())
+    }
+
+    fn highest(&mut self, table: &str, column: &str) -> anyhow::Result<Option<String>> {
+        let sql = format!(
+            "select max({}) from {}",
+            quote_double(column),
+            quote_double(table)
+        );
+        let highest: Option<i64> = self
+            .connection
+            .query_row(&sql, [], |row| row.get(0))
+            .unwrap_or_default();
+        Ok(highest.map(|number| number.to_string()))
+    }
+
+    fn update(
+        &mut self,
+        table: &str,
+        column: &str,
+        key: &str,
+        key_value: &str,
+        value: Option<&str>,
+    ) -> anyhow::Result<()> {
+        let sql = update_statement(quote_double, numbered, table, column, key);
+        self.connection
+            .execute(&sql, rusqlite::params![value, key_value])
+            .map_err(|error| refused(error, &sql))?;
+        Ok(())
+    }
+
+    fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
+        let sql = insert_statement(quote_double, numbered, table, values, "default values");
+        self.connection
+            .execute(
+                &sql,
+                rusqlite::params_from_iter(values.iter().map(|(_, value)| value)),
+            )
+            .map_err(|error| refused(error, &sql))?;
+        Ok(())
+    }
+
+    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
+        let sql = delete_statement(quote_double, numbered, table, key, key_values.len());
+        self.connection
+            .execute(&sql, rusqlite::params_from_iter(key_values))
+            .map_err(|error| refused(error, &sql))?;
+        Ok(())
+    }
+}
+
+fn numbered(position: usize) -> String {
+    format!("?{position}")
 }
