@@ -1,4 +1,13 @@
+use std::sync::LazyLock;
+
+use regex::Regex;
+
 use super::*;
+
+static DATABASE_COMMAND: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?is)^(create|drop)\s+database(?:\s+(.*))?$")
+        .expect("the database command pattern is valid")
+});
 
 impl Browser {
     pub(super) fn toggle_tables(&mut self) {
@@ -68,6 +77,15 @@ impl Browser {
 
     pub(super) fn run_command(&mut self, command: &str) -> Flow<Exit> {
         self.command = None;
+        if let Some(captures) = DATABASE_COMMAND.captures(command) {
+            let name = captures.get(2).map_or("", |name| name.as_str()).trim();
+            if captures[1].eq_ignore_ascii_case("create") {
+                self.create_database(name);
+            } else {
+                self.drop_database(name);
+            }
+            return Flow::Continue;
+        }
         match command {
             "q" | "q!" | "quit" => return self.leave(Exit::Quit),
             "c" | "connections" => return self.leave(Exit::Connections),
@@ -80,9 +98,6 @@ impl Browser {
             "history" => self.open_history(),
             "w" | "write" => self.write_pending(),
             "export" | "export sql" => self.export(),
-            "create database" | "drop database" => {
-                self.say(format!(":{command} is not ported yet"));
-            }
             _ => self.say(format!("unknown command: :{command}")),
         }
         Flow::Continue
