@@ -378,3 +378,175 @@ fn frames_match_the_php_tql() {
         differing.len()
     );
 }
+
+const STAMP_KEEPS_THE_BLANK_LINE: &str =
+    "stamping the version keeps the blank line under the heading; tql's \\s*$ eats it";
+
+const CONFIG_DELIBERATE: &[(&str, &str)] = &[
+    ("ensure-current", STAMP_KEEPS_THE_BLANK_LINE),
+    ("ensure-older", STAMP_KEEPS_THE_BLANK_LINE),
+];
+
+fn config_cases() -> Vec<serde_json::Value> {
+    let template = app::config_file::template::render();
+    let pruned: String = template
+        .lines()
+        .filter(|line| !line.starts_with("sql_height") && !line.starts_with("check"))
+        .map(|line| format!("{line}\n"))
+        .collect();
+    let ensure = |name: &str, contents: Option<&str>| serde_json::json!({"name": format!("ensure-{name}"), "kind": "ensure", "contents": contents});
+    let tidy = |name: &str, contents: &str| serde_json::json!({"name": format!("tidy-{name}"), "kind": "tidy", "contents": contents});
+    vec![
+        serde_json::json!({"name": "template", "kind": "template"}),
+        ensure("fresh", None),
+        ensure("partial", Some("[ui]\nsql_position = \"bottom\"\n")),
+        ensure(
+            "user-values",
+            Some("[ui]\nsql_position = \"bottom\"\ntop_margin = 7\n"),
+        ),
+        ensure(
+            "own-note",
+            Some("# my own note\n[ui]\nsql_position = \"bottom\"\n"),
+        ),
+        ensure("only-a-comment", Some("# empty config\n")),
+        ensure("empty", Some("")),
+        ensure(
+            "current",
+            Some("# tql configuration 0.7.1\n\n[ui]\nsidebar_width = 40\n"),
+        ),
+        ensure(
+            "older",
+            Some("# tql configuration 0.6.2\n\n[ui]\nsidebar_width = 40\n"),
+        ),
+        ensure(
+            "older-in-place",
+            Some(
+                "# tql configuration 0.6.0\n[ui]\n# mine\nsql_editor = \"simple\"\n\nrow_style = \"bold\"\n[theme]\nborder = \"red\"\n",
+            ),
+        ),
+        ensure(
+            "older-sections-missing",
+            Some("# tql configuration 0.3.0\n[ui]\nmouse = false\n"),
+        ),
+        ensure("unversioned", Some("[ui]\nsidebar_width = 40\n")),
+        ensure(
+            "pruned-unversioned",
+            Some(&pruned.replace("# tql configuration 0.7.1\n", "")),
+        ),
+        ensure("pruned", Some(&pruned)),
+        ensure(
+            "keys",
+            Some("# tql configuration 0.7.0\n[keys]\nsql = \"S\"\n"),
+        ),
+        tidy(
+            "scrambled",
+            "# tql configuration 0.4.0\n\n[ai]\n\n# mine\nkey = \"secret\"\nprovider = \"auto\"\n\n[ui]\nsidebar_width = 40\n\n# Where the SQL editor sits: \"top\" or \"bottom\"\nsql_position = \"bottom\"",
+        ),
+        tidy(
+            "loose",
+            "# tql configuration 0.4.0\nmouse_row_offset = 1\n\n[ui]\nsidebar_width = 40\n",
+        ),
+        tidy(
+            "unknown-section",
+            "# tql configuration 0.4.0\n\n[mine]\nwhatever = true\n\n[ui]\nmystery = 1\nsidebar_width = 40\n",
+        ),
+        tidy("template", &template),
+        tidy("pruned", &pruned),
+        tidy(
+            "no-heading",
+            "[theme]\nborder = \"red\"\n[ui]\nmouse = false\n",
+        ),
+        tidy(
+            "keys-first",
+            "# tql configuration 0.7.1\n\n[keys]\nsql = \"S\"\n\n[ui]\n# a note\n\nmouse = false\nsidebar_width = 30\n",
+        ),
+    ]
+}
+
+fn rust_config_case(case: &serde_json::Value, work: &Path) -> (String, serde_json::Value) {
+    use app::config_file::{file, template, tidy};
+
+    let contents = case["contents"].as_str();
+    match case["kind"].as_str().unwrap() {
+        "template" => (template::render(), serde_json::Value::Null),
+        "tidy" => {
+            let (tidied, moved) = tidy::apply(contents.unwrap());
+            (tidied, serde_json::json!({ "moved": moved }))
+        }
+        _ => {
+            let path = work.join(format!(
+                "{}-home/tql/config.toml",
+                case["name"].as_str().unwrap()
+            ));
+            fs::create_dir_all(path.parent().unwrap()).unwrap();
+            if let Some(contents) = contents {
+                fs::write(&path, contents).unwrap();
+            }
+            let ensured = file::ensure(&path).unwrap();
+            (
+                fs::read_to_string(&path).unwrap(),
+                serde_json::json!({ "created": ensured.created, "added": ensured.added }),
+            )
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs PHP and a tql checkout; run with --ignored"]
+fn the_config_file_matches_the_php_tql() {
+    let work = std::env::temp_dir().join(format!("tql-parity-config-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&work);
+    let php = work.join("php");
+    let rust = work.join("rust");
+    fs::create_dir_all(&rust).unwrap();
+
+    let cases = config_cases();
+    let case_file = work.join("cases.json");
+    fs::write(&case_file, serde_json::to_string(&cases).unwrap()).unwrap();
+    let status = Command::new("php")
+        .arg(Path::new(ROOT).join("parity/config.php"))
+        .arg(&case_file)
+        .arg(&php)
+        .status()
+        .expect("php is installed");
+    assert!(status.success(), "the PHP config renderer failed");
+
+    let mut differing = Vec::new();
+    let mut deliberate = Vec::new();
+    for case in &cases {
+        let name = case["name"].as_str().unwrap();
+        let (written, result) = rust_config_case(case, &rust);
+        let expected = fs::read_to_string(php.join(format!("{name}.toml"))).unwrap();
+        let expected_result = fs::read_to_string(php.join(format!("{name}.json")))
+            .map(|json| serde_json::from_str(&json).unwrap())
+            .unwrap_or(serde_json::Value::Null);
+        let same = written == expected && result == expected_result;
+        match CONFIG_DELIBERATE
+            .iter()
+            .find(|(deliberate, _)| *deliberate == name)
+        {
+            Some((_, reason)) => {
+                assert!(
+                    !same,
+                    "{name} is listed as deliberately different but matches"
+                );
+                let unstamped = |text: &str| text.replace("0.7.1\n\n", "0.7.1\n");
+                assert_eq!(unstamped(&written), unstamped(&expected), "{name}");
+                assert_eq!(result, expected_result, "{name}");
+                deliberate.push(format!("{name} ({reason})"));
+            }
+            None if same => {}
+            None => differing.push(format!(
+                "{name}\n--- php {expected_result}\n{expected}\n--- rust {result}\n{written}"
+            )),
+        }
+    }
+
+    println!(
+        "config cases: {} matching, {} deliberately different: {}",
+        cases.len() - differing.len() - deliberate.len(),
+        deliberate.len(),
+        deliberate.join("; ")
+    );
+    assert!(differing.is_empty(), "{}", differing.join("\n\n"));
+}
