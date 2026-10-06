@@ -10,10 +10,44 @@ use zerorust_tui::Fake;
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
 
-const DELIBERATE: &[(&str, &str)] = &[(
-    "empty-table",
-    "an empty table shows its column headers; tql shows 'no columns' because it reads headers from the rows",
-)];
+const DELIBERATE: &[(&str, &str)] = &[
+    (
+        "empty-table",
+        "an empty table shows its column headers; tql shows 'no columns' because it reads headers from the rows",
+    ),
+    (
+        "sql-error",
+        "the database's own words without PDO's 'SQLSTATE[HY000]: General error: 1' in front",
+    ),
+    (
+        "sql-error-syntax",
+        "the database's own words without PDO's 'SQLSTATE[HY000]: General error: 1' in front",
+    ),
+    (
+        "sql-write",
+        "a write says how many rows it changed; tql runs everything as a select and says '0 rows'",
+    ),
+    (
+        "sql-sort-complex",
+        "a long status cuts the line by what is visible; tql counts colour codes too and cuts it early",
+    ),
+    (
+        "sql-sort-results",
+        "sorting query results keeps the cursor on the sorted column, as sorting a table does; tql sends it back to the first column",
+    ),
+    (
+        "sql-sort-results-desc",
+        "sorting query results keeps the cursor on the sorted column, as sorting a table does; tql sends it back to the first column",
+    ),
+    (
+        "sql-sort-results-cleared",
+        "sorting query results keeps the cursor on the sorted column, as sorting a table does; tql sends it back to the first column",
+    ),
+    (
+        "sql-small",
+        "a long status cuts the line by what is visible; tql counts colour codes too and cuts it early",
+    ),
+];
 
 const HOTKEY_BAR_REASON: &str =
     "the hotkey bar only offers what tql-rust can do; tql also offers features not ported yet";
@@ -196,6 +230,13 @@ fn frames_match_the_php_tql() {
         .unwrap()
         .connections()
         .unwrap();
+    let history = work.join("rust-store.sqlite");
+    fs::copy(php_frames.join("tql.sqlite"), &history).unwrap();
+    rusqlite::Connection::open(&history)
+        .unwrap()
+        .execute("delete from query_executions", [])
+        .unwrap();
+
     let shop = saved
         .iter()
         .find(|connection| connection.name == "shop")
@@ -229,7 +270,9 @@ fn frames_match_the_php_tql() {
             };
             let database = database::connect(&connection, None).unwrap();
             let mut fake = Fake::sized(
-                Browser::new(connection, database).unwrap(),
+                Browser::new(connection, database)
+                    .unwrap()
+                    .with_store(history.clone()),
                 scenario.size.0,
                 scenario.size.1,
             );
