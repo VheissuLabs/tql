@@ -5,7 +5,7 @@ use std::process::Command;
 use app::database;
 use app::settings::{self, Settings};
 use app::store::Store;
-use app::tui::{Browser, Picker};
+use app::tui::{Browser, Picker, Places};
 use zerorust_tui::Fake;
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
@@ -13,6 +13,10 @@ const ROOT: &str = env!("CARGO_MANIFEST_DIR");
 const EMPTY_TABLE_HEADERS: &str = "an empty table shows its column headers; tql shows 'no columns' because it reads headers from the rows";
 
 const DELIBERATE: &[(&str, &str)] = &[
+    (
+        "conn-edit-over-ssh-type-a-path",
+        "typing into an empty field shows what is typed; tql shows the field's placeholder over it until enter",
+    ),
     ("empty-table", EMPTY_TABLE_HEADERS),
     ("inspect-empty-table", EMPTY_TABLE_HEADERS),
     ("mysql-inspect-empty-table", EMPTY_TABLE_HEADERS),
@@ -237,6 +241,28 @@ fn frames_match_the_php_tql() {
         ));
     }
 
+    let home = work.join("home");
+    for (path, contents) in [
+        (
+            ".ssh/id_parity",
+            "-----BEGIN OPENSSH PRIVATE KEY-----\nnot a real key\n",
+        ),
+        (".ssh/id_parity.pub", "ssh-ed25519 AAAA parity"),
+        (".ssh/config", "Host *"),
+        ("certs/ca.pem", ""),
+        ("certs/client.crt", ""),
+        ("certs/client.key", ""),
+        ("data/notes.sqlite", ""),
+    ] {
+        let file = home.join(path);
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(file, contents).unwrap();
+    }
+    let places = Places {
+        home: home.clone(),
+        cwd: home.clone(),
+    };
+
     let scenario_file = work.join("scenarios.json");
     fs::write(
         &scenario_file,
@@ -250,6 +276,7 @@ fn frames_match_the_php_tql() {
         .arg(&fixture)
         .arg(&scenario_file)
         .arg(&php_frames)
+        .env("TQL_PARITY_HOME", &home)
         .status()
         .expect("php is installed");
     assert!(status.success(), "the PHP renderer failed");
@@ -289,8 +316,12 @@ fn frames_match_the_php_tql() {
         }
         settings::install(scenario.settings.clone());
         let screen = if scenario.picker {
+            let store = work.join(format!("picker-{}.sqlite", scenario.name));
+            fs::copy(php_frames.join("tql.sqlite"), &store).unwrap();
             let mut fake = Fake::sized(
-                Picker::new(saved.clone(), None),
+                Picker::new(saved.clone(), None)
+                    .with_store(&store, &php_frames.join("key"))
+                    .with_places(places.clone()),
                 scenario.size.0,
                 scenario.size.1,
             );
@@ -326,7 +357,8 @@ fn frames_match_the_php_tql() {
         );
         let mut actual = normalize(&screen);
         let bar = scenario.size.1 as usize - 3;
-        if scenario.hotkey_bar && scenario.size.0 >= 60 && scenario.size.1 >= 12 {
+        if scenario.hotkey_bar && !scenario.picker && scenario.size.0 >= 60 && scenario.size.1 >= 12
+        {
             for frame in [&mut expected, &mut actual] {
                 if bar < frame.len() {
                     frame[bar] = format!("⟨hotkey bar: {HOTKEY_BAR_REASON}⟩");

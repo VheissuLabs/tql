@@ -1,0 +1,977 @@
+[
+  {
+    "name": "conn-new-form",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n"
+    ]
+  },
+  {
+    "name": "conn-new-driver-cycled",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-new-driver-left",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "\u001b[D"
+    ]
+  },
+  {
+    "name": "conn-new-driver-pgsql",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "l",
+      "l"
+    ]
+  },
+  {
+    "name": "conn-new-driver-back-to-sqlite",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "l",
+      "l",
+      "l",
+      "l"
+    ]
+  },
+  {
+    "name": "conn-new-name-typing",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "j",
+      "\n",
+      "My DB"
+    ]
+  },
+  {
+    "name": "conn-new-name-kept",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "j",
+      "\n",
+      "My DB",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-new-name-dropped",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "j",
+      "\n",
+      "My DB",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "conn-new-no-name",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "conn-new-no-path",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "j",
+      "\n",
+      "notes",
+      "\n",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "conn-new-saved",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "j",
+      "\n",
+      "notes",
+      "\n",
+      "j",
+      "\n",
+      "data/notes.sqlite",
+      "\n",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "conn-new-saved-while-typing",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "j",
+      "\n",
+      "notes",
+      "\n",
+      "j",
+      "\n",
+      "data/notes.sqlite",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "conn-new-cancelled",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "q"
+    ]
+  },
+  {
+    "name": "conn-new-long-path",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "j",
+      "j",
+      "\n",
+      "~/code/kmstools-lunar/database/database-for-the-lunar-project.sqlite"
+    ]
+  },
+  {
+    "name": "conn-new-mysql-saved",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "n",
+      "\n",
+      "j",
+      "\n",
+      "local mysql",
+      "\n",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "conn-edit-form",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e"
+    ]
+  },
+  {
+    "name": "conn-edit-sqlite",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "e"
+    ]
+  },
+  {
+    "name": "conn-edit-password-dots",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "e"
+    ]
+  },
+  {
+    "name": "conn-edit-cursor-moves",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "\n",
+      "\u001b[D",
+      "\u001b[D",
+      "X"
+    ]
+  },
+  {
+    "name": "conn-edit-backspace",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "\n",
+      "\u001b[D",
+      "\u007f"
+    ]
+  },
+  {
+    "name": "conn-edit-home-typing",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "\n",
+      "\u001b[H",
+      "The "
+    ]
+  },
+  {
+    "name": "conn-edit-ssl-mode",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\u001b[C"
+    ]
+  },
+  {
+    "name": "conn-edit-ssl-mode-back",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\u001b[C",
+      "h"
+    ]
+  },
+  {
+    "name": "conn-edit-ssl-cert-picker",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\u001b[C",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-edit-ssl-cert-typed",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\u001b[C",
+      "j",
+      "\n",
+      "client"
+    ]
+  },
+  {
+    "name": "conn-edit-ssl-cert-chosen",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\u001b[C",
+      "j",
+      "\n",
+      "client",
+      "\u000e",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-edit-over-ssh",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      " "
+    ]
+  },
+  {
+    "name": "conn-edit-over-ssh-key-picker",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      " ",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-edit-over-ssh-key-chosen",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      " ",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-edit-over-ssh-type-a-path",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      " ",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "\u000e",
+      "\n",
+      "~/keys/deploy"
+    ]
+  },
+  {
+    "name": "conn-edit-over-ssh-nothing-matches",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      " ",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "zzz"
+    ]
+  },
+  {
+    "name": "conn-edit-over-ssh-picker-closed",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      " ",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "conn-edit-over-ssh-tall",
+    "screen": "picker",
+    "size": [
+      120,
+      44
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      " "
+    ]
+  },
+  {
+    "name": "conn-edit-tag-picker",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-edit-tag-picker-down",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "\u001b[B",
+      "\u001b[B"
+    ]
+  },
+  {
+    "name": "conn-edit-tag-typed",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "st"
+    ]
+  },
+  {
+    "name": "conn-edit-tag-chosen",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "st",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-edit-tag-none",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "none",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-edit-read-only",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l"
+    ]
+  },
+  {
+    "name": "conn-edit-at-the-bottom",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "conn-edit-renamed",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "\n",
+      "!",
+      "\n",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "conn-edit-renamed-taken",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "\n",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "\u007f",
+      "shop",
+      "\n",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "conn-edit-escape",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "\n",
+      "X",
+      "\n",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "conn-edit-pgsql-saved",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "e",
+      "\u0013"
+    ]
+  },
+  {
+    "name": "conn-edit-small",
+    "screen": "picker",
+    "size": [
+      80,
+      16
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      " "
+    ]
+  },
+  {
+    "name": "conn-edit-narrow",
+    "screen": "picker",
+    "size": [
+      60,
+      24
+    ],
+    "keys": [
+      "e"
+    ]
+  },
+  {
+    "name": "conn-mark",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "d"
+    ]
+  },
+  {
+    "name": "conn-mark-two",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "d",
+      "d"
+    ]
+  },
+  {
+    "name": "conn-mark-toggle",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "d",
+      "k",
+      "d"
+    ]
+  },
+  {
+    "name": "conn-mark-cleared",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "d",
+      "d",
+      "u"
+    ]
+  },
+  {
+    "name": "conn-mark-written",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "d",
+      ":",
+      "w",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-mark-two-written",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "d",
+      "d",
+      ":",
+      "w",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-mark-last-written",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "d",
+      ":",
+      "w",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-mark-quit",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "d",
+      "q"
+    ]
+  },
+  {
+    "name": "conn-mark-colon-quit",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "d",
+      ":",
+      "q",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-command-new",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      ":",
+      "n",
+      "e",
+      "w",
+      "\n"
+    ]
+  },
+  {
+    "name": "conn-mark-then-edit",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "d",
+      "e"
+    ]
+  }
+]
