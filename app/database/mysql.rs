@@ -4,7 +4,7 @@ use anyhow::Context;
 use mysql::prelude::Queryable;
 use mysql::{Conn, OptsBuilder, Value};
 
-use super::{Database, Page, Sort, select_page, single_column_keys};
+use super::{Database, Outcome, Page, Sort, outcome_or_affected, select_page, single_column_keys};
 use crate::store::Connection;
 
 pub struct MySql {
@@ -36,22 +36,12 @@ impl MySql {
     }
 
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
-        let mut result = self.connection.query_iter(sql)?;
-        let mut page = Page::default();
-
-        if let Some(set) = result.iter() {
-            page.headers = set
-                .columns()
-                .as_ref()
-                .iter()
-                .map(|column| column.name_str().into_owned())
-                .collect();
-            for row in set {
-                page.rows
-                    .push(row?.unwrap().into_iter().map(text).collect());
-            }
-        }
-        Ok(page)
+        let outcome = self.run(sql)?;
+        Ok(Page {
+            headers: outcome.headers,
+            rows: outcome.rows,
+            ..Page::default()
+        })
     }
 }
 
@@ -139,5 +129,29 @@ impl Database for MySql {
         self.connection
             .query_drop(format!("use {}", quote_backtick(name)))?;
         Ok(())
+    }
+
+    fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        let mut result = self.connection.query_iter(statement)?;
+        let affected = result.affected_rows() as usize;
+        let mut headers = Vec::new();
+        let mut rows = Vec::new();
+
+        if let Some(set) = result.iter() {
+            headers = set
+                .columns()
+                .as_ref()
+                .iter()
+                .map(|column| column.name_str().into_owned())
+                .collect();
+            for row in set {
+                rows.push(row?.unwrap().into_iter().map(text).collect());
+            }
+        }
+        Ok(outcome_or_affected(headers, rows, affected))
+    }
+
+    fn quote(&self, identifier: &str) -> String {
+        quote_backtick(identifier)
     }
 }

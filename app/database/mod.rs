@@ -1,10 +1,13 @@
 mod mysql;
+pub mod order_by;
 mod postgres;
 mod sqlite;
 
 use std::collections::HashMap;
+use std::sync::LazyLock;
 
 use anyhow::{anyhow, bail};
+use regex::Regex;
 
 use crate::encrypter::Encrypter;
 use crate::store::Connection;
@@ -37,6 +40,13 @@ pub struct Page {
     pub rows: Vec<Vec<Option<String>>>,
 }
 
+#[derive(Debug, Clone, Default, PartialEq)]
+pub struct Outcome {
+    pub headers: Vec<String>,
+    pub rows: Vec<Vec<Option<String>>>,
+    pub affected: Option<usize>,
+}
+
 pub trait Database {
     fn tables(&mut self) -> anyhow::Result<Vec<String>>;
 
@@ -57,6 +67,38 @@ pub trait Database {
     fn use_database(&mut self, _name: &str) -> anyhow::Result<()> {
         Ok(())
     }
+
+    fn run(&mut self, _statement: &str) -> anyhow::Result<Outcome> {
+        bail!("this connection cannot run statements")
+    }
+
+    fn quote(&self, identifier: &str) -> String {
+        quote_double(identifier)
+    }
+
+    fn column_names(&mut self, table: &str) -> anyhow::Result<Vec<String>> {
+        Ok(self.rows(table, 0, 0, None)?.headers)
+    }
+}
+
+static LEADING_NOISE: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?s)^(--[^\n]*\n|/\*.*?\*/|\s)+").expect("the leading noise pattern is valid")
+});
+
+static READING: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"(?i)^(select|show|explain|describe|desc|pragma|with)\b")
+        .expect("the read-only pattern is valid")
+});
+
+pub fn is_read_only(statement: &str) -> bool {
+    let normalised = LEADING_NOISE.replace(statement.trim_start(), "");
+    if normalised
+        .trim_end_matches([';', ' ', '\n', '\r', '\t'])
+        .contains(';')
+    {
+        return false;
+    }
+    READING.is_match(&normalised)
 }
 
 pub fn connect(
@@ -111,6 +153,24 @@ pub(crate) fn quote_double(identifier: &str) -> String {
     format!("\"{}\"", identifier.replace('"', "\"\""))
 }
 
+pub(crate) fn outcome_or_affected(
+    headers: Vec<String>,
+    rows: Vec<Vec<Option<String>>>,
+    affected: usize,
+) -> Outcome {
+    if headers.is_empty() {
+        return Outcome {
+            affected: Some(affected),
+            ..Outcome::default()
+        };
+    }
+    Outcome {
+        headers,
+        rows,
+        affected: None,
+    }
+}
+
 pub(crate) fn single_column_keys(pairs: Vec<(String, String)>) -> HashMap<String, String> {
     let mut columns: HashMap<String, Vec<String>> = HashMap::new();
     for (table, column) in pairs {
@@ -120,4 +180,29 @@ pub(crate) fn single_column_keys(pairs: Vec<(String, String)>) -> HashMap<String
         .into_iter()
         .filter_map(|(table, mut key)| (key.len() == 1).then(|| (table, key.remove(0))))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn only_a_single_reading_statement_is_read_only() {
+        for reading in [
+            "select 1",
+            "  -- note\n/* block */ SHOW tables;",
+            "with t as (select 1) select * from t",
+            "pragma table_info(x)",
+        ] {
+            assert!(is_read_only(reading), "{reading}");
+        }
+        for writing in [
+            "update t set a = 1",
+            "select 1; drop table t",
+            "delete from t",
+            "selection",
+        ] {
+            assert!(!is_read_only(writing), "{writing}");
+        }
+    }
 }
