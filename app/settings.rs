@@ -20,6 +20,7 @@ pub struct Settings {
     pub sql_always: bool,
     pub sql_height: usize,
     pub sql_complete: bool,
+    pub sql_vim: bool,
     pub row_style: String,
     pub mouse: bool,
     pub double_click_ms: u64,
@@ -27,6 +28,7 @@ pub struct Settings {
     pub mouse_column_offset: i64,
     pub time_zone: String,
     pub inspect_related: usize,
+    pub export_path: String,
     theme: HashMap<String, String>,
     icons: HashMap<String, String>,
 }
@@ -42,6 +44,7 @@ impl Default for Settings {
             sql_always: false,
             sql_height: 0,
             sql_complete: true,
+            sql_vim: false,
             row_style: "marker".to_string(),
             mouse: true,
             double_click_ms: 400,
@@ -49,6 +52,7 @@ impl Default for Settings {
             mouse_column_offset: 0,
             time_zone: "UTC".to_string(),
             inspect_related: 10,
+            export_path: String::new(),
             theme: [
                 ("border", "dim"),
                 ("focus_border", "cyan"),
@@ -127,6 +131,7 @@ impl Settings {
             "ui.sql_always" => self.sql_always = flag(),
             "ui.sql_height" => self.sql_height = number(),
             "ui.sql_complete" => self.sql_complete = flag(),
+            "ui.sql_editor" => self.sql_vim = text().to_lowercase() == "vim",
             "ui.row_style" => self.row_style = text(),
             "ui.mouse" => self.mouse = flag(),
             "ui.double_click_ms" => self.double_click_ms = number() as u64,
@@ -136,6 +141,7 @@ impl Settings {
             }
             "ui.time_zone" => self.time_zone = text(),
             "ui.inspect_related" => self.inspect_related = number(),
+            "ui.export_path" => self.export_path = text(),
             _ => {
                 if let Some(name) = key.strip_prefix("theme.") {
                     self.theme.insert(name.to_string(), text());

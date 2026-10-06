@@ -2,7 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use app::database;
+use app::database::{self, Exporter};
 use app::settings::{self, Settings};
 use app::store::Store;
 use app::tui::{Browser, Picker, Places};
@@ -25,6 +25,15 @@ const DELIBERATE: &[(&str, &str)] = &[
     ("inspect-empty-table", EMPTY_TABLE_HEADERS),
     ("mysql-inspect-empty-table", EMPTY_TABLE_HEADERS),
     ("yank-empty-table", EMPTY_TABLE_HEADERS),
+    ("export-empty-table", EMPTY_TABLE_HEADERS),
+    (
+        "export-results",
+        "query results are exported as the text the grid holds, so numbers are quoted; tql writes them bare. Both re-import to the same rows",
+    ),
+    (
+        "export-narrow",
+        "a long status cuts the line by what is visible; tql counts colour codes too and cuts it early",
+    ),
     (
         "sql-error",
         "the database's own words without PDO's 'SQLSTATE[HY000]: General error: 1' in front",
@@ -88,7 +97,13 @@ struct Scenario {
     keys: Vec<String>,
 }
 
-fn scenario_json() -> Vec<serde_json::Value> {
+const EXPORTS: &str = "$EXPORTS";
+
+fn export_stamps() -> regex::Regex {
+    regex::Regex::new(r"\d{8}-\d{6}\.sql").unwrap()
+}
+
+fn scenario_json(exports: &Path) -> Vec<serde_json::Value> {
     let mut files: Vec<_> = fs::read_dir(Path::new(ROOT).join("parity/scenarios"))
         .unwrap()
         .map(|entry| entry.unwrap().path())
@@ -105,15 +120,18 @@ fn scenario_json() -> Vec<serde_json::Value> {
     files
         .iter()
         .flat_map(|file| {
-            let json: serde_json::Value = serde_json::from_str(&fs::read_to_string(file).unwrap())
+            let source = fs::read_to_string(file)
+                .unwrap()
+                .replace(EXPORTS, &exports.display().to_string());
+            let json: serde_json::Value = serde_json::from_str(&source)
                 .unwrap_or_else(|error| panic!("{} is not valid JSON: {error}", file.display()));
             json.as_array().unwrap().clone()
         })
         .collect()
 }
 
-fn scenarios() -> Vec<Scenario> {
-    scenario_json()
+fn scenarios(exports: &Path) -> Vec<Scenario> {
+    scenario_json(exports)
         .iter()
         .map(|scenario| Scenario {
             name: scenario["name"].as_str().unwrap().to_string(),
@@ -145,12 +163,14 @@ fn scenarios() -> Vec<Scenario> {
 }
 
 fn normalize(frame: &str) -> Vec<String> {
+    let stamps = export_stamps();
     let mut lines: Vec<String> = frame
         .lines()
+        .map(|line| stamps.replace_all(line, "YYYYMMDD-HHMMSS.sql").into_owned())
         .map(|line| {
             let mut normalized = String::new();
             let mut digits = String::new();
-            let mut rest = line.trim_end();
+            let mut rest = line.as_str().trim_end();
             while let Some(character) = rest.chars().next() {
                 rest = &rest[character.len_utf8()..];
                 if character.is_ascii_digit() {
@@ -270,7 +290,7 @@ fn frames_match_the_php_tql() {
     let scenario_file = work.join("scenarios.json");
     fs::write(
         &scenario_file,
-        serde_json::to_string(&scenario_json()).unwrap(),
+        serde_json::to_string(&scenario_json(&work.join("exports"))).unwrap(),
     )
     .unwrap();
 
@@ -310,7 +330,7 @@ fn frames_match_the_php_tql() {
         .unwrap()
         .clone();
 
-    for scenario in scenarios() {
+    for scenario in scenarios(&work.join("exports")) {
         fs::write(&fixture, &pristine).unwrap();
         if scenario.connection.is_some() && !mysql {
             continue;
@@ -412,5 +432,124 @@ fn frames_match_the_php_tql() {
         differing.is_empty(),
         "{} scenarios differ from the PHP tql",
         differing.len()
+    );
+}
+
+fn without_export_time(sql: &str) -> String {
+    sql.lines()
+        .map(|line| match line.strip_prefix("-- exported: ") {
+            Some(_) => "-- exported: ⟨time⟩",
+            None => line,
+        })
+        .collect::<Vec<_>>()
+        .join("\n")
+}
+
+#[test]
+#[ignore = "needs PHP and a tql checkout; run with --ignored"]
+fn export_files_match_the_php_tql() {
+    let work = std::env::temp_dir().join(format!("tql-parity-export-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&work);
+    fs::create_dir_all(&work).unwrap();
+
+    let fixture = work.join("shop.sqlite");
+    rusqlite::Connection::open(&fixture)
+        .unwrap()
+        .execute_batch(&fs::read_to_string(Path::new(ROOT).join("parity/fixture.sql")).unwrap())
+        .unwrap();
+
+    let php = work.join("php");
+    let status = Command::new("php")
+        .arg(Path::new(ROOT).join("parity/export.php"))
+        .arg(&fixture)
+        .arg(&php)
+        .status()
+        .expect("php is installed");
+    assert!(status.success(), "the PHP exporter failed");
+
+    let rust = work.join("rust");
+    fs::create_dir_all(&rust).unwrap();
+    let mut settings = Settings::default();
+    settings.export_path = rust.display().to_string();
+    settings::install(settings);
+    let connection = app::store::Connection::sqlite("shop", fixture.to_str().unwrap());
+    let mut database = database::connect(&connection, None).unwrap();
+    let exporter = Exporter::new(&connection, None);
+    let tables: Vec<String> =
+        serde_json::from_str(&fs::read_to_string(php.join("tables.json")).unwrap()).unwrap();
+
+    for table in &tables {
+        exporter
+            .table(
+                database.as_mut(),
+                table,
+                Some(rust.join(format!("{table}.sql"))),
+                None,
+            )
+            .unwrap();
+    }
+    exporter
+        .table(
+            database.as_mut(),
+            "customers",
+            Some(rust.join("customers-limited.sql")),
+            Some(7),
+        )
+        .unwrap();
+    exporter
+        .tables(
+            database.as_mut(),
+            &tables,
+            Some(rust.join("every-table.sql")),
+            None,
+        )
+        .unwrap();
+    exporter
+        .tables(
+            database.as_mut(),
+            &tables,
+            Some(rust.join("every-table-limited.sql")),
+            Some(2),
+        )
+        .unwrap();
+    exporter
+        .rows(
+            database.as_ref(),
+            "results",
+            &["id".to_string(), "name".to_string(), "notes".to_string()],
+            &[
+                vec![Some("1".to_string()), Some("it's".to_string()), None],
+                vec![
+                    Some("2".to_string()),
+                    Some("line\nbreak".to_string()),
+                    Some("x".to_string()),
+                ],
+            ],
+            Some(rust.join("results.sql")),
+        )
+        .unwrap();
+
+    let mut differing = Vec::new();
+    let mut compared = 0;
+    for entry in fs::read_dir(&php).unwrap() {
+        let path = entry.unwrap().path();
+        if path.extension().is_none_or(|extension| extension != "sql") {
+            continue;
+        }
+        let name = path.file_name().unwrap().to_owned();
+        let expected = without_export_time(&fs::read_to_string(&path).unwrap());
+        let actual = without_export_time(&fs::read_to_string(rust.join(&name)).unwrap());
+        compared += 1;
+        if expected != actual {
+            differing.push(name.to_string_lossy().into_owned());
+        }
+    }
+
+    println!("export files compared {compared}, differing: {differing:?}");
+    println!("files in {}", work.display());
+    assert!(compared > tables.len());
+    assert!(
+        differing.is_empty(),
+        "{differing:?} differ from the PHP tql"
     );
 }

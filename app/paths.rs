@@ -22,6 +22,13 @@ pub fn key() -> PathBuf {
     config_directory().join("key")
 }
 
+pub fn expand(path: &str) -> String {
+    if path == "~" || path.starts_with("~/") {
+        return format!("{}{}", home().display(), &path[1..]);
+    }
+    path.to_string()
+}
+
 pub fn shorten(path: &str) -> String {
     shorten_from(path, &home())
 }

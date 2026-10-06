@@ -1,0 +1,1882 @@
+[
+  {
+    "name": "vim-open",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-open-from-grid",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "s"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-insert",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "n",
+      "a",
+      "m",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-insert-escape",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "n",
+      "a",
+      "m",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-insert-append",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "A"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-insert-open-below",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "o",
+      "w",
+      "h",
+      "e",
+      "r",
+      "e",
+      " ",
+      "i",
+      "d",
+      " ",
+      "=",
+      " ",
+      "1"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-insert-open-above",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "O",
+      "-",
+      "-",
+      " ",
+      "n",
+      "o",
+      "t",
+      "e"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-insert-ctrl-w",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "A",
+      " ",
+      "l",
+      "i",
+      "m",
+      "i",
+      "t",
+      " ",
+      "5",
+      "\u0017"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-insert-ctrl-u",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "A",
+      "\u0015"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-motion-words",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "3",
+      "w"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-motion-end",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "$"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-motion-find",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "f",
+      "\""
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-motion-find-repeat",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "f",
+      "\"",
+      ";"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-motion-lines",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "*",
+      "\n",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\n",
+      "w",
+      "h",
+      "e",
+      "r",
+      "e",
+      " ",
+      "i",
+      "d",
+      " ",
+      ">",
+      " ",
+      "1",
+      "\u001b",
+      "g",
+      "g"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-motion-last-line",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "*",
+      "\n",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\n",
+      "w",
+      "h",
+      "e",
+      "r",
+      "e",
+      " ",
+      "i",
+      "d",
+      " ",
+      ">",
+      " ",
+      "1",
+      "\u001b",
+      "g",
+      "g",
+      "G"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-delete-word",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "d",
+      "w"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-delete-line",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "n",
+      "a",
+      "m",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\n",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "t",
+      "i",
+      "t",
+      "l",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "p",
+      "r",
+      "o",
+      "d",
+      "u",
+      "c",
+      "t",
+      "s",
+      "\u001b",
+      "d",
+      "d"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-delete-inner-quote",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "f",
+      "\"",
+      "d",
+      "i",
+      "\""
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-change-word",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "c",
+      "w",
+      "u",
+      "p",
+      "d",
+      "a",
+      "t",
+      "e"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-change-inner-word-escape",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "w",
+      "c",
+      "i",
+      "w",
+      "n",
+      "a",
+      "m",
+      "e",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-replace",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "r",
+      "S"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-swap-case",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "3",
+      "~"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-join",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "*",
+      "\n",
+      " ",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\u001b",
+      "g",
+      "g",
+      "J"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-indent",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "*",
+      "\n",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\u001b",
+      "g",
+      "g",
+      ">",
+      "j"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-dot-repeat",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "d",
+      "w",
+      ".",
+      "."
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-undo",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "d",
+      "w",
+      "u"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-undo-oldest",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "u"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-redo",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "d",
+      "w",
+      "u",
+      "\u0012"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-redo-newest",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "\u0012"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-yank-line",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "y",
+      "y"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-yank-word",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "y",
+      "i",
+      "w"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-yank-lines",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "n",
+      "a",
+      "m",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\n",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "t",
+      "i",
+      "t",
+      "l",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "p",
+      "r",
+      "o",
+      "d",
+      "u",
+      "c",
+      "t",
+      "s",
+      "\u001b",
+      "g",
+      "g",
+      "y",
+      "j"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-put-line",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "y",
+      "y",
+      "p"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-put-word",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "y",
+      "i",
+      "w",
+      "P"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "v",
+      "e"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual-words",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "v",
+      "3",
+      "e"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual-swap-end",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "w",
+      "w",
+      "v",
+      "b",
+      "o"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual-line",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "n",
+      "a",
+      "m",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\n",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "t",
+      "i",
+      "t",
+      "l",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "p",
+      "r",
+      "o",
+      "d",
+      "u",
+      "c",
+      "t",
+      "s",
+      "\u001b",
+      "V",
+      "k"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual-object",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "f",
+      "\"",
+      "v",
+      "i",
+      "\""
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual-yank",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "v",
+      "e",
+      "y"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual-delete",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "v",
+      "e",
+      "d"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual-change",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "v",
+      "e",
+      "c"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual-escape",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "v",
+      "e",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-visual-toggle",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "v",
+      "V"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-command-line",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      ":",
+      "r"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-command-line-cancel",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      ":",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-run",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      ":",
+      "r",
+      "\n"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-run-long",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      ":",
+      "r",
+      "u",
+      "n",
+      "\n"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-run-selection",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "n",
+      "a",
+      "m",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\n",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "t",
+      "i",
+      "t",
+      "l",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "p",
+      "r",
+      "o",
+      "d",
+      "u",
+      "c",
+      "t",
+      "s",
+      "\u001b",
+      "V",
+      ":",
+      "r",
+      "\n"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-run-selection-chars",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "t",
+      "i",
+      "t",
+      "l",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "p",
+      "r",
+      "o",
+      "d",
+      "u",
+      "c",
+      "t",
+      "s",
+      " ",
+      "w",
+      "h",
+      "e",
+      "r",
+      "e",
+      " ",
+      "p",
+      "r",
+      "i",
+      "c",
+      "e",
+      " ",
+      ">",
+      " ",
+      "2",
+      "\u001b",
+      "0",
+      "v",
+      "4",
+      "e",
+      ":",
+      "r",
+      "\n"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-run-second-statement",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "n",
+      "a",
+      "m",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      ";",
+      "\n",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "t",
+      "i",
+      "t",
+      "l",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "p",
+      "r",
+      "o",
+      "d",
+      "u",
+      "c",
+      "t",
+      "s",
+      "\u001b",
+      ":",
+      "r",
+      "\n"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-run-first-statement",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "n",
+      "a",
+      "m",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      ";",
+      "\n",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "t",
+      "i",
+      "t",
+      "l",
+      "e",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "p",
+      "r",
+      "o",
+      "d",
+      "u",
+      "c",
+      "t",
+      "s",
+      "\u001b",
+      "g",
+      "g",
+      ":",
+      "r",
+      "\n"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-unknown-command",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      ":",
+      "n",
+      "o",
+      "p",
+      "e",
+      "\n"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-completion",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "*",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-completion-taken",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "*",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "\t"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-completion-closed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "*",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-completion-normal",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "*",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "\u001b",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-tab-out",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "\t"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-shift-tab-out",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "\u001b[Z"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-escape-to-grid",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-reopen-normal",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "i",
+      "\u001b",
+      "\u001b",
+      "s"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-palette",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "\u000b"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-always",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [],
+    "config": {
+      "ui.sql_editor": "vim",
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "vim-always-tab-in",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "\t"
+    ],
+    "config": {
+      "ui.sql_editor": "vim",
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "vim-always-run",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "\t",
+      ":",
+      "r",
+      "\n"
+    ],
+    "config": {
+      "ui.sql_editor": "vim",
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "vim-bottom",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "0",
+      "v",
+      "e"
+    ],
+    "config": {
+      "ui.sql_editor": "vim",
+      "ui.sql_position": "bottom"
+    }
+  },
+  {
+    "name": "vim-small",
+    "size": [
+      60,
+      14
+    ],
+    "keys": [
+      "s",
+      "0",
+      "v"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-paragraph",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "1",
+      "\n",
+      "\n",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "2",
+      "\n",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\u001b",
+      "d",
+      "a",
+      "p"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-brackets",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "c",
+      "o",
+      "u",
+      "n",
+      "t",
+      "(",
+      "i",
+      "d",
+      ")",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\u001b",
+      "f",
+      "(",
+      "c",
+      "i",
+      "(",
+      "*",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  },
+  {
+    "name": "vim-percent",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "s",
+      "S",
+      "s",
+      "e",
+      "l",
+      "e",
+      "c",
+      "t",
+      " ",
+      "c",
+      "o",
+      "u",
+      "n",
+      "t",
+      "(",
+      "i",
+      "d",
+      ")",
+      " ",
+      "f",
+      "r",
+      "o",
+      "m",
+      " ",
+      "c",
+      "u",
+      "s",
+      "t",
+      "o",
+      "m",
+      "e",
+      "r",
+      "s",
+      "\u001b",
+      "f",
+      "(",
+      "%"
+    ],
+    "config": {
+      "ui.sql_editor": "vim"
+    }
+  }
+]

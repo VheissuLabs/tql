@@ -7,6 +7,7 @@ use zerorust_tui::prelude::*;
 mod command_palette;
 mod databases;
 mod editing;
+mod export;
 mod filters;
 mod inspect;
 mod keys;
@@ -16,6 +17,7 @@ mod mouse;
 mod query;
 mod render;
 mod structure;
+mod vim;
 mod yank;
 
 pub use editing::Edits;
@@ -24,6 +26,7 @@ use links::{Jump, LinkPicker};
 use mouse::{Area, Drag, Hits};
 pub use query::Query;
 use structure::StructureView;
+use vim::query_hint;
 
 use super::choice::{self, Choice};
 use super::chrome::{self, Island, Modal, theme};
@@ -292,6 +295,14 @@ impl Tui for Browser {
         match keymap::action(key) {
             Some(binding) => self.run(binding.action),
             None => Flow::Continue,
+        }
+    }
+
+    fn cursor_shape(&self) -> CursorShape {
+        if self.inserts_at_terminal_cursor() {
+            CursorShape::Bar
+        } else {
+            CursorShape::Default
         }
     }
 
