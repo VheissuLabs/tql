@@ -1,2 +1,1 @@
-name = "Tql Rust"
-env = "${APP_ENV:-development}"
+name = "tql"

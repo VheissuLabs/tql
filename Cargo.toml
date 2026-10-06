@@ -12,9 +12,29 @@ name = "tql-rust"
 path = "main.rs"
 
 [dependencies]
+aes = "0.8"
+anyhow = "1.0.104"
+base64 = "0.22"
+cbc = "0.1"
+hmac = "0.12"
+mysql = { version = "28.0.3", default-features = false, features = ["minimal"] }
+postgres = "0.19.14"
+regex = "1.13.1"
+rusqlite = { version = "0.40.2", features = ["bundled"] }
+serde_json = { version = "1.0.151", features = ["preserve_order"] }
+sha2 = "0.10"
+toml = "1.1.6"
+unicode-width = "0.2.2"
 zerorust = { path = "/Users/karlm/Code/zeroRust/zerorust" }
+zerorust-tui = { path = "/Users/karlm/Code/zeroRust/zerorust-tui" }
 
 [build-dependencies]
 zerorust-build = { path = "/Users/karlm/Code/zeroRust/zerorust-build" }
 
 [workspace]
+
+[profile.dev]
+opt-level = 1
+
+[profile.dev.package."*"]
+opt-level = 3
