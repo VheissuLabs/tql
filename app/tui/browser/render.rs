@@ -3,8 +3,22 @@ use super::*;
 impl Browser {
     pub(super) fn offers(&self) -> Vec<(String, &'static str)> {
         let key = |action, which| keymap::key(action, which);
+        let more = (key(Action::Palette, 0), "More");
+        let help = (key(Action::Help, 0), "Help");
         if self.problem.is_some() {
             return vec![("esc".into(), "Close")];
+        }
+        if let Some(palette) = &self.palette {
+            let chosen = if palette.title == "HISTORY" {
+                "Use"
+            } else {
+                "Run"
+            };
+            return vec![
+                ("↑↓".into(), "Move"),
+                ("↵".into(), chosen),
+                ("esc".into(), "Close"),
+            ];
         }
         if self.databases.is_some() {
             return vec![
@@ -22,6 +36,21 @@ impl Browser {
         if self.mode == Mode::Help {
             return vec![("j k".into(), "Scroll"), ("esc".into(), "Close")];
         }
+        if self.mode == Mode::Query && self.query.completion.is_some() {
+            return vec![
+                ("tab".into(), "Complete"),
+                ("↑↓".into(), "Choose"),
+                ("esc".into(), "Close"),
+            ];
+        }
+        if self.mode == Mode::Query {
+            return vec![
+                ("ctrl+r".into(), "Run"),
+                ("↵".into(), "New line"),
+                ("esc".into(), "Grid"),
+                more,
+            ];
+        }
         let database_offer = if self.connection.driver == "sqlite" {
             String::new()
         } else {
@@ -38,7 +67,16 @@ impl Browser {
                 ),
                 (database_offer, "Database"),
                 (key(Action::FocusRows, 0), "Rows"),
-                (key(Action::Help, 0), "Help"),
+                more,
+                help,
+            ];
+        }
+        if self.query.results {
+            return vec![
+                (key(Action::Sql, 0), "Edit query"),
+                ("esc".into(), "Back"),
+                more,
+                help,
             ];
         }
 
@@ -54,16 +92,18 @@ impl Browser {
             ));
         }
         offers.push((key(Action::SortColumn, 0), "Sort"));
-        offers.push((key(Action::Help, 0), "Help"));
+        offers.push((key(Action::Sql, 0), "SQL"));
+        offers.push(more);
+        offers.push(help);
         offers
     }
 
     pub(super) fn status_line(&self, width: usize) -> Line<'static> {
         if let Some(command) = &self.command {
-            let hint = if command == "r" {
-                "  reloads the table"
-            } else {
-                ""
+            let hint = match (command.as_str(), self.mode) {
+                ("r", Mode::Query) => "  runs the query",
+                ("r", _) => "  reloads the table",
+                _ => "",
             };
             return Line::from(vec![
                 Span::raw(format!(" :{command}")),
@@ -100,11 +140,19 @@ impl Browser {
         } else {
             format!(" · col {}/{}", self.column_index + 1, self.headers.len())
         };
+        let back = if self.query.results {
+            let table = self
+                .current_table()
+                .unwrap_or_else(|| "the table".to_string());
+            format!(" · esc goes back to {table}")
+        } else {
+            String::new()
+        };
         let left = Line::from(vec![
             Span::raw(" "),
             name,
             tag,
-            Span::styled(position, theme::dim()),
+            Span::styled(format!("{position}{back}"), theme::dim()),
         ]);
 
         let Some(said) = self.status.as_deref().filter(|said| !said.is_empty()) else {
@@ -139,7 +187,7 @@ impl Browser {
 
     pub(super) fn sidebar(&self, tables_width: usize, frame_height: u16) -> Island {
         let mut island = Island::placed(1, 1, tables_width as u16 + 2, frame_height);
-        island.focused = self.focus == Focus::Sidebar;
+        island.focused = self.focus == Focus::Sidebar && self.mode != Mode::Query;
 
         let name = match self.connection.driver.as_str() {
             "sqlite" => Path::new(self.connection.database.as_deref().unwrap_or_default())
@@ -192,11 +240,13 @@ impl Browser {
 
     pub(super) fn grid(&mut self, x: u16, y: u16, width: u16, height: u16) -> Island {
         let mut island = Island::placed(x, y, width, height);
-        island.focused = self.focus == Focus::Grid;
-        island.title = format!(
-            "[2] {}",
-            self.current_table().unwrap_or_else(|| "ROWS".to_string())
-        );
+        island.focused = self.focus == Focus::Grid && self.mode != Mode::Query;
+        let title = match (&self.query.table, self.query.results) {
+            (Some(table), true) => table.clone(),
+            (None, true) => "RESULTS".to_string(),
+            _ => self.current_table().unwrap_or_else(|| "ROWS".to_string()),
+        };
+        island.title = format!("[2] {title}");
 
         if self.pending.is_some() {
             island.content = vec![Line::styled(" loading…", theme::dim())];
@@ -268,7 +318,8 @@ impl Browser {
         };
         let right_width = area.width.saturating_sub(right_x).max(20);
 
-        let editor_height = if sql_always {
+        let sql_shown = sql_always || self.mode == Mode::Query;
+        let editor_height = if sql_shown {
             settings::with(|settings| settings.sql_height(frame_height as usize)) as u16
         } else {
             0
@@ -287,16 +338,12 @@ impl Browser {
         grid.draw(frame.buffer_mut());
 
         self.hits.table = Some(Area::of(&grid));
-        if sql_always {
-            let mut editor = Island::placed(right_x, editor_y, right_width, editor_height);
-            self.hits.editor = Some(Area::of(&editor));
-            editor.title = "[3] SQL".to_string();
-            editor.content = sql::lines(
-                self.last_statement.as_deref().unwrap_or_default(),
-                editor.inner_width(),
-                editor.inner_height(),
+        if sql_shown {
+            self.draw_editor(
+                frame,
+                Island::placed(right_x, editor_y, right_width, editor_height),
+                frame_height,
             );
-            editor.draw(frame.buffer_mut());
         }
 
         if self.mode == Mode::Help {
@@ -336,19 +383,39 @@ impl Browser {
             Modal::new(area.width, 1, frame_height, width).draw(frame.buffer_mut(), island, height);
         }
 
-        if let Some(problem) = &self.problem {
+        if let Some(palette) = &self.palette {
+            let width = area.width.saturating_sub(4).min(palette::WIDTH);
+            let height = frame_height.saturating_sub(2).min(palette.rows());
             let island = Island {
-                title: "ERROR".to_string(),
-                content: vec![Line::styled(format!(" {problem}"), theme::problem())],
+                title: palette.title.clone(),
+                content: palette.content(
+                    width.saturating_sub(2) as usize,
+                    height.saturating_sub(2) as usize,
+                ),
                 ..Island::default()
             };
-            Modal::new(
-                area.width,
-                1,
-                frame_height,
-                area.width.saturating_sub(4).min(70),
-            )
-            .draw(frame.buffer_mut(), island, 3);
+            Modal::new(area.width, 1, frame_height, width).draw(frame.buffer_mut(), island, height);
+        }
+
+        if let Some(message) = &self.problem {
+            let width = area.width.saturating_sub(4).min(error::WIDTH);
+            let problem = ErrorBox {
+                message,
+                notes: &self.problem_notes,
+                offset: self.problem_offset,
+            };
+            let height = frame_height
+                .saturating_sub(2)
+                .min(problem.rows(width as usize) as u16);
+            let island = Island {
+                title: self.problem_title.clone(),
+                content: problem.content(
+                    width.saturating_sub(2) as usize,
+                    height.saturating_sub(2) as usize,
+                ),
+                ..Island::default()
+            };
+            Modal::new(area.width, 1, frame_height, width).draw(frame.buffer_mut(), island, height);
         }
 
         if hotkey_bar {
@@ -363,5 +430,50 @@ impl Browser {
             frame_height + chrome_lines - 1,
             self.status_line(area.width as usize),
         );
+    }
+}
+
+impl Browser {
+    fn draw_editor(&mut self, frame: &mut Frame, mut editor: Island, frame_height: u16) {
+        let focused = self.mode == Mode::Query;
+        editor.focused = focused;
+        editor.title = "[3] SQL".to_string();
+        let mut pane = sql::pane(
+            &self.query.editor,
+            self.last_statement.as_deref(),
+            focused,
+            editor.inner_width(),
+            editor.inner_height(),
+        );
+        editor.content = std::mem::take(&mut pane.lines);
+        editor.draw(frame.buffer_mut());
+        self.hits.editor = Some(Area::of(&editor));
+
+        let offered = self
+            .query
+            .completion
+            .as_ref()
+            .filter(|completion| focused && completion.end == self.query.editor.cursor());
+        if let Some(completion) = offered {
+            let (row, column) = pane.cursor;
+            let cursor_row = editor.y + 1 + row as u16;
+            let (box_width, box_height) = (completion.columns(), completion.rows());
+            let below = cursor_row + 1;
+            let y = if below + box_height - 1 <= frame_height {
+                below
+            } else {
+                cursor_row.saturating_sub(box_height).max(1)
+            };
+            let typed = completion.end - completion.start;
+            let x = (editor.x as isize + 1 + column as isize - typed as isize - 2)
+                .min(frame.area().width as isize - box_width as isize)
+                .max(1) as u16;
+            let mut island = Island::placed(x, y, box_width, box_height);
+            island.modal = true;
+            island.focused = true;
+            island.content = completion.content(island.inner_width(), island.inner_height());
+            island.draw(frame.buffer_mut());
+        }
+        self.hits.editor_pane = Some(pane);
     }
 }

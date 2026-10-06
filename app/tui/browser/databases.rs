@@ -52,6 +52,7 @@ impl Browser {
         }
 
         self.active_database = Some(chosen.clone());
+        self.query.forget_schema();
         self.filter.clear();
         self.sort = None;
         self.offset = 0;

@@ -15,17 +15,27 @@ impl Browser {
     }
 
     pub(super) fn toggle_focus(&mut self, forward: bool) {
-        let panes: &[Focus] = if self.tables_hidden {
-            &[Focus::Grid]
+        let sql_shown = self.mode == Mode::Query || settings::with(|settings| settings.sql_always);
+        let panes: Vec<Option<Focus>> = [
+            (!self.tables_hidden).then_some(Some(Focus::Sidebar)),
+            Some(Some(Focus::Grid)),
+            sql_shown.then_some(None),
+        ]
+        .into_iter()
+        .flatten()
+        .collect();
+        let current = if self.mode == Mode::Query {
+            None
         } else {
-            &[Focus::Sidebar, Focus::Grid]
+            Some(self.focus)
         };
-        let at = panes
-            .iter()
-            .position(|pane| *pane == self.focus)
-            .unwrap_or(0);
+        let at = panes.iter().position(|pane| *pane == current).unwrap_or(0);
         let step = if forward { 1 } else { panes.len() - 1 };
-        self.focus = panes[(at + step) % panes.len()];
+        let Some(next) = panes[(at + step) % panes.len()] else {
+            self.open_query();
+            return;
+        };
+        self.focus = next;
         self.mode = Mode::Browse;
     }
 
@@ -63,9 +73,13 @@ impl Browser {
             "c" | "connections" => return Flow::Exit(Exit::Connections),
             "tables" => self.focus = Focus::Sidebar,
             "rows" => self.focus = Focus::Grid,
-            "r" | "reload" => self.reload(),
+            "r" => self.run_or_reload(),
+            "reload" => self.reload(),
+            "run" => self.run_statement_at_cursor(),
+            "sql" => self.open_query(),
+            "history" => self.open_history(),
             "w" | "write" => self.say("nothing to write"),
-            "run" | "sql" | "history" | "export" | "export sql" => {
+            "export" | "export sql" | "create database" | "drop database" => {
                 self.say(format!(":{command} is not ported yet"));
             }
             _ => self.say(format!("unknown command: :{command}")),
@@ -195,7 +209,11 @@ impl Browser {
             Action::Quit => return Flow::Exit(Exit::Quit),
             Action::Databases => self.open_databases(),
             Action::Activate => self.say("editing is not ported yet"),
-            Action::Escape | Action::Redraw => {}
+            Action::Sql | Action::FocusSql => self.open_query(),
+            Action::History => self.open_history(),
+            Action::Palette => self.open_palette(),
+            Action::Escape => self.back_to_table(),
+            Action::Redraw => {}
             other => {
                 let description = keymap::binding(other).description;
                 self.say(format!("{description}: not ported yet"));

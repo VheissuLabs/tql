@@ -12,9 +12,38 @@ pub fn ago(timestamp: Option<&str>, now: i64) -> String {
         return "never".to_string();
     };
 
-    let seconds = (now - then).max(0);
+    let (count, unit) = span(now - then);
+    let plural = if count == 1 { "" } else { "s" };
+    format!("{count} {unit}{plural} ago")
+}
+
+pub fn short(timestamp: &str, now: i64) -> String {
+    let Some(then) = parse(timestamp) else {
+        return String::new();
+    };
+
+    let (count, unit) = span(now - then);
+    let abbreviation = match unit {
+        "second" => "s",
+        "minute" => "m",
+        "hour" => "h",
+        "day" => "d",
+        "week" => "w",
+        "month" => "mo",
+        _ => "yr",
+    };
+    let plural = if count != 1 && abbreviation.len() > 1 {
+        "s"
+    } else {
+        ""
+    };
+    format!("{count}{abbreviation}{plural} ago")
+}
+
+fn span(seconds: i64) -> (i64, &'static str) {
+    let seconds = seconds.max(0);
     let days = seconds / 86_400;
-    let (count, unit) = match seconds {
+    match seconds {
         0..60 => (seconds, "second"),
         60..3_600 => (seconds / 60, "minute"),
         3_600..86_400 => (seconds / 3_600, "hour"),
@@ -22,9 +51,7 @@ pub fn ago(timestamp: Option<&str>, now: i64) -> String {
         _ if days < 30 => (days / 7, "week"),
         _ if days < 365 => (days / 30, "month"),
         _ => (days / 365, "year"),
-    };
-    let plural = if count == 1 { "" } else { "s" };
-    format!("{count} {unit}{plural} ago")
+    }
 }
 
 fn parse(timestamp: &str) -> Option<i64> {
@@ -62,6 +89,16 @@ mod tests {
         assert_eq!(ago(Some("2026-09-27 23:00:00"), now), "1 week ago");
         assert_eq!(ago(Some("2026-07-01 00:00:00"), now), "3 months ago");
         assert_eq!(ago(None, now), "never");
+    }
+
+    #[test]
+    fn shortens_like_carbons_short_diff() {
+        let now = parse("2026-10-05 23:00:00").unwrap();
+
+        assert_eq!(short("2026-10-05 23:00:00", now), "0s ago");
+        assert_eq!(short("2026-10-05 22:58:00", now), "2m ago");
+        assert_eq!(short("2026-08-01 23:00:00", now), "2mos ago");
+        assert_eq!(short("2024-08-01 23:00:00", now), "2yrs ago");
     }
 
     #[test]
