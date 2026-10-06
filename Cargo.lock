@@ -2599,6 +2599,7 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "cbc",
+ "getrandom 0.3.4",
  "hmac 0.12.1",
  "jiff",
  "mysql",

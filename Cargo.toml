@@ -16,6 +16,7 @@ aes = "0.8"
 anyhow = "1.0.104"
 base64 = "0.22"
 cbc = "0.1"
+getrandom = "0.3"
 hmac = "0.12"
 jiff = "0.2.37"
 mysql = { version = "28.0.3", default-features = false, features = ["minimal"] }

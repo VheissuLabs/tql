@@ -27,7 +27,7 @@ foreach ([
     ['name' => 'Cloud - quill', 'driver' => 'mysql', 'host' => 'db-a2cf02c7.example.com', 'port' => 3306, 'database' => 'quill', 'username' => 'wnadmeh2myuakpvs', 'tag' => 'production', 'used' => now()->subHours(2)],
     ['name' => 'Cloud - notarydash_prod_test', 'driver' => 'mysql', 'host' => 'db-a2cc1a3c.example.com', 'port' => 3306, 'database' => 'notarydash', 'username' => 'rrmgbofxo0yzczv7', 'tag' => 'production', 'used' => now()->subDays(8)],
     ['name' => 'MySql Dev', 'driver' => 'mysql', 'host' => '127.0.0.1', 'port' => 3306, 'database' => '', 'username' => 'root', 'tag' => 'local', 'used' => now()->subDays(9)],
-    ['name' => 'pg staging', 'driver' => 'pgsql', 'host' => 'pg.test', 'port' => 5432, 'database' => 'app', 'username' => 'me', 'tag' => 'staging', 'read_only' => true, 'used' => null],
+    ['name' => 'pg staging', 'driver' => 'pgsql', 'host' => 'pg.test', 'port' => 5432, 'database' => 'app', 'username' => 'me', 'tag' => 'staging', 'read_only' => true, 'password' => 's3cret', 'used' => null],
     ['name' => 'herd', 'driver' => 'mysql', 'host' => '127.0.0.1', 'port' => 3306, 'database' => 'tql_rust_scratch', 'username' => 'root', 'used' => now()->subDays(400)],
     ['name' => 'herd-any', 'driver' => 'mysql', 'host' => '127.0.0.1', 'port' => 3306, 'database' => '', 'username' => 'root', 'used' => now()->subDays(500)],
     ['name' => 'demo', 'driver' => 'sqlite', 'database' => getenv('HOME').'/Code/tql/demo.db', 'used' => now()->subDays(3)],
@@ -73,13 +73,26 @@ foreach ($scenarios as $scenario) {
     putenv('LINES='.($lines + $spare));
 
     if ($picker) {
-        $prompt = new App\Tui\ConnectionPicker(App\Models\Connection::orderByDesc('last_used_at')->orderBy('name')->get());
-        $prompt->terminal()->initDimensions();
-        foreach ($scenario['keys'] as $key) {
-            $prompt->emit('key', $key);
+        $realHome = getenv('HOME');
+        $realCwd = getcwd();
+        if ($fakeHome = getenv('TQL_PARITY_HOME')) {
+            putenv("HOME={$fakeHome}");
+            chdir($fakeHome);
         }
-        $frame = (string) (new App\Prompts\Renderers\ConnectionPickerRenderer($prompt))($prompt);
-        file_put_contents("{$out}/{$scenario['name']}.txt", preg_replace('/\e\[[0-9;?]*[A-Za-z]/', '', $frame));
+        Illuminate\Support\Facades\DB::beginTransaction();
+        try {
+            $prompt = new App\Tui\ConnectionPicker(App\Models\Connection::orderByDesc('last_used_at')->orderBy('name')->get());
+            $prompt->terminal()->initDimensions();
+            foreach ($scenario['keys'] as $key) {
+                $prompt->emit('key', $key);
+            }
+            $frame = (string) (new App\Prompts\Renderers\ConnectionPickerRenderer($prompt))($prompt);
+            file_put_contents("{$out}/{$scenario['name']}.txt", preg_replace('/\e\[[0-9;?]*[A-Za-z]/', '', $frame));
+        } finally {
+            Illuminate\Support\Facades\DB::rollBack();
+            putenv("HOME={$realHome}");
+            chdir($realCwd);
+        }
         continue;
     }
 
@@ -103,3 +116,4 @@ foreach ($scenarios as $scenario) {
 }
 
 copy(getenv('XDG_CONFIG_HOME').'/tql/tql.sqlite', "{$out}/tql.sqlite");
+copy(getenv('XDG_CONFIG_HOME').'/tql/key', "{$out}/key");
