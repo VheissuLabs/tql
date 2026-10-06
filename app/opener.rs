@@ -28,13 +28,8 @@ pub fn refuse_tag(tag: Option<&str>) -> Option<String> {
 
 pub fn target(path: &str) -> Result<Dsn, String> {
     if dsn::looks_like_one(path) {
-        let parsed = dsn::parse(path).ok_or("That connection string is not one I understand.")?;
-        if parsed.driver == "sqlsrv" {
-            return Err(
-                "SQL Server is not supported by tql-rust yet; open it with tql.".to_string(),
-            );
-        }
-        return Ok(parsed);
+        return dsn::parse(path)
+            .ok_or("That connection string is not one I understand.".to_string());
     }
 
     let file = Path::new(path);
