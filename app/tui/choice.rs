@@ -13,6 +13,7 @@ pub struct Choice {
     pub index: usize,
     pub query: String,
     pub creates: bool,
+    pub colors: Vec<(String, String)>,
 }
 
 impl Choice {
@@ -27,7 +28,20 @@ impl Choice {
             index,
             query: String::new(),
             creates,
+            colors: Vec::new(),
         }
+    }
+
+    pub fn with_colors(mut self, colors: Vec<(String, String)>) -> Self {
+        self.colors = colors;
+        self
+    }
+
+    pub fn color_of(&self, option: &str) -> Option<&str> {
+        self.colors
+            .iter()
+            .find(|(named, _)| named == option)
+            .map(|(_, color)| color.as_str())
     }
 
     pub fn matches(&self) -> Vec<&String> {
@@ -131,6 +145,7 @@ impl Choice {
         let start = window(self.index, rows.len(), room);
         for (at, option) in rows.iter().enumerate().skip(start).take(room) {
             let here = at == self.index;
+            let color = (at != creating_at).then(|| self.color_of(option)).flatten();
             let text = if at == creating_at {
                 pad(
                     &format!("  + create {}", truncate(option, width.saturating_sub(9))),
@@ -138,14 +153,23 @@ impl Choice {
                 )
             } else {
                 pad(
-                    &format!("    {}", truncate(option, width.saturating_sub(2))),
+                    &format!(
+                        "  {}{}",
+                        if color.is_some() { "● " } else { "  " },
+                        truncate(option, width.saturating_sub(2))
+                    ),
                     inner_width,
                 )
             };
-            lines.push(match (here, at == creating_at) {
-                (true, _) => Line::styled(text, theme::selection()),
-                (false, true) => Line::styled(text, theme::dim()),
-                (false, false) => Line::raw(text),
+            lines.push(match (here, at == creating_at, color) {
+                (true, _, _) => Line::styled(text, theme::selection()),
+                (false, true, _) => Line::styled(text, theme::dim()),
+                (false, false, Some(color)) => Line::from(vec![
+                    Span::raw("  "),
+                    Span::styled("●", theme::paint(color)),
+                    Span::raw(text.chars().skip(3).collect::<String>()),
+                ]),
+                (false, false, None) => Line::raw(text),
             });
         }
 
