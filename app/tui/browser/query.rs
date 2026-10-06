@@ -309,6 +309,7 @@ impl Browser {
         if let Some(store) = &self.store {
             history::record(
                 store,
+                "editor",
                 Execution {
                     connection_id: self.connection.id,
                     statement,

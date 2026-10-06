@@ -30,6 +30,14 @@ impl Browser {
         if let Some(offers) = self.editing_offers() {
             return offers;
         }
+        if self.databases.as_ref().is_some_and(|choice| choice.creates) {
+            return vec![
+                ("↑↓".into(), "Move"),
+                ("↵".into(), "Choose"),
+                ("ctrl+d".into(), "Drop"),
+                ("esc".into(), "Cancel"),
+            ];
+        }
         if self.databases.is_some() || self.link_picker.is_some() {
             return vec![
                 ("↑↓".into(), "Move"),

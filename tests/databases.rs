@@ -174,7 +174,8 @@ fn a_new_name_offers_to_create_it() {
     assert!(fake.screen().contains("+ create analytics"));
 
     fake.press("\n");
-    assert_eq!(fake.app.status(), "creating databases is not ported yet");
+    assert_eq!(fake.app.problem_title, "THE DATABASE SAID NO");
+    assert!(fake.app.databases.is_none());
 }
 
 #[test]

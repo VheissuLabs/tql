@@ -7,6 +7,7 @@ use zerorust_tui::prelude::*;
 mod command_palette;
 mod databases;
 mod editing;
+mod export;
 mod filters;
 mod inspect;
 mod keys;
