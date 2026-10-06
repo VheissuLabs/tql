@@ -1,3 +1,4 @@
+mod column_default;
 mod mysql;
 mod postgres;
 mod sqlite;
@@ -5,6 +6,8 @@ mod sqlite;
 use std::collections::HashMap;
 
 use anyhow::{anyhow, bail};
+
+pub use column_default::ColumnDefault;
 
 use crate::encrypter::Encrypter;
 use crate::store::Connection;

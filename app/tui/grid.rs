@@ -9,6 +9,26 @@ use crate::database::{Direction, Sort};
 pub const GUTTER: usize = 2;
 const COMFORTABLE: usize = 28;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Tone {
+    Marked,
+    Added,
+    Edited,
+}
+
+impl Tone {
+    fn style(self) -> Style {
+        let (key, fallback) = match self {
+            Tone::Marked => ("deleted", "red"),
+            Tone::Added => ("added", "green"),
+            Tone::Edited => ("edited", "yellow"),
+        };
+        theme::highlight(&crate::settings::with(|settings| {
+            settings.color(key, fallback)
+        }))
+    }
+}
+
 pub struct Grid<'a> {
     pub headers: &'a [String],
     pub rows: &'a [Vec<String>],
@@ -18,6 +38,7 @@ pub struct Grid<'a> {
     pub sort: Option<&'a Sort>,
     pub focused: bool,
     pub overrides: &'a HashMap<String, usize>,
+    pub tones: &'a [Option<Tone>],
 }
 
 impl Grid<'_> {
@@ -142,13 +163,13 @@ impl Grid<'_> {
         widths: &[usize],
         inner_width: usize,
     ) -> Line<'static> {
+        if let Some(tone) = self.tones.get(absolute).copied().flatten() {
+            return self.toned_line(row, absolute, tone, offset, widths, inner_width);
+        }
+
         let selected = absolute == self.row_index;
         let style = crate::settings::with(|settings| settings.row_style.clone());
-        let marker = if selected && style == "marker" {
-            " ▸"
-        } else {
-            "  "
-        };
+        let marker = marker(selected);
 
         let mut spans = vec![Span::raw(marker)];
         for (position, width) in widths.iter().enumerate() {
@@ -191,6 +212,61 @@ impl Grid<'_> {
             (true, "bold") => line.style(theme::bold()),
             (true, _) => line,
         }
+    }
+
+    fn toned_line(
+        &self,
+        row: &[String],
+        absolute: usize,
+        tone: Tone,
+        offset: usize,
+        widths: &[usize],
+        inner_width: usize,
+    ) -> Line<'static> {
+        let selected = absolute == self.row_index;
+        let marker = marker(selected);
+        let cells: Vec<String> = widths
+            .iter()
+            .enumerate()
+            .map(|(position, width)| {
+                let value = row
+                    .get(offset + position)
+                    .map(String::as_str)
+                    .unwrap_or_default();
+                format!(" {} ", pad(&truncate(value, *width), *width))
+            })
+            .collect();
+        let cursor_at = self
+            .column_index
+            .checked_sub(offset)
+            .filter(|at| *at < cells.len() && self.focused && selected);
+
+        let Some(at) = cursor_at else {
+            return Line::styled(
+                pad(&format!("{marker}{}", cells.join("│")), inner_width),
+                tone.style(),
+            );
+        };
+
+        let before = format!(
+            "{marker}{}{}",
+            cells[..at].join("│"),
+            if at > 0 { "│" } else { "" }
+        );
+        let after = format!(
+            "{}{}",
+            if at + 1 < cells.len() { "│" } else { "" },
+            cells[at + 1..].join("│")
+        );
+        let used = width(&before) + width(&cells[at]) + width(&after);
+        Line::from(vec![
+            Span::styled(before, tone.style()),
+            Span::styled(cells[at].clone(), theme::cursor()),
+            Span::styled(
+                format!("{after}{}", " ".repeat(inner_width.saturating_sub(used))),
+                tone.style(),
+            ),
+        ])
     }
 
     fn natural_width(&self, column: usize) -> usize {
@@ -276,6 +352,15 @@ impl Grid<'_> {
     }
 }
 
+fn marker(selected: bool) -> &'static str {
+    let style = crate::settings::with(|settings| settings.row_style.clone());
+    if selected && style == "marker" {
+        " ▸"
+    } else {
+        "  "
+    }
+}
+
 pub fn joins(widths: &[usize]) -> Vec<usize> {
     let mut joins = Vec::new();
     let mut x = GUTTER;
@@ -320,6 +405,7 @@ mod tests {
             column_offset: 0,
             sort: None,
             focused: true,
+            tones: &[],
         }
     }
 

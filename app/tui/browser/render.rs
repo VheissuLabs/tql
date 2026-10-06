@@ -6,6 +6,9 @@ impl Browser {
         if self.problem.is_some() {
             return vec![("esc".into(), "Close")];
         }
+        if let Some(offers) = self.editing_offers() {
+            return offers;
+        }
         if self.databases.is_some() {
             return vec![
                 ("↑↓".into(), "Move"),
@@ -42,7 +45,7 @@ impl Browser {
             ];
         }
 
-        let mut offers = Vec::new();
+        let mut offers = self.pending_offers();
         if self.has_more || self.offset > 0 {
             offers.push((
                 format!(
@@ -53,6 +56,7 @@ impl Browser {
                 "Page",
             ));
         }
+        offers.extend(self.edit_offers());
         offers.push((key(Action::SortColumn, 0), "Sort"));
         offers.push((key(Action::Help, 0), "Help"));
         offers
@@ -76,6 +80,9 @@ impl Browser {
                 Span::raw(format!(" /{}", self.filter)),
                 Span::raw("█"),
             ]);
+        }
+        if let Some(line) = self.editing_status(width) {
+            return line;
         }
         if self.mode == Mode::Help {
             return Line::from(vec![
@@ -107,21 +114,41 @@ impl Browser {
             Span::styled(position, theme::dim()),
         ]);
 
-        let Some(said) = self.status.as_deref().filter(|said| !said.is_empty()) else {
+        let callout = self.pending_callout();
+        let said = self
+            .status
+            .as_deref()
+            .filter(|said| !said.is_empty() && *said != callout)
+            .unwrap_or_default();
+        if said.is_empty() && callout.is_empty() {
             return left;
-        };
-        let room = width.saturating_sub(1);
+        }
+
+        let pending = truncate(&callout, width.saturating_sub(2).max(1));
+        let joined = !said.is_empty() && !pending.is_empty();
+        let room = width
+            .saturating_sub(1 + text::width(&pending))
+            .saturating_sub(if joined { 3 } else { 0 });
         let said = if text::width(said) > room.saturating_sub(2) {
             truncate(said, room.saturating_sub(2))
         } else {
             said.to_string()
         };
-        let style = if self.status_fresh {
-            theme::fresh()
-        } else {
-            theme::dim()
+        let said_style = match (self.status_fresh, self.pending_style()) {
+            (false, _) => theme::dim(),
+            (true, Some(tone)) => theme::bold().patch(tone),
+            (true, None) => theme::fresh(),
         };
-        let space = width.saturating_sub(text::width(&said) + 1);
+
+        let mut right = vec![Span::styled(said, said_style)];
+        if joined {
+            right.push(Span::styled(" · ", theme::dim()));
+        }
+        right.push(Span::styled(pending, self.callout_style()));
+        right.push(Span::raw(" "));
+        let right_width: usize = right.iter().map(|span| span.width()).sum();
+
+        let space = width.saturating_sub(right_width);
         let left_text = left.to_string();
         let left = if text::width(&left_text) > space.saturating_sub(2) {
             Line::raw(truncate(&left_text, space.saturating_sub(2)))
@@ -132,8 +159,7 @@ impl Browser {
 
         let mut spans = left.spans;
         spans.push(Span::raw(" ".repeat(gap)));
-        spans.push(Span::styled(said, style));
-        spans.push(Span::raw(" "));
+        spans.extend(right);
         Line::from(spans)
     }
 
@@ -203,22 +229,25 @@ impl Browser {
             return island;
         }
 
+        let rows = self.shown_rows().into_owned();
+        let tones = self.tones();
         let grid = Grid {
             headers: &self.headers,
-            rows: &self.rows,
+            rows: &rows,
             row_index: self.row_index,
             column_index: self.column_index,
             column_offset: self.column_offset,
             sort: self.sort.as_ref(),
             focused: island.focused,
             overrides: &self.width_overrides,
+            tones: &tones,
         };
         let (offset, widths, content) = grid.lines(island.inner_width(), island.inner_height());
         self.column_offset = offset;
         self.hits.widths = widths.clone();
         self.hits.row_start = window(
             self.row_index,
-            self.rows.len(),
+            rows.len(),
             island.inner_height().saturating_sub(2).max(1),
         );
         if !self.headers.is_empty() {
@@ -335,6 +364,8 @@ impl Browser {
             };
             Modal::new(area.width, 1, frame_height, width).draw(frame.buffer_mut(), island, height);
         }
+
+        self.draw_edits(frame, frame_height);
 
         if let Some(problem) = &self.problem {
             let island = Island {

@@ -5,11 +5,13 @@ use std::time::{Duration, Instant};
 use zerorust_tui::prelude::*;
 
 mod databases;
+mod editing;
 mod keys;
 mod loading;
 mod mouse;
 mod render;
 
+pub use editing::Edits;
 use mouse::{Area, Drag, Hits};
 
 use super::choice::{self, Choice};
@@ -57,6 +59,8 @@ pub struct Browser {
     pub mode: Mode,
     pub headers: Vec<String>,
     pub rows: Vec<Vec<String>>,
+    pub raw: Vec<Vec<Option<String>>>,
+    pub edits: Edits,
     pub row_index: usize,
     pub column_index: usize,
     pub column_offset: usize,
@@ -109,6 +113,8 @@ impl Browser {
             mode: Mode::Browse,
             headers: Vec::new(),
             rows: Vec::new(),
+            raw: Vec::new(),
+            edits: Edits::default(),
             row_index: 0,
             column_index: 0,
             column_offset: 0,
@@ -188,6 +194,10 @@ impl Tui for Browser {
         if key == Key::Ctrl('c') {
             return Flow::Exit(Exit::Quit);
         }
+        if self.edits.captures_keys() {
+            self.type_into_edits(key);
+            return Flow::Continue;
+        }
         if self.mode == Mode::Help {
             self.type_into_help(key);
             return Flow::Continue;
@@ -221,6 +231,10 @@ impl Tui for Browser {
         let row = (mouse.row as i64 - row_offset).max(0) as u16;
 
         if self.problem.is_some() || self.databases.is_some() || self.mode == Mode::Help {
+            return Flow::Continue;
+        }
+        if self.edits.captures_keys() {
+            self.mouse_in_edits(mouse, row);
             return Flow::Continue;
         }
 
