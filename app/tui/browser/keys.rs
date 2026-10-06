@@ -79,7 +79,8 @@ impl Browser {
             "sql" => self.open_query(),
             "history" => self.open_history(),
             "w" | "write" => self.write_pending(),
-            "export" | "export sql" | "create database" | "drop database" => {
+            "export" | "export sql" => self.export(),
+            "create database" | "drop database" => {
                 self.say(format!(":{command} is not ported yet"));
             }
             _ => self.say(format!("unknown command: :{command}")),
