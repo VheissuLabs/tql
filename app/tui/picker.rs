@@ -4,7 +4,7 @@ use zerorust_tui::prelude::*;
 
 use super::ago::{ago, now};
 use super::chrome::{self, theme};
-use super::connection_form::{ConnectionForm, Places, Step};
+use super::connection_form::{ConnectionForm, Places, Step, single_line};
 use super::text::{pad, truncate, width, window};
 use crate::encrypter::Encrypter;
 use crate::settings;
@@ -428,6 +428,15 @@ impl Tui for Picker {
                 }
             }
             _ => {}
+        }
+        Flow::Continue
+    }
+
+    fn on_paste(&mut self, text: &str) -> Flow<Option<Connection>> {
+        if let Some(form) = self.form.as_mut() {
+            form.on_paste(text);
+        } else if let Some(command) = self.command.as_mut() {
+            command.push_str(&single_line(text));
         }
         Flow::Continue
     }

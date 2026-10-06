@@ -352,6 +352,19 @@ impl ConnectionForm {
         Step::Stay
     }
 
+    pub fn on_paste(&mut self, text: &str) {
+        let line = single_line(text);
+        if let Some(picker) = self.picker.as_mut() {
+            line.chars()
+                .for_each(|character| picker.type_key(Key::Char(character)));
+            return;
+        }
+        if let Some(editor) = self.editor.as_mut() {
+            line.chars()
+                .for_each(|character| editor.handle(Key::Char(character)));
+        }
+    }
+
     fn on_picker_key(&mut self, key: Key) {
         let Some(picker) = self.picker.as_mut() else {
             return;
@@ -655,6 +668,15 @@ fn draw_picker(picker: &Choice, buffer: &mut Buffer, frame_width: u16, frame_lin
 
 fn centred(frame_width: u16, box_width: u16) -> u16 {
     ((frame_width as i32 - box_width as i32) / 2 + 1).max(1) as u16
+}
+
+pub fn single_line(text: &str) -> String {
+    text.replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .replace('\n', " ")
+        .chars()
+        .filter(|character| *character == '\t' || !character.is_control())
+        .collect()
 }
 
 fn typing(text: &str, cursor: usize, room: usize) -> Vec<Span<'static>> {

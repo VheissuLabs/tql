@@ -444,6 +444,55 @@ fn saves_what_you_are_typing_without_committing_the_field_first() {
 }
 
 #[test]
+fn accepts_a_pasted_value_in_a_form_field() {
+    let scratch = Scratch::new("paste");
+    let mut fake = scratch.with_two();
+
+    fake.press("nj\n").paste("Cloud - lunar");
+    assert_eq!(fake.app.form.as_ref().unwrap().buffer(), "Cloud - lunar");
+
+    fake.press("\n");
+    assert_eq!(
+        fake.app.form.as_ref().unwrap().value("name"),
+        "Cloud - lunar"
+    );
+}
+
+#[test]
+fn flattens_a_multi_line_paste_into_a_single_line_field() {
+    let scratch = Scratch::new("paste-lines");
+    let mut fake = scratch.with_two();
+
+    fake.press("nj\n").paste("first\r\nsecond\nthird");
+
+    let form = fake.app.form.as_ref().unwrap();
+    assert_eq!(form.buffer(), "first second third");
+    assert!(form.editing_field());
+}
+
+#[test]
+fn a_bracketed_paste_arrives_as_one_paste() {
+    let scratch = Scratch::new("bracketed");
+    let mut fake = scratch.with_two();
+
+    fake.press("nj\n\x1b[200~first\nsecond\x1b[201~");
+
+    assert_eq!(fake.app.form.as_ref().unwrap().buffer(), "first second");
+}
+
+#[test]
+fn a_paste_with_nothing_to_type_into_does_nothing() {
+    let scratch = Scratch::new("paste-nowhere");
+    let mut fake = scratch.with_two();
+
+    fake.paste("ndq");
+
+    assert!(fake.app.form.is_none());
+    assert!(fake.app.pending_deletes.is_empty());
+    assert!(!fake.exited());
+}
+
+#[test]
 fn moves_the_cursor_inside_a_field_instead_of_typing_the_key() {
     let scratch = Scratch::new("cursor");
     let mut fake = scratch.with_two();
