@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use anyhow::Context;
+use anyhow::{Context, bail};
 use postgres::{Client, NoTls, SimpleQueryMessage};
 
-use super::{Database, Page, Sort, quote_double, select_page, single_column_keys};
+use super::{Database, Filters, Page, Sort, quote_double, select_page, single_column_keys};
 use crate::store::Connection;
 
 pub struct Postgres {
@@ -68,6 +68,10 @@ impl Postgres {
     }
 }
 
+fn escaped_literal(value: &str) -> String {
+    format!("E'{}'", value.replace('\\', "\\\\").replace('\'', "''"))
+}
+
 impl Database for Postgres {
     fn tables(&mut self) -> anyhow::Result<Vec<String>> {
         self.column(
@@ -76,17 +80,40 @@ impl Database for Postgres {
         )
     }
 
-    fn rows(
+    fn filtered_rows(
         &mut self,
         table: &str,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
+        filters: Option<&Filters>,
     ) -> anyhow::Result<Page> {
-        let statement = select_page(&quote_double(table), quote_double, limit, offset, sort);
-        let mut page = self.query(&statement)?;
-        page.statement = statement;
-        Ok(page)
+        let condition = filters.and_then(|filters| filters.condition(&quote_double));
+        let page = |shown: Option<String>| {
+            select_page(
+                &quote_double(table),
+                quote_double,
+                limit,
+                offset,
+                sort,
+                shown.as_deref(),
+            )
+        };
+        if let Some(condition) = &condition
+            && condition
+                .bindings()
+                .iter()
+                .any(|value| value.contains('\0'))
+        {
+            bail!("a filter value cannot contain a NUL character in PostgreSQL");
+        }
+        let mut rows = self.query(&page(
+            condition
+                .as_ref()
+                .map(|condition| condition.render(escaped_literal)),
+        ))?;
+        rows.statement = page(condition.as_ref().map(|condition| condition.readable()));
+        Ok(rows)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
@@ -118,5 +145,20 @@ impl Database for Postgres {
             .with_context(|| format!("cannot switch to {name}"))?;
         self.config = config;
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::escaped_literal;
+
+    #[test]
+    fn escapes_quotes_and_backslashes_whatever_the_server_thinks_of_backslashes() {
+        assert_eq!(escaped_literal("plain"), "E'plain'");
+        assert_eq!(escaped_literal("O'Brien"), "E'O''Brien'");
+        assert_eq!(
+            escaped_literal("\\'; drop table x; --"),
+            "E'\\\\''; drop table x; --'"
+        );
     }
 }

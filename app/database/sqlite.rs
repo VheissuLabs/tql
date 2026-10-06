@@ -4,7 +4,7 @@ use std::path::Path;
 use anyhow::{Context, bail};
 use rusqlite::types::ValueRef;
 
-use super::{Database, Page, Sort, quote_double, select_page, single_column_keys};
+use super::{Database, Filters, Page, Sort, quote_double, select_page, single_column_keys};
 use crate::store::Connection;
 
 pub struct Sqlite {
@@ -33,14 +33,30 @@ impl Database for Sqlite {
         Ok(names.collect::<Result<_, _>>()?)
     }
 
-    fn rows(
+    fn filtered_rows(
         &mut self,
         table: &str,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
+        filters: Option<&Filters>,
     ) -> anyhow::Result<Page> {
-        let sql = select_page(&quote_double(table), quote_double, limit, offset, sort);
+        let condition = filters.and_then(|filters| filters.condition(&quote_double));
+        let page = |shown: Option<String>| {
+            select_page(
+                &quote_double(table),
+                quote_double,
+                limit,
+                offset,
+                sort,
+                shown.as_deref(),
+            )
+        };
+        let sql = page(condition.as_ref().map(|condition| condition.placeheld()));
+        let bindings = condition
+            .as_ref()
+            .map(|condition| condition.bindings())
+            .unwrap_or_default();
         let mut statement = self.connection.prepare(&sql)?;
         let headers: Vec<String> = statement
             .column_names()
@@ -49,7 +65,7 @@ impl Database for Sqlite {
             .collect();
         let width = headers.len();
 
-        let rows = statement.query_map([], |row| {
+        let rows = statement.query_map(rusqlite::params_from_iter(bindings), |row| {
             (0..width)
                 .map(|index| {
                     Ok(match row.get_ref(index)? {
@@ -64,7 +80,7 @@ impl Database for Sqlite {
         })?;
 
         Ok(Page {
-            statement: sql.clone(),
+            statement: page(condition.as_ref().map(|condition| condition.readable())),
             headers,
             rows: rows.collect::<Result<_, _>>()?,
         })
