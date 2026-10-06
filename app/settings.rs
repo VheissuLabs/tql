@@ -28,6 +28,8 @@ pub struct Settings {
     pub inspect_related: usize,
     pub keymap: Keymap,
     pub export_path: String,
+    pub update_check: bool,
+    pub update_automatic: bool,
     theme: HashMap<String, String>,
     icons: HashMap<String, String>,
 }
@@ -53,6 +55,8 @@ impl Default for Settings {
             inspect_related: 10,
             keymap: Keymap::default(),
             export_path: String::new(),
+            update_check: true,
+            update_automatic: true,
             theme: [
                 ("border", "dim"),
                 ("focus_border", "cyan"),
@@ -134,6 +138,8 @@ impl Settings {
             "ui.time_zone" => self.time_zone = text(),
             "ui.inspect_related" => self.inspect_related = number(),
             "ui.export_path" => self.export_path = text(),
+            "updates.check" => self.update_check = flag(),
+            "updates.automatic" => self.update_automatic = flag(),
             _ => {
                 if let Some(name) = key.strip_prefix("theme.") {
                     self.theme.insert(name.to_string(), text());
@@ -203,6 +209,17 @@ mod tests {
         assert_eq!(settings.sidebar_width, 30);
         assert_eq!(settings.color("selection", "default"), "cyan");
         assert_eq!(settings.color("border", "dim"), "dim");
+    }
+
+    #[test]
+    fn reads_whether_to_check_for_updates_and_install_them() {
+        let defaults = Settings::default();
+        let turned_off = Settings::from_table(
+            &toml::from_str("[updates]\ncheck = false\nautomatic = false\n").unwrap(),
+        );
+
+        assert!(defaults.update_check && defaults.update_automatic);
+        assert!(!turned_off.update_check && !turned_off.update_automatic);
     }
 
     #[test]
