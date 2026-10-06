@@ -21,7 +21,7 @@ pub struct Execution<'a> {
     pub duration_ms: u128,
 }
 
-pub fn record(store: &Path, execution: Execution) {
+pub fn record(store: &Path, source: &str, execution: Execution) {
     if execution.connection_id == 0 {
         return;
     }
@@ -31,7 +31,7 @@ pub fn record(store: &Path, execution: Execution) {
     let _ = connection.execute(
         "insert into query_executions \
          (connection_id, statement, source, succeeded, error, row_count, duration_ms, created_at, updated_at) \
-         values (?1, ?2, 'editor', ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
+         values (?1, ?2, ?7, ?3, ?4, ?5, ?6, datetime('now'), datetime('now'))",
         (
             execution.connection_id,
             execution.statement,
@@ -39,6 +39,7 @@ pub fn record(store: &Path, execution: Execution) {
             execution.error,
             execution.rows.map(|rows| rows as i64),
             execution.duration_ms as i64,
+            source,
         ),
     );
 }
@@ -142,6 +143,7 @@ mod tests {
         let path = store("records");
         record(
             &path,
+            "editor",
             Execution {
                 connection_id: 3,
                 statement: "select nope",

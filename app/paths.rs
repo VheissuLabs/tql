@@ -33,6 +33,13 @@ pub fn key() -> PathBuf {
     config_directory().join("key")
 }
 
+pub fn expand(path: &str) -> String {
+    if path == "~" || path.starts_with("~/") {
+        return format!("{}{}", home().display(), &path[1..]);
+    }
+    path.to_string()
+}
+
 pub fn shorten(path: &str) -> String {
     let home = home().display().to_string();
     match path.strip_prefix(&format!("{home}/")) {

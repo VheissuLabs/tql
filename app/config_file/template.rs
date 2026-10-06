@@ -294,9 +294,7 @@ pub const SETTINGS: &[Setting] = &[
 ];
 
 pub const NOT_YET: &[&str] = &[
-    "ui.sql_editor",
     "ui.top_margin",
-    "ui.export_path",
     "updates.check",
     "updates.automatic",
     "ai.provider",

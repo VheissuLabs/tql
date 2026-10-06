@@ -9,8 +9,7 @@ use crate::tui::completion::{Completion, Lookup, Schema};
 use crate::tui::editor::QueryEditor;
 use crate::tui::history::{self, Execution};
 use crate::tui::statements;
-
-pub(super) const QUERY_HINT: &str = "ctrl+r runs it · ↵ adds a line · esc returns";
+use crate::tui::vim::Vim;
 
 static FROM_TABLE: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?i)\bfrom\s+[`"\[]?([A-Za-z0-9_]+)"#).expect("the from pattern is valid")
@@ -29,6 +28,7 @@ pub struct Query {
     pub results: bool,
     pub table: Option<String>,
     pub completion: Option<Completion>,
+    pub vim: Vim,
     last_edit: Option<EditKind>,
     columns: HashMap<String, Vec<String>>,
 }
@@ -40,6 +40,7 @@ impl Default for Query {
             results: false,
             table: None,
             completion: None,
+            vim: Vim::default(),
             last_edit: None,
             columns: HashMap::new(),
         }
@@ -101,22 +102,25 @@ impl Browser {
     }
 
     pub(super) fn open_query(&mut self) {
-        self.mode = Mode::Query;
+        self.enter_query_mode();
         if self.query.editor.is_empty()
             && let Some(statement) = self.last_statement.clone()
         {
             self.query.editor.set(&statement);
         }
-        self.say(QUERY_HINT);
+        self.say(query_hint());
     }
 
     pub(super) fn use_statement(&mut self, statement: &str) {
-        self.mode = Mode::Query;
+        self.enter_query_mode();
         self.query.editor.set(statement);
-        self.say(QUERY_HINT);
+        self.say(query_hint());
     }
 
     pub(super) fn type_into_query(&mut self, key: Key) -> Flow<Exit> {
+        if self.command.is_some() {
+            return self.type_into_command(key);
+        }
         let action = keymap::action(key);
         let leaves_the_editor = matches!(
             action,
@@ -132,7 +136,11 @@ impl Browser {
             return self.run(action);
         }
 
-        if let Some(offered) = self.query.completion.take()
+        let offered = self.query.completion.take();
+        if settings::with(|settings| settings.sql_vim) {
+            return self.type_into_vim(key, offered);
+        }
+        if let Some(offered) = offered
             && self.take_completion_key(key, offered)
         {
             return Flow::Continue;
@@ -150,7 +158,7 @@ impl Browser {
         Flow::Continue
     }
 
-    fn take_completion_key(&mut self, key: Key, mut offered: Completion) -> bool {
+    pub(super) fn take_completion_key(&mut self, key: Key, mut offered: Completion) -> bool {
         match key {
             Key::Tab => self.complete(&offered),
             Key::Up | Key::Ctrl('p') | Key::Down | Key::Ctrl('n') => {
@@ -170,6 +178,10 @@ impl Browser {
         if offered.end != self.query.editor.cursor() {
             return;
         }
+        if settings::with(|settings| settings.sql_vim) {
+            self.complete_in_vim(offered.end - offered.start, &chosen.text);
+            return;
+        }
         let editor = &mut self.query.editor;
         editor.commit();
         editor.checkpoint();
@@ -178,7 +190,7 @@ impl Browser {
         self.query.last_edit = None;
     }
 
-    fn offer_completion_after(&mut self, key: Key) {
+    pub(super) fn offer_completion_after(&mut self, key: Key) {
         let typed = matches!(key, Key::Char(_) | Key::Backspace | Key::Ctrl('h'));
         if !typed || !settings::with(|settings| settings.sql_complete) {
             return;
@@ -232,7 +244,7 @@ impl Browser {
         }
     }
 
-    fn leave_query(&mut self) {
+    pub(super) fn leave_query(&mut self) {
         self.query.completion = None;
         self.query.editor.commit();
         self.query.last_edit = None;
@@ -242,7 +254,7 @@ impl Browser {
 
     pub(super) fn run_or_reload(&mut self) {
         if self.mode == Mode::Query {
-            self.run_statement_at_cursor();
+            self.run_from_editor();
         } else {
             self.reload();
         }
@@ -267,7 +279,7 @@ impl Browser {
         }
     }
 
-    fn run_query(&mut self, statement: &str) {
+    pub(super) fn run_query(&mut self, statement: &str) {
         if statement.trim().is_empty() {
             self.say("nothing to run");
             return;
@@ -297,6 +309,7 @@ impl Browser {
         if let Some(store) = &self.store {
             history::record(
                 store,
+                "editor",
                 Execution {
                     connection_id: self.connection.id,
                     statement,
@@ -407,8 +420,8 @@ impl Browser {
 
     pub(super) fn click_editor(&mut self, local_row: isize, local_column: isize) {
         let entering = self.mode != Mode::Query;
-        self.mode = Mode::Query;
-        self.say(QUERY_HINT);
+        self.enter_query_mode();
+        self.say(query_hint());
         if entering && local_row < 0 {
             return;
         }

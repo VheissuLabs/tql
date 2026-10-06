@@ -6,9 +6,9 @@ use rusqlite::types::ValueRef;
 
 use super::schema::keys_by_table;
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, Values, delete_statement,
-    insert_statement, outcome_or_affected, primary_key, quote_double, refused, select_page,
-    single_column_keys, split_list, update_statement,
+    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Scalar, Scalars, Sort, Values,
+    delete_statement, insert_statement, outcome_or_affected, primary_key, quote_double, refused,
+    select_page, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 
@@ -82,6 +82,24 @@ impl Database for Sqlite {
         }
         let (headers, rows) = fetch(&mut prepared, [])?;
         Ok(outcome_or_affected(headers, rows, 0))
+    }
+
+    fn scalars(&mut self, statement: &str) -> anyhow::Result<Scalars> {
+        let mut prepared = self.connection.prepare(statement).map_err(plain)?;
+        let headers: Vec<String> = prepared
+            .column_names()
+            .into_iter()
+            .map(String::from)
+            .collect();
+        let width = headers.len();
+        let rows = prepared
+            .query_map([], |row| {
+                (0..width)
+                    .map(|index| Ok(scalar(row.get_ref(index)?)))
+                    .collect()
+            })?
+            .collect::<Result<_, _>>()?;
+        Ok(Scalars { headers, rows })
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
@@ -272,6 +290,19 @@ fn fetch(
             .collect()
     })?;
     Ok((headers, rows.collect::<Result<_, _>>()?))
+}
+
+fn scalar(value: ValueRef) -> Scalar {
+    match value {
+        ValueRef::Null => Scalar::Null,
+        ValueRef::Integer(number) => Scalar::Number(number.to_string()),
+        ValueRef::Real(number) => Scalar::real(number),
+        ValueRef::Text(bytes) => match std::str::from_utf8(bytes) {
+            Ok(text) => Scalar::Text(text.to_string()),
+            Err(_) => Scalar::Bytes(bytes.to_vec()),
+        },
+        ValueRef::Blob(bytes) => Scalar::Bytes(bytes.to_vec()),
+    }
 }
 
 fn text(value: ValueRef) -> Option<String> {
