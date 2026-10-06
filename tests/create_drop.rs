@@ -19,6 +19,7 @@ struct Ledger {
     created: Vec<String>,
     dropped: Vec<String>,
     dropped_from: Vec<String>,
+    server_wide: Vec<String>,
     refuse: bool,
 }
 
@@ -73,6 +74,14 @@ impl Database for Server {
             return Ok(Outcome::default());
         }
         bail!("unexpected statement {statement}")
+    }
+
+    fn run_server_wide(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        self.ledger
+            .borrow_mut()
+            .server_wide
+            .push(statement.to_string());
+        self.run(statement)
     }
 
     fn quote(&self, identifier: &str) -> String {
@@ -445,5 +454,18 @@ fn records_creates_and_drops_in_the_history_as_tui() {
                 Some("database is being accessed by other users".into())
             ),
         ]
+    );
+}
+
+#[test]
+fn creates_and_drops_where_the_server_makes_databases() {
+    let (mut fake, ledger) = server(&["shop", "jobs"]);
+
+    command(&mut fake, "create database kmstools");
+    command(&mut fake, "drop database jobs");
+
+    assert_eq!(
+        ledger.borrow().server_wide,
+        ["create database `kmstools`", "drop database `jobs`"]
     );
 }
