@@ -530,3 +530,17 @@ fn reopening_the_editor_starts_in_normal_mode() {
     assert_eq!(fake.app.query.vim.mode, VimMode::Normal);
     assert!(fake.screen().contains("[3] SQL · NORMAL"));
 }
+
+#[test]
+fn insert_mode_asks_for_a_bar_cursor() {
+    use zerorust_tui::{CursorShape, Tui};
+
+    let mut fake = opened("cursor-shape", Recorded::default());
+    assert_eq!(fake.app.cursor_shape(), CursorShape::Default);
+
+    fake.press("i");
+    assert_eq!(fake.app.cursor_shape(), CursorShape::Bar);
+
+    fake.press("\x1b");
+    assert_eq!(fake.app.cursor_shape(), CursorShape::Default);
+}

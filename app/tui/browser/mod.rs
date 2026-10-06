@@ -297,6 +297,14 @@ impl Tui for Browser {
         }
     }
 
+    fn cursor_shape(&self) -> CursorShape {
+        if self.inserts_at_terminal_cursor() {
+            CursorShape::Bar
+        } else {
+            CursorShape::Default
+        }
+    }
+
     fn wants_mouse(&self) -> bool {
         settings::with(|settings| settings.mouse)
     }
