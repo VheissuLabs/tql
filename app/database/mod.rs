@@ -1,3 +1,4 @@
+mod filters;
 mod mysql;
 mod postgres;
 mod sqlite;
@@ -8,6 +9,8 @@ use anyhow::{anyhow, bail};
 
 use crate::encrypter::Encrypter;
 use crate::store::Connection;
+
+pub use filters::{Condition, Filter, Filters, Joiner, OPERATORS, operator_names};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -46,6 +49,17 @@ pub trait Database {
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
+    ) -> anyhow::Result<Page> {
+        self.filtered_rows(table, limit, offset, sort, None)
+    }
+
+    fn filtered_rows(
+        &mut self,
+        table: &str,
+        limit: usize,
+        offset: usize,
+        sort: Option<&Sort>,
+        filters: Option<&Filters>,
     ) -> anyhow::Result<Page>;
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>>;
@@ -94,7 +108,11 @@ pub(crate) fn select_page(
     limit: usize,
     offset: usize,
     sort: Option<&Sort>,
+    condition: Option<&str>,
 ) -> String {
+    let filter = condition
+        .map(|condition| format!(" where {condition}"))
+        .unwrap_or_default();
     let order = sort
         .map(|sort| {
             format!(
@@ -104,7 +122,7 @@ pub(crate) fn select_page(
             )
         })
         .unwrap_or_default();
-    format!("select * from {quoted_table}{order} limit {limit} offset {offset}")
+    format!("select * from {quoted_table}{filter}{order} limit {limit} offset {offset}")
 }
 
 pub(crate) fn quote_double(identifier: &str) -> String {
