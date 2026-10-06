@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use app::database::{self, Database, Page, Sort};
+use app::database::{self, Column, Database, ForeignKey, Index, Page, Sort};
 use app::store::Connection;
 use app::tui::Browser;
 use zerorust_tui::Fake;
@@ -39,6 +39,30 @@ impl Database for Counted {
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
         self.log("primary keys".into());
         self.inner.primary_keys()
+    }
+
+    fn quote(&self, identifier: &str) -> String {
+        self.inner.quote(identifier)
+    }
+
+    fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
+        self.log(statement.to_string());
+        self.inner.select(statement, values)
+    }
+
+    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+        self.log(format!("columns {table}"));
+        self.inner.columns(table)
+    }
+
+    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>> {
+        self.log(format!("indexes {table}"));
+        self.inner.indexes(table)
+    }
+
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+        self.log("foreign keys".into());
+        self.inner.foreign_keys()
     }
 }
 

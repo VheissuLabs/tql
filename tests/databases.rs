@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use app::database::{Database, Page, Sort};
+use app::database::{Column, Database, ForeignKey, Index, Page, Sort};
 use app::store::Connection;
 use app::tui::Browser;
 use zerorust_tui::Fake;
@@ -47,6 +47,26 @@ impl Database for Server {
     fn use_database(&mut self, name: &str) -> anyhow::Result<()> {
         self.current = Some(name.to_string());
         Ok(())
+    }
+
+    fn quote(&self, identifier: &str) -> String {
+        format!("`{identifier}`")
+    }
+
+    fn select(&mut self, _: &str, _: &[String]) -> anyhow::Result<Page> {
+        Ok(Page::default())
+    }
+
+    fn columns(&mut self, _: &str) -> anyhow::Result<Vec<Column>> {
+        Ok(Vec::new())
+    }
+
+    fn indexes(&mut self, _: &str) -> anyhow::Result<Vec<Index>> {
+        Ok(Vec::new())
+    }
+
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+        Ok(HashMap::new())
     }
 }
 
