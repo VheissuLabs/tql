@@ -12,6 +12,8 @@ const ROOT: &str = env!("CARGO_MANIFEST_DIR");
 
 const EMPTY_TABLE_HEADERS: &str = "an empty table shows its column headers; tql shows 'no columns' because it reads headers from the rows";
 
+const SQL_SERVER_INSERT: &str = "SQL Server adds the row and tql-rust says so; tql sends the insert through a select, and Microsoft's driver then refuses to read rows from it, so tql reports 'The active result for the query contains no fields' for a row it did add";
+
 const DELIBERATE: &[(&str, &str)] = &[
     (
         "conn-edit-read-only-turned-off",
@@ -78,6 +80,25 @@ const DELIBERATE: &[(&str, &str)] = &[
         "mysql-sql-sort-results",
         "sorting query results keeps the cursor on the sorted column, and the status is cut by visible width",
     ),
+    ("sqlsrv-inspect-empty-table", EMPTY_TABLE_HEADERS),
+    (
+        "sqlsrv-filter-quote",
+        "a filter that matches nothing keeps the column headers; the escaped where clause in the SQL pane matches tql exactly",
+    ),
+    (
+        "sqlsrv-sql-error",
+        "errors show the database's own words without PDO's SQLSTATE and ODBC driver prefix",
+    ),
+    (
+        "sqlsrv-sql-sort-results",
+        "sorting query results keeps the cursor on the sorted column, and the status is cut by visible width",
+    ),
+    (
+        "sqlsrv-values",
+        "a decimal below one keeps its leading zero (0.15); Microsoft's ODBC driver hands tql .15",
+    ),
+    ("sqlsrv-new-row-written", SQL_SERVER_INSERT),
+    ("sqlsrv-new-row-no-key-written", SQL_SERVER_INSERT),
     (
         "mysql-filter-quote",
         "a filter that matches nothing keeps the column headers; the escaped where clause in the SQL pane matches tql exactly",
@@ -114,7 +135,11 @@ fn scenario_json(exports: &Path) -> Vec<serde_json::Value> {
         .collect();
     files.sort_by_key(|file| {
         let name = file.file_name().unwrap().to_string_lossy().into_owned();
-        (name != "sql-editor.json", name.starts_with("mysql-"), name)
+        (
+            name != "sql-editor.json",
+            name.starts_with("mysql-") || name.starts_with("sqlsrv-"),
+            name,
+        )
     });
 
     files
@@ -162,6 +187,10 @@ fn scenarios(exports: &Path) -> Vec<Scenario> {
         .collect()
 }
 
+fn timing_padding() -> regex::Regex {
+    regex::Regex::new(r" {2,}").unwrap()
+}
+
 fn normalize(frame: &str) -> Vec<String> {
     let stamps = export_stamps();
     let mut lines: Vec<String> = frame
@@ -188,6 +217,10 @@ fn normalize(frame: &str) -> Vec<String> {
                 digits.clear();
             }
             normalized + &digits
+        })
+        .map(|line| match line.contains("Nms") {
+            true => timing_padding().replace_all(&line, "  ").into_owned(),
+            false => line,
         })
         .collect();
     while lines.last().is_some_and(String::is_empty) {
@@ -219,6 +252,38 @@ fn mysql_reset() -> String {
         fs::read_to_string(Path::new(ROOT).join("parity/reset-mysql.sql")).unwrap(),
         mysql_data()
     )
+}
+
+const SQL_SERVER: &str = "mssql";
+
+fn sql_server_place() -> Option<String> {
+    std::env::var("TQL_PARITY_SQLSRV").ok()
+}
+
+fn sql_server(database: &str) -> Box<dyn database::Database> {
+    let place = sql_server_place().expect("TQL_PARITY_SQLSRV is host:port");
+    let (host, port) = place
+        .rsplit_once(':')
+        .expect("TQL_PARITY_SQLSRV is host:port");
+    let encrypter = app::encrypter::Encrypter::throwaway().unwrap();
+    let password = std::env::var("TQL_PARITY_SQLSRV_PASSWORD").unwrap_or_default();
+    let connection = app::store::Connection {
+        name: SQL_SERVER.into(),
+        driver: "sqlsrv".into(),
+        host: Some(host.into()),
+        port: Some(port.parse().unwrap()),
+        database: Some(database.into()),
+        username: Some("sa".into()),
+        password: Some(encrypter.encrypt_string(&password).unwrap()),
+        ..app::store::Connection::sqlite(SQL_SERVER, "")
+    };
+    database::connect(&connection, Some(&encrypter)).unwrap()
+}
+
+fn sql_server_reset() {
+    sql_server("tql_rust_scratch")
+        .run(&fs::read_to_string(Path::new(ROOT).join("parity/fixture-sqlsrv.sql")).unwrap())
+        .unwrap();
 }
 
 fn diff(expected: &[String], actual: &[String]) -> Vec<String> {
@@ -265,6 +330,16 @@ fn frames_match_the_php_tql() {
         ));
     }
 
+    let sqlsrv = sql_server_place().is_some();
+    if sqlsrv {
+        sql_server("master")
+            .run_server_wide(
+                "drop database if exists tql_rust_scratch; create database tql_rust_scratch",
+            )
+            .unwrap();
+        sql_server_reset();
+    }
+
     let home = work.join("home");
     for (path, contents) in [
         (
@@ -295,14 +370,18 @@ fn frames_match_the_php_tql() {
     .unwrap();
 
     let php_frames = work.join("php");
-    let status = Command::new("php")
+    let mut render = Command::new("php");
+    render
         .arg(Path::new(ROOT).join("parity/render.php"))
         .arg(&fixture)
         .arg(&scenario_file)
         .arg(&php_frames)
-        .env("TQL_PARITY_HOME", &home)
-        .status()
-        .expect("php is installed");
+        .env("TQL_PARITY_HOME", &home);
+    let openssl_3 = Path::new("/opt/homebrew/opt/openssl@3/lib");
+    if sqlsrv && openssl_3.is_dir() {
+        render.env("DYLD_LIBRARY_PATH", openssl_3);
+    }
+    let status = render.status().expect("php is installed");
     assert!(status.success(), "the PHP renderer failed");
 
     let report_dir = PathBuf::from(ROOT).join("target/parity");
@@ -324,6 +403,7 @@ fn frames_match_the_php_tql() {
         .execute("delete from query_executions", [])
         .unwrap();
 
+    let encrypter = app::encrypter::Encrypter::from_file(&php_frames.join("key")).unwrap();
     let shop = saved
         .iter()
         .find(|connection| connection.name == "shop")
@@ -332,10 +412,14 @@ fn frames_match_the_php_tql() {
 
     for scenario in scenarios(&work.join("exports")) {
         fs::write(&fixture, &pristine).unwrap();
-        if scenario.connection.is_some() && !mysql {
+        let on_sql_server = scenario.connection.as_deref() == Some(SQL_SERVER);
+        let available = if on_sql_server { sqlsrv } else { mysql };
+        if scenario.connection.is_some() && !available {
             continue;
         }
-        if scenario.connection.is_some() {
+        if on_sql_server {
+            sql_server_reset();
+        } else if scenario.connection.is_some() {
             herd(&mysql_reset());
         }
         settings::install(scenario.settings.clone());
@@ -362,7 +446,7 @@ fn frames_match_the_php_tql() {
                     .clone(),
                 None => shop.clone(),
             };
-            let database = database::connect(&connection, None).unwrap();
+            let database = database::connect(&connection, Some(&encrypter)).unwrap();
             let mut fake = Fake::sized(
                 Browser::new(connection, database)
                     .unwrap()
@@ -418,6 +502,13 @@ fn frames_match_the_php_tql() {
 
     if mysql {
         herd("drop database tql_rust_scratch;");
+    }
+    if sqlsrv {
+        sql_server("master")
+            .run_server_wide(
+                "alter database tql_rust_scratch set single_user with rollback immediate; drop database tql_rust_scratch",
+            )
+            .unwrap();
     }
 
     println!("matching {}: {}", matching.len(), matching.join(", "));
