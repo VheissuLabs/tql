@@ -38,11 +38,18 @@ impl MySql {
     }
 
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
-        page_of(self.connection.query_iter(sql)?)
+        page_of(self.connection.query_iter(sql).map_err(said)?)
     }
 
     fn bound_query(&mut self, sql: &str, bindings: Vec<String>) -> anyhow::Result<Page> {
-        page_of(self.connection.exec_iter(sql, bindings)?)
+        page_of(self.connection.exec_iter(sql, bindings).map_err(said)?)
+    }
+}
+
+fn said(error: mysql::Error) -> anyhow::Error {
+    match error {
+        mysql::Error::MySqlError(server) => anyhow::anyhow!(server.message),
+        other => other.into(),
     }
 }
 
@@ -57,7 +64,7 @@ fn page_of<P: Protocol>(mut result: QueryResult<'_, '_, '_, P>) -> anyhow::Resul
             .collect();
         for row in set {
             page.rows
-                .push(row?.unwrap().into_iter().map(text).collect());
+                .push(row.map_err(said)?.unwrap().into_iter().map(text).collect());
         }
     }
     Ok(page)
@@ -163,12 +170,13 @@ impl Database for MySql {
 
     fn use_database(&mut self, name: &str) -> anyhow::Result<()> {
         self.connection
-            .query_drop(format!("use {}", quote_backtick(name)))?;
+            .query_drop(format!("use {}", quote_backtick(name)))
+            .map_err(said)?;
         Ok(())
     }
 
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
-        let result = self.connection.query_iter(statement)?;
+        let result = self.connection.query_iter(statement).map_err(said)?;
         let affected = result.affected_rows() as usize;
         let page = page_of(result)?;
         Ok(outcome_or_affected(page.headers, page.rows, affected))

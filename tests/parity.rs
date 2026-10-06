@@ -52,6 +52,14 @@ const DELIBERATE: &[(&str, &str)] = &[
         "a filter that matches nothing keeps the column headers, so f can still reopen the filter; tql shows 'no columns' and then refuses to open it",
     ),
     (
+        "mysql-sql-error",
+        "errors show the database's own words without PDO's SQLSTATE prefix",
+    ),
+    (
+        "mysql-sql-sort-results",
+        "sorting query results keeps the cursor on the sorted column, and the status is cut by visible width",
+    ),
+    (
         "mysql-filter-quote",
         "a filter that matches nothing keeps the column headers; the escaped where clause in the SQL pane matches tql exactly",
     ),
