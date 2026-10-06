@@ -4,9 +4,11 @@ use anyhow::Context;
 use mysql::prelude::{Protocol, Queryable};
 use mysql::{Conn, OptsBuilder, QueryResult, Value};
 
+use super::schema::keys_by_table;
 use super::{
-    Column, Database, Filters, Outcome, Page, Sort, Values, delete_statement, insert_statement,
-    outcome_or_affected, refused, select_page, single_column_keys, update_statement,
+    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, Values, delete_statement,
+    insert_statement, outcome_or_affected, refused, select_page, single_column_keys, split_list,
+    update_statement,
 };
 use crate::store::Connection;
 
@@ -186,29 +188,6 @@ impl Database for MySql {
         Ok(())
     }
 
-    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
-        let rows: Vec<mysql::Row> = self.connection.exec(
-            "select column_name, data_type, is_nullable, column_default, extra \
-             from information_schema.columns where table_schema = database() and table_name = ? \
-             order by ordinal_position",
-            (table,),
-        )?;
-        Ok(rows
-            .into_iter()
-            .map(|row| {
-                let cells: Vec<Option<String>> = row.unwrap().into_iter().map(text).collect();
-                let cell = |index: usize| cells.get(index).cloned().flatten();
-                Column {
-                    name: cell(0).unwrap_or_default(),
-                    type_name: cell(1).unwrap_or_default(),
-                    nullable: cell(2).as_deref() == Some("YES"),
-                    default: cell(3),
-                    auto_increment: cell(4).as_deref() == Some("auto_increment"),
-                }
-            })
-            .collect())
-    }
-
     fn highest(&mut self, table: &str, column: &str) -> anyhow::Result<Option<String>> {
         let page = self.query(&format!(
             "select max({}) from {}",
@@ -270,5 +249,73 @@ impl Database for MySql {
 
     fn quote(&self, identifier: &str) -> String {
         quote_backtick(identifier)
+    }
+
+    fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
+        let mut page = if values.is_empty() {
+            self.query(statement)?
+        } else {
+            self.bound_query(statement, values.to_vec())?
+        };
+        page.statement = statement.to_string();
+        Ok(page)
+    }
+
+    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+        Ok(self
+            .select(
+                "select column_name as `name`, data_type as `type_name`, is_nullable as `nullable`, \
+                 column_default as `default`, extra as `extra` from information_schema.columns \
+                 where table_schema = database() and table_name = ? order by ordinal_position",
+                &[table.to_string()],
+            )?
+            .rows
+            .into_iter()
+            .map(|mut row| Column {
+                name: row[0].take().unwrap_or_default(),
+                type_name: row[1].take().unwrap_or_default(),
+                nullable: row[2].as_deref() == Some("YES"),
+                default: row[3].take(),
+                auto_increment: row[4].as_deref() == Some("auto_increment"),
+            })
+            .collect())
+    }
+
+    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>> {
+        Ok(self
+            .select(
+                "select index_name as `name`, group_concat(column_name order by seq_in_index) as `columns`, \
+                 not non_unique as `unique` from information_schema.statistics \
+                 where table_schema = database() and table_name = ? \
+                 group by index_name, index_type, non_unique",
+                &[table.to_string()],
+            )?
+            .rows
+            .into_iter()
+            .map(|mut row| {
+                let name = row[0].take().unwrap_or_default().to_lowercase();
+                Index {
+                    primary: name == "primary",
+                    name,
+                    columns: split_list(row[1].take()),
+                    unique: row[2].as_deref() == Some("1"),
+                }
+            })
+            .collect())
+    }
+
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+        Ok(keys_by_table(
+            self.query(
+                "select kc.table_name as `table`, group_concat(kc.column_name order by kc.ordinal_position) as `columns`, \
+                 kc.referenced_table_name as `foreign_table`, \
+                 group_concat(kc.referenced_column_name order by kc.ordinal_position) as `foreign_columns` \
+                 from information_schema.key_column_usage kc join information_schema.referential_constraints rc \
+                 on kc.constraint_schema = rc.constraint_schema and kc.constraint_name = rc.constraint_name \
+                 where kc.table_schema = database() and kc.referenced_table_name is not null \
+                 group by kc.table_name, kc.constraint_name, kc.referenced_table_name",
+            )?
+            .rows,
+        ))
     }
 }

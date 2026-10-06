@@ -286,8 +286,16 @@ impl Browser {
                 self.say(said);
             }
             Key::Char('y') => {
+                let (from, to) = value.selected_lines();
+                let lines = &value.buffer.lines()[from..=to];
                 value.anchor = None;
-                self.say("yanking is not ported yet");
+                let reached = self.clipboard.copy(&lines.join("\n"));
+                let plural = if lines.len() == 1 { "" } else { "s" };
+                self.say(format!(
+                    "yanked {} line{plural} to the {} clipboard",
+                    lines.len(),
+                    reached.name()
+                ));
             }
             _ => {}
         }
@@ -803,7 +811,12 @@ impl Browser {
             (None, Some(value)) if value.editable() => {
                 &[("↵", "Keep"), ("⇧↵", "New line"), ("esc", "Cancel")]
             }
-            (None, Some(_)) => &[("V", "Select"), ("e", "Edit"), ("esc", "Close")],
+            (None, Some(_)) => &[
+                ("V", "Select"),
+                ("y", "Yank"),
+                ("e", "Edit"),
+                ("esc", "Close"),
+            ],
             (None, None) => return None,
         };
         Some(

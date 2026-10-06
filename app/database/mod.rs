@@ -3,6 +3,7 @@ mod filters;
 mod mysql;
 pub mod order_by;
 mod postgres;
+mod schema;
 mod sqlite;
 
 use std::collections::HashMap;
@@ -16,7 +17,11 @@ pub use column_default::ColumnDefault;
 use crate::encrypter::Encrypter;
 use crate::store::Connection;
 
-pub use filters::{Condition, Filter, Filters, Joiner, OPERATORS, operator_names};
+pub use filters::{Condition, Filter, Filters, Joiner, OPERATORS, operator_names, readable_value};
+pub use schema::{
+    BackLink, Column, Count, ForeignKey, Index, Link, Pivot, Relations, is_plumbing, links,
+    primary_key, unique_columns,
+};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
@@ -44,15 +49,6 @@ pub struct Page {
     pub statement: String,
     pub headers: Vec<String>,
     pub rows: Vec<Vec<Option<String>>>,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct Column {
-    pub name: String,
-    pub type_name: String,
-    pub nullable: bool,
-    pub default: Option<String>,
-    pub auto_increment: bool,
 }
 
 pub type Values = Vec<(String, Option<String>)>;
@@ -113,6 +109,14 @@ pub trait Database {
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>>;
 
+    fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page>;
+
+    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>>;
+
+    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>>;
+
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>>;
+
     fn databases(&mut self) -> anyhow::Result<Vec<String>> {
         Ok(Vec::new())
     }
@@ -131,10 +135,6 @@ pub trait Database {
 
     fn column_names(&mut self, table: &str) -> anyhow::Result<Vec<String>> {
         Ok(self.rows(table, 0, 0, None)?.headers)
-    }
-
-    fn columns(&mut self, _table: &str) -> anyhow::Result<Vec<Column>> {
-        Ok(Vec::new())
     }
 
     fn highest(&mut self, _table: &str, _column: &str) -> anyhow::Result<Option<String>> {
@@ -297,6 +297,12 @@ pub(crate) fn select_page(
 
 pub(crate) fn quote_double(identifier: &str) -> String {
     format!("\"{}\"", identifier.replace('"', "\"\""))
+}
+
+pub(crate) fn split_list(list: Option<String>) -> Vec<String> {
+    list.filter(|list| !list.is_empty())
+        .map(|list| list.split(',').map(String::from).collect())
+        .unwrap_or_default()
 }
 
 pub(crate) fn outcome_or_affected(

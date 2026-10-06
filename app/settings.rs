@@ -26,6 +26,7 @@ pub struct Settings {
     pub mouse_row_offset: i64,
     pub mouse_column_offset: i64,
     pub time_zone: String,
+    pub inspect_related: usize,
     theme: HashMap<String, String>,
     icons: HashMap<String, String>,
 }
@@ -47,6 +48,7 @@ impl Default for Settings {
             mouse_row_offset: 0,
             mouse_column_offset: 0,
             time_zone: "UTC".to_string(),
+            inspect_related: 10,
             theme: [
                 ("border", "dim"),
                 ("focus_border", "cyan"),
@@ -133,6 +135,7 @@ impl Settings {
                 self.mouse_column_offset = value.as_integer().unwrap_or_default()
             }
             "ui.time_zone" => self.time_zone = text(),
+            "ui.inspect_related" => self.inspect_related = number(),
             _ => {
                 if let Some(name) = key.strip_prefix("theme.") {
                     self.theme.insert(name.to_string(), text());

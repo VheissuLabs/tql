@@ -428,8 +428,8 @@ fn the_palette_goes_to_a_table_runs_commands_and_says_what_is_not_ported() {
     assert_eq!(fake.app.status(), "nothing to write");
 
     fake.press(PALETTE);
-    fake.press("inspect the row\n");
-    assert_eq!(fake.app.status(), "inspect the row: not ported yet");
+    fake.press("ask in english\n");
+    assert_eq!(fake.app.status(), "ask in english: not ported yet");
 }
 
 #[test]

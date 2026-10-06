@@ -87,7 +87,11 @@ impl Browser {
         match key {
             Key::Up | Key::Char('k') => self.problem_offset = self.problem_offset.saturating_sub(1),
             Key::Down | Key::Char('j') => self.problem_offset += 1,
-            Key::Char('y') => self.say("copying is not ported yet"),
+            Key::Char('y') => {
+                let problem = self.problem.clone().unwrap_or_default();
+                self.clipboard.copy(&problem);
+                self.say("copied the error");
+            }
             _ => {
                 self.problem = None;
                 self.problem_notes.clear();

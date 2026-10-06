@@ -191,7 +191,6 @@ impl Browser {
             Action::ToggleTables => self.toggle_tables(),
             Action::SortColumn => self.sort_by_current_column(),
             Action::FilterRows => self.open_filters(),
-            Action::Escape if self.filters.is_some() => self.clear_filters(),
             Action::FilterTables => {
                 self.filtering = true;
                 self.tables_hidden = false;
@@ -216,10 +215,16 @@ impl Browser {
             Action::MarkDelete => self.mark_delete(),
             Action::ClearMarks => self.clear_marks(),
             Action::NewRow => self.new_row(),
+            Action::InspectRow => self.inspect_row(),
+            Action::Structure => self.toggle_structure(),
+            Action::FollowLink => self.follow_link(),
+            Action::JumpBack => self.jump_back(),
+            Action::YankValue => self.yank_value(),
+            Action::YankRow => self.yank_row(),
             Action::Sql | Action::FocusSql => self.open_query(),
             Action::History => self.open_history(),
             Action::Palette => self.open_palette(),
-            Action::Escape => self.back_to_table(),
+            Action::Escape => self.escape(),
             Action::Redraw => {}
             other => {
                 let description = keymap::binding(other).description;

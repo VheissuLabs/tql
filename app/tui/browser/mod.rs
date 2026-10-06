@@ -8,24 +8,33 @@ mod command_palette;
 mod databases;
 mod editing;
 mod filters;
+mod inspect;
 mod keys;
+mod links;
 mod loading;
 mod mouse;
 mod query;
 mod render;
+mod structure;
+mod yank;
 
 pub use editing::Edits;
+pub use inspect::Inspector;
+use links::{Jump, LinkPicker};
 use mouse::{Area, Drag, Hits};
 pub use query::Query;
+use structure::StructureView;
 
-use super::choice::Choice;
+use super::choice::{self, Choice};
 use super::chrome::{self, Island, Modal, theme};
+use super::clipboard::{Clipboard, Recorded};
 use super::error::{self, ErrorBox};
 use super::filters::FilterForm;
 use super::grid::{self, Grid};
 use super::help;
 use super::keymap::{self, Action};
 use super::palette::{self, Palette};
+use super::schema::Schema;
 use super::sql;
 use super::text::{self, pad, truncate, window};
 use crate::database::{Database, Direction, Filters, Sort};
@@ -100,6 +109,12 @@ pub struct Browser {
     help_hidden: usize,
     keys: HashMap<String, String>,
     pending: Option<bool>,
+    schema: Schema,
+    pub structure: Option<StructureView>,
+    pub inspector: Option<Inspector>,
+    jumps: Vec<Jump>,
+    link_picker: Option<LinkPicker>,
+    clipboard: Box<dyn Clipboard>,
 }
 
 impl Browser {
@@ -162,6 +177,12 @@ impl Browser {
             help_hidden: 0,
             keys,
             pending: None,
+            schema: Schema::default(),
+            structure: None,
+            inspector: None,
+            jumps: Vec::new(),
+            link_picker: None,
+            clipboard: Box::new(Recorded::default()),
         };
         if undecided {
             browser.open_databases();
@@ -169,6 +190,11 @@ impl Browser {
             browser.load(false);
         }
         Ok(browser)
+    }
+
+    pub fn with_clipboard(mut self, clipboard: impl Clipboard + 'static) -> Self {
+        self.clipboard = Box::new(clipboard);
+        self
     }
 
     pub fn status(&self) -> &str {
@@ -228,6 +254,14 @@ impl Tui for Browser {
             self.type_into_help(key);
             return Flow::Continue;
         }
+        if self.structure.is_some() {
+            self.type_into_structure(key);
+            return Flow::Continue;
+        }
+        if self.inspector.is_some() {
+            self.type_into_inspector(key);
+            return Flow::Continue;
+        }
         if self.mode == Mode::Query {
             return self.type_into_query(key);
         }
@@ -237,6 +271,10 @@ impl Tui for Browser {
         }
         if self.databases.is_some() {
             self.type_into_databases(key);
+            return Flow::Continue;
+        }
+        if self.link_picker.is_some() {
+            self.type_into_link_picker(key);
             return Flow::Continue;
         }
         if self.filter_form.is_some() {
@@ -272,6 +310,7 @@ impl Tui for Browser {
             || self.databases.is_some()
             || self.filter_form.is_some()
             || self.mode == Mode::Help
+            || self.modal_over_grid()
         {
             return Flow::Continue;
         }
@@ -292,6 +331,9 @@ impl Tui for Browser {
     }
 
     fn idle(&mut self) -> bool {
+        if self.load_related() {
+            return true;
+        }
         if let Some(keep_cursor) = self.pending {
             self.load(keep_cursor);
             return true;
