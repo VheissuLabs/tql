@@ -17,6 +17,7 @@ mod mouse;
 mod query;
 mod render;
 mod structure;
+mod vim;
 mod yank;
 
 pub use editing::Edits;
@@ -25,6 +26,7 @@ use links::{Jump, LinkPicker};
 use mouse::{Area, Drag, Hits};
 pub use query::Query;
 use structure::StructureView;
+use vim::query_hint;
 
 use super::choice::{self, Choice};
 use super::chrome::{self, Island, Modal, theme};

@@ -212,7 +212,27 @@ impl QueryEditor {
         self.cursor += length - self.cursor_column();
     }
 
-    fn indentation(&self) -> String {
+    pub fn autoindents(&self) -> bool {
+        self.autoindent
+    }
+
+    pub fn open_line(&mut self, above: bool) {
+        let carried = if self.autoindent {
+            self.indentation()
+        } else {
+            String::new()
+        };
+        if above {
+            self.move_to_line_start();
+            self.insert(&format!("{carried}\n"));
+            self.cursor -= 1;
+            return;
+        }
+        self.move_to_line_end();
+        self.insert(&format!("\n{carried}"));
+    }
+
+    pub fn indentation(&self) -> String {
         self.lines()[self.cursor_line()]
             .chars()
             .take_while(|character| *character == ' ' || *character == '\t')

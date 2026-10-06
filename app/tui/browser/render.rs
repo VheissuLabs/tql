@@ -64,6 +64,9 @@ impl Browser {
                 ("esc".into(), "Close"),
             ];
         }
+        if let Some(offers) = self.vim_offers() {
+            return offers;
+        }
         if self.mode == Mode::Query {
             return vec![
                 ("ctrl+r".into(), "Run"),
@@ -503,16 +506,24 @@ impl Browser {
     fn draw_editor(&mut self, frame: &mut Frame, mut editor: Island, frame_height: u16) {
         let focused = self.mode == Mode::Query;
         editor.focused = focused;
-        editor.title = "[3] SQL".to_string();
+        editor.title = format!("[3] SQL{}", self.vim_mode_label());
+        let at_terminal_cursor = self.inserts_at_terminal_cursor();
         let mut pane = sql::pane(
             &self.query.editor,
             self.last_statement.as_deref(),
             focused,
-            editor.inner_width(),
-            editor.inner_height(),
+            &sql::Marks {
+                paints_cursor: !at_terminal_cursor,
+                selection: self.vim_selection(),
+            },
+            (editor.inner_width(), editor.inner_height()),
         );
         editor.content = std::mem::take(&mut pane.lines);
         editor.draw(frame.buffer_mut());
+        if at_terminal_cursor {
+            let (row, column) = pane.cursor;
+            frame.set_cursor_position((editor.x + 1 + column as u16, editor.y + 1 + row as u16));
+        }
         self.hits.editor = Some(Area::of(&editor));
 
         let offered = self
