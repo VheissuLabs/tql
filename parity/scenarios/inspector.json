@@ -906,5 +906,104 @@
       "\n",
       "y"
     ]
+  },
+  {
+    "name": "follow-link-from-filtered",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "l",
+      "f",
+      "c",
+      "o",
+      "u",
+      "r",
+      "i",
+      "e",
+      "r",
+      "\u0013",
+      "l",
+      "l",
+      "L"
+    ]
+  },
+  {
+    "name": "follow-link-back-to-filtered",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "l",
+      "f",
+      "c",
+      "o",
+      "u",
+      "r",
+      "i",
+      "e",
+      "r",
+      "\u0013",
+      "l",
+      "l",
+      "L",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_always": true
+    }
+  },
+  {
+    "name": "follow-link-filter-cleared",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "l",
+      "f",
+      "c",
+      "o",
+      "u",
+      "r",
+      "i",
+      "e",
+      "r",
+      "\u0013",
+      "l",
+      "l",
+      "L",
+      "\u001b",
+      "\u001b"
+    ]
   }
 ]

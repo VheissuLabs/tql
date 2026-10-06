@@ -330,3 +330,44 @@ fn offers_a_way_back_in_the_hotkey_bar_after_a_jump() {
     fake.press("llL");
     assert!(hotkeys(&mut fake).contains("esc Back"));
 }
+
+#[test]
+fn escape_unwinds_the_jump_before_the_filter_it_came_back_to() {
+    let mut fake = browser(LINKED);
+
+    fake.press("lf").press("Rock").press("\x13");
+    assert_eq!(fake.app.rows, [["1", "Let There Be Rock", "1"]]);
+
+    fake.press("llL");
+    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert!(fake.screen().contains("[2] artists ·  filtered"));
+
+    fake.press("\x1b");
+    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(fake.app.rows, [["1", "Let There Be Rock", "1"]]);
+    assert!(fake.screen().contains("[2] albums ·  filtered"));
+
+    fake.press("\x1b");
+    assert!(fake.app.filters.is_none());
+    assert_eq!(fake.app.rows.len(), 2);
+    assert_eq!(fake.app.status(), "filter cleared");
+}
+
+#[test]
+fn query_results_follow_no_links_and_escape_goes_back_to_the_table() {
+    let mut fake = browser(LINKED);
+
+    fake.press("s").press("\x12").press("\x1b");
+    assert!(fake.app.query.results);
+
+    fake.press("llL");
+    assert_eq!(
+        fake.app.status(),
+        "nothing links to albums, and artist_id is not a foreign key"
+    );
+    assert!(!status_line(&mut fake).contains("L → artists"));
+
+    fake.press("\x1b");
+    assert!(!fake.app.query.results);
+    assert_eq!(fake.app.status(), "back to albums");
+}
