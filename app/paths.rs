@@ -1,5 +1,6 @@
 use std::env;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 
 pub fn config_directory() -> PathBuf {
     let base = match env::var_os("XDG_CONFIG_HOME").filter(|value| !value.is_empty()) {
@@ -22,13 +23,78 @@ pub fn key() -> PathBuf {
 }
 
 pub fn shorten(path: &str) -> String {
-    let home = home().display().to_string();
+    shorten_from(path, &home())
+}
+
+pub fn shorten_from(path: &str, home: &Path) -> String {
+    let home = home.display().to_string();
     match path.strip_prefix(&format!("{home}/")) {
         Some(rest) if !home.is_empty() => format!("~/{rest}"),
         _ => path.to_string(),
     }
 }
 
-fn home() -> PathBuf {
+pub fn expand(path: &str, home: &Path) -> String {
+    match path.strip_prefix('~') {
+        Some(rest) if rest.is_empty() || rest.starts_with('/') => {
+            format!("{}{rest}", home.display())
+        }
+        _ => path.to_string(),
+    }
+}
+
+pub fn resolve(path: &str, home: &Path, from: &Path) -> String {
+    let expanded = expand(path.trim(), home);
+    let absolute = if expanded.starts_with('/') {
+        PathBuf::from(&expanded)
+    } else {
+        from.join(&expanded)
+    };
+    fs::canonicalize(&absolute)
+        .unwrap_or(absolute)
+        .display()
+        .to_string()
+}
+
+pub fn home() -> PathBuf {
     PathBuf::from(env::var_os("HOME").unwrap_or_default())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_a_path_under_home_and_one_relative_to_where_it_started() {
+        let directory = env::temp_dir().join(format!("tql-paths-{}", std::process::id()));
+        fs::create_dir_all(directory.join("code")).unwrap();
+        fs::write(directory.join("code/lunar.sqlite"), "").unwrap();
+        let real = fs::canonicalize(directory.join("code/lunar.sqlite")).unwrap();
+
+        let from_home = resolve(" ~/code/lunar.sqlite ", &directory, Path::new("/"));
+        let relative = resolve(
+            "lunar.sqlite",
+            Path::new("/nowhere"),
+            &directory.join("code"),
+        );
+        let missing = resolve("gone.sqlite", Path::new("/nowhere"), Path::new("/tmp/away"));
+        fs::remove_dir_all(&directory).unwrap();
+
+        assert_eq!(from_home, real.display().to_string());
+        assert_eq!(relative, real.display().to_string());
+        assert_eq!(missing, "/tmp/away/gone.sqlite");
+    }
+
+    #[test]
+    fn shortens_only_paths_inside_home() {
+        let home = Path::new("/home/me");
+
+        assert_eq!(shorten_from("/home/me/db.sqlite", home), "~/db.sqlite");
+        assert_eq!(
+            shorten_from("/home/meadow/db.sqlite", home),
+            "/home/meadow/db.sqlite"
+        );
+        assert_eq!(expand("~", home), "/home/me");
+        assert_eq!(expand("~other/x", home), "~other/x");
+    }
 }
