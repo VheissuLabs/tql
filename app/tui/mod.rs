@@ -23,6 +23,7 @@ mod statements;
 mod structure;
 mod text;
 mod value_editor;
+pub mod vim;
 
 pub use browser::{Browser, Edits, Exit, Focus, Inspector, Mode, PAGE};
 pub use editor::QueryEditor;
