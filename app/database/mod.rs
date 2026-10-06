@@ -25,7 +25,6 @@ pub use schema::{
     BackLink, Column, Count, ForeignKey, Index, Link, Pivot, Relations, is_plumbing, links,
     primary_key, unique_columns,
 };
-pub use sqlsrv::{Encryption, encryption};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Direction {
