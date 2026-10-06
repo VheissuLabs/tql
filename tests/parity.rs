@@ -14,6 +14,10 @@ const EMPTY_TABLE_HEADERS: &str = "an empty table shows its column headers; tql 
 
 const DELIBERATE: &[(&str, &str)] = &[
     (
+        "conn-edit-read-only-turned-off",
+        "a connection that is read only turns it off with one press; tql's first press leaves it on because it holds the saved value as '1' rather than 'yes'",
+    ),
+    (
         "conn-edit-over-ssh-type-a-path",
         "typing into an empty field shows what is typed; tql shows the field's placeholder over it until enter",
     ),
