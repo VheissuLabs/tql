@@ -301,12 +301,12 @@ impl Browser {
             return;
         };
         let level = inspector.level_mut();
-        let last = level.document.lines().len().saturating_sub(1);
+        let stops = stops(level);
         match key {
             Key::Down | Key::Char('j') => move_within_section(level, true),
             Key::Up | Key::Char('k') => move_within_section(level, false),
-            Key::Char('g') => level.line = 0,
-            Key::Char('G') => level.line = last,
+            Key::Char('g') => level.line = stops.first().copied().unwrap_or(level.line),
+            Key::Char('G') => level.line = stops.last().copied().unwrap_or(level.line),
             Key::Enter | Key::Char(' ') => level.document.toggle(level.line),
             Key::Tab | Key::BackTab => switch_section(level),
             _ => {}
@@ -543,15 +543,9 @@ fn move_within_section(level: &mut Level, forward: bool) {
         .unwrap_or(Section::Record);
     let stops: Vec<usize> = level
         .document
-        .heading_at(section)
+        .section(section)
         .into_iter()
-        .chain(
-            level
-                .document
-                .section(section)
-                .into_iter()
-                .map(|(index, _)| index),
-        )
+        .map(|(index, _)| index)
         .collect();
     if stops.is_empty() {
         return;
@@ -579,8 +573,18 @@ fn switch_section(level: &mut Level) {
         .section(other)
         .first()
         .map(|(index, _)| *index)
-        .or_else(|| level.document.heading_at(other))
         .unwrap_or(level.line);
+}
+
+fn stops(level: &Level) -> Vec<usize> {
+    level
+        .document
+        .lines()
+        .iter()
+        .enumerate()
+        .filter(|(_, line)| !line.heading)
+        .map(|(index, _)| index)
+        .collect()
 }
 
 fn section_lines(

@@ -23,6 +23,10 @@ const DELIBERATE: &[(&str, &str)] = &[
     ),
     ("empty-table", EMPTY_TABLE_HEADERS),
     ("inspect-empty-table", EMPTY_TABLE_HEADERS),
+    ("inspect-fold-record", TITLES_ARE_NOT_STOPS),
+    ("inspect-fold-related", TITLES_ARE_NOT_STOPS),
+    ("mysql-inspect-fold-record", TITLES_ARE_NOT_STOPS),
+    ("mysql-inspect-fold-related", TITLES_ARE_NOT_STOPS),
     ("mysql-inspect-empty-table", EMPTY_TABLE_HEADERS),
     ("yank-empty-table", EMPTY_TABLE_HEADERS),
     ("export-empty-table", EMPTY_TABLE_HEADERS),
@@ -83,6 +87,8 @@ const DELIBERATE: &[(&str, &str)] = &[
         "a filter that matches nothing keeps the column headers; the escaped where clause in the SQL pane matches tql exactly",
     ),
 ];
+
+const TITLES_ARE_NOT_STOPS: &str = "the inspector cursor never stops on a box title (there is nothing to do there), so a whole box cannot be folded from its title";
 
 const HOTKEY_BAR_REASON: &str =
     "the hotkey bar only offers what tql-rust can do; tql also offers features not ported yet";

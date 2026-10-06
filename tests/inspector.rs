@@ -137,22 +137,22 @@ fn loads_nothing_related_when_the_limit_is_zero() {
 }
 
 #[test]
-fn folds_a_box_down_to_its_title_bar() {
+fn the_cursor_never_stops_on_a_box_title() {
     let mut fake = on_artists(ARTISTS);
+    let on_a_title = |fake: &mut Fake<Browser>| {
+        fake.highlighted()
+            .iter()
+            .any(|run| run.starts_with("RECORD") || run.starts_with("RELATED"))
+    };
 
-    fake.press("ik\n");
-    let screen = fake.screen();
-    let title = screen
-        .lines()
-        .position(|line| line.contains("RECORD  (3)"))
-        .unwrap();
+    fake.press("ik");
+    assert!(!on_a_title(&mut fake));
 
-    let field = format!("name{}AC/DC", " ".repeat(18));
-    assert!(!screen.contains(&field), "{screen}");
-    assert!(!screen.lines().nth(title + 1).unwrap().contains('╰'));
+    fake.press("g");
+    assert!(!on_a_title(&mut fake));
 
-    fake.press("\n");
-    assert!(fake.screen().contains(&field));
+    fake.press("\tk");
+    assert!(!on_a_title(&mut fake));
 }
 
 #[test]
@@ -209,9 +209,10 @@ fn will_not_edit_a_related_record_through_the_grid() {
 fn wraps_inside_a_box_and_switches_boxes_with_tab() {
     let mut fake = on_artists(ARTISTS);
 
-    fake.press("ijjj");
-    let highlighted = fake.highlighted();
-    assert!(highlighted.iter().any(|run| run.starts_with("RECORD")));
+    fake.press("i");
+    let first = fake.highlighted();
+    fake.press("jjj");
+    assert_eq!(fake.highlighted(), first);
 
     fake.press("\t");
     assert!(
