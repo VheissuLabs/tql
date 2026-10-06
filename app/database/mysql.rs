@@ -4,7 +4,9 @@ use anyhow::Context;
 use mysql::prelude::{Protocol, Queryable};
 use mysql::{Conn, OptsBuilder, QueryResult, Value};
 
-use super::{Database, Filters, Page, Sort, select_page, single_column_keys};
+use super::{
+    Database, Filters, Outcome, Page, Sort, outcome_or_affected, select_page, single_column_keys,
+};
 use crate::store::Connection;
 
 pub struct MySql {
@@ -163,5 +165,16 @@ impl Database for MySql {
         self.connection
             .query_drop(format!("use {}", quote_backtick(name)))?;
         Ok(())
+    }
+
+    fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        let result = self.connection.query_iter(statement)?;
+        let affected = result.affected_rows() as usize;
+        let page = page_of(result)?;
+        Ok(outcome_or_affected(page.headers, page.rows, affected))
+    }
+
+    fn quote(&self, identifier: &str) -> String {
+        quote_backtick(identifier)
     }
 }

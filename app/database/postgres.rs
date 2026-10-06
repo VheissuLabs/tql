@@ -3,7 +3,10 @@ use std::collections::HashMap;
 use anyhow::{Context, bail};
 use postgres::{Client, NoTls, SimpleQueryMessage};
 
-use super::{Database, Filters, Page, Sort, quote_double, select_page, single_column_keys};
+use super::{
+    Database, Filters, Outcome, Page, Sort, outcome_or_affected, quote_double, select_page,
+    single_column_keys,
+};
 use crate::store::Connection;
 
 pub struct Postgres {
@@ -36,26 +39,12 @@ impl Postgres {
     }
 
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
-        let mut page = Page::default();
-        for message in self.client.simple_query(sql)? {
-            match message {
-                SimpleQueryMessage::RowDescription(columns) => {
-                    page.headers = columns
-                        .iter()
-                        .map(|column| column.name().to_string())
-                        .collect();
-                }
-                SimpleQueryMessage::Row(row) => {
-                    page.rows.push(
-                        (0..row.len())
-                            .map(|index| row.get(index).map(String::from))
-                            .collect(),
-                    );
-                }
-                _ => {}
-            }
-        }
-        Ok(page)
+        let outcome = self.run(sql)?;
+        Ok(Page {
+            headers: outcome.headers,
+            rows: outcome.rows,
+            ..Page::default()
+        })
     }
 
     fn column(&mut self, sql: &str) -> anyhow::Result<Vec<String>> {
@@ -145,6 +134,32 @@ impl Database for Postgres {
             .with_context(|| format!("cannot switch to {name}"))?;
         self.config = config;
         Ok(())
+    }
+
+    fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        let mut headers = Vec::new();
+        let mut rows = Vec::new();
+        let mut affected = 0;
+        for message in self.client.simple_query(statement)? {
+            match message {
+                SimpleQueryMessage::RowDescription(columns) => {
+                    headers = columns
+                        .iter()
+                        .map(|column| column.name().to_string())
+                        .collect();
+                }
+                SimpleQueryMessage::Row(row) => {
+                    rows.push(
+                        (0..row.len())
+                            .map(|index| row.get(index).map(String::from))
+                            .collect(),
+                    );
+                }
+                SimpleQueryMessage::CommandComplete(count) => affected = count as usize,
+                _ => {}
+            }
+        }
+        Ok(outcome_or_affected(headers, rows, affected))
     }
 }
 

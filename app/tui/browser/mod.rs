@@ -1,24 +1,29 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use zerorust_tui::prelude::*;
 
+mod command_palette;
 mod databases;
 mod filters;
 mod keys;
 mod loading;
 mod mouse;
+mod query;
 mod render;
 
 use mouse::{Area, Drag, Hits};
+pub use query::Query;
 
 use super::choice::Choice;
 use super::chrome::{self, Island, Modal, theme};
+use super::error::{self, ErrorBox};
 use super::filters::FilterForm;
 use super::grid::{self, Grid};
 use super::help;
 use super::keymap::{self, Action};
+use super::palette::{self, Palette};
 use super::sql;
 use super::text::{self, pad, truncate, window};
 use crate::database::{Database, Direction, Filters, Sort};
@@ -32,6 +37,7 @@ const BOTTOM_MARGIN: u16 = 1;
 pub enum Exit {
     Quit,
     Connections,
+    Open(i64),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,6 +50,7 @@ pub enum Focus {
 pub enum Mode {
     Browse,
     Help,
+    Query,
 }
 
 pub struct Browser {
@@ -73,6 +80,12 @@ pub struct Browser {
     status_fresh: bool,
     pub command: Option<String>,
     pub problem: Option<String>,
+    pub problem_title: String,
+    pub problem_notes: Vec<String>,
+    pub problem_offset: usize,
+    pub query: Query,
+    pub palette: Option<Palette>,
+    store: Option<PathBuf>,
     pub active_database: Option<String>,
     pub databases: Option<Choice>,
     pub last_statement: Option<String>,
@@ -127,6 +140,12 @@ impl Browser {
             status_fresh: false,
             command: None,
             problem: None,
+            problem_title: "ERROR".to_string(),
+            problem_notes: Vec::new(),
+            problem_offset: 0,
+            query: Query::default(),
+            palette: None,
+            store: None,
             active_database,
             databases: None,
             last_statement: None,
@@ -186,17 +205,21 @@ impl Tui for Browser {
 
     fn on_key(&mut self, key: Key) -> Flow<Exit> {
         if self.problem.is_some() {
-            if matches!(key, Key::Escape | Key::Enter | Key::Char('q')) {
-                self.problem = None;
-            }
+            self.type_into_problem(key);
             return Flow::Continue;
         }
         if key == Key::Ctrl('c') {
             return Flow::Exit(Exit::Quit);
         }
+        if self.palette.is_some() {
+            return self.type_into_palette(key);
+        }
         if self.mode == Mode::Help {
             self.type_into_help(key);
             return Flow::Continue;
+        }
+        if self.mode == Mode::Query {
+            return self.type_into_query(key);
         }
         if self.databases.is_some() {
             self.type_into_databases(key);
@@ -231,6 +254,7 @@ impl Tui for Browser {
         let row = (mouse.row as i64 - row_offset).max(0) as u16;
 
         if self.problem.is_some()
+            || self.palette.is_some()
             || self.databases.is_some()
             || self.filter_form.is_some()
             || self.mode == Mode::Help
