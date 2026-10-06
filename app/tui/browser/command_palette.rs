@@ -35,7 +35,7 @@ fn sentence(description: &str) -> String {
 fn keys_of(action: Action) -> String {
     let mut glyphs: Vec<String> = Vec::new();
     for key in keymap::binding(action).keys {
-        let glyph = keymap::glyph(*key);
+        let glyph = keymap::glyph(key);
         if !glyphs.contains(&glyph) {
             glyphs.push(glyph);
         }
@@ -45,8 +45,8 @@ fn keys_of(action: Action) -> String {
 
 impl Browser {
     pub(super) fn open_palette(&mut self) {
-        let actions = keymap::BINDINGS
-            .iter()
+        let actions = keymap::bindings()
+            .into_iter()
             .filter(|binding| !SKIPPED.contains(&binding.action))
             .map(|binding| {
                 Item::new(

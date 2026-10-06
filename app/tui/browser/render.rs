@@ -253,8 +253,8 @@ impl Browser {
         } else {
             format!(" /{}", self.filter)
         };
-        let pane = "[1] ";
-        let room = tables_width.saturating_sub(4 + pane.len());
+        let pane = keymap::pane_key(Action::FocusTables);
+        let room = tables_width.saturating_sub(4 + text::width(&pane));
         island.title = format!(
             "{pane}{}{filter}",
             truncate(&name, room.saturating_sub(text::width(&filter)).max(4))
@@ -301,7 +301,7 @@ impl Browser {
                 self.current_table().unwrap_or_else(|| "ROWS".to_string())
             ),
         };
-        island.title = format!("[2] {title}");
+        island.title = format!("{}{title}", keymap::pane_key(Action::FocusRows));
 
         if self.pending.is_some() {
             island.content = vec![Line::styled(" loading…", theme::dim())];
@@ -495,7 +495,7 @@ impl Browser {
     fn draw_editor(&mut self, frame: &mut Frame, mut editor: Island, frame_height: u16) {
         let focused = self.mode == Mode::Query;
         editor.focused = focused;
-        editor.title = "[3] SQL".to_string();
+        editor.title = format!("{}SQL", keymap::pane_key(Action::FocusSql));
         let mut pane = sql::pane(
             &self.query.editor,
             self.last_statement.as_deref(),

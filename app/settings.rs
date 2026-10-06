@@ -6,6 +6,8 @@ use std::path::Path;
 use anyhow::Context;
 use toml::{Table, Value};
 
+use crate::tui::Keymap;
+
 const COLORS: [&str; 11] = [
     "dim", "default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "gray",
 ];
@@ -27,6 +29,7 @@ pub struct Settings {
     pub mouse_column_offset: i64,
     pub time_zone: String,
     pub inspect_related: usize,
+    pub keymap: Keymap,
     theme: HashMap<String, String>,
     icons: HashMap<String, String>,
 }
@@ -49,6 +52,7 @@ impl Default for Settings {
             mouse_column_offset: 0,
             time_zone: "UTC".to_string(),
             inspect_related: 10,
+            keymap: Keymap::default(),
             theme: [
                 ("border", "dim"),
                 ("focus_border", "cyan"),
@@ -82,16 +86,20 @@ impl Default for Settings {
 
 impl Settings {
     pub fn load(path: &Path) -> anyhow::Result<Self> {
-        let mut settings = Settings::default();
         if !path.is_file() {
-            return Ok(settings);
+            return Ok(Settings::default());
         }
 
         let source =
             fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
         let table: Table = toml::from_str(&source)
             .with_context(|| format!("{} is not valid TOML", path.display()))?;
-        for (section, values) in &table {
+        Ok(Settings::from_table(&table))
+    }
+
+    pub fn from_table(table: &Table) -> Self {
+        let mut settings = Settings::default();
+        for (section, values) in table {
             let Value::Table(values) = values else {
                 continue;
             };
@@ -99,10 +107,10 @@ impl Settings {
                 settings.set(&format!("{section}.{key}"), value);
             }
         }
-        Ok(settings)
+        settings
     }
 
-    pub fn set(&mut self, key: &str, value: &Value) {
+    pub fn set(&mut self, key: &str, value: &Value) -> bool {
         let flag = || value.as_bool().unwrap_or_default();
         let number = || {
             value
@@ -141,9 +149,14 @@ impl Settings {
                     self.theme.insert(name.to_string(), text());
                 } else if let Some(driver) = key.strip_prefix("icons.") {
                     self.icons.insert(driver.to_string(), text());
+                } else if let Some(action) = key.strip_prefix("keys.") {
+                    return self.keymap.rebind(action, value);
+                } else {
+                    return false;
                 }
             }
         }
+        true
     }
 
     pub fn color(&self, key: &str, fallback: &str) -> String {

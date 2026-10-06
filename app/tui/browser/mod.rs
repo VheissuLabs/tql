@@ -92,6 +92,7 @@ pub struct Browser {
     status_since: Instant,
     status_fresh: bool,
     pub command: Option<String>,
+    pub count_prefix: String,
     pub problem: Option<String>,
     pub problem_title: String,
     pub problem_notes: Vec<String>,
@@ -160,6 +161,7 @@ impl Browser {
             status_since: Instant::now(),
             status_fresh: false,
             command: None,
+            count_prefix: String::new(),
             problem: None,
             problem_title: "ERROR".to_string(),
             problem_notes: Vec::new(),
@@ -289,10 +291,7 @@ impl Tui for Browser {
             return Flow::Continue;
         }
 
-        match keymap::action(key) {
-            Some(binding) => self.run(binding.action),
-            None => Flow::Continue,
-        }
+        self.type_into_browse(key)
     }
 
     fn wants_mouse(&self) -> bool {
