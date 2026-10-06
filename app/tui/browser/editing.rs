@@ -733,7 +733,7 @@ impl Browser {
     }
 
     pub(super) fn shown_rows(&self) -> Cow<'_, [Vec<String>]> {
-        if self.query.results || self.edits.updates.is_empty() || self.key_column().is_none() {
+        if self.edits.updates.is_empty() || self.key_column().is_none() {
             return Cow::Borrowed(&self.rows);
         }
         let mut rows = self.rows.clone();
@@ -754,12 +754,12 @@ impl Browser {
     }
 
     pub(super) fn tones(&self) -> Vec<Option<Tone>> {
-        if self.query.results || !self.edits.pending() {
+        if !self.edits.pending() {
             return Vec::new();
         }
         (0..self.rows.len())
             .map(|index| {
-                if index < self.edits.inserts.len() {
+                if !self.query.results && index < self.edits.inserts.len() {
                     return Some(Tone::Added);
                 }
                 let key_value = self.key_value(index)?;
