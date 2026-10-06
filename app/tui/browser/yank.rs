@@ -28,7 +28,7 @@ impl Browser {
             return;
         };
         let types: HashMap<String, String> = self
-            .current_table()
+            .browsed_table()
             .map(|table| {
                 self.schema
                     .columns(self.database.as_mut(), &table)

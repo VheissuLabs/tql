@@ -191,7 +191,7 @@ fn goes_back_with_ctrl_o_or_escape() {
         assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
         assert_eq!(fake.app.rows.len(), 2);
         assert_eq!(fake.app.row_index, 1);
-        assert!(fake.app.link_filter.is_none());
+        assert!(fake.app.filters.is_none());
         assert_eq!(fake.app.status(), "back in albums");
     }
 }
@@ -286,14 +286,14 @@ fn unwinds_a_chain_of_links_one_step_at_a_time() {
 
     fake.press("llLL");
     assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
-    assert!(fake.app.link_filter.is_some());
+    assert!(fake.app.filters.is_some());
 
     fake.press("\x1b");
     assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
 
     fake.press("\x1b");
     assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
-    assert!(fake.app.link_filter.is_none());
+    assert!(fake.app.filters.is_none());
 }
 
 #[test]

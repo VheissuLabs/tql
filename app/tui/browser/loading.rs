@@ -1,5 +1,4 @@
 use super::*;
-use crate::database::Relations;
 
 impl Browser {
     pub(super) fn default_sort(&self) -> Option<Sort> {
@@ -28,19 +27,13 @@ impl Browser {
 
         self.schema.learn_links(self.database.as_mut());
         let started = Instant::now();
-        let fetched = match &self.link_filter {
-            Some(filter) => self.database.rows_where(
-                &table,
-                (PAGE + 1, self.offset),
-                self.sort.as_ref(),
-                &filter.column,
-                &filter.value,
-            ),
-            None => self
-                .database
-                .rows(&table, PAGE + 1, self.offset, self.sort.as_ref()),
-        };
-        let page = match fetched {
+        let page = match self.database.filtered_rows(
+            &table,
+            PAGE + 1,
+            self.offset,
+            self.sort.as_ref(),
+            self.filters.as_ref(),
+        ) {
             Ok(page) => page,
             Err(error) => {
                 self.say(error.to_string());
@@ -57,6 +50,11 @@ impl Browser {
         rows.truncate(PAGE);
 
         self.last_statement = Some(sql::shown(&page.statement, PAGE));
+        self.query.results = false;
+        self.query.table = None;
+        if self.mode != Mode::Query {
+            self.query.editor.set(&sql::shown(&page.statement, PAGE));
+        }
         self.headers = page.headers;
         self.rows = rows
             .iter()
@@ -97,7 +95,7 @@ impl Browser {
         self.table_index = index;
         self.offset = 0;
         self.sort = None;
-        self.link_filter = None;
+        self.filters = None;
         self.queue_load(false);
     }
 
@@ -109,7 +107,7 @@ impl Browser {
         self.table_index = self.table_index.min(count - 1);
         self.offset = 0;
         self.sort = None;
-        self.link_filter = None;
+        self.filters = None;
         self.queue_load(false);
     }
 
@@ -120,6 +118,10 @@ impl Browser {
     }
 
     pub(super) fn sort_by(&mut self, column: String) {
+        if self.query.results {
+            self.sort_query_results(column);
+            return;
+        }
         self.sort = match self.sort.take() {
             Some(sort) if sort.column == column && sort.direction == Direction::Asc => Some(Sort {
                 column,
@@ -156,11 +158,12 @@ impl Browser {
     pub(super) fn reload(&mut self) {
         let table = self.current_table();
         self.schema.forget();
+        self.query.forget_schema();
         self.keys = self.database.primary_keys().unwrap_or_default();
         match self.database.tables() {
             Ok(tables) => self.tables = tables,
             Err(error) => {
-                self.problem = Some(error.to_string());
+                self.fail(error.to_string(), Vec::new(), "ERROR");
                 return;
             }
         }

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{Database, Page, Sort, select_page, split_list};
+use super::{Database, Page, split_list};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Column {
@@ -115,16 +115,6 @@ pub fn is_plumbing(column: &str) -> bool {
     .contains(&column.to_lowercase().as_str())
 }
 
-pub fn readable(statement: &str, values: &[String]) -> String {
-    fill(statement, values, |value| {
-        if is_numeric(value) {
-            value.to_string()
-        } else {
-            quoted(value)
-        }
-    })
-}
-
 pub(crate) fn fill(statement: &str, values: &[String], literal: impl Fn(&str) -> String) -> String {
     let mut values = values.iter();
     let mut pieces = statement.split('?');
@@ -139,27 +129,7 @@ pub(crate) fn fill(statement: &str, values: &[String], literal: impl Fn(&str) ->
     filled
 }
 
-pub(crate) fn quoted(value: &str) -> String {
-    format!("'{}'", value.replace('\'', "''"))
-}
-
-fn is_numeric(value: &str) -> bool {
-    value
-        .trim_start()
-        .parse::<f64>()
-        .is_ok_and(|number| number.is_finite())
-}
-
 pub trait Relations {
-    fn rows_where(
-        &mut self,
-        table: &str,
-        page: (usize, usize),
-        sort: Option<&Sort>,
-        column: &str,
-        value: &str,
-    ) -> anyhow::Result<Page>;
-
     fn related(
         &mut self,
         table: &str,
@@ -181,22 +151,6 @@ pub trait Relations {
 }
 
 impl<Driver: Database + ?Sized> Relations for Driver {
-    fn rows_where(
-        &mut self,
-        table: &str,
-        (limit, offset): (usize, usize),
-        sort: Option<&Sort>,
-        column: &str,
-        value: &str,
-    ) -> anyhow::Result<Page> {
-        let filtered = format!("{} where {} = ?", self.quote(table), self.quote(column));
-        let statement = select_page(&filtered, |name| self.quote(name), limit, offset, sort);
-        let values = [value.to_string()];
-        let mut page = self.select(&statement, &values)?;
-        page.statement = readable(&statement, &values);
-        Ok(page)
-    }
-
     fn related(
         &mut self,
         table: &str,

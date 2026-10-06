@@ -2,13 +2,12 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context, bail};
-use rusqlite::params_from_iter;
 use rusqlite::types::ValueRef;
 
 use super::schema::keys_by_table;
 use super::{
-    Column, Database, ForeignKey, Index, Page, Sort, primary_key, quote_double, select_page,
-    single_column_keys, split_list,
+    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, outcome_or_affected,
+    primary_key, quote_double, select_page, single_column_keys, split_list,
 };
 use crate::store::Connection;
 
@@ -38,17 +37,50 @@ impl Database for Sqlite {
         Ok(names.collect::<Result<_, _>>()?)
     }
 
-    fn rows(
+    fn filtered_rows(
         &mut self,
         table: &str,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
+        filters: Option<&Filters>,
     ) -> anyhow::Result<Page> {
-        let statement = select_page(&quote_double(table), quote_double, limit, offset, sort);
-        let mut page = self.select(&statement, &[])?;
-        page.statement = statement;
-        Ok(page)
+        let condition = filters.and_then(|filters| filters.condition(&quote_double));
+        let page = |shown: Option<String>| {
+            select_page(
+                &quote_double(table),
+                quote_double,
+                limit,
+                offset,
+                sort,
+                shown.as_deref(),
+            )
+        };
+        let sql = page(condition.as_ref().map(|condition| condition.placeheld()));
+        let bindings = condition
+            .as_ref()
+            .map(|condition| condition.bindings())
+            .unwrap_or_default();
+        let (headers, rows) = fetch(
+            &mut self.connection.prepare(&sql)?,
+            rusqlite::params_from_iter(bindings),
+        )?;
+
+        Ok(Page {
+            statement: page(condition.as_ref().map(|condition| condition.readable())),
+            headers,
+            rows,
+        })
+    }
+
+    fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        let mut prepared = self.connection.prepare(statement).map_err(plain)?;
+        if prepared.column_count() == 0 {
+            let affected = prepared.execute([])?;
+            return Ok(outcome_or_affected(Vec::new(), Vec::new(), affected));
+        }
+        let (headers, rows) = fetch(&mut prepared, [])?;
+        Ok(outcome_or_affected(headers, rows, 0))
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
@@ -62,37 +94,15 @@ impl Database for Sqlite {
         Ok(single_column_keys(pairs))
     }
 
-    fn quote(&self, identifier: &str) -> String {
-        quote_double(identifier)
-    }
-
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
-        let mut prepared = self.connection.prepare(statement)?;
-        let headers: Vec<String> = prepared
-            .column_names()
-            .into_iter()
-            .map(String::from)
-            .collect();
-        let width = headers.len();
-
-        let rows = prepared.query_map(params_from_iter(values), |row| {
-            (0..width)
-                .map(|index| {
-                    Ok(match row.get_ref(index)? {
-                        ValueRef::Null => None,
-                        ValueRef::Integer(number) => Some(number.to_string()),
-                        ValueRef::Real(number) => Some(number.to_string()),
-                        ValueRef::Text(bytes) => Some(String::from_utf8_lossy(bytes).into_owned()),
-                        ValueRef::Blob(bytes) => Some(format!("<{} bytes>", bytes.len())),
-                    })
-                })
-                .collect()
-        })?;
-
+        let (headers, rows) = fetch(
+            &mut self.connection.prepare(statement)?,
+            rusqlite::params_from_iter(values),
+        )?;
         Ok(Page {
             statement: statement.to_string(),
             headers,
-            rows: rows.collect::<Result<_, _>>()?,
+            rows,
         })
     }
 
@@ -182,4 +192,42 @@ impl Database for Sqlite {
         }
         Ok(keys)
     }
+}
+
+fn plain(error: rusqlite::Error) -> anyhow::Error {
+    match error {
+        rusqlite::Error::SqlInputError { msg, .. } => anyhow::anyhow!(msg),
+        other => other.into(),
+    }
+}
+
+type Rows = Vec<Vec<Option<String>>>;
+
+fn fetch(
+    statement: &mut rusqlite::Statement,
+    bindings: impl rusqlite::Params,
+) -> anyhow::Result<(Vec<String>, Rows)> {
+    let headers: Vec<String> = statement
+        .column_names()
+        .into_iter()
+        .map(String::from)
+        .collect();
+    let width = headers.len();
+
+    let rows = statement.query_map(bindings, |row| {
+        (0..width)
+            .map(|index| Ok(text(row.get_ref(index)?)))
+            .collect()
+    })?;
+    Ok((headers, rows.collect::<Result<_, _>>()?))
+}
+
+fn text(value: ValueRef) -> Option<String> {
+    Some(match value {
+        ValueRef::Null => return None,
+        ValueRef::Integer(number) => number.to_string(),
+        ValueRef::Real(number) => number.to_string(),
+        ValueRef::Text(bytes) => String::from_utf8_lossy(bytes).into_owned(),
+        ValueRef::Blob(bytes) => format!("<{} bytes>", bytes.len()),
+    })
 }

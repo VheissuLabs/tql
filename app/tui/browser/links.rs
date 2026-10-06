@@ -1,16 +1,10 @@
 use super::*;
-use crate::database::BackLink;
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct RowFilter {
-    pub column: String,
-    pub value: String,
-}
+use crate::database::{BackLink, Filter, Joiner};
 
 #[derive(Debug, Clone)]
 pub(super) struct Jump {
     table: String,
-    filter: Option<RowFilter>,
+    filters: Option<Filters>,
     row: usize,
 }
 
@@ -22,7 +16,7 @@ pub(super) struct LinkPicker {
 impl Browser {
     pub(super) fn follow_link(&mut self) {
         let column = self.headers.get(self.column_index).cloned();
-        let link = match (self.current_table(), &column) {
+        let link = match (self.browsed_table(), &column) {
             (Some(table), Some(column)) => self.schema.link(self.database.as_mut(), &table, column),
             _ => None,
         };
@@ -41,13 +35,7 @@ impl Browser {
         }
 
         self.remember_jump();
-        self.open_linked(
-            &link.table,
-            Some(RowFilter {
-                column: link.column,
-                value,
-            }),
-        );
+        self.open_linked(&link.table, Some(is(&link.column, &value)));
         self.say(format!(
             "followed {column} → {}  ·  esc goes back",
             link.table
@@ -60,9 +48,12 @@ impl Browser {
             return;
         };
         let tables = self.tables.clone();
-        let back = self
-            .schema
-            .referenced_by(self.database.as_mut(), &tables, &table);
+        let back = match self.browsed_table() {
+            Some(browsed) => self
+                .schema
+                .referenced_by(self.database.as_mut(), &tables, &browsed),
+            None => Vec::new(),
+        };
 
         if back.is_empty() {
             match self.headers.get(self.column_index) {
@@ -101,13 +92,7 @@ impl Browser {
         }
 
         self.remember_jump();
-        self.open_linked(
-            &link.table,
-            Some(RowFilter {
-                column: link.column.clone(),
-                value: value.clone(),
-            }),
-        );
+        self.open_linked(&link.table, Some(is(&link.column, &value)));
         self.say(format!(
             "followed → {} where {} is {value}  ·  esc goes back",
             link.table, link.column
@@ -141,7 +126,7 @@ impl Browser {
     fn remember_jump(&mut self) {
         self.jumps.push(Jump {
             table: self.current_table().unwrap_or_default(),
-            filter: self.link_filter.clone(),
+            filters: self.filters.clone(),
             row: self.row_index,
         });
     }
@@ -160,7 +145,7 @@ impl Browser {
             return;
         }
 
-        self.open_linked(&jump.table, jump.filter);
+        self.open_linked(&jump.table, jump.filters);
         self.row_index = jump.row.min(self.rows.len().saturating_sub(1));
         self.say(format!("back in {}", jump.table));
     }
@@ -168,6 +153,10 @@ impl Browser {
     pub(super) fn escape(&mut self) {
         if !self.jumps.is_empty() {
             self.jump_back();
+        } else if self.filters.is_some() {
+            self.clear_filters();
+        } else {
+            self.back_to_table();
         }
     }
 
@@ -176,10 +165,14 @@ impl Browser {
     }
 
     pub(super) fn can_go_back(&self) -> bool {
-        !self.jumps.is_empty()
+        !self.jumps.is_empty() || self.filters.is_some()
     }
 
-    fn open_linked(&mut self, table: &str, filter: Option<RowFilter>) {
+    pub(super) fn browsed_table(&self) -> Option<String> {
+        self.current_table().filter(|_| !self.query.results)
+    }
+
+    fn open_linked(&mut self, table: &str, filters: Option<Filters>) {
         if !self
             .visible_tables()
             .iter()
@@ -197,7 +190,7 @@ impl Browser {
         };
 
         self.table_index = at;
-        self.link_filter = filter;
+        self.filters = filters;
         self.offset = 0;
         self.sort = None;
         self.focus = Focus::Grid;
@@ -206,14 +199,16 @@ impl Browser {
 
     pub(super) fn forget_links(&mut self) {
         self.jumps.clear();
-        self.link_filter = None;
         self.raw.clear();
         self.schema.forget();
     }
 
     pub(super) fn link_hint(&self) -> Vec<Span<'static>> {
+        if self.mode != Mode::Browse {
+            return Vec::new();
+        }
         let link = self
-            .current_table()
+            .browsed_table()
             .zip(self.headers.get(self.column_index))
             .and_then(|(table, column)| self.schema.remembered_link(&table, column).cloned());
         let Some(link) = link else {
@@ -243,4 +238,8 @@ impl Browser {
         };
         Modal::new(area.width, 1, frame_height, width).draw(frame.buffer_mut(), island, height);
     }
+}
+
+fn is(column: &str, value: &str) -> Filters {
+    Filters::new(vec![Filter::new(column, "is", value)], Joiner::And)
 }

@@ -75,7 +75,7 @@ impl Browser {
             return;
         };
         self.focus = Focus::Grid;
-        let level = self.open_level(self.current_table(), row);
+        let level = self.open_level(self.browsed_table(), row);
         self.inspector = Some(Inspector {
             levels: vec![level],
             anchor: None,

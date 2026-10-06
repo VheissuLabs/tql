@@ -1,35 +1,41 @@
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use zerorust_tui::prelude::*;
 
+mod command_palette;
 mod databases;
+mod filters;
 mod inspect;
 mod keys;
 mod links;
 mod loading;
 mod mouse;
+mod query;
 mod render;
 mod structure;
 mod yank;
 
 pub use inspect::Inspector;
-pub use links::RowFilter;
 use links::{Jump, LinkPicker};
 use mouse::{Area, Drag, Hits};
+pub use query::Query;
 use structure::StructureView;
 
 use super::choice::{self, Choice};
 use super::chrome::{self, Island, Modal, theme};
 use super::clipboard::{Clipboard, Recorded};
+use super::error::{self, ErrorBox};
+use super::filters::FilterForm;
 use super::grid::{self, Grid};
 use super::help;
 use super::keymap::{self, Action};
+use super::palette::{self, Palette};
 use super::schema::Schema;
 use super::sql;
 use super::text::{self, pad, truncate, window};
-use crate::database::{Database, Direction, Sort};
+use crate::database::{Database, Direction, Filters, Sort};
 use crate::settings;
 use crate::store::Connection;
 
@@ -40,6 +46,7 @@ const BOTTOM_MARGIN: u16 = 1;
 pub enum Exit {
     Quit,
     Connections,
+    Open(i64),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -52,6 +59,7 @@ pub enum Focus {
 pub enum Mode {
     Browse,
     Help,
+    Query,
 }
 
 pub struct Browser {
@@ -75,11 +83,19 @@ pub struct Browser {
     pub offset: usize,
     pub has_more: bool,
     pub sort: Option<Sort>,
+    pub filters: Option<Filters>,
+    pub filter_form: Option<FilterForm>,
     status: Option<String>,
     status_since: Instant,
     status_fresh: bool,
     pub command: Option<String>,
     pub problem: Option<String>,
+    pub problem_title: String,
+    pub problem_notes: Vec<String>,
+    pub problem_offset: usize,
+    pub query: Query,
+    pub palette: Option<Palette>,
+    store: Option<PathBuf>,
     pub active_database: Option<String>,
     pub databases: Option<Choice>,
     pub last_statement: Option<String>,
@@ -94,7 +110,6 @@ pub struct Browser {
     pub structure: Option<StructureView>,
     pub inspector: Option<Inspector>,
     jumps: Vec<Jump>,
-    pub link_filter: Option<RowFilter>,
     link_picker: Option<LinkPicker>,
     clipboard: Box<dyn Clipboard>,
 }
@@ -135,11 +150,19 @@ impl Browser {
             offset: 0,
             has_more: false,
             sort: None,
+            filters: None,
+            filter_form: None,
             status: None,
             status_since: Instant::now(),
             status_fresh: false,
             command: None,
             problem: None,
+            problem_title: "ERROR".to_string(),
+            problem_notes: Vec::new(),
+            problem_offset: 0,
+            query: Query::default(),
+            palette: None,
+            store: None,
             active_database,
             databases: None,
             last_statement: None,
@@ -154,7 +177,6 @@ impl Browser {
             structure: None,
             inspector: None,
             jumps: Vec::new(),
-            link_filter: None,
             link_picker: None,
             clipboard: Box::new(Recorded::default()),
         };
@@ -211,13 +233,14 @@ impl Tui for Browser {
 
     fn on_key(&mut self, key: Key) -> Flow<Exit> {
         if self.problem.is_some() {
-            if matches!(key, Key::Escape | Key::Enter | Key::Char('q')) {
-                self.problem = None;
-            }
+            self.type_into_problem(key);
             return Flow::Continue;
         }
         if key == Key::Ctrl('c') {
             return Flow::Exit(Exit::Quit);
+        }
+        if self.palette.is_some() {
+            return self.type_into_palette(key);
         }
         if self.mode == Mode::Help {
             self.type_into_help(key);
@@ -231,12 +254,19 @@ impl Tui for Browser {
             self.type_into_inspector(key);
             return Flow::Continue;
         }
+        if self.mode == Mode::Query {
+            return self.type_into_query(key);
+        }
         if self.databases.is_some() {
             self.type_into_databases(key);
             return Flow::Continue;
         }
         if self.link_picker.is_some() {
             self.type_into_link_picker(key);
+            return Flow::Continue;
+        }
+        if self.filter_form.is_some() {
+            self.type_into_filter_form(key);
             return Flow::Continue;
         }
         if self.command.is_some() {
@@ -264,7 +294,9 @@ impl Tui for Browser {
         let row = (mouse.row as i64 - row_offset).max(0) as u16;
 
         if self.problem.is_some()
+            || self.palette.is_some()
             || self.databases.is_some()
+            || self.filter_form.is_some()
             || self.mode == Mode::Help
             || self.modal_over_grid()
         {

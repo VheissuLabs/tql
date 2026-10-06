@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use app::database::{Column, Database, ForeignKey, Index, Page, Sort};
+use app::database::{Column, Database, Filters, ForeignKey, Index, Page, Sort};
 use app::store::Connection;
 use app::tui::Browser;
 use zerorust_tui::Fake;
@@ -20,7 +20,14 @@ impl Database for Server {
             .unwrap_or_default())
     }
 
-    fn rows(&mut self, table: &str, _: usize, _: usize, _: Option<&Sort>) -> anyhow::Result<Page> {
+    fn filtered_rows(
+        &mut self,
+        table: &str,
+        _: usize,
+        _: usize,
+        _: Option<&Sort>,
+        _: Option<&Filters>,
+    ) -> anyhow::Result<Page> {
         Ok(Page {
             headers: vec!["id".into(), "name".into()],
             rows: vec![vec![Some("1".into()), Some(format!("first {table}"))]],

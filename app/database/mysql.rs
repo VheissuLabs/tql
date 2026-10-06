@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use anyhow::Context;
-use mysql::prelude::Queryable;
-use mysql::{Conn, OptsBuilder, Params, Value};
+use mysql::prelude::{Protocol, Queryable};
+use mysql::{Conn, OptsBuilder, QueryResult, Value};
 
 use super::schema::keys_by_table;
 use super::{
-    Column, Database, ForeignKey, Index, Page, Sort, select_page, single_column_keys, split_list,
+    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, outcome_or_affected,
+    select_page, single_column_keys, split_list,
 };
 use crate::store::Connection;
 
@@ -39,13 +40,22 @@ impl MySql {
     }
 
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
-        self.select(sql, &[])
+        page_of(self.connection.query_iter(sql).map_err(said)?)
+    }
+
+    fn bound_query(&mut self, sql: &str, bindings: Vec<String>) -> anyhow::Result<Page> {
+        page_of(self.connection.exec_iter(sql, bindings).map_err(said)?)
     }
 }
 
-fn read<Protocol: mysql::prelude::Protocol>(
-    mut result: mysql::QueryResult<'_, '_, '_, Protocol>,
-) -> anyhow::Result<Page> {
+fn said(error: mysql::Error) -> anyhow::Error {
+    match error {
+        mysql::Error::MySqlError(server) => anyhow::anyhow!(server.message),
+        other => other.into(),
+    }
+}
+
+fn page_of<P: Protocol>(mut result: QueryResult<'_, '_, '_, P>) -> anyhow::Result<Page> {
     let mut page = Page::default();
     if let Some(set) = result.iter() {
         page.headers = set
@@ -56,7 +66,7 @@ fn read<Protocol: mysql::prelude::Protocol>(
             .collect();
         for row in set {
             page.rows
-                .push(row?.unwrap().into_iter().map(text).collect());
+                .push(row.map_err(said)?.unwrap().into_iter().map(text).collect());
         }
     }
     Ok(page)
@@ -106,17 +116,35 @@ impl Database for MySql {
             .collect())
     }
 
-    fn rows(
+    fn filtered_rows(
         &mut self,
         table: &str,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
+        filters: Option<&Filters>,
     ) -> anyhow::Result<Page> {
-        let statement = select_page(&quote_backtick(table), quote_backtick, limit, offset, sort);
-        let mut page = self.query(&statement)?;
-        page.statement = statement;
-        Ok(page)
+        let condition = filters.and_then(|filters| filters.condition(&quote_backtick));
+        let page = |shown: Option<String>| {
+            select_page(
+                &quote_backtick(table),
+                quote_backtick,
+                limit,
+                offset,
+                sort,
+                shown.as_deref(),
+            )
+        };
+        let Some(condition) = condition else {
+            let statement = page(None);
+            let mut rows = self.query(&statement)?;
+            rows.statement = statement;
+            return Ok(rows);
+        };
+        let mut rows =
+            self.bound_query(&page(Some(condition.placeheld())), condition.bindings())?;
+        rows.statement = page(Some(condition.readable()));
+        Ok(rows)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
@@ -144,8 +172,16 @@ impl Database for MySql {
 
     fn use_database(&mut self, name: &str) -> anyhow::Result<()> {
         self.connection
-            .query_drop(format!("use {}", quote_backtick(name)))?;
+            .query_drop(format!("use {}", quote_backtick(name)))
+            .map_err(said)?;
         Ok(())
+    }
+
+    fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        let result = self.connection.query_iter(statement).map_err(said)?;
+        let affected = result.affected_rows() as usize;
+        let page = page_of(result)?;
+        Ok(outcome_or_affected(page.headers, page.rows, affected))
     }
 
     fn quote(&self, identifier: &str) -> String {
@@ -154,13 +190,9 @@ impl Database for MySql {
 
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
         let mut page = if values.is_empty() {
-            read(self.connection.query_iter(statement)?)?
+            self.query(statement)?
         } else {
-            let values: Vec<Value> = values.iter().map(Value::from).collect();
-            read(
-                self.connection
-                    .exec_iter(statement, Params::Positional(values))?,
-            )?
+            self.bound_query(statement, values.to_vec())?
         };
         page.statement = statement.to_string();
         Ok(page)

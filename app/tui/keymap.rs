@@ -96,7 +96,7 @@ pub const BINDINGS: &[Binding] = &[
         "go to the table list",
     ),
     ported(Action::FocusRows, &[Key::Alt('2')], "go to the rows"),
-    later(Action::FocusSql, &[Key::Alt('3')], "go to the SQL editor"),
+    ported(Action::FocusSql, &[Key::Alt('3')], "go to the SQL editor"),
     ported(
         Action::ToggleTables,
         &[Key::Char('\\')],
@@ -115,12 +115,12 @@ pub const BINDINGS: &[Binding] = &[
     later(Action::ClearMarks, &[Key::Char('u')], "drop changes"),
     later(Action::NewRow, &[Key::Char('N')], "add a row"),
     later(Action::Ask, &[Key::Char('a')], "ask in english"),
-    later(Action::FilterRows, &[Key::Char('f')], "filter rows"),
+    ported(Action::FilterRows, &[Key::Char('f')], "filter rows"),
     ported(Action::FilterTables, &[Key::Char('/')], "filter tables"),
     ported(Action::Structure, &[Key::Char('t')], "structure"),
     ported(Action::Databases, &[Key::Char('b')], "switch database"),
-    later(Action::Sql, &[Key::Char('s')], "SQL editor"),
-    later(
+    ported(Action::Sql, &[Key::Char('s')], "SQL editor"),
+    ported(
         Action::History,
         &[Key::Char('H'), Key::Alt('h')],
         "query history",
@@ -144,7 +144,7 @@ pub const BINDINGS: &[Binding] = &[
         "widen column or list",
     ),
     ported(Action::ResetWidth, &[Key::Char('=')], "reset width"),
-    later(Action::Palette, &[Key::Ctrl('k')], "command palette"),
+    ported(Action::Palette, &[Key::Ctrl('k')], "command palette"),
     ported(Action::Help, &[Key::Char('?')], "help"),
     ported(Action::Quit, &[Key::Char('q')], "quit"),
     ported(Action::Redraw, &[Key::Ctrl('l')], "redraw"),
