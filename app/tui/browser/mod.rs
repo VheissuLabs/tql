@@ -199,6 +199,13 @@ impl Browser {
         self
     }
 
+    pub fn with_status(mut self, status: Option<String>) -> Self {
+        if let Some(status) = status {
+            self.say(status);
+        }
+        self
+    }
+
     pub fn status(&self) -> &str {
         self.status.as_deref().unwrap_or_default()
     }

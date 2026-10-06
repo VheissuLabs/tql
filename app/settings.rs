@@ -1,9 +1,5 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
-
-use anyhow::Context;
 use toml::{Table, Value};
 
 use crate::tui::Keymap;
@@ -12,7 +8,7 @@ const COLORS: [&str; 11] = [
     "dim", "default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "gray",
 ];
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Settings {
     pub modal_ring: bool,
     pub hotkey_bar: bool,
@@ -85,18 +81,6 @@ impl Default for Settings {
 }
 
 impl Settings {
-    pub fn load(path: &Path) -> anyhow::Result<Self> {
-        if !path.is_file() {
-            return Ok(Settings::default());
-        }
-
-        let source =
-            fs::read_to_string(path).with_context(|| format!("cannot read {}", path.display()))?;
-        let table: Table = toml::from_str(&source)
-            .with_context(|| format!("{} is not valid TOML", path.display()))?;
-        Ok(Settings::from_table(&table))
-    }
-
     pub fn from_table(table: &Table) -> Self {
         let mut settings = Settings::default();
         for (section, values) in table {
@@ -200,17 +184,14 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_tqls_config_file_and_ignores_unknown_colors() {
-        let path = std::env::temp_dir().join(format!("tql-settings-{}.toml", std::process::id()));
-        fs::write(
-            &path,
+    fn reads_tqls_settings_and_ignores_unknown_colors() {
+        let table: Table = toml::from_str(
             "[ui]\nsql_always = true\nsql_position = \"bottom\"\nmodal_ring = false\nsidebar_width = 30\n\
              [theme]\nselection = \"cyan\"\ngrid = \"inherit\"\nborder = \"rainbow\"\n[ai]\nkey = \"never read\"\n",
         )
         .unwrap();
 
-        let settings = Settings::load(&path).unwrap();
-        fs::remove_file(&path).unwrap();
+        let settings = Settings::from_table(&table);
 
         assert!(settings.sql_always && settings.sql_at_bottom && !settings.modal_ring);
         assert_eq!(settings.sidebar_width, 30);

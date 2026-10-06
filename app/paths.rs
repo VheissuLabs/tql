@@ -1,7 +1,19 @@
+use std::cell::RefCell;
 use std::env;
 use std::path::PathBuf;
 
+thread_local! {
+    static CONFIG_DIRECTORY: RefCell<Option<PathBuf>> = const { RefCell::new(None) };
+}
+
+pub fn use_config_directory(directory: PathBuf) {
+    CONFIG_DIRECTORY.with(|chosen| *chosen.borrow_mut() = Some(directory));
+}
+
 pub fn config_directory() -> PathBuf {
+    if let Some(chosen) = CONFIG_DIRECTORY.with(|chosen| chosen.borrow().clone()) {
+        return chosen;
+    }
     let base = match env::var_os("XDG_CONFIG_HOME").filter(|value| !value.is_empty()) {
         Some(base) => PathBuf::from(base),
         None => home().join(".config"),
