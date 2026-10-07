@@ -239,11 +239,22 @@ The last form is the one TablePlus copies: the SSH server first, then the
 database behind it. tql saves the tunnel with it, takes `name` as the name and
 `env` as the tag, and leaves the SSH key to your agent and `~/.ssh/config`.
 
-`open` takes a SQLite path or a `mysql://`, `pgsql://` or `sqlsrv://` string,
-remembers it under `--name` or the database name, and drops you straight into
-it. `--tag` is what the connection *is* — `production`, `staging`, `dev` or
-`local` — and decides the color it wears. See
-[Tags and read only](#tags-and-read-only).
+`open` takes a SQLite path or a connection string, remembers it, and drops you
+straight into it. Opening one you already have reuses that connection rather
+than saving a second.
+
+| Argument or flag | What it does |
+| --- | --- |
+| `<path-or-dsn>` | a SQLite file, or a `mysql://`, `pgsql://`, `postgres://`, `sqlsrv://` or `mssql://` string; `mysql+ssh://` and the others with `+ssh` go through an SSH server first |
+| `--name=<name>` | what to call it in the connection list; on one already saved, a rename |
+| `--tag=<tag>` | what it *is*: `production`, `staging`, `dev` or `local`, which decides the color it wears; see [Tags and read only](#tags-and-read-only) |
+| `--peek` | open it without saving it |
+
+From a TablePlus URL, tql takes `name` as the name and `env` as the tag
+(`production`, `staging`, `local`, and `development` or `testing` as `dev`), and
+ignores the rest, such as `statusColor` and `safeModeLevel`. Quote a connection
+string: `?` and `&` mean something to your shell. Use single quotes when the
+password has a `$`, `!` or backtick in it.
 
 `export` asks for whatever you leave out — connection, database, table and where
 to save — so `tql export` on its own is a four-question wizard, and
@@ -400,20 +411,33 @@ tql tableplus             # bring it over
 
 tql reads the connections TablePlus for Mac has saved and adds each one, with
 its group, its environment as a tag, and its SSH tunnel and TLS settings.
-Passwords come from the Keychain: macOS asks you to allow each one, and
-`--without-passwords` skips them. Connections tql already has are left alone,
-so running it again is safe; ones tql cannot open, such as Redis, are listed
-and skipped.
+Passwords come from the Keychain: macOS asks you to allow each one, and Deny
+leaves that one out. Connections tql already has are left alone, so running it
+again is safe; ones tql cannot open, such as Redis, are listed and skipped.
 
-Or ask your agent to *move me from TablePlus to tql*: both commands answer in
-JSON when an agent runs them, and `tql tableplus --help` tells it what to do.
+| Flag | What it does |
+| --- | --- |
+| `--dry-run` | list what would come over and what would be skipped, and change nothing; the Keychain is not touched |
+| `--without-passwords` | bring the connections over but leave every password in the Keychain; add them later with `e` |
+| `--from=<folder>` | read TablePlus's `Data` folder from somewhere other than `~/Library/Application Support/com.tinyapp.TablePlus` (or its Setapp twin) |
+| `--json` | answer in JSON, which is what you get anyway when the output is piped |
+| `--table` | answer in lines for a person, which is what you get anyway in a terminal |
+
+A connection TablePlus is set to ask about every time keeps no password, and
+neither does an SSH key's passphrase: tql leaves the key to `ssh`, your agent
+and `~/.ssh/config`. TablePlus for Windows and Linux is not supported yet.
+
+Or ask your agent to *move me from TablePlus to tql*: both runs answer in JSON
+when an agent makes them, nothing in that JSON is a password, and
+`tql tableplus --help` tells the agent to show you the dry run first.
 
 ## Dumping and loading
 
 `tql export` writes rows as SQL you can read. For a whole database, schema and
-all, and fast enough for tables in the tens of gigabytes, there is `tql dump`
-and `tql load`. They hand the work to the tools built for it, and give them
-your saved connection, password, TLS and SSH tunnel included:
+all, and fast enough for tables in the tens of gigabytes, there are three
+commands: `tql dump` writes a database to a folder, `tql load` reads one back,
+and `tql sync` does both in one step. They hand the work to the tools built for
+it, and give them your saved connection, password, TLS and SSH tunnel included:
 
 | Database | Dumps with | Loads with | Install |
 | --- | --- | --- | --- |
@@ -421,41 +445,108 @@ your saved connection, password, TLS and SSH tunnel included:
 | Postgres | `pg_dump` | `pg_restore` | `brew install libpq` |
 | SQLite | tql itself | tql itself | nothing |
 
+All three work in parallel, from a consistent snapshot, and split big tables
+into pieces. While they run you see a progress bar counting tables, with the
+one being worked on under it; `-v` shows everything the tools say instead.
+`--dry-run` shows the exact command without running it, and the password is
+never on it: tql hands it to the tool in a private file that is gone when the
+command ends.
+
+### `tql dump`
+
 ```bash
-tql dump notarydash-prod                       # every table, into a new folder
-tql dump notarydash-prod orders users --to=./nd
-tql load ./nd notarydash-local --drop          # replace tables it already has
-tql load ./orders.sql notarydash-local         # replay a tql export, all or nothing
+tql dump notarydash-prod                         # every table, into a new folder
+tql dump notarydash-prod orders users --to=./nd  # two tables, into a folder you name
+tql dump mysql-dev --database=shop               # a server connection that names no database
 ```
 
-A dump runs in parallel (`--threads=4`) from a consistent snapshot and splits
-big tables into pieces. It goes in a new folder beside your exports unless
-`--to` says where, and tql checks the drive has room first. Postgres dumps are
+The dump goes in a new folder beside your [exports](#exporting) unless `--to`
+says where, and tql checks the drive has room first. Postgres dumps are
 compressed; MySQL dumps are not, because myloader 1.0.5 hangs loading
-compressed files on macOS, so allow about the size of the data.
-`--data-only` leaves the schema out, for loading into tables that exist.
+compressed files on macOS, so allow about the size of the data. A `tql.json`
+in the folder records where the dump came from, which `tql load` reads.
 
-A load stops at a table that already exists unless `--drop` says to replace it,
-refuses a read-only connection, and asks before touching one tagged
-production. `--dry-run` on either shows the command without running it; the
-password is never on it, since tql passes it to the tool in a private file.
+| Argument or flag | What it does |
+| --- | --- |
+| `<connection>` | the saved connection to dump |
+| `[tables…]` | only these tables; every table when none are named |
+| `--to=<folder>` | where to write the dump; it must be new or empty |
+| `--database=<name>` | which database on the server, for a connection that names none |
+| `--threads=<n>` | how many tables, or pieces of a table, to dump at once; 4 unless you say |
+| `--data-only` | rows only, for loading into tables that already exist |
+| `--no-lock` | skip the consistent snapshot, for a MySQL user without the privileges it needs; tables are then read at slightly different moments |
+| `--force` | dump even when the drive looks too small |
+| `--dry-run` | show the command tql would run, and stop |
+| `-v` | show everything the tool says instead of the progress bar |
 
-To do both in one step, `tql sync` dumps from one connection and loads into
-another, replacing the tables it brings over and leaving the rest alone:
+### `tql load`
+
+`tql import` is the same command.
 
 ```bash
-tql sync notarydash-prod local --database=notarydash                    # same name on both sides
-tql sync notarydash-prod local --database=notarydash --into=nd_copy     # another name locally
-tql sync notarydash-prod local --database=notarydash users orders       # just these tables
+tql load ./nd notarydash-local                   # a dump into tables that do not exist yet
+tql load ./nd notarydash-local --drop            # replacing tables it already has
+tql load ./nd mysql-dev --database=nd_copy       # into a database it creates
+tql load ./orders.sql notarydash-local           # replay a tql export, all or nothing
 ```
 
-The dump passes through a folder that is deleted afterwards, unless `--keep`
-keeps it as a backup. A sync will not copy a database onto itself, into a
-read-only connection, or into one tagged production without `--force`.
+A dump folder is loaded with myloader or pg_restore, and a load stops at a
+table that already exists unless `--drop` says to replace it. A `.sql` file
+from `tql export` is replayed in one transaction: if a statement fails,
+nothing is loaded. A dump only loads into the same kind of database it came
+from.
 
-A MySQL user without the privileges for a consistent snapshot can still dump
-with `--no-lock`, at the cost of tables being read at slightly different
-moments. SQL Server, and moving between engines, are not supported yet.
+| Argument or flag | What it does |
+| --- | --- |
+| `<source>` | a folder from `tql dump` (or straight from mydumper or pg_dump), or a `.sql` file from `tql export` |
+| `<connection>` | the saved connection to load it into |
+| `--database=<name>` | which database on the server, for a connection that names none; MySQL creates it if it is not there |
+| `--drop` | drop and recreate tables that already exist; for a SQLite connection, replace the file |
+| `--threads=<n>` | how many tables, or pieces of a table, to load at once; 4 unless you say |
+| `--force` | load into a connection tagged production without being asked |
+| `--dry-run` | show the command tql would run, and stop |
+| `-v` | show everything the tool says instead of the progress bar |
+
+### `tql sync`
+
+```bash
+tql sync notarydash-prod local --database=notarydash                  # same name on both sides
+tql sync notarydash-prod local --database=notarydash --into=nd_copy   # another name locally
+tql sync notarydash-prod local --database=notarydash users orders     # just these tables
+tql sync notarydash-prod staging --database=notarydash                # remote to remote
+```
+
+A sync dumps from the first connection and loads into the second, replacing
+the tables it brings over and leaving the rest alone. The first connection is
+only ever read. Either side can be local or remote; between two servers, the
+data passes through your machine. The dump goes through a folder that is
+deleted afterwards, unless `--keep` keeps it as a backup.
+
+The database on each side: the source uses `--database`, or the one its
+connection names. The target uses `--into`, or the one its connection names,
+or else the same name as the source.
+
+| Argument or flag | What it does |
+| --- | --- |
+| `<from>` | the saved connection to copy from |
+| `<to>` | the saved connection to copy into |
+| `[tables…]` | only these tables; every table when none are named |
+| `--database=<name>` | the database to copy, for a connection that names none |
+| `--into=<name>` | what the database is called on the other side, when it is not the same |
+| `--threads=<n>` | how many tables, or pieces of a table, to copy at once; 4 unless you say |
+| `--no-lock` | skip the consistent snapshot, as for `tql dump` |
+| `--via=<folder>` | the folder the copy passes through; beside your exports unless you say |
+| `--keep` | keep that folder afterwards, as a backup |
+| `--force` | copy into a connection tagged production, or past the free space check |
+| `--dry-run` | show both commands without running them |
+| `-v` | show everything the tools say instead of the progress bars |
+
+### What they will not do
+
+`tql load` and `tql sync` refuse a read-only connection, and ask before
+writing to one tagged production: in a script, where there is no one to ask,
+they need `--force`. A sync will not copy a database onto itself. None of them
+move data between engines, and SQL Server is not supported yet.
 
 ## Tags and read only
 
