@@ -216,6 +216,7 @@ interface is the wrong shape for.
 | `tql` | the interface: pick a connection and browse |
 | `tql open <path-or-dsn>` | open a database by path or connection string, saving it; `tql connect` is the same |
 | `tql export [connection] [table]` | write rows out as re-importable SQL |
+| `tql tableplus` | bring your TablePlus connections over, groups and passwords too |
 | `tql dump <connection> [tables…]` | dump a database, schema and data, with mydumper or pg_dump |
 | `tql load <dump-or-sql> <connection>` | load a dump, or replay an export; `tql import` is the same |
 | `tql config` | where the config file is; `--tidy` puts it back in order |
@@ -388,6 +389,23 @@ in the next person's screenshot. See [Tags and read only](#tags-and-read-only).
 `verify-ca` or `verify-full`, and reveals the CA, cert and key fields. Managed
 databases usually want `require` and a CA certificate. Only `verify-full`
 checks the hostname.
+
+## Coming from TablePlus
+
+```bash
+tql tableplus --dry-run   # what would come over
+tql tableplus             # bring it over
+```
+
+tql reads the connections TablePlus for Mac has saved and adds each one, with
+its group, its environment as a tag, and its SSH tunnel and TLS settings.
+Passwords come from the Keychain: macOS asks you to allow each one, and
+`--without-passwords` skips them. Connections tql already has are left alone,
+so running it again is safe; ones tql cannot open, such as Redis, are listed
+and skipped.
+
+Or ask your agent to *move me from TablePlus to tql*: both commands answer in
+JSON when an agent runs them, and `tql tableplus --help` tells it what to do.
 
 ## Dumping and loading
 
