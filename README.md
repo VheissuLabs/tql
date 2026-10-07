@@ -216,6 +216,8 @@ interface is the wrong shape for.
 | `tql` | the interface: pick a connection and browse |
 | `tql open <path-or-dsn>` | open a database by path or connection string, saving it; `tql connect` is the same |
 | `tql export [connection] [table]` | write rows out as re-importable SQL |
+| `tql dump <connection> [tables…]` | dump a database, schema and data, with mydumper or pg_dump |
+| `tql load <dump-or-sql> <connection>` | load a dump, or replay an export; `tql import` is the same |
 | `tql config` | where the config file is; `--tidy` puts it back in order |
 | `tql connections` | list the saved connections |
 | `tql tables <connection>` | list a connection's tables |
@@ -381,6 +383,40 @@ in the next person's screenshot. See [Tags and read only](#tags-and-read-only).
 `verify-ca` or `verify-full`, and reveals the CA, cert and key fields. Managed
 databases usually want `require` and a CA certificate. Only `verify-full`
 checks the hostname.
+
+## Dumping and loading
+
+`tql export` writes rows as SQL you can read. For a whole database, schema and
+all, and fast enough for tables in the tens of gigabytes, there is `tql dump`
+and `tql load`. They hand the work to the tools built for it, and give them
+your saved connection, password, TLS and SSH tunnel included:
+
+| Database | Dumps with | Loads with | Install |
+| --- | --- | --- | --- |
+| MySQL | `mydumper` | `myloader` | `brew install mydumper` |
+| Postgres | `pg_dump` | `pg_restore` | `brew install libpq` |
+| SQLite | tql itself | tql itself | nothing |
+
+```bash
+tql dump notarydash-prod                       # every table, into a new folder
+tql dump notarydash-prod orders users --to=./nd
+tql load ./nd notarydash-local --drop          # replace tables it already has
+tql load ./orders.sql notarydash-local         # replay a tql export, all or nothing
+```
+
+A dump runs in parallel (`--threads=4`) from a consistent snapshot, splits big
+tables into pieces, and is compressed. It goes in a new folder beside your
+exports unless `--to` says where, and tql checks the drive has room first.
+`--data-only` leaves the schema out, for loading into tables that exist.
+
+A load stops at a table that already exists unless `--drop` says to replace it,
+refuses a read-only connection, and asks before touching one tagged
+production. `--dry-run` on either shows the command without running it; the
+password is never on it, since tql passes it to the tool in a private file.
+
+A MySQL user without the privileges for a consistent snapshot can still dump
+with `--no-lock`, at the cost of tables being read at slightly different
+moments. SQL Server, and moving between engines, are not supported yet.
 
 ## Tags and read only
 
