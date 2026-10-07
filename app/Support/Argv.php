@@ -6,7 +6,7 @@ use App\Database\Dsn;
 
 class Argv
 {
-    public const COMMANDS = ['browse', 'open', 'export', 'config', 'update', 'connections', 'tables', 'describe', 'query', 'list', 'help', 'mcp:start'];
+    public const COMMANDS = ['browse', 'open', 'connect', 'export', 'config', 'update', 'connections', 'tables', 'describe', 'query', 'list', 'help', 'mcp:start'];
 
     /**
      * Let `tql some.sqlite` or `tql mysql://…` mean `tql open …`.

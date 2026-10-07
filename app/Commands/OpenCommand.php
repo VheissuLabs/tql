@@ -24,6 +24,9 @@ class OpenCommand extends Command
 
     protected $description = 'Open a database by path or connection string';
 
+    /** What people reach for first when they have a connection string. */
+    protected $aliases = ['connect'];
+
     public function __construct(
         private ConnectionManager $connections,
         private QueryRunner $runner,
