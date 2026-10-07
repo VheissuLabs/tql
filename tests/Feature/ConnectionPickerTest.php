@@ -1,6 +1,9 @@
 <?php
 
+use App\Database\Dsn;
 use App\Models\Connection;
+use App\Models\Setting;
+use App\Tui\Clipboard;
 use App\Tui\ConnectionForm;
 use App\Tui\ConnectionPicker;
 use Illuminate\Support\Facades\Artisan;
@@ -110,7 +113,7 @@ it('offers only the fields that driver has', function () {
     $sqlite = Connection::create(['name' => 'lite', 'driver' => 'sqlite', 'database' => '/tmp/a.sqlite']);
 
     expect(array_keys(form($sqlite)->fields()))
-        ->toBe(['name', 'database', 'tag', 'read_only']);
+        ->toBe(['name', 'database', 'group_name', 'tag', 'read_only']);
 
     $mysql = Connection::create([
         'name' => 'my', 'driver' => 'mysql', 'host' => 'h', 'port' => 3306,
@@ -119,7 +122,7 @@ it('offers only the fields that driver has', function () {
 
     expect(array_keys(form($mysql)->fields()))->toBe([
         'name', 'host', 'port', 'database', 'username', 'password',
-        'ssl_mode', 'over_ssh', 'tag', 'read_only',
+        'ssl_mode', 'over_ssh', 'group_name', 'tag', 'read_only',
     ]);
 });
 
@@ -324,7 +327,7 @@ it('shows the fields that suit the chosen driver', function () {
     $picker->emit('key', 'n');
 
     expect(array_keys($picker->form->fields()))
-        ->toBe(['driver', 'name', 'database', 'tag', 'read_only']);
+        ->toBe(['driver', 'name', 'database', 'group_name', 'tag', 'read_only']);
 
     while ($picker->form->driver() !== 'mysql') {
         $picker->form->cycleDriver();
@@ -332,7 +335,7 @@ it('shows the fields that suit the chosen driver', function () {
 
     expect(array_keys($picker->form->fields()))->toBe([
         'driver', 'name', 'host', 'port', 'database', 'username', 'password',
-        'ssl_mode', 'over_ssh', 'tag', 'read_only',
+        'ssl_mode', 'over_ssh', 'group_name', 'tag', 'read_only',
     ]);
 });
 
@@ -823,3 +826,270 @@ it('fits a narrow window instead of wrapping every line', function (int $columns
     expect(max(array_map('mb_strlen', $lines)))->toBeLessThanOrEqual($columns)
         ->and(implode("\n", $lines))->toContain('a connection');
 })->with([60, 70, 77]);
+
+function groupedPicker(): ConnectionPicker
+{
+    Setting::query()->delete();
+
+    Connection::create(['name' => 'scratch', 'driver' => 'sqlite', 'database' => '/tmp/s.sqlite']);
+    Connection::create(['name' => 'nd-prod', 'driver' => 'sqlite', 'database' => '/tmp/p.sqlite', 'group_name' => 'notarydash']);
+    Connection::create(['name' => 'nd-dev', 'driver' => 'sqlite', 'database' => '/tmp/d.sqlite', 'group_name' => 'notarydash']);
+    Connection::create(['name' => 'blog', 'driver' => 'sqlite', 'database' => '/tmp/b.sqlite', 'group_name' => 'Acme']);
+
+    return new ConnectionPicker(Connection::orderBy('name')->get());
+}
+
+function rowLabels(ConnectionPicker $picker): array
+{
+    return array_map(
+        fn (array $row) => $row['header'] ? '# '.$row['group'] : $row['name'],
+        $picker->rows(),
+    );
+}
+
+it('lists ungrouped connections first, then each group under a header', function () {
+    expect(rowLabels(groupedPicker()))->toBe([
+        'scratch', '# Acme', 'blog', '# notarydash', 'nd-dev', 'nd-prod',
+    ]);
+});
+
+it('folds a group on enter over its header and unfolds it again', function () {
+    $picker = groupedPicker();
+    $picker->index = 3;
+
+    $picker->emit('key', "\n");
+
+    expect(rowLabels($picker))->toBe(['scratch', '# Acme', 'blog', '# notarydash'])
+        ->and($picker->value())->toBeNull();
+
+    $picker->emit('key', "\n");
+
+    expect(rowLabels($picker))->toHaveCount(6);
+});
+
+it('folds the group the cursor is in on h and lands on its header', function () {
+    $picker = groupedPicker();
+    $picker->index = 5;
+
+    $picker->emit('key', 'h');
+
+    expect($picker->index)->toBe(3)
+        ->and($picker->isCollapsed('notarydash'))->toBeTrue();
+
+    $picker->emit('key', 'l');
+
+    expect($picker->isCollapsed('notarydash'))->toBeFalse();
+});
+
+it('remembers folded groups the next time', function () {
+    $picker = groupedPicker();
+    $picker->index = 1;
+    $picker->emit('key', ' ');
+
+    $again = new ConnectionPicker(Connection::orderBy('name')->get());
+
+    expect(rowLabels($again))->toBe(['scratch', '# Acme', '# notarydash', 'nd-dev', 'nd-prod']);
+});
+
+it('starts on the first connection it was given, wherever its group put it', function () {
+    groupedPicker();
+
+    $picker = new ConnectionPicker(Connection::orderByDesc('name')->get());
+
+    expect($picker->rows()[$picker->index]['name'])->toBe('scratch');
+
+    $picker = new ConnectionPicker(Connection::orderBy('name')->get());
+
+    expect($picker->rows()[$picker->index]['name'])->toBe('blog');
+});
+
+it('does not edit or delete a group header', function () {
+    $picker = groupedPicker();
+    $picker->index = 1;
+
+    $picker->emit('key', 'e');
+    $picker->emit('key', 'd');
+
+    expect($picker->form)->toBeNull()
+        ->and($picker->pendingDeletes)->toBe([]);
+});
+
+it('draws a group header with its count', function () {
+    $frame = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame(groupedPicker()));
+
+    expect($frame)->toContain('▼ notarydash (2)')
+        ->and($frame)->toContain('▼ Acme (1)');
+});
+
+it('picks a group from the ones in use, or makes a new one by typing it', function () {
+    $picker = groupedPicker();
+    $picker->index = 0;
+
+    $picker->emit('key', 'e');
+
+    while ($picker->form->currentKey() !== 'group_name') {
+        $picker->form->move(1);
+    }
+
+    $picker->emit('key', "\n");
+
+    expect($picker->form->picker->options)->toBe(['none', 'Acme', 'notarydash']);
+
+    foreach (str_split('side') as $key) {
+        $picker->emit('key', $key);
+    }
+
+    $picker->emit('key', "\n");
+    $picker->emit('key', ConnectionPicker::SAVE);
+
+    expect(Connection::where('name', 'scratch')->value('group_name'))->toBe('side')
+        ->and($picker->rows()[$picker->index]['name'])->toBe('scratch');
+});
+
+it('takes a connection out of its group when none is picked', function () {
+    $picker = groupedPicker();
+    $picker->index = 2;
+
+    $picker->emit('key', 'e');
+
+    while ($picker->form->currentKey() !== 'group_name') {
+        $picker->form->move(1);
+    }
+
+    $picker->emit('key', "\n");
+
+    while ($picker->form->picker->selected() !== 'none') {
+        $picker->form->picker->move(1);
+    }
+
+    $picker->emit('key', "\n");
+    $picker->emit('key', ConnectionPicker::SAVE);
+
+    expect(Connection::where('name', 'blog')->value('group_name'))->toBeNull()
+        ->and(rowLabels($picker))->not->toContain('# Acme');
+});
+
+it('says on the hotkey bar how to delete a connection', function () {
+    $frame = preg_replace('/\e\[[0-9;]*m/', '', pickerFrame(picker()));
+
+    expect($frame)->toContain('d Delete')->and($frame)->toContain(':w Confirm');
+});
+
+function yanking(Connection $connection): ConnectionPicker
+{
+    Clipboard::$fake = [];
+
+    return new ConnectionPicker(collect([$connection]));
+}
+
+afterEach(function () {
+    Clipboard::$fake = null;
+});
+
+it('yanks the database name on y', function () {
+    $picker = yanking(Connection::create([
+        'name' => 'nd', 'driver' => 'mysql', 'host' => 'db.test', 'port' => 3306,
+        'database' => 'notarydash', 'username' => 'app', 'password' => 'secret',
+    ]));
+
+    $picker->emit('key', 'y');
+
+    expect(Clipboard::$fake)->toBe(['notarydash'])
+        ->and($picker->status)->toBe('yanked notarydash');
+});
+
+it('yanks a connection string on Y that opens the same connection again', function () {
+    $connection = Connection::create([
+        'name' => 'nd', 'driver' => 'pgsql', 'host' => 'db.test', 'port' => 5433,
+        'database' => 'notary dash', 'username' => 'app@corp', 'password' => 'p@ss:w/rd#1',
+    ]);
+
+    $picker = yanking($connection);
+    $picker->emit('key', 'Y');
+
+    expect(Dsn::parse(Clipboard::$fake[0]))->toMatchArray([
+        'driver' => 'pgsql', 'host' => 'db.test', 'port' => 5433,
+        'database' => 'notary dash', 'username' => 'app@corp', 'password' => 'p@ss:w/rd#1',
+    ])->and($picker->status)->toBe('yanked connection string');
+});
+
+it('yanks a sqlite connection as its path', function () {
+    $picker = yanking(Connection::create(['name' => 'lite', 'driver' => 'sqlite', 'database' => '/tmp/a.sqlite']));
+
+    $picker->emit('key', 'y');
+    $picker->emit('key', 'Y');
+
+    expect(Clipboard::$fake)->toBe(['/tmp/a.sqlite', 'sqlite:///tmp/a.sqlite'])
+        ->and(Dsn::parse(Clipboard::$fake[1])['database'])->toBe('/tmp/a.sqlite');
+});
+
+it('says so when there is no database name to yank', function () {
+    $picker = yanking(Connection::create([
+        'name' => 'server', 'driver' => 'mysql', 'host' => 'db.test', 'port' => 3306, 'username' => 'app',
+    ]));
+
+    $picker->emit('key', 'y');
+
+    expect(Clipboard::$fake)->toBe([])
+        ->and($picker->status)->toContain('no database');
+});
+
+it('yanks nothing from a group header', function () {
+    Clipboard::$fake = [];
+    $picker = groupedPicker();
+    $picker->index = 1;
+
+    $picker->emit('key', 'y');
+    $picker->emit('key', 'Y');
+
+    expect(Clipboard::$fake)->toBe([]);
+});
+
+it('lets the status line fade back to the connection count', function () {
+    $picker = yanking(Connection::create(['name' => 'lite', 'driver' => 'sqlite', 'database' => '/tmp/a.sqlite']));
+
+    $picker->emit('key', 'y');
+
+    expect($picker->fadeStatus($picker->statusSince + 1))->toBeFalse()
+        ->and($picker->status)->toBe('yanked /tmp/a.sqlite')
+        ->and($picker->fadeStatus($picker->statusSince + 60))->toBeTrue()
+        ->and($picker->status)->toBeNull();
+});
+
+function columnEdges(string $frame): array
+{
+    $header = collect(explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $frame)))
+        ->first(fn (string $line) => str_contains($line, 'NAME'));
+
+    return array_keys(array_filter(mb_str_split($header), fn (string $c) => $c === '│'));
+}
+
+it('keeps the columns where they are when a group folds', function () {
+    Connection::create(['name' => 'a-very-long-connection-name', 'driver' => 'sqlite', 'database' => '/tmp/l.sqlite', 'group_name' => 'notarydash']);
+    $picker = groupedPicker();
+
+    $before = columnEdges(pickerFrame($picker));
+
+    $picker->index = collect($picker->rows())
+        ->search(fn (array $row) => $row['header'] && $row['group'] === 'notarydash');
+    $picker->emit('key', ' ');
+
+    expect($picker->isCollapsed('notarydash'))->toBeTrue()
+        ->and(columnEdges(pickerFrame($picker)))->toBe($before);
+});
+
+it('fits a group header inside the name column', function () {
+    Connection::create(['name' => 'x', 'driver' => 'sqlite', 'database' => '/tmp/x.sqlite', 'group_name' => 'a rather long group name']);
+    Clipboard::$fake = [];
+
+    $picker = new ConnectionPicker(Connection::orderBy('name')->get());
+    $picker->index = 1;
+
+    $lines = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', pickerFrame($picker)));
+    $edges = columnEdges(pickerFrame($picker));
+    $header = collect($lines)->first(fn (string $line) => str_contains($line, 'a rather long group name (1)'));
+
+    expect($header)->not->toBeNull()
+        ->and(mb_substr($header, $edges[1], 1))->toBe('│')
+        ->and(mb_strpos($header, '(1)'))->toBeLessThan($edges[1]);
+});

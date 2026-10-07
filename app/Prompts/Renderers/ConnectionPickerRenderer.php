@@ -77,7 +77,7 @@ class ConnectionPickerRenderer extends Renderer
 
         $this->line($this->fit($this->dim($prompt->form !== null
             ? ' ↑↓ Move    ↵ Select'
-            : ' ↑↓ Move    ↵ Open    e Edit    n New    d Mark    :w Write    :q Quit'), $width));
+            : ' ↑↓ Move    ↵ Open    space Fold    e Edit    n New    y/Y Yank db/DSN    d Delete    :w Confirm    :q Quit'), $width));
         $this->line($this->fit($this->status($prompt), $width));
 
         return $this;
@@ -322,7 +322,7 @@ class ConnectionPickerRenderer extends Renderer
 
     private function widths(ConnectionPicker $prompt, int $inner): array
     {
-        $rows = $prompt->rows();
+        $rows = $prompt->rows(unfolded: true);
 
         // The name column carries the row marker and the driver icon.
         $name = 8;
@@ -330,7 +330,13 @@ class ConnectionPickerRenderer extends Renderer
         $tag = 3;
 
         foreach ($rows as $row) {
-            $name = max($name, mb_strlen($row['name']) + 4);
+            if ($row['header']) {
+                $name = max($name, mb_strlen($this->headerText($row)) - 1);
+
+                continue;
+            }
+
+            $name = max($name, mb_strlen($row['name']) + 4 + ($row['group'] === '' ? 0 : 2));
             $used = max($used, mb_strlen($row['used']));
             $tag = max($tag, mb_strlen($this->tagOf($row)));
         }
@@ -433,6 +439,13 @@ class ConnectionPickerRenderer extends Renderer
 
         foreach (array_slice($rows, $start, $height) as $offset => $row) {
             $selected = ($start + $offset) === $prompt->index;
+
+            if ($row['header']) {
+                $lines[] = $this->groupHeader($row, $widths, $inner, $selected);
+
+                continue;
+            }
+
             $marked = $prompt->isMarked((int) $row['id']);
             $values = [$row['name'], $this->tagOf($row), $row['where'], $row['used']];
             $cells = [];
@@ -446,6 +459,7 @@ class ConnectionPickerRenderer extends Renderer
                         $selected,
                         $marked,
                         Tag::colorOf($row['tag'] ?? null),
+                        $row['group'] !== '',
                     );
 
                     continue;
@@ -493,11 +507,14 @@ class ConnectionPickerRenderer extends Renderer
         bool $selected,
         bool $marked = false,
         string $color = '',
+        bool $grouped = false,
     ): string {
         $icon = $this->driverIcon($driver);
 
+        // Inside a group the name steps in under the header it belongs to.
+        $indent = $grouped ? '  ' : '';
         $marker = Layout::rowStyle() === 'marker' && $selected ? '▸' : ' ';
-        $label = $this->pad($this->truncate($name, $width - 4), $width - 4);
+        $label = $this->pad($this->truncate($name, $width - 4 - mb_strlen($indent)), $width - 4 - mb_strlen($indent));
 
         // A highlighted row carries no color of its own, marked or selected:
         // the icon's escape code would end the highlight right after it.
@@ -507,9 +524,44 @@ class ConnectionPickerRenderer extends Renderer
         // you are looking at when you decide whether to open it.
         $shade = $color !== '' ? $color : $this->driverColor($driver);
 
-        return ' '.$marker.' '
+        return ' '.$marker.' '.$indent
             .($plain ? $icon : $this->paint($shade, $icon))
             .' '.$label.' ';
+    }
+
+    /**
+     * A group's header sits in the name column, with the other columns left
+     * empty but still ruled, so the grid runs through it unbroken: an arrow
+     * that says whether it is open, the name, and how many it holds.
+     *
+     * @param  array<string, mixed>  $row
+     */
+    private function groupHeader(array $row, array $widths, int $inner, bool $selected): string
+    {
+        $arrow = $row['collapsed'] ? '▶' : '▼';
+        $count = '('.$row['count'].')';
+        $room = $widths[0] + 1;
+        $name = $this->truncate($row['group'], max(1, $room - mb_strlen($count) - 3));
+        $plain = $this->pad(' '.$arrow.' '.$name.' '.$count, $room).' ';
+
+        $rest = array_map(fn (int $w) => str_repeat(' ', $w + 2), array_slice($widths, 1));
+
+        if ($selected) {
+            return $this->highlight($this->pad(implode('│', [$plain, ...$rest]), $inner));
+        }
+
+        $cell = ' '.$this->dim($arrow).' '.$this->bold($name).' '.$this->dim($count)
+            .str_repeat(' ', max(0, mb_strlen($plain) - mb_strlen(' '.$arrow.' '.$name.' '.$count)));
+
+        return implode($this->paint(Theme::border(true), '│'), [$cell, ...$rest]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $row
+     */
+    private function headerText(array $row): string
+    {
+        return ' ▼ '.$row['group'].' ('.$row['count'].')';
     }
 
     /**

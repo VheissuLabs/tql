@@ -52,6 +52,7 @@ class ConnectionForm
         'ssl_ca' => 'SSL CA cert',
         'ssl_cert' => 'SSL cert',
         'ssl_key' => 'SSL key',
+        'group_name' => 'Group',
         'tag' => 'Tag',
         'read_only' => 'Read only',
     ] + SshSettings::FIELDS;
@@ -62,7 +63,10 @@ class ConnectionForm
     public const FILES = [SshSettings::FILE, 'ssl_ca', 'ssl_cert', 'ssl_key'];
 
     /** Fields answered from a list rather than by typing or cycling. */
-    public const PICKED = [...self::FILES, 'tag'];
+    public const PICKED = [...self::FILES, 'tag', 'group_name'];
+
+    /** What "no group" is called in the list of groups. */
+    public const NO_GROUP = 'none';
 
     public const TYPE_IT = 'type a path…';
 
@@ -146,7 +150,7 @@ class ConnectionForm
             str_starts_with($key, 'ssl_') => 'tls',
             $key === 'ssl_mode' => 'tls',
             $key === SshSettings::TOGGLE, str_starts_with($key, 'ssh_') => 'ssh',
-            in_array($key, ['tag', 'read_only'], true) => 'labels',
+            in_array($key, ['group_name', 'tag', 'read_only'], true) => 'labels',
             default => 'where',
         };
     }
@@ -177,7 +181,7 @@ class ConnectionForm
     public function isPlaceholder(string $key): bool
     {
         return ($this->values[$key] ?? '') === ''
-            && ! in_array($key, [SshSettings::TOGGLE, 'read_only', 'tag'], true)
+            && ! in_array($key, [SshSettings::TOGGLE, 'read_only', 'tag', 'group_name'], true)
             && $this->display($key) !== '';
     }
 
@@ -224,10 +228,29 @@ class ConnectionForm
         $chosen = (string) ($this->values[$key] ?? '');
 
         // The tag list shows the color each one wears, since that is what you
-        // are choosing between.
-        $this->picker = $key === 'tag'
-            ? new Picker($title, Tag::choices(), $chosen === '' ? Tag::NONE : $chosen, self::tagColors())
-            : new Picker($title, $this->files($key), $chosen);
+        // are choosing between. Groups are picked from the ones in use, so a
+        // typo does not quietly start a second one; typing a new name makes it.
+        $this->picker = match ($key) {
+            'tag' => new Picker($title, Tag::choices(), $chosen === '' ? Tag::NONE : $chosen, self::tagColors()),
+            'group_name' => new Picker('GROUP', self::groups(), $chosen === '' ? self::NO_GROUP : $chosen, creates: true),
+            default => new Picker($title, $this->files($key), $chosen),
+        };
+    }
+
+    /**
+     * @return array<int, string>
+     */
+    private static function groups(): array
+    {
+        $groups = Connection::whereNotNull('group_name')
+            ->where('group_name', '!=', '')
+            ->distinct()
+            ->pluck('group_name')
+            ->sort(fn (string $a, string $b) => strcasecmp($a, $b))
+            ->values()
+            ->all();
+
+        return array_merge([self::NO_GROUP], $groups);
     }
 
     /**
@@ -260,9 +283,11 @@ class ConnectionForm
             return;
         }
 
-        $this->values[$this->currentKey()] = $this->currentKey() === 'tag'
-            ? Tag::value($chosen)
-            : $chosen;
+        $this->values[$this->currentKey()] = match ($this->currentKey()) {
+            'tag' => Tag::value($chosen),
+            'group_name' => $chosen === self::NO_GROUP ? '' : trim($chosen),
+            default => $chosen,
+        };
     }
 
     public function closePicker(): void
@@ -323,6 +348,7 @@ class ConnectionForm
             }
         }
 
+        $fields['group_name'] = 'Group';
         $fields['tag'] = 'Tag';
         $fields['read_only'] = 'Read only';
 
@@ -413,7 +439,7 @@ class ConnectionForm
             return 'driver default';
         }
 
-        if ($key === 'tag' && ($this->values[$key] ?? '') === '') {
+        if (in_array($key, ['tag', 'group_name'], true) && ($this->values[$key] ?? '') === '') {
             return 'none';
         }
 
@@ -486,6 +512,10 @@ class ConnectionForm
 
         if (isset($values['ssh_port'])) {
             $values['ssh_port'] = $values['ssh_port'] === '' ? null : (int) $values['ssh_port'];
+        }
+
+        if (isset($values['group_name'])) {
+            $values['group_name'] = trim($values['group_name']) === '' ? null : trim($values['group_name']);
         }
 
         if (isset($values['read_only'])) {

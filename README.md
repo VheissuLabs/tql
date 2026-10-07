@@ -214,7 +214,7 @@ interface is the wrong shape for.
 | Command | What it does |
 | --- | --- |
 | `tql` | the interface: pick a connection and browse |
-| `tql open <path-or-dsn>` | open a database by path or connection string, saving it |
+| `tql open <path-or-dsn>` | open a database by path or connection string, saving it; `tql connect` is the same |
 | `tql export [connection] [table]` | write rows out as re-importable SQL |
 | `tql config` | where the config file is; `--tidy` puts it back in order |
 | `tql connections` | list the saved connections |
@@ -403,6 +403,12 @@ screenshot.
 
 **Read only** refuses every write on that connection: no edits, no marks, no
 `:w`.
+
+## Groups
+
+A connection can also carry a **group**, set in its form. The connection list
+shows each group under a header, after the connections without one, and
+`space` folds it shut. Folded groups stay folded the next time.
 
 ## Several databases on one server
 

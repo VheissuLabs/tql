@@ -321,12 +321,19 @@ dropped until `↵` there.
 | Key | Action |
 | --- | --- |
 | `↑ ↓` / `j k` | move |
-| `↵` | open it |
+| `↵` | open it, or fold a group on its header |
+| `space` | fold or unfold the group |
+| `h` / `l` | fold the group you are in, or unfold the one under the cursor |
 | `n` | a new connection |
 | `e` | edit this one |
+| `y` | yank the database name, or the path for SQLite |
+| `Y` | yank the connection string, password and all |
 | `d` / `u` | mark for deletion, or clear the marks |
 | `:w` | write the marked deletions |
 | `q` / `esc` | quit |
+
+Give a connection a **Group** in its form and it sits under that group's
+header, which folds shut; tql remembers which ones you folded.
 
 ### Inside a connection form
 

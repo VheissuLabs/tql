@@ -3,6 +3,7 @@
 namespace App\Tui;
 
 use App\Models\Connection;
+use App\Models\Setting;
 use App\Prompts\Renderers\ConnectionPickerRenderer;
 use App\Tui\Concerns\HandlesMouse;
 use App\Tui\Concerns\RedrawsOnResize;
@@ -28,7 +29,21 @@ class ConnectionPicker extends Prompt
 
     public ?string $command = null;
 
-    public ?string $status = null;
+    /**
+     * The line under the hotkeys. It fades after a few seconds, the same as
+     * it does in the browser, back to the connection count.
+     */
+    public ?string $status = null {
+        set(?string $value) {
+            if ($value !== $this->status) {
+                $this->statusSince = microtime(true);
+            }
+
+            $this->status = $value;
+        }
+    }
+
+    public float $statusSince = 0.0;
 
     public ?string $notice = null;
 
@@ -46,11 +61,26 @@ class ConnectionPicker extends Prompt
      */
     public array $pendingDeletes = [];
 
+    /**
+     * Groups folded shut. Remembered between runs, since the point of folding
+     * one is not having to look at it every time.
+     *
+     * @var array<int, string>
+     */
+    public array $collapsed = [];
+
+    public const COLLAPSED = 'connections.collapsed_groups';
+
     private ?string $choice = null;
 
     public function __construct(public Collection $connections)
     {
         $this->registerRenderer(ConnectionPickerRenderer::class);
+
+        $this->collapsed = json_decode(Setting::read(self::COLLAPSED) ?? '[]', true) ?: [];
+
+        // Start on the connection used last, wherever its group put it.
+        $this->index = $this->indexOf($connections->first()?->id) ?? 0;
 
         $this->createAltScreen();
 
@@ -68,6 +98,31 @@ class ConnectionPicker extends Prompt
         parent::__destruct();
     }
 
+    public function fadeStatus(?float $now = null): bool
+    {
+        $after = Layout::statusSeconds();
+
+        if ($after <= 0 || $this->status === null || $this->status === '') {
+            return false;
+        }
+
+        if (($now ?? microtime(true)) - $this->statusSince < $after) {
+            return false;
+        }
+
+        $this->status = null;
+
+        return true;
+    }
+
+    public function idle(bool $timedOut): bool
+    {
+        $redraw = $this->resized;
+        $this->resized = false;
+
+        return ($timedOut && $this->fadeStatus()) || $redraw;
+    }
+
     public function value(): mixed
     {
         return $this->choice;
@@ -75,22 +130,137 @@ class ConnectionPicker extends Prompt
 
     public function shape(): string
     {
-        return ($this->form === null ? 'list' : 'form').'|'.count($this->connections);
+        return ($this->form === null ? 'list' : 'form').'|'.count($this->rows());
     }
 
-    public function rows(): array
+    /**
+     * What the list shows, top to bottom: connections without a group first,
+     * then each group's header and, unless it is folded, its connections.
+     * Within each, the order they came in, which is most recently used.
+     *
+     * Unfolded, every group shows its connections whether it is folded or
+     * not — what the columns are measured against, so folding one does not
+     * shift them.
+     */
+    public function rows(bool $unfolded = false): array
     {
-        return $this->connections
-            ->map(fn (Connection $c) => [
-                'id' => $c->id,
-                'name' => $c->name,
-                'tag' => (string) $c->tag,
-                'read_only' => (bool) $c->read_only,
-                'driver' => $c->driver,
-                'where' => $c->describe(),
-                'used' => $c->last_used_at?->diffForHumans() ?? 'never',
-            ])
-            ->all();
+        $rows = [];
+
+        $groups = $this->connections
+            ->groupBy(fn (Connection $c) => trim((string) $c->group_name))
+            ->sortKeysUsing(fn ($a, $b) => strcasecmp((string) $a, (string) $b));
+
+        if ($groups->has('')) {
+            foreach ($groups->pull('') as $connection) {
+                $rows[] = $this->row($connection, '');
+            }
+        }
+
+        foreach ($groups as $group => $connections) {
+            // A group called 2024 comes back as an integer key.
+            $group = (string) $group;
+            $collapsed = ! $unfolded && $this->isCollapsed($group);
+
+            $rows[] = [
+                'header' => true,
+                'group' => $group,
+                'count' => $connections->count(),
+                'collapsed' => $collapsed,
+            ];
+
+            if (! $collapsed) {
+                foreach ($connections as $connection) {
+                    $rows[] = $this->row($connection, $group);
+                }
+            }
+        }
+
+        return $rows;
+    }
+
+    private function row(Connection $c, string $group): array
+    {
+        return [
+            'header' => false,
+            'group' => $group,
+            'id' => $c->id,
+            'name' => $c->name,
+            'tag' => (string) $c->tag,
+            'read_only' => (bool) $c->read_only,
+            'driver' => $c->driver,
+            'where' => $c->describe(),
+            'used' => $c->last_used_at?->diffForHumans() ?? 'never',
+        ];
+    }
+
+    public function isCollapsed(string $group): bool
+    {
+        return in_array($group, $this->collapsed, true);
+    }
+
+    /** The connection under the cursor, or null on a header. */
+    private function current(): ?Connection
+    {
+        $row = $this->rows()[$this->index] ?? null;
+
+        return $row === null || $row['header']
+            ? null
+            : $this->connections->firstWhere('id', $row['id']);
+    }
+
+    private function indexOf(?int $id): ?int
+    {
+        foreach ($this->rows() as $i => $row) {
+            if (! $row['header'] && $row['id'] === $id) {
+                return $i;
+            }
+        }
+
+        return null;
+    }
+
+    private function headerIndex(string $group): int
+    {
+        foreach ($this->rows() as $i => $row) {
+            if ($row['header'] && $row['group'] === $group) {
+                return $i;
+            }
+        }
+
+        return $this->index;
+    }
+
+    /**
+     * Fold or unfold the group under the cursor. From inside an open group,
+     * folding lands on its header, so the cursor is not left on a row that
+     * just disappeared.
+     */
+    private function fold(?bool $shut = null): bool
+    {
+        $row = $this->rows()[$this->index] ?? null;
+
+        if ($row === null || $row['group'] === '') {
+            return true;
+        }
+
+        $group = $row['group'];
+
+        // Unfolding only means something on the header; inside, it is open.
+        if (! $row['header'] && $shut !== true) {
+            return true;
+        }
+
+        $shut ??= ! $this->isCollapsed($group);
+
+        $this->collapsed = $shut
+            ? array_values(array_unique([...$this->collapsed, $group]))
+            : array_values(array_diff($this->collapsed, [$group]));
+
+        Setting::write(self::COLLAPSED, json_encode($this->collapsed));
+
+        $this->index = $this->headerIndex($group);
+
+        return true;
     }
 
     public function onKey(string $key): void
@@ -122,8 +292,13 @@ class ConnectionPicker extends Prompt
             $key === 'e' => $this->edit(),
             $key === 'd' => $this->markDelete(),
             $key === 'u' => $this->unmarkAll(),
+            $key === 'y' => $this->yankDatabase(),
+            $key === 'Y' => $this->yankConnectionString(),
             in_array($key, [Key::UP, Key::UP_ARROW, 'k'], true) => $this->move(-1),
             in_array($key, [Key::DOWN, Key::DOWN_ARROW, 'j'], true) => $this->move(1),
+            in_array($key, [Key::LEFT, Key::LEFT_ARROW, 'h'], true) => $this->fold(true),
+            in_array($key, [Key::RIGHT, Key::RIGHT_ARROW, 'l'], true) => $this->fold(false),
+            $key === ' ' => $this->fold(),
             $key === Key::ENTER => $this->select(),
             default => true,
         };
@@ -153,7 +328,7 @@ class ConnectionPicker extends Prompt
 
         $target = $this->start + $index;
 
-        if ($target < 0 || $target >= $this->connections->count()) {
+        if ($target < 0 || $target >= count($this->rows())) {
             return true;
         }
 
@@ -164,7 +339,7 @@ class ConnectionPicker extends Prompt
 
     private function markDelete(): bool
     {
-        $connection = $this->connections->values()->get($this->index);
+        $connection = $this->current();
 
         if ($connection === null) {
             return true;
@@ -186,6 +361,45 @@ class ConnectionPicker extends Prompt
         $this->status = $count === 0
             ? 'marks cleared'
             : $count.' marked for deletion · :w writes · u clears';
+
+        return true;
+    }
+
+    private function yankDatabase(): bool
+    {
+        $connection = $this->current();
+
+        if ($connection === null) {
+            return true;
+        }
+
+        $database = (string) $connection->database;
+
+        if ($database === '') {
+            $this->status = $connection->name.' has no database set — it asks on connect';
+
+            return true;
+        }
+
+        return $this->yanked($database, $database);
+    }
+
+    private function yankConnectionString(): bool
+    {
+        $connection = $this->current();
+
+        if ($connection === null) {
+            return true;
+        }
+
+        return $this->yanked($connection->connectionString(), 'connection string');
+    }
+
+    private function yanked(string $text, string $what): bool
+    {
+        $where = Clipboard::copy($text);
+
+        $this->status = 'yanked '.$what.($where === 'terminal' ? ' to the terminal clipboard' : '');
 
         return true;
     }
@@ -212,7 +426,7 @@ class ConnectionPicker extends Prompt
 
         $this->pendingDeletes = [];
         $this->connections = Connection::orderByDesc('last_used_at')->orderBy('name')->get();
-        $this->index = max(0, min($this->index, $this->connections->count() - 1));
+        $this->index = max(0, min($this->index, count($this->rows()) - 1));
 
         $this->status = 'deleted '.$count.' connection'.($count === 1 ? '' : 's');
 
@@ -234,7 +448,7 @@ class ConnectionPicker extends Prompt
 
     private function edit(): bool
     {
-        $connection = $this->connections->values()->get($this->index);
+        $connection = $this->current();
 
         if ($connection !== null) {
             $this->form = new ConnectionForm($connection);
@@ -337,11 +551,16 @@ class ConnectionPicker extends Prompt
 
         $this->connections = Connection::orderByDesc('last_used_at')->orderBy('name')->get();
 
-        if ($creating) {
-            $this->index = max(0, $this->connections->search(
-                fn (Connection $c) => $c->id === $connection->id,
-            ) ?: 0);
+        // Follow the connection: a new one, or one moved into another group.
+        // A folded group opens rather than hiding what was just saved.
+        $group = trim((string) $connection->group_name);
+
+        if ($group !== '' && $this->isCollapsed($group)) {
+            $this->collapsed = array_values(array_diff($this->collapsed, [$group]));
+            Setting::write(self::COLLAPSED, json_encode($this->collapsed));
         }
+
+        $this->index = $this->indexOf($connection->id) ?? 0;
 
         $this->closeForm(($creating ? 'added ' : 'saved ').$connection->name);
     }
@@ -354,7 +573,11 @@ class ConnectionPicker extends Prompt
 
     private function select(): bool
     {
-        $connection = $this->connections->values()->get($this->index);
+        if (($this->rows()[$this->index]['header'] ?? false) === true) {
+            return $this->fold();
+        }
+
+        $connection = $this->current();
 
         return $this->finish($connection === null ? 'quit' : (string) $connection->id);
     }
@@ -369,7 +592,7 @@ class ConnectionPicker extends Prompt
 
     private function move(int $by): bool
     {
-        $this->index = max(0, min($this->connections->count() - 1, $this->index + $by));
+        $this->index = max(0, min(count($this->rows()) - 1, $this->index + $by));
 
         return true;
     }

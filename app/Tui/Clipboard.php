@@ -4,8 +4,22 @@ namespace App\Tui;
 
 class Clipboard
 {
+    /**
+     * What was copied, instead of copying it, while a test has set this to an
+     * array. A test run should not write over whatever you last copied.
+     *
+     * @var array<int, string>|null
+     */
+    public static ?array $fake = null;
+
     public static function copy(string $text): string
     {
+        if (static::$fake !== null) {
+            static::$fake[] = $text;
+
+            return 'fake';
+        }
+
         if ($command = static::command()) {
             $process = proc_open($command, [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
 

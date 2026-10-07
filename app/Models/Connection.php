@@ -122,6 +122,27 @@ class Connection extends Model
         ];
     }
 
+    /**
+     * A connection string that `tql open` reads back into this connection,
+     * password and all. SSH and TLS settings have no place in one, so a
+     * connection that uses them needs those set again by hand.
+     */
+    public function connectionString(): string
+    {
+        if ($this->driver === 'sqlite') {
+            return 'sqlite://'.$this->database;
+        }
+
+        $credentials = $this->username === null || $this->username === ''
+            ? ''
+            : rawurlencode($this->username)
+                .($this->password === null || $this->password === '' ? '' : ':'.rawurlencode($this->password))
+                .'@';
+
+        return "{$this->driver}://{$credentials}{$this->host}:{$this->port}/"
+            .rawurlencode((string) $this->database);
+    }
+
     public function describe(): string
     {
         if ($this->driver === 'sqlite') {
