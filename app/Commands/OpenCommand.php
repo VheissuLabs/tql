@@ -135,13 +135,13 @@ class OpenCommand extends Command
 
         $called = $this->option('name');
         $tag = $this->option('tag');
-        $existing = static::matching($attributes);
+        $existing = Connection::samePlaceAs($attributes);
 
         if ($existing !== null) {
             // Naming an existing connection renames it rather than making a
             // second one pointing at the same database.
             if ($called !== null && $called !== $existing->name) {
-                $existing->forceFill(['name' => static::freeName($called)])->save();
+                $existing->forceFill(['name' => Connection::freeName($called)])->save();
             }
 
             if ($tag !== null) {
@@ -163,51 +163,9 @@ class OpenCommand extends Command
             return new Connection($attributes);
         }
 
-        $attributes['name'] = static::freeName($attributes['name']);
+        $attributes['name'] = Connection::freeName($attributes['name']);
 
         return Connection::create($attributes);
-    }
-
-    /**
-     * Connection names are unique, and two projects both called database.sqlite
-     * is the normal case rather than the exception, so number the duplicates
-     * instead of failing on the constraint.
-     */
-    private static function freeName(string $name): string
-    {
-        if (! Connection::where('name', $name)->exists()) {
-            return $name;
-        }
-
-        for ($suffix = 2; $suffix < 1000; $suffix++) {
-            if (! Connection::where('name', "{$name} ({$suffix})")->exists()) {
-                return "{$name} ({$suffix})";
-            }
-        }
-
-        return $name.' ('.uniqid().')';
-    }
-
-    /**
-     * Find a saved connection pointing at the same place.
-     *
-     * Matched on where it points, never on the password: that column has an
-     * encrypted cast, and the ciphertext differs every time it is written, so
-     * comparing against it would never match and --save would pile up a
-     * duplicate on every run.
-     *
-     * @param  array<string, mixed>  $attributes
-     */
-    private static function matching(array $attributes): ?Connection
-    {
-        $identity = array_filter(
-            array_intersect_key($attributes, array_flip([
-                'driver', 'host', 'port', 'database', 'username',
-            ])),
-            fn ($value) => $value !== null,
-        );
-
-        return Connection::where($identity)->first();
     }
 
     public static function interactive(): bool

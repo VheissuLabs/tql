@@ -143,6 +143,37 @@ class Connection extends Model
             .rawurlencode((string) $this->database);
     }
 
+    public static function freeName(string $name): string
+    {
+        if (! static::where('name', $name)->exists()) {
+            return $name;
+        }
+
+        for ($suffix = 2; $suffix < 1000; $suffix++) {
+            if (! static::where('name', "{$name} ({$suffix})")->exists()) {
+                return "{$name} ({$suffix})";
+            }
+        }
+
+        return $name.' ('.uniqid().')';
+    }
+
+    public static function samePlaceAs(array $attributes): ?self
+    {
+        $identity = array_filter(
+            array_intersect_key($attributes, array_flip([
+                'driver', 'host', 'port', 'database', 'username', 'ssh_host',
+            ])),
+            fn ($value) => $value !== null,
+        );
+
+        return static::where($identity)
+            ->when(! isset($identity['ssh_host']), fn ($query) => $query->where(
+                fn ($direct) => $direct->whereNull('ssh_host')->orWhere('ssh_host', ''),
+            ))
+            ->first();
+    }
+
     public function describe(): string
     {
         if ($this->driver === 'sqlite') {

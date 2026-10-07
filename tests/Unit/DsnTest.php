@@ -75,3 +75,41 @@ it('knows a connection string from a file path', function () {
         ->and(Dsn::looksLikeOne('./test.sqlite'))->toBeFalse()
         ->and(Dsn::looksLikeOne('/var/db/app.db'))->toBeFalse();
 });
+
+it('reads a TablePlus url that goes over ssh', function () {
+    $parsed = Dsn::parse('mysql+ssh://forge@203.0.113.7:2222/app:s3cret@127.0.0.1:3307/shop?statusColor=6D0000&env=production&name=ancient-jakarta&tLSMode=0&usePrivateKey=true');
+
+    expect($parsed)->toMatchArray([
+        'name' => 'ancient-jakarta',
+        'driver' => 'mysql',
+        'host' => '127.0.0.1',
+        'port' => 3307,
+        'database' => 'shop',
+        'username' => 'app',
+        'password' => 's3cret',
+        'tag' => 'production',
+        'ssh_host' => '203.0.113.7',
+        'ssh_port' => 2222,
+        'ssh_user' => 'forge',
+    ]);
+});
+
+it('names an unnamed ssh connection after the server it goes through', function () {
+    expect(Dsn::parse('postgresql+ssh://deploy@db.example.com/app:pw@localhost/orders')['name'])->toBe('orders on db.example.com')
+        ->and(Dsn::parse('mysql+ssh://forge@203.0.113.7/forge:pw@127.0.0.1')['name'])->toBe('203.0.113.7');
+});
+
+it('turns a TablePlus environment into a tag', function (string $environment, ?string $tag) {
+    expect(Dsn::parse("mysql://u:p@h/db?env={$environment}")['tag'] ?? null)->toBe($tag);
+})->with([
+    ['production', 'production'],
+    ['staging', 'staging'],
+    ['development', 'dev'],
+    ['testing', 'dev'],
+    ['local', 'local'],
+    ['other', null],
+]);
+
+it('refuses an ssh url with nothing after the server', function () {
+    expect(Dsn::parse('mysql+ssh://forge@203.0.113.7'))->toBeNull();
+});

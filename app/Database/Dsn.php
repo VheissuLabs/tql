@@ -37,7 +37,11 @@ class Dsn
             return null;
         }
 
-        [$scheme] = explode('://', $dsn, 2);
+        [$scheme, $rest] = explode('://', $dsn, 2);
+
+        if (str_ends_with(strtolower($scheme), '+ssh')) {
+            return static::overSsh(substr($scheme, 0, -4), $rest);
+        }
 
         $driver = self::DRIVERS[strtolower($scheme)] ?? null;
 
@@ -62,7 +66,7 @@ class Dsn
 
         $database = ltrim($parts['path'] ?? '', '/');
 
-        return [
+        return array_filter([
             'name' => static::name($query, $parts, $database),
             'driver' => $driver,
             'host' => $parts['host'] ?? '127.0.0.1',
@@ -70,7 +74,50 @@ class Dsn
             'database' => $database === '' ? null : rawurldecode($database),
             'username' => isset($parts['user']) ? rawurldecode($parts['user']) : null,
             'password' => isset($parts['pass']) ? rawurldecode($parts['pass']) : null,
+            'tag' => static::tagFor($query['env'] ?? null),
+        ], fn ($value, string $key) => $key !== 'tag' || $value !== null, ARRAY_FILTER_USE_BOTH);
+    }
+
+    private static function overSsh(string $scheme, string $rest): ?array
+    {
+        [$ssh, $database] = array_pad(explode('/', $rest, 2), 2, '');
+
+        $tunnel = parse_url('ssh://'.$ssh);
+
+        if ($tunnel === false || ! isset($tunnel['host']) || $database === '') {
+            return null;
+        }
+
+        $attributes = static::parse($scheme.'://'.$database);
+
+        if ($attributes === null || $attributes['driver'] === 'sqlite') {
+            return null;
+        }
+
+        $query = [];
+        parse_str((string) parse_url('ssh://'.$database, PHP_URL_QUERY), $query);
+
+        return [
+            ...$attributes,
+            'name' => isset($query['name']) && $query['name'] !== ''
+                ? $attributes['name']
+                : static::name([], ['host' => $tunnel['host']], (string) ($attributes['database'] ?? '')),
+            'ssh_host' => $tunnel['host'],
+            'ssh_port' => $tunnel['port'] ?? null,
+            'ssh_user' => isset($tunnel['user']) ? rawurldecode($tunnel['user']) : null,
+            'ssh_password' => isset($tunnel['pass']) ? rawurldecode($tunnel['pass']) : null,
         ];
+    }
+
+    private static function tagFor(?string $environment): ?string
+    {
+        return match (strtolower(trim((string) $environment))) {
+            'production', 'prod' => 'production',
+            'staging', 'stage' => 'staging',
+            'development', 'dev', 'testing', 'test' => 'dev',
+            'local' => 'local',
+            default => null,
+        };
     }
 
     /**

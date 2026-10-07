@@ -230,7 +230,12 @@ interface is the wrong shape for.
 tql open ~/Code/app/database/database.sqlite
 tql open "mysql://root@127.0.0.1:3306/shop" --name="Shop" --tag=local
 tql open "$DATABASE_URL" --peek          # use it without saving it
+tql connect 'mysql+ssh://forge@203.0.113.7/forge:secret@127.0.0.1?name=app&env=production'
 ```
+
+The last form is the one TablePlus copies: the SSH server first, then the
+database behind it. tql saves the tunnel with it, takes `name` as the name and
+`env` as the tag, and leaves the SSH key to your agent and `~/.ssh/config`.
 
 `open` takes a SQLite path or a `mysql://`, `pgsql://` or `sqlsrv://` string,
 remembers it under `--name` or the database name, and drops you straight into
