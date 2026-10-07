@@ -88,8 +88,6 @@ trait RunsDumpTools
             });
         } catch (ProcessSignaledException) {
             $exitCode = 1;
-        } finally {
-            Tunnel::closeAll();
         }
 
         return $exitCode === 0;
@@ -97,6 +95,8 @@ trait RunsDumpTools
 
     private function stopCleanlyOnInterrupt(): void
     {
+        register_shutdown_function(Tunnel::closeAll(...));
+
         if (! function_exists('pcntl_signal')) {
             return;
         }
