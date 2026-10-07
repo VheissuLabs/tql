@@ -115,6 +115,10 @@ class DumpCommand extends Command
             return self::SUCCESS;
         }
 
+        if (! is_dir(dirname($directory))) {
+            mkdir(dirname($directory), 0755, true);
+        }
+
         $started = microtime(true);
 
         if (! $this->runQuietlyFailing(fn () => $this->runJob($job))) {
