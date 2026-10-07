@@ -219,6 +219,7 @@ interface is the wrong shape for.
 | `tql tableplus` | bring your TablePlus connections over, groups and passwords too |
 | `tql dump <connection> [tables…]` | dump a database, schema and data, with mydumper or pg_dump |
 | `tql load <dump-or-sql> <connection>` | load a dump, or replay an export; `tql import` is the same |
+| `tql sync <from> <to>` | make one database a copy of another, a dump and a load in one step |
 | `tql config` | where the config file is; `--tidy` puts it back in order |
 | `tql connections` | list the saved connections |
 | `tql tables <connection>` | list a connection's tables |
@@ -438,6 +439,19 @@ A load stops at a table that already exists unless `--drop` says to replace it,
 refuses a read-only connection, and asks before touching one tagged
 production. `--dry-run` on either shows the command without running it; the
 password is never on it, since tql passes it to the tool in a private file.
+
+To do both in one step, `tql sync` dumps from one connection and loads into
+another, replacing the tables it brings over and leaving the rest alone:
+
+```bash
+tql sync notarydash-prod local --database=notarydash                    # same name on both sides
+tql sync notarydash-prod local --database=notarydash --into=nd_copy     # another name locally
+tql sync notarydash-prod local --database=notarydash users orders       # just these tables
+```
+
+The dump passes through a folder that is deleted afterwards, unless `--keep`
+keeps it as a backup. A sync will not copy a database onto itself, into a
+read-only connection, or into one tagged production without `--force`.
 
 A MySQL user without the privileges for a consistent snapshot can still dump
 with `--no-lock`, at the cost of tables being read at slightly different

@@ -10,7 +10,20 @@ class Job
         public array $command = [],
         public array $environment = [],
         public ?Closure $native = null,
+        public ?Closure $progress = null,
+        public ?Closure $tables = null,
     ) {}
+
+    public function expectedTables(): int
+    {
+        try {
+            return $this->tables === null
+                ? 0
+                : (int) ($this->tables)();
+        } catch (\Throwable) {
+            return 0;
+        }
+    }
 
     public static function native(Closure $work): self
     {

@@ -74,7 +74,11 @@ class MySqlEngine implements Engine
             $command[] = '--sync-thread-lock-mode=NO_LOCK';
         }
 
-        return new Job($command);
+        return new Job(
+            $command,
+            progress: Progress::countingTables('/`[^`]+`\.`([^`]+)` \[\s*\d+%\s*\]/'),
+            tables: fn () => $this->tableCount($connection, $options->tables),
+        );
     }
 
     public function load(Connection $connection, string $directory, LoadOptions $options): Job
@@ -92,7 +96,14 @@ class MySqlEngine implements Engine
             $command[] = '--drop-table=DROP';
         }
 
-        return new Job($command);
+        return new Job(
+            $command,
+            progress: Progress::reportedTables(
+                '/Tables (\d+) of (\d+) completed/',
+                '/restoring (?:table |indexes )?[^.\s]+\.(\S+)/',
+            ),
+            tables: fn () => count(preg_grep('/^[^.]+\.[^.]+-schema\.sql/', scandir($directory) ?: [])),
+        );
     }
 
     public function estimatedBytes(Connection $connection, array $tables): ?int
@@ -106,6 +117,18 @@ class MySqlEngine implements Engine
         }
 
         return (int) $this->connections->resolve($connection)->selectOne($query, $bindings)->bytes;
+    }
+
+    private function tableCount(Connection $connection, array $tables): int
+    {
+        if ($tables !== []) {
+            return count($tables);
+        }
+
+        return (int) $this->connections->resolve($connection)->selectOne(
+            "select count(*) as tables from information_schema.tables where table_schema = ? and table_type = 'BASE TABLE'",
+            [$connection->activeDatabase()],
+        )->tables;
     }
 
     public function compresses(): bool

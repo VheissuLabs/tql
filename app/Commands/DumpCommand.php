@@ -6,7 +6,6 @@ use App\Commands\Concerns\RunsDumpTools;
 use App\Database\ConnectionManager;
 use App\Database\SqlExporter;
 use App\Dump\DumpOptions;
-use App\Dump\Engine;
 use App\Dump\Manifest;
 use App\Models\Connection;
 use App\Support\Paths;
@@ -121,7 +120,7 @@ class DumpCommand extends Command
 
         $started = microtime(true);
 
-        if (! $this->runQuietlyFailing(fn () => $this->runJob($job))) {
+        if (! $this->runQuietlyFailing(fn () => $this->runJob($job, 'Dumping'))) {
             $this->error('The dump did not finish; what is in '.Paths::shorten($directory).' is incomplete.');
 
             return self::FAILURE;
@@ -152,41 +151,5 @@ class DumpCommand extends Command
         $slug = strtolower(preg_replace('/[^A-Za-z0-9]+/', '-', $subject ?: $connection->name) ?: 'dump');
 
         return $this->exporter->directory().'/'.$slug.'-'.date('Ymd-His');
-    }
-
-    private function roomFor(?int $estimate, Engine $engine, string $directory): bool
-    {
-        if ($estimate === null) {
-            return true;
-        }
-
-        $needed = $engine->compresses()
-            ? intdiv($estimate, 3)
-            : $estimate;
-
-        $free = disk_free_space($this->nearestExisting($directory));
-
-        if ($free === false || $free >= $needed) {
-            return true;
-        }
-
-        $this->error(sprintf(
-            'The dump needs about %s and the drive under %s has %s free.',
-            $this->humanBytes($needed),
-            Paths::shorten($directory),
-            $this->humanBytes((int) $free),
-        ));
-        $this->line('  choose another folder with <fg=green>--to=</>, or <fg=green>--force</> to try anyway.');
-
-        return false;
-    }
-
-    private function nearestExisting(string $directory): string
-    {
-        while (! is_dir($directory) && dirname($directory) !== $directory) {
-            $directory = dirname($directory);
-        }
-
-        return $directory;
     }
 }

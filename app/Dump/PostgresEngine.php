@@ -5,6 +5,7 @@ namespace App\Dump;
 use App\Database\ConnectionManager;
 use App\Models\Connection;
 use App\Support\Paths;
+use Symfony\Component\Process\Process;
 
 class PostgresEngine implements Engine
 {
@@ -54,7 +55,12 @@ class PostgresEngine implements Engine
             $command[] = '--data-only';
         }
 
-        return new Job($command, $this->environment($connection));
+        return new Job(
+            $command,
+            $this->environment($connection),
+            progress: Progress::countingTables('/dumping contents of table "([^"]+)"/'),
+            tables: fn () => $this->tableCount($connection, $options->tables),
+        );
     }
 
     public function load(Connection $connection, string $directory, LoadOptions $options): Job
@@ -77,7 +83,12 @@ class PostgresEngine implements Engine
 
         $command[] = $directory;
 
-        return new Job($command, $this->environment($connection));
+        return new Job(
+            $command,
+            $this->environment($connection),
+            progress: Progress::countingTables('/processing data for table "([^"]+)"/'),
+            tables: fn () => $this->tablesIn($directory),
+        );
     }
 
     public function estimatedBytes(Connection $connection, array $tables): ?int
@@ -91,6 +102,25 @@ class PostgresEngine implements Engine
         $sizes = implode(' + ', array_fill(0, count($tables), 'pg_table_size(?::regclass)'));
 
         return (int) $database->selectOne("select {$sizes} as bytes", $tables)->bytes;
+    }
+
+    private function tableCount(Connection $connection, array $tables): int
+    {
+        if ($tables !== []) {
+            return count($tables);
+        }
+
+        return (int) $this->connections->resolve($connection)->selectOne(
+            "select count(*) as tables from information_schema.tables where table_schema not in ('pg_catalog', 'information_schema') and table_type = 'BASE TABLE'",
+        )->tables;
+    }
+
+    private function tablesIn(string $directory): int
+    {
+        $listing = new Process(['pg_restore', '--list', $directory]);
+        $listing->run();
+
+        return substr_count($listing->getOutput(), ' TABLE DATA ');
     }
 
     public function compresses(): bool

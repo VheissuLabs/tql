@@ -3,7 +3,6 @@
 namespace App\Commands;
 
 use App\Commands\Concerns\RunsDumpTools;
-use App\Connections\Tag;
 use App\Database\ConnectionManager;
 use App\Dump\Engines;
 use App\Dump\LoadOptions;
@@ -13,8 +12,6 @@ use App\Models\Connection;
 use App\Support\Paths;
 use LaravelZero\Framework\Commands\Command;
 use Throwable;
-
-use function Laravel\Prompts\confirm;
 
 class LoadCommand extends Command
 {
@@ -75,30 +72,6 @@ class LoadCommand extends Command
         return is_file($source)
             ? $this->replay($source, $connection)
             : $this->restore($source, $connection);
-    }
-
-    private function mayWriteTo(Connection $connection): bool
-    {
-        if ($connection->read_only) {
-            $this->error("{$connection->name} is read only, so nothing can be loaded into it.");
-
-            return false;
-        }
-
-        if (Tag::parse($connection->tag) !== Tag::Production || $this->option('force') || $this->option('dry-run')) {
-            return true;
-        }
-
-        if (! $this->input->isInteractive()) {
-            $this->error("{$connection->name} is tagged production; --force loads into it anyway.");
-
-            return false;
-        }
-
-        return confirm(
-            label: "{$connection->name} is tagged production. Load into it anyway?",
-            default: false,
-        );
     }
 
     private function restore(string $directory, Connection $connection): int
@@ -172,7 +145,7 @@ class LoadCommand extends Command
 
         $started = microtime(true);
 
-        if (! $this->runQuietlyFailing(fn () => $this->runJob($job))) {
+        if (! $this->runQuietlyFailing(fn () => $this->runJob($job, 'Loading'))) {
             $this->error('The load did not finish.');
 
             if (! $options->drop) {
@@ -185,18 +158,6 @@ class LoadCommand extends Command
         $this->line('  <fg=green>Loaded</> in '.$this->elapsed($started));
 
         return self::SUCCESS;
-    }
-
-    private function serverOf(Connection $connection): Connection
-    {
-        if ($connection->driver !== 'mysql') {
-            return $connection;
-        }
-
-        $server = clone $connection;
-        $server->sessionDatabase = '';
-
-        return $server;
     }
 
     private function replay(string $file, Connection $connection): int
