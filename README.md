@@ -404,9 +404,11 @@ tql load ./nd notarydash-local --drop          # replace tables it already has
 tql load ./orders.sql notarydash-local         # replay a tql export, all or nothing
 ```
 
-A dump runs in parallel (`--threads=4`) from a consistent snapshot, splits big
-tables into pieces, and is compressed. It goes in a new folder beside your
-exports unless `--to` says where, and tql checks the drive has room first.
+A dump runs in parallel (`--threads=4`) from a consistent snapshot and splits
+big tables into pieces. It goes in a new folder beside your exports unless
+`--to` says where, and tql checks the drive has room first. Postgres dumps are
+compressed; MySQL dumps are not, because myloader 1.0.5 hangs loading
+compressed files on macOS, so allow about the size of the data.
 `--data-only` leaves the schema out, for loading into tables that exist.
 
 A load stops at a table that already exists unless `--drop` says to replace it,
