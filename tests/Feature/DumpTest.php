@@ -1,6 +1,7 @@
 <?php
 
 use App\Dump\DumpOptions;
+use App\Dump\Job;
 use App\Dump\LoadOptions;
 use App\Dump\Manifest;
 use App\Dump\MySqlEngine;
@@ -207,4 +208,18 @@ it('does not mistake the new commands for files to open', function () {
     foreach (['dump', 'load', 'import'] as $command) {
         expect(Argv::rewrite(['tql', $command, 'x']))->toBe(['tql', $command, 'x']);
     }
+});
+
+it('gives every job its own connection file, so a dump and a load prepared together each reach their own server', function () {
+    $engine = app(MySqlEngine::class);
+    $source = Connection::create(['name' => 'prod', 'driver' => 'mysql', 'host' => 'prod.example.test', 'port' => 3306, 'database' => 'app', 'username' => 'reader', 'password' => 'one']);
+    $target = Connection::create(['name' => 'local', 'driver' => 'mysql', 'host' => '127.0.0.1', 'port' => 3306, 'database' => 'app_copy', 'username' => 'root', 'password' => 'two']);
+
+    $defaultsFile = fn (Job $job) => substr(collect($job->command)->first(fn (string $part) => str_starts_with($part, '--defaults-file=')), 16);
+
+    $dump = $engine->dump($source, '/tmp/out', new DumpOptions);
+    $load = $engine->load($target, '/tmp/out', new LoadOptions(drop: true));
+
+    expect(file_get_contents($defaultsFile($dump)))->toContain('host="prod.example.test"')
+        ->and(file_get_contents($defaultsFile($load)))->toContain('host="127.0.0.1"');
 });

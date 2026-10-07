@@ -6,6 +6,8 @@ class Secrets
 {
     private ?string $directory = null;
 
+    private int $written = 0;
+
     public function write(string $name, string $contents): string
     {
         if ($this->directory === null) {
@@ -16,7 +18,9 @@ class Secrets
             register_shutdown_function($this->forget(...));
         }
 
-        $path = $this->directory.'/'.$name;
+        $this->written++;
+
+        $path = $this->directory.'/'.$this->written.'-'.$name;
 
         touch($path);
         chmod($path, 0600);
