@@ -3,13 +3,13 @@
 ![tql browsing a database: filtering a column, sorting, inspecting a row and its related records, and writing a join in the SQL editor](docs/demo.gif)
 
 tql (pronounced *TEE-kwuhl*, like sequel) is a database client for the terminal,
-for MySQL, MariaDB, PostgreSQL and SQLite — and the hosted databases that speak
+for MySQL, MariaDB, PostgreSQL and SQLite, and the hosted databases that speak
 their protocol. It is built with Laravel Zero, Laravel Prompts and Laravel MCP.
 
 ## Why
 
 The database is the part of the job you cannot see. Everything else is in the
-terminal already — the editor, the logs, the deploy — and then the schema is
+terminal already (the editor, the logs, the deploy) and then the schema is
 behind a window you have to go and find, in an application that costs money and
 knows nothing about the rest of your work.
 
@@ -38,8 +38,8 @@ as happily as a Postgres server behind an SSH tunnel.
 | --- | --- |
 | **MySQL** and **MariaDB** | built in |
 | **PostgreSQL** | built in |
-| **SQLite** | built in — any `.sqlite`, `.sqlite3` or `.db` file |
-| **SQL Server** | built into the macOS binary, with Microsoft's ODBC driver installed once — [below](#sql-server-on-macos); on Linux, from `tql.phar` on a PHP with `pdo_sqlsrv` |
+| **SQLite** | built in, any `.sqlite`, `.sqlite3` or `.db` file |
+| **SQL Server** | built into the macOS binary, with Microsoft's ODBC driver installed once ([below](#sql-server-on-macos)); on Linux, from `tql.phar` on a PHP with `pdo_sqlsrv` |
 
 A hosted database that speaks the MySQL or PostgreSQL protocol connects the same
 way, with a connection string or the connection form, over [TLS](#tls) and, if
@@ -51,8 +51,8 @@ it needs one, [an SSH tunnel](#databases-behind-ssh):
   SQL, Azure Database, DigitalOcean, Crunchy Bridge, Timescale, CockroachDB
 
 tql is developed against MySQL 9 locally and MySQL 8.4 on Laravel Cloud. The
-rest speak the same protocol and should behave the same; if one does not — some report their schema a
-little differently — [open an issue](https://github.com/VheissuLabs/tql/issues)
+rest speak the same protocol and should behave the same; if one does not (some report their schema a
+little differently), [open an issue](https://github.com/VheissuLabs/tql/issues)
 and say which.
 
 ### SQL Server on macOS
@@ -79,14 +79,14 @@ driver, so on Linux SQL Server needs `tql.phar` on a PHP with `pdo_sqlsrv`.
 
 ## Installing
 
-One file, no runtime to install — **tql does not need PHP on your machine**.
+One file, no runtime to install. **tql does not need PHP on your machine**.
 The binary carries its own, statically linked, with the three database drivers
 built in. On first run it creates `~/.config/tql/` and migrates its own store,
 so there is nothing to set up.
 
 Use your package manager if it is listed here: nothing runs but the package
 itself, and it upgrades and removes tql like anything else. Installed any other
-way, tql keeps itself up to date — see [`[updates]`](#updates).
+way, tql keeps itself up to date, see [`[updates]`](#updates).
 
 ### macOS and Linux, with Homebrew
 
@@ -125,12 +125,12 @@ sudo dnf install ./tql-*.x86_64.rpm
 A newer `.rpm` upgrades it; `sudo dnf remove tql` removes it.
 
 There is no apt or dnf repository yet, so `apt upgrade` and `dnf upgrade` do
-not see new releases — `tql --version` says which one you have.
+not see new releases. `tql --version` says which one you have.
 
 ### Arch
 
 tql is not on the AUR yet. Releases after 0.7.0 carry a `PKGBUILD` filled in
-for that release, so `makepkg` builds a proper pacman package from it — read it
+for that release, so `makepkg` builds a proper pacman package from it. Read it
 first, it is twenty lines:
 
 ```bash
@@ -170,8 +170,8 @@ sha256sum --check --ignore-missing SHA256SUMS          # macOS: shasum -a 256 --
 curl -fsSL https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh | sh
 ```
 
-It picks the build for your platform, puts it somewhere on your PATH —
-`/usr/local/bin` if it can write there, `~/.local/bin` if not — and tells you
+It picks the build for your platform, puts it somewhere on your PATH
+(`/usr/local/bin` if it can write there, `~/.local/bin` if not) and tells you
 where it went. `TQL_BIN_DIR` chooses the directory, `TQL_VERSION=v0.4.1` pins a
 version.
 
@@ -256,12 +256,12 @@ ignores the rest, such as `statusColor` and `safeModeLevel`. Quote a connection
 string: `?` and `&` mean something to your shell. Use single quotes when the
 password has a `$`, `!` or backtick in it.
 
-`export` asks for whatever you leave out — connection, database, table and where
-to save — so `tql export` on its own is a four-question wizard, and
+`export` asks for whatever you leave out (connection, database, table and where
+to save), so `tql export` on its own is a four-question wizard, and
 `tql export prod orders --sql=./orders.sql` is a script. See
 [Exporting](#exporting).
 
-`tql list` shows those and nothing else in a released binary — the framework's
+`tql list` shows those and nothing else in a released binary. The framework's
 own commands are hidden, since tql runs its migrations for itself and a
 `migrate:fresh` typed at the wrong moment would drop your saved connections. A
 source checkout also shows the development ones, `app:build` and `test`.
@@ -271,8 +271,8 @@ source checkout also shows the development ones, `app:build` and `test`.
 There is nothing to configure to start. On first run tql writes
 `~/.config/tql/config.toml` with every setting at its default and a comment
 above each one, so the file is its own documentation. When a later version adds
-a setting it is appended to your file on the next run — your values and your own
-comments are left alone — and the status line tells you which ones arrived.
+a setting it is appended to your file on the next run (your values and your own
+comments are left alone) and the status line tells you which ones arrived.
 
 Defaults live in `config/tql.php` and the file is merged over them, so a setting
 you never touch follows the application rather than freezing at the value it had
@@ -281,7 +281,7 @@ starts on the defaults and says so in the status line.
 
 Everything belongs to a section. A key above the first `[section]` is read as a
 key of no section and quietly does nothing, which is a mistake worth knowing
-about — tql notices and tells you.
+about, so tql notices and tells you.
 
 [docs/configuration.md](docs/configuration.md) is the same list with more said
 about each one.
@@ -313,8 +313,8 @@ bar sits above the pane: without it every click lands a row out.
 
 ### `[theme]`
 
-Colors are names, not hexes — `dim`, `default`, `black`, `red`, `green`,
-`yellow`, `blue`, `magenta`, `cyan`, `white`, `gray` — so tql wears the palette
+Colors are names, not hexes (`dim`, `default`, `black`, `red`, `green`,
+`yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`), so tql wears the palette
 your terminal is already themed with.
 
 | Key | Default | Meaning |
@@ -339,7 +339,7 @@ in it, `border` when you are not.
 
 The glyph beside a connection name, by driver. The defaults are Nerd Font
 devicons, written as escapes here because they are private-use codepoints that
-only a Nerd Font draws — your config file can hold either the escape or the
+only a Nerd Font draws. Your config file can hold either the escape or the
 glyph itself.
 
 ```toml
@@ -361,14 +361,14 @@ No Nerd Font? Any character works: `mysql = "M"`, or `""` for nothing at all.
 | `automatic` | `true` | install it by itself, for the next time you start tql |
 
 Once a day, when you start tql, it asks GitHub for the latest release in the
-background — nothing about you or your databases is sent, and a failed check
+background. Nothing about you or your databases is sent, and a failed check
 says nothing. What happens next depends on how you installed it:
 
 - **The install script, or the binary by hand:** with `automatic` on, tql
   downloads the new binary, checks it against the release's `SHA256SUMS`, makes
   sure it runs, and keeps it in a `.tql-versions` folder beside `tql`. The
   connection list says *tql 0.8.0 is ready · restart to use it*, and the next
-  start switches `tql` to it — a symlink into that folder, so a tql that is
+  start switches `tql` to it. It is a symlink into that folder, so a tql that is
   already running, an MCP server included, keeps its own file and carries on.
   The last three versions are kept. A download that does not match its checksum
   is never installed.
@@ -381,7 +381,7 @@ at all; so does `TQL_UPDATE_CHECK=false` in the environment.
 
 ### `[ai]`
 
-What answers when you press `a`. Only table and column names are sent — never
+What answers when you press `a`. Only table and column names are sent, never
 rows. See [Asking for SQL](#asking-for-sql).
 
 | Key | Default | Meaning |
@@ -560,7 +560,7 @@ A connection can carry a **tag**, and the tag decides its color:
 | local | green |
 
 The tag colors the driver icon and the tag itself in the connection list, and
-the connection name in the status line while you are in it — so the screen
+the connection name in the status line while you are in it, so the screen
 tells you where you are before you press `d`.
 
 It is a fixed set rather than a configurable one, on purpose: the point of a
@@ -585,7 +585,7 @@ pane titles itself with the database you are in.
 Leave the **Database** field empty on a server connection and tql asks on
 connect, opening the list as soon as it is in.
 
-The switch lasts for the session only — it is never written back to the saved
+The switch lasts for the session only. It is never written back to the saved
 connection, so the connection still opens on its own database next time. It
 also drops the current filter, sort and any pending edits, since none of them
 mean anything in another database.
@@ -615,7 +615,7 @@ that local port, so the database only ever sees a connection from the machine
 you tunnelled through.
 
 It shells out to your own `ssh` rather than speaking the protocol, which means
-your agent, your keys and your `~/.ssh/config` all apply — including `Host`
+your agent, your keys and your `~/.ssh/config` all apply, including `Host`
 aliases and jump hosts. A connection you can already make by typing `ssh prod`
 works by putting `prod` in the SSH host field.
 
@@ -626,7 +626,7 @@ query cannot race the tunnel coming up, and if ssh fails it says what ssh said.
 ## A database to try it on
 
 The sample database used in development is [Chinook](https://github.com/lerocha/chinook-database),
-which is not committed — a database file changes every time you edit a row, and
+which is not committed. A database file changes every time you edit a row, and
 a repository that reports itself modified after every demo is no use.
 
 ```bash
@@ -671,7 +671,7 @@ Prefixing the command with a space keeps it out of history in zsh if
 
 A first argument that exists on disk, contains a `/`, ends in `.sqlite`,
 `.sqlite3` or `.db`, or looks like a connection string is treated as a path
-rather than a command name — a file that exists is never a command name, which
+rather than a command name. A file that exists is never a command name, which
 makes the rewrite unambiguous. On first run tql creates `~/.config/tql/`
 containing `tql.sqlite` (connections and query history) and `key` (the
 encryption key), both `0600`.
@@ -701,11 +701,11 @@ encryption key), both `0600`.
 | `L` | follow a link, `esc` comes back |
 | `b` | switch database on this server |
 | `s` | open the SQL editor |
-| `:` | command line — `:q`, `:tables`, `:rows`, `:reload`, `:sql` |
+| `:` | command line: `:q`, `:tables`, `:rows`, `:reload`, `:sql` |
 | `q` / `esc` | quit |
 
 [docs/keys.md](docs/keys.md) has the rest: the filter form, the inspector, the
-SQL editor, the lists, the connection form, the command line — and how to
+SQL editor, the lists, the connection form, the command line. It also covers how to
 rebind any of it with `[keys]` in the config, which help and the hotkey bar
 follow.
 
@@ -719,7 +719,7 @@ their sizes at once and survive paging and switching tables.
 
 `t` shows the table's structure: every column with its type, which one is the
 primary key, which are foreign keys and where they point, what is not null,
-what auto-increments, and the defaults — then the indexes.
+what auto-increments, and the defaults, then the indexes.
 
 ```
 STRUCTURE  ·  albums
@@ -748,7 +748,7 @@ in your fingers. The stack is as deep as you followed, so a chain of links
 unwinds one step at a time.
 
 The jump is an ordinary filter, so the SQL pane shows the `where` clause that
-made it — following a link teaches you the query you would have written.
+made it. Following a link teaches you the query you would have written.
 
 ## Filtering rows
 
@@ -764,12 +764,12 @@ made it — following a link teaches you the query you would have written.
 └────────────────────────────────────────────────────────────────────┘
 ```
 
-`f` opens on the column you are on, with `contains`, already typing — the
+`f` opens on the column you are on, with `contains`, already typing. The
 column and operator are guesses, the value never is. `↵` keeps the value and
 `↵` again applies it; `esc` steps back into the form to move around.
 
 `tab` and `shift+tab` move between the three cells. On the column or operator,
-`↵` opens a type-to-filter list — start typing to narrow it, arrows to move, `↵` to pick —
+`↵` opens a type-to-filter list (start typing to narrow it, arrows to move, `↵` to pick)
 and `← →` step through the options without opening it. On the value, `↵` types.
 `+` and `-` add and remove conditions, `o` switches the whole bar between `and`
 and `or`, `ctrl+s` applies and `esc` clears.
@@ -783,7 +783,7 @@ least, is less than, is at most, is empty, is not empty, is one of (a
 comma-separated list).
 
 The filter becomes a `where` clause on the query, so the SQL pane shows exactly
-what ran — which is the point. **Values are bound, never interpolated**, so a
+what ran, which is the point. **Values are bound, never interpolated**, so a
 value containing a quote is a value rather than SQL. The pane shows the
 statement with the values filled in for reading; that form is never sent to the
 database.
@@ -795,7 +795,7 @@ table usually does not in another.
 
 Click a column header, or press `o` on a column, to sort by it: first click
 ascending, second descending, third clears it. The header shows `▲` or `▼`, and
-the `order by` appears in the SQL pane — so the sort teaches the clause that
+the `order by` appears in the SQL pane, so the sort teaches the clause that
 produced it.
 
 Sorting applies to a table, not to query results; those are ordered by whatever
@@ -812,7 +812,7 @@ are looking at, and updates as you change table or page:
 └──────────────────────────────────────────────────┘
 ```
 
-Press `s` and that statement is handed to you to edit — change the `limit`, add
+Press `s` and that statement is handed to you to edit. Change the `limit`, add
 a `where`, press `ctrl+r`, and the grid shows your version.
 
 The pane always mirrors what you are looking at: change table, sort, or page and
@@ -839,7 +839,7 @@ limit 50
 ```
 
 The model writes queries; it never runs them. It is asked for exactly one
-statement, reads only, and is told to use nothing outside the schema — and it
+statement, reads only, and is told to use nothing outside the schema, and it
 still lands in front of you for review rather than in front of your database.
 
 **Only table and column names are sent.** No row data ever leaves the machine,
@@ -875,7 +875,7 @@ timeout = 60
 
 Anything with an OpenAI-compatible API works. LM Studio, start to finish:
 
-1. Install a model in LM Studio — a coding model is the right shape for this;
+1. Install a model in LM Studio. A coding model is the right shape for this, and
    `qwen2.5-coder-7b-instruct` is a good starting point.
 2. Open the **Developer** tab and **Start Server**. It listens on port 1234 by
    default and speaks OpenAI's API at `http://localhost:1234/v1`.
@@ -897,7 +897,7 @@ Anything with an OpenAI-compatible API works. LM Studio, start to finish:
 
 5. Press `a` in tql and ask for something.
 
-`provider` is ignored once `url` is set — a url points somewhere deliberate, so
+`provider` is ignored once `url` is set. A url points somewhere deliberate, so
 it wins over any key in your environment. Nothing leaves your machine in that
 setup, and only table and column names were ever being sent anyway.
 
@@ -909,7 +909,7 @@ url = "http://localhost:11434/v1"
 model = "qwen2.5-coder"
 ```
 
-LM Studio may want a token — it says so in the Developer tab, and it goes in
+LM Studio may want a token. It says so in the Developer tab, and it goes in
 `key`. A url with no path gets `/v1` added, so `http://localhost:1234` and
 `http://localhost:1234/v1` both work.
 
@@ -917,7 +917,7 @@ A reasoning model such as qwen3 answers in its thinking rather than in the
 message body, and tql reads the answer out of it either way.
 
 If `a` says nothing is configured, tql could not find a url or a key. If it
-fails at the network, the server is not running or the port is wrong — the
+fails at the network, the server is not running or the port is wrong, and the
 `curl` above is the quickest way to tell which.
 
 With nothing configured at all, `a` says what to set rather than failing at the
@@ -925,15 +925,15 @@ network.
 
 ## Enter runs things
 
-Everywhere you type something that then has to happen — a value, a filter, a
-question — `↵` does it and `⇧↵` adds a line. `ctrl+s` still works if it is in
+Everywhere you type something that then has to happen (a value, a filter, a
+question), `↵` does it and `⇧↵` adds a line. `ctrl+s` still works if it is in
 your fingers.
 
 The SQL editor is the exception. `↵` adds a line there and only `ctrl+r` runs
 the statement under the cursor, so a long query never goes off half written,
 and a buffer of several statements runs one at a time. Set
-`sql_editor = "vim"` in `[ui]` for a vim editor instead — motions, operators,
-text objects, visual mode, undo and `.` — where `:r` runs the statement; see
+`sql_editor = "vim"` in `[ui]` for a vim editor instead (motions, operators,
+text objects, visual mode, undo and `.`), where `:r` runs the statement; see
 [the SQL editor](docs/keys.md#the-sql-editor).
 
 Shift+enter needs a terminal that sends something distinct for it. In Ghostty:
@@ -946,7 +946,7 @@ Alt+enter works without any configuration.
 
 ## Running SQL
 
-The SQL pane is syntax highlighted — keywords, quoted identifiers, strings,
+The SQL pane is syntax highlighted: keywords, quoted identifiers, strings,
 numbers and comments each colored, the same tokeniser approach as the JSON
 viewer and equally careful never to drop a character while you type.
 
@@ -956,18 +956,18 @@ Press `s` (or `:sql`) for the SQL editor, which opens above the results.
 `ctrl+r` runs what you have typed, `esc` returns to browsing. As you type, it
 offers the tables, columns and keywords that fit, and `tab` takes one. Results replace
 the grid and are read-only, since they have no primary key to write back
-through — open a table to edit.
+through. Open a table to edit.
 
 `H` from the grid, or `alt+h` from the editor, opens the history: every
 statement you have run from the editor on this connection, and every one your
 agent ran with `tql query` or over MCP, newest first and once each. Type to narrow it; `↵` puts the
-statement back in the editor, ready to change or run. What tql runs by itself —
-paging the grid, the updates behind `:w` — is not in it.
+statement back in the editor, ready to change or run. What tql runs by itself
+(paging the grid, the updates behind `:w`) is not in it.
 
 ## JSON columns
 
 A cell holding JSON opens in a full-width modal when you press `i`: pretty
-printed, with line numbers and syntax highlighting — keys, strings, numbers and
+printed, with line numbers and syntax highlighting, with keys, strings, numbers and
 literals each colored. `↑↓` scrolls a line at a time, `n`/`p` a page, `esc`
 closes.
 
@@ -1009,8 +1009,8 @@ list reads as a table.
 
 A **join table is read through**, not shown: a film's `film_actor` rows are a
 list of timestamps, so tql shows `actors · has many through film_actor` with
-the actors in it. A join table that carries data of its own — a quantity, a
-price — is a table in its own right and is shown as one.
+the actors in it. A join table that carries data of its own (a quantity, a
+price) is a table in its own right and is shown as one.
 
 Every column of a related row is shown, laid out to the width you actually have:
 the columns that already fit are left alone and what is left over is shared
@@ -1043,20 +1043,20 @@ or takes `--database=`; without either it stops and says so rather than
 exporting every schema on the box.
 
 Name a connection and it goes straight through; name nothing and it asks three
-questions — which connection (most recently used first), which table (the whole
+questions: which connection (most recently used first), which table (the whole
 database is the first answer), and where to save it, offering the auto-named
 file in the export directory. Answer that last one with a folder and it names
 the file for you; `--sql` skips the question. Piped or with `--no-interaction` it
-never asks — it says what it needed and stops with a non-zero exit.
+never asks. It says what it needed and stops with a non-zero exit.
 
-Save one somewhere else — `~/Downloads`, say — and that becomes the folder the
+Save one somewhere else, `~/Downloads` say, and that becomes the folder the
 next export is offered in. `ui.export_path` in the config overrides it, and if
 the remembered folder is gone tql falls back to its own.
 
 `--sql` takes a file or a directory; omit it and the file is named
 automatically in the export directory, after the database, the table and the
-time — `karlm_v2-users-20260922-231302.sql`, or `karlm_v2-20260922-231302.sql`
-for the whole thing — since the connection's own name says nothing about what is
+time (`karlm_v2-users-20260922-231302.sql`, or `karlm_v2-20260922-231302.sql`
+for the whole thing), since the connection's own name says nothing about what is
 in the file. `--limit` caps rows per table, which is
 how you pull a slice of production rather than all of it.
 
@@ -1068,13 +1068,13 @@ Files land in `~/.config/tql/exports` (override with `ui.export_path`), named
 `connection-table-YYYYMMDD-HHMMSS.sql`. The status line reports the row count,
 file size and path.
 
-Data only — no schema. Your migrations own the schema; this is for pulling rows
+Data only, no schema. Your migrations own the schema; this is for pulling rows
 from one database into another.
 
 ## Editing
 
 Select a cell and press `e` or `↵`. `↵` saves, `esc` cancels. An empty value
-writes `NULL`. `E` edits the whole row in a form — see
+writes `NULL`. `E` edits the whole row in a form, see
 [Editing a row in a form](#editing-a-row-in-a-form).
 
 Editing requires a single-column primary key, which tql uses to target the
@@ -1128,26 +1128,26 @@ added colour. Nothing has happened until `:w`.
 
 The form fills in what it can, so you can see it before you keep it:
 
-- **A plain default** is the field's value — `rating` starts as `G`. Change it
+- **A plain default** is the field's value, so `rating` starts as `G`. Change it
   or leave it.
-- **A time default** — `current_timestamp`, `now()`, `datetime('now')` — starts
+- **A time default** (`current_timestamp`, `now()`, `datetime('now')`) starts
   as `now()`, which becomes the time when you keep the row, the way the column
   writes it.
-- **A key the database will not give out** — a schema converted from somewhere
-  that lost its auto increment, a table keyed by hand — is filled with the next
+- **A key the database will not give out** (a schema converted from somewhere
+  that lost its auto increment, a table keyed by hand) is filled with the next
   number going, because otherwise you are looking up a value the database
   already knows.
-- **Anything the database works out itself** — an auto-increment key, a
-  sequence, a generated uuid — is left out of the insert and says so, dimmed.
+- **Anything the database works out itself** (an auto-increment key, a
+  sequence, a generated uuid) is left out of the insert and says so, dimmed.
 
 A field that is not null and has nothing to fall back on says **required**, and
 the cursor starts on the first field that is yours to fill in. `ctrl+n` sets a
-field to `NULL` — an explicit one, written as `NULL` rather than left to the
-default — and `⌫` puts a field back to how it started.
+field to `NULL` (an explicit one, written as `NULL` rather than left to the
+default) and `⌫` puts a field back to how it started.
 
 The row is a row like any other once it is kept: `e` changes one cell of it,
 `E` opens it in the form again, and `u` drops it. The cursor is visible inside
-it — a marked, edited or added row is drawn as one bar, and the cell you are on
+it. A marked, edited or added row is drawn as one bar, and the cell you are on
 is a span of its own inside it.
 
 ## Editing a row in a form
@@ -1155,7 +1155,7 @@ is a span of its own inside it.
 `e` edits one value. `E` opens the whole row in the same form, on the field for
 the column you were on, with the row's values in it. `ctrl+s` keeps **only the
 fields you changed**, as pending edits, and the row goes yellow in the grid.
-The primary key is shown but not editable — it is how tql names the row.
+The primary key is shown but not editable, because it is how tql names the row.
 
 `esc` closes the form. If you changed something it asks first: `esc` again
 throws the changes away, any other key keeps you in the form.
@@ -1163,8 +1163,8 @@ throws the changes away, any other key keeps you in the form.
 ### The time
 
 Any date, time or timestamp column takes **`ctrl+t`** while editing: it types
-the current time into the editor, in the format that column wants — `Y-m-d` for
-a date, `H:i:s` for a time, `Y-m-d H:i:s` for a datetime or timestamp — so you
+the current time into the editor, in the format that column wants (`Y-m-d` for
+a date, `H:i:s` for a time, `Y-m-d H:i:s` for a datetime or timestamp), so you
 can see it before keeping it. The status line says so while you are in one.
 
 Typing **`now()`** does the same thing without the shortcut, wherever it is
@@ -1173,7 +1173,7 @@ how `created_at` and `updated_at` get filled in without looking up a format.
 
 It writes **UTC**, because that is what a database column almost always holds
 and a row written in local time is wrong in a way nobody notices for months.
-The status line names the zone — `ctrl+t now UTC` — and `[ui] time_zone` in the
+The status line names the zone (`ctrl+t now UTC`) and `[ui] time_zone` in the
 config changes it:
 
 ```toml
@@ -1199,13 +1199,13 @@ the statement it refused on its own line and what to do next under it.
 │                                                              │
 │  insert into "people" ("name", "email") values (…)           │
 │                                                              │
-│  The row is still here — fix it and :w again, or u to drop.  │
+│  The row is still here. Fix it and :w again, or u to drop it.│
 │                                                              │
 │  y copies it    esc closes                                   │
 └──────────────────────────────────────────────────────────────┘
 ```
 
-The connection name tql invented and the file it opened are taken out — that is
+The connection name tql invented and the file it opened are taken out. That is
 tql talking to itself, not the database talking to you. `j`/`k` scroll a long
 one, `y` copies it, any other key closes it. **Your pending changes are still
 pending**: nothing is dropped because a write failed.
@@ -1228,7 +1228,7 @@ typed rather than what is still on disk. Rows marked for deletion are
 highlighted in `theme.deleted` (red). The status line counts both.
 
 Changes are keyed by primary key, so sorting, filtering or reloading keeps them
-on the rows you picked, and they are dropped when you change table — a mark
+on the rows you picked, and they are dropped when you change table, because a mark
 means nothing in a table where that id is a different row. Quitting with
 unwritten changes drops them and says so; `:q` again leaves.
 
@@ -1243,7 +1243,7 @@ default), `d` again unmarks, and `u` clears every mark.
 Marks follow the row, not its position, so sorting or reloading keeps them on
 the rows you picked. Quitting with unwritten marks drops them and tells you,
 rather than either losing them silently or writing something you did not ask
-for — press `:q` again to leave.
+for. Press `:q` again to leave.
 
 A table with no single-column primary key cannot be deleted from, because there
 is no safe way to name the row; it says so rather than guessing.
@@ -1265,7 +1265,7 @@ echo "select 1" | tql query prod -       # or pipe the statement in
 ```
 
 They never prompt or draw a screen. In a terminal they print a table; piped or
-captured, which is how an agent runs them, they print JSON — `--table` and
+captured, which is how an agent runs them, they print JSON. `--table` and
 `--json` choose either way. A refusal or a database error goes to stderr with a
 non-zero exit code. A query returns at most 200 rows unless you pass `--limit`,
 and says when it stopped short.
@@ -1283,7 +1283,7 @@ Query the database read-only with `tql query <connection> "<sql>"`; `tql tables`
 claude mcp add --scope user tql -- tql mcp:start tql
 ```
 
-Its tools — list connections, list tables, describe a table, run a query — give
+Its tools (list connections, list tables, describe a table, run a query) give
 the same answers as the commands.
 
 Either way it is **read-only**: only `select`, `show`, `explain`, `describe`,
@@ -1316,5 +1316,5 @@ project ran into.
 
 Connection passwords and SSH passwords are encrypted with Laravel's encrypter
 using a key at `~/.config/tql/key`, `0600`. Filter values are always bound,
-never interpolated — the SQL pane shows them filled in for reading, and that
+never interpolated. The SQL pane shows them filled in for reading, and that
 string is never what runs.

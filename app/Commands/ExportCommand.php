@@ -28,7 +28,7 @@ class ExportCommand extends Command
 
     protected $help = <<<'HELP'
     Writes rows as <fg=cyan>insert</> statements you can replay into another database.
-    Data only — no schema, so the target table must already exist.
+    Data only, no schema, so the target table must already exist.
 
     <fg=yellow>Examples</>
 

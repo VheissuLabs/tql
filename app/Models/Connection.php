@@ -32,8 +32,8 @@ class Connection extends Model
     /**
      * A database chosen for this session only.
      *
-     * It is not an attribute, so saving the connection — which happens every
-     * time it is opened, to record last used — cannot persist it by accident.
+     * It is not an attribute, so saving the connection (which happens every
+     * time it is opened, to record last used) cannot persist it by accident.
      */
     public ?string $sessionDatabase = null;
 

@@ -219,7 +219,7 @@ it('sends the question on enter', function () {
     $browser->emit('key', 'how many customers');
     $browser->emit('key', "\n");
 
-    // No provider, so it reports that rather than asking — but it did send.
+    // No provider, so it reports that rather than asking, but it did send.
     expect($browser->status)->toContain('no model to ask');
 });
 

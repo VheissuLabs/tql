@@ -546,7 +546,7 @@ it('moves around the form with h and l once escape has left the value', function
         ->and($form->current()->value)->toBe('')
         ->and($form->editor)->toBeNull();
 
-    // On the operator, l cycles it — the arrows and h/l agree there.
+    // On the operator, l cycles it, and the arrows and h/l agree there.
     $browser->emit('key', 'l');
 
     expect($form->current()->operator)->toBe('starts with');

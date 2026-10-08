@@ -9,19 +9,19 @@ it. A release binary is literally:
 cat micro.sfx tql.phar > tql
 ```
 
-The interpreter is built once per platform from a fixed extension list — the
-three PDO drivers, openssl, curl, mbstring and the pieces Laravel expects — and
+The interpreter is built once per platform from a fixed extension list (the
+three PDO drivers, openssl, curl, mbstring and the pieces Laravel expects) and
 cached between releases, since it only changes when that list or the PHP version
 does.
 
 Everything below is driven by pushing a `v*` tag, which `bin/release` does.
 `.github/workflows/release.yml` builds, checks and publishes. It also takes a
-`workflow_dispatch`, which builds everything without publishing — use that to
+`workflow_dispatch`, which builds everything without publishing. Use that to
 try a change to the pipeline.
 
 After it publishes, `.github/workflows/install.yml` installs the new release the
-way people will — the one-line installer on Linux x86_64, Linux ARM and macOS,
-and the AUR package built with `makepkg` in an Arch container — and fails if any
+way people will (the one-line installer on Linux x86_64, Linux ARM and macOS,
+and the AUR package built with `makepkg` in an Arch container) and fails if any
 of them does not run and report the new version. It runs on its own too, whenever
 `install.sh` or `packaging/` changes and once a week, so a broken installer is
 caught before someone runs into it.
@@ -88,7 +88,7 @@ release still succeeds.
 
 ## AUR
 
-The package is `tql-bin` — the `-bin` suffix is the convention for a prebuilt
+The package is `tql-bin`. The `-bin` suffix is the convention for a prebuilt
 binary rather than one built from source on the user's machine.
 
 1. Make an account at [aur.archlinux.org](https://aur.archlinux.org) and add an
@@ -121,13 +121,13 @@ sudo dpkg -i tql_0.3.0_amd64.deb
 sudo dnf install ./tql-0.3.0.x86_64.rpm
 ```
 
-Hosting an actual apt or dnf *repository* — so `apt install tql` works without
-downloading a file first — needs somewhere to serve it from and a signing key.
+Hosting an actual apt or dnf *repository*, so `apt install tql` works without
+downloading a file first, needs somewhere to serve it from and a signing key.
 That is the next step, not a missing one: the packages themselves are already
 built and correct.
 
 ## Adding a distribution
 
-Anything that can install a single executable will work — there is no runtime to
+Anything that can install a single executable will work, since there is no runtime to
 declare. Add the recipe under `packaging/`, a step to the release workflow that
 fills in the version and the checksums, and a row to the table above.

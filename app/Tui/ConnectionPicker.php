@@ -139,7 +139,7 @@ class ConnectionPicker extends Prompt
      * Within each, the order they came in, which is most recently used.
      *
      * Unfolded, every group shows its connections whether it is folded or
-     * not — what the columns are measured against, so folding one does not
+     * not. That is what the columns are measured against, so folding one does not
      * shift them.
      */
     public function rows(bool $unfolded = false): array
@@ -376,7 +376,7 @@ class ConnectionPicker extends Prompt
         $database = (string) $connection->database;
 
         if ($database === '') {
-            $this->status = $connection->name.' has no database set — it asks on connect';
+            $this->status = $connection->name.' has no database set, so it asks on connect';
 
             return true;
         }
@@ -646,7 +646,7 @@ class ConnectionPicker extends Prompt
 
             $this->pendingDeletes = [];
             $this->status = $count.' unwritten mark'.($count === 1 ? '' : 's').
-                ' dropped — quit again to leave';
+                ' dropped, quit again to leave';
 
             return true;
         }

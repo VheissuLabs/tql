@@ -440,7 +440,7 @@ it('draws an opaque backdrop behind a modal', function () {
     $lines = explode("\n", preg_replace('/\e\[[0-9;]*m/', '', $method->invoke($browser)));
 
     // Find the modal's own rows, then check the row just above its top border
-    // belongs to the backdrop — blank, or the ring drawn around it — rather
+    // belongs to the backdrop (blank, or the ring drawn around it) rather
     // than showing the panes through.
     $top = null;
 

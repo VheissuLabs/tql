@@ -3,7 +3,7 @@
 tql is a Laravel Zero application. The interface is a single Laravel Prompts
 prompt that draws a full-screen frame; the MCP server and the CLI commands are
 ordinary Laravel commands over the same code. If you can write a Laravel app you
-can work on this — the only unusual parts are the drawing rules, and they are
+can work on this. The only unusual parts are the drawing rules, and they are
 written down below because every one of them was learned by breaking something.
 
 ## Getting set up
@@ -47,8 +47,8 @@ XDG_CONFIG_HOME=/tmp/tql-scratch php tql
 
 ## How a frame is drawn
 
-`Browser` is a `Prompt`. It holds the state — which table, which row, what is
-filtered, which modal is open — and `BrowserRenderer` turns that state into a
+`Browser` is a `Prompt`. It holds the state (which table, which row, what is
+filtered, which modal is open) and `BrowserRenderer` turns that state into a
 string, once per key press.
 
 The renderer never draws characters at coordinates. It builds **islands**:
@@ -57,7 +57,7 @@ to a width and a height, and answer hit tests for it. `Screen` places them and
 composes the frame row by row, overlaying modals on top.
 
 This matters for correctness, not just tidiness. Screen geometry lives in one
-place — the island — so a click asks the island that drew those columns rather
+place, the island, so a click asks the island that drew those columns rather
 than re-deriving where they were. Every mouse bug in this project came from
 having two copies of that arithmetic.
 
@@ -87,7 +87,7 @@ walks. Clamp the status line and the hotkey bar to the width like everything
 else.
 
 **A repaint must not home the cursor.** The frame does not always start on the
-screen's first row — the alt screen keeps the cursor row it was handed, and
+screen's first row. The alt screen keeps the cursor row it was handed, and
 inside a multiplexer pane the row above belongs to something else. To force a
 full redraw, hand Prompts a blank previous frame as tall as the taller of the
 two frames and let its own relative erase do the work. Writing `\e[H` walks the
@@ -112,13 +112,13 @@ it to `FILTER_KEYS` so it does not get typed into a value.
 
 **A pane or a modal.** Add an island under `app/Tui/Islands/`, implementing
 `content(int $innerWidth, int $innerHeight): array`. Place it in
-`BrowserRenderer::__invoke()` — `$screen->add()` for a pane, `$this->modal(...)`
+`BrowserRenderer::__invoke()`: `$screen->add()` for a pane, `$this->modal(...)`
 for a modal. Anything that changes the shape of the screen must also appear in
 `Browser::shape()`, or the frame will not repaint when it opens.
 
 **A CLI command.** An ordinary Laravel Zero command in `app/Commands/`. Ask for
 what was left out with Laravel Prompts when the input is interactive, and fail
-with a clear message when it is not — `ExportCommand` is the worked example.
+with a clear message when it is not. `ExportCommand` is the worked example.
 
 **An MCP tool.** A class in `app/Mcp/Tools/` registered on `TqlServer`. Queries
 through MCP are read-only and that is enforced in one place; keep it there.

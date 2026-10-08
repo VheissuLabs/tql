@@ -9,7 +9,7 @@ use App\Tui\Layout;
  *
  * Every modal in the browser is the same thing: boxes of a shared width,
  * centred in the frame, on an opaque backdrop that stops the panes showing
- * through — and, unless the config says otherwise, ringed by a border of its
+ * through and, unless the config says otherwise, ringed by a border of its
  * own. The row inspector is the only one with two boxes, which is why this
  * takes a list rather than an island.
  */

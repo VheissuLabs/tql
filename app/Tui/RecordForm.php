@@ -258,7 +258,7 @@ class RecordForm
         $value = $this->editor->buffer();
 
         if ($this->json && ! Json::looksLikeJson($value)) {
-            $this->error = 'not valid json — fix it, or esc to put it back';
+            $this->error = 'not valid json: fix it, or esc to put it back';
 
             return false;
         }

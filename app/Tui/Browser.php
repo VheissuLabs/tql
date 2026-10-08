@@ -43,7 +43,7 @@ class Browser extends Prompt
     /**
      * Shift+enter. A plain terminal sends the same byte for enter and
      * shift+enter, so it only arrives when the terminal is told to send
-     * something distinct — in Ghostty, keybind = shift+enter=csi:13;2u.
+     * something distinct. In Ghostty: keybind = shift+enter=csi:13;2u.
      * Alt+enter is accepted too, since it is distinct out of the box.
      */
     public const NEWLINE = ["\e[13;2u", "\e\r", "\e\n"];
@@ -1096,14 +1096,14 @@ class Browser extends Prompt
     private function startEditing(bool $readOnly = false): bool
     {
         if ($this->raw === []) {
-            $this->status = 'nothing to open — this table has no rows';
+            $this->status = 'nothing to open, this table has no rows';
 
             return true;
         }
 
         $this->focus = 'grid';
         $this->inspectingRow = false;
-        $this->readOnlyReason = $readOnly ? 'opened with I — press e to edit' : $this->whyReadOnly();
+        $this->readOnlyReason = $readOnly ? 'opened with I, press e to edit' : $this->whyReadOnly();
         $this->editable = $this->readOnlyReason === null;
 
         $value = $this->cellValue();
@@ -1175,7 +1175,7 @@ class Browser extends Prompt
     private function inspectRow(): bool
     {
         if ($this->raw === []) {
-            $this->status = 'nothing to open — this table has no rows';
+            $this->status = 'nothing to open, this table has no rows';
 
             return true;
         }
@@ -1217,7 +1217,7 @@ class Browser extends Prompt
         $row = $this->relatedRaw[$line['table'] ?? ''][$line['row'] ?? -1] ?? null;
 
         if ($row === null) {
-            $this->status = 'i opens a related record — move onto one first';
+            $this->status = 'i opens a related record, move onto one first';
 
             return;
         }
@@ -1398,7 +1398,7 @@ class Browser extends Prompt
         }
 
         if ($key === 'e' && $this->inspected !== []) {
-            $this->status = 'this record is not in the grid — open its table to edit it';
+            $this->status = 'this record is not in the grid, open its table to edit it';
 
             return;
         }
@@ -1654,7 +1654,7 @@ class Browser extends Prompt
 
         $this->status = $this->visualAnchor === null
             ? 'selection cleared'
-            : 'visual — move with j/k, y yanks, esc clears';
+            : 'visual: move with j/k, y yanks, esc clears';
     }
 
     public function selectedLines(): array
@@ -1700,7 +1700,7 @@ class Browser extends Prompt
         $value = $this->cellEditor?->buffer() ?? '';
 
         if ($this->editingJson && ! Json::looksLikeJson($value)) {
-            $this->status = 'not valid json — fix it or press esc to cancel';
+            $this->status = 'not valid json: fix it or press esc to cancel';
 
             return;
         }
@@ -1816,7 +1816,7 @@ class Browser extends Prompt
     private function markDelete(): bool
     {
         if ($this->resultsFromQuery) {
-            $this->status = 'query results have no row to delete — open the table itself';
+            $this->status = 'query results have no row to delete, open the table itself';
 
             return true;
         }
@@ -1999,7 +1999,7 @@ class Browser extends Prompt
     private function openRecord(): bool
     {
         if ($this->raw === []) {
-            $this->status = 'nothing to open — this table has no rows';
+            $this->status = 'nothing to open, this table has no rows';
 
             return true;
         }
@@ -2176,8 +2176,8 @@ class Browser extends Prompt
      * A key the database is not going to give out gets the next one going.
      *
      * Most primary keys are generated and this never happens. The ones that
-     * are not — a schema converted from somewhere that lost its auto
-     * increment, a table keyed by hand — leave you typing a number you have to
+     * are not (a schema converted from somewhere that lost its auto
+     * increment, a table keyed by hand) leave you typing a number you have to
      * go and look up, so tql looks it up.
      *
      * @param  array<int, string>  $required
@@ -2410,7 +2410,7 @@ class Browser extends Prompt
 
             if ($result->failed()) {
                 return $this->fail($result->error, [
-                    'The row is still here — fix it and :w again, or u to drop it.',
+                    'The row is still here. Fix it and :w again, or u to drop it.',
                 ], 'COULD NOT ADD THE ROW');
             }
         }
@@ -2428,7 +2428,7 @@ class Browser extends Prompt
 
                 if ($result->failed()) {
                     return $this->fail($result->error, [
-                        'The change is still here — fix it and :w again, or u to drop it.',
+                        'The change is still here. Fix it and :w again, or u to drop it.',
                     ], 'COULD NOT WRITE');
                 }
             }
@@ -2439,7 +2439,7 @@ class Browser extends Prompt
 
             if ($result->failed()) {
                 return $this->fail($result->error, [
-                    'The rows are still marked — u clears them.',
+                    'The rows are still marked. u clears them.',
                 ], 'COULD NOT DELETE');
             }
         }
@@ -2807,7 +2807,7 @@ class Browser extends Prompt
         );
 
         if ($rewritten === null) {
-            $this->status = 'this query is too complex to sort — add an order by yourself';
+            $this->status = 'this query is too complex to sort, add an order by yourself';
 
             return true;
         }
@@ -2836,7 +2836,7 @@ class Browser extends Prompt
             $this->pendingDeletes = [];
             $this->pendingEdits = [];
             $this->status = $count.' unwritten change'.($count === 1 ? '' : 's').
-                ' dropped — :q again to quit';
+                ' dropped, :q again to quit';
 
             return true;
         }
@@ -3365,7 +3365,7 @@ class Browser extends Prompt
      * Open a table by name.
      *
      * The sidebar filter decides which tables are visible, and every index in
-     * the app is an index into that visible list — so a jump to a table the
+     * the app is an index into that visible list, so a jump to a table the
      * filter is hiding has to clear the filter, or it lands on nothing.
      */
     private function openLinked(string $table, ?Filters $filters): void
@@ -3455,8 +3455,8 @@ class Browser extends Prompt
                 return;
             }
 
-            // Typing goes straight back into the input, with the key you hit
-            // — except the keys that move around the form, which would
+            // Typing goes straight back into the input, with the key you hit,
+            // except the keys that move around the form, which would
             // otherwise be impossible to use once escape had stepped out of
             // the value. i or enter starts typing one of those.
             $text = Input::text($key);
@@ -4039,7 +4039,7 @@ class Browser extends Prompt
         $this->offset = 0;
 
         // Marks name rows by primary key, so they mean nothing in another
-        // table — and writing them there would delete the wrong rows. A row
+        // table, and writing them there would delete the wrong rows. A row
         // waiting to be added belongs to the table it was added to.
         $this->pendingDeletes = [];
         $this->pendingEdits = [];

@@ -48,7 +48,7 @@ it('keeps a session database off the saved record', function () {
     expect($connection->activeDatabase())->toBe('reporting')
         ->and($connection->toLaravelConfig()['database'])->toBe('reporting');
 
-    // Saving the record — which happens on every open — must not persist it.
+    // Saving the record (which happens on every open) must not persist it.
     $connection->forceFill(['last_used_at' => now()])->save();
 
     expect($connection->fresh()->database)->toBe('shop');

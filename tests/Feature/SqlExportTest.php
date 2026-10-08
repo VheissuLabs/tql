@@ -298,7 +298,7 @@ it('takes the database off the command line', function () {
         'port' => 1, 'database' => '', 'username' => 'root',
     ]);
 
-    // Unreachable, so it gets as far as the handshake and no further — but the
+    // Unreachable, so it gets as far as the handshake and no further, but the
     // database it would have used is settled by then.
     $this->artisan('export', ['connection' => 'server', '--database' => 'shop', '--no-interaction' => true])
         ->assertExitCode(1);

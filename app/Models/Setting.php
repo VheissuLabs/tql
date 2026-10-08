@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 use Throwable;
 
 /**
- * Small things tql remembers between runs — where the last export went, and
+ * Small things tql remembers between runs: where the last export went, and
  * anything else that is a preference nobody should have to state twice.
  *
  * Not the config file: that is the user's to write, and this is tql's.

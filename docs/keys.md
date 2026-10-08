@@ -4,14 +4,14 @@ Every key tql answers to, by where you are. `?` shows an abridged version of
 this inside the application.
 
 The bindings are vim's where vim has an opinion, and a letter that says what it
-does where it does not. **They can be changed** — see [Rebinding](#rebinding).
+does where it does not. **They can be changed**, see [Rebinding](#rebinding).
 
 ## Browsing
 
 | Key | Action |
 | --- | --- |
 | `tab` / `shift+tab` | next or previous pane; in the SQL editor they indent instead |
-| `alt+1` / `alt+2` / `alt+3` | go to the table list, the rows or the SQL editor — each pane's title shows its number. On macOS, turn on your terminal's "Option as Meta" or "Option as Alt" |
+| `alt+1` / `alt+2` / `alt+3` | go to the table list, the rows or the SQL editor. Each pane's title shows its number. On macOS, turn on your terminal's "Option as Meta" or "Option as Alt" |
 | `\` | hide or show the table list, so the grid has the whole width |
 | `↑ ↓` / `j k` | move the cursor; a count before it moves that far, so `5j` is five rows and `3l` three columns |
 | `← →` / `h l` | move between columns; `→` from the table list moves to the grid |
@@ -35,7 +35,7 @@ does where it does not. **They can be changed** — see [Rebinding](#rebinding).
 | `y` / `Y` | yank this value, or the whole row as an object |
 | `N` | add a row, in a form; `:w` writes it |
 | `d` / `u` | mark the row for deletion, or clear every mark |
-| `,` `.` or `<` `>` | narrow or widen the column — or the table list, when you are in it |
+| `,` `.` or `<` `>` | narrow or widen the column, or the table list when you are in it |
 | `=` | reset the width |
 | `c` | back to the connection list |
 | `ctrl+l` | redraw the screen |
@@ -57,14 +57,14 @@ test fixture:
 
 `esc` is contextual, in this order: go back where you followed a link from,
 clear the filter, then put the table back after a hand-written query replaced
-the grid with its results. It never quits — `q` and `:q` do that.
+the grid with its results. It never quits. `q` and `:q` do that.
 
 ## The command palette
 
 `ctrl+k` opens one list of everything you can do from here: every action, with
 the key that does it, the `:` commands that have no key, the tables, the other
-databases on a server, and your other connections. Type to narrow it — exact and
-prefix matches first, then words, then letters in order — and `↵` runs the one
+databases on a server, and your other connections. Type to narrow it (exact and
+prefix matches first, then words, then letters in order) and `↵` runs the one
 you are on, exactly as its key would.
 
 | Key | Action |
@@ -102,7 +102,7 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 
 | Key | Action |
 | --- | --- |
-| `j` / `k` | move a line — `3j` moves three |
+| `j` / `k` | move a line, so `3j` moves three |
 | `g` / `G` | top or bottom |
 | `12G` | jump to line 12 |
 | `↵` | fold or unfold a section |
@@ -133,7 +133,7 @@ tables the statement names (or of the open table, before it names one), the
 tables, and the keywords. After `from`, `join`, `into` or `update` it offers
 only tables, and after `u.` only the columns of whatever `u` stands for. `tab`
 takes the highlighted one, `↑` `↓` or `ctrl+p` `ctrl+n` move, and `esc` closes
-the list — in vim, a second `esc` leaves insert mode. `↵` still adds a line.
+the list. In vim, a second `esc` leaves insert mode. `↵` still adds a line.
 With no list open, `tab` indents as before. `sql_complete = false` turns it off.
 
 `alt+h` opens the query history: what you have run from the editor, and what
@@ -262,7 +262,7 @@ An insert counts as one change, so `u` takes back everything typed since `i`.
 | `ctrl+n` | set the field to `NULL` |
 | `⌫` | put the field back the way it was |
 | `ctrl+s` | keep the row, pending, from anywhere |
-| `esc` | cancel — twice, if you changed something |
+| `esc` | cancel, twice if you changed something |
 
 While typing, `↵` or `tab` keeps the field and moves on, `shift+tab` moves back,
 `ctrl+t` types the time and `esc` puts the field back.
@@ -301,13 +301,13 @@ happens behind it.
 
 ## Lists
 
-Every list — a column, an operator, a database, a link, a file, a tag —
-answers the same way.
+Every list answers the same way, whether it holds columns, operators,
+databases, links, files or tags.
 
 | Key | Action |
 | --- | --- |
 | `↑ ↓` / `ctrl+p` `ctrl+n` | move |
-| type | narrow the list — every letter types, `j`, `k` and `q` included |
+| type | narrow the list. Every letter types, `j`, `k` and `q` included |
 | `↵` | take it |
 | `esc` | close it |
 
@@ -366,7 +366,7 @@ ask = "?"
 
 A key is a single character (`F` is not `f`), `ctrl+<letter>`, `alt+<key>`, or one of `tab`,
 `shift+tab`, `enter`, `escape`, `space`, `backspace`, `delete`, `up`, `down`,
-`left`, `right`, `home`, `end`. A list means **several keys that all do the same thing** —
+`left`, `right`, `home`, `end`. A list means **several keys that all do the same thing**.
 `yank_value = ["y", "ctrl+y"]` makes both yank, the way `,` and `<` both narrow
 a column by default. The first one is what help and the hotkey bar show.
 
