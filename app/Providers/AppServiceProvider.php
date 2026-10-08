@@ -73,7 +73,7 @@ class AppServiceProvider extends ServiceProvider
 
         if ($moved !== []) {
             config(['tql.config_notice' => 'read '.implode(', ', $moved).
-                ' from the top of config.toml — move them under their [section] to keep them working']);
+                ' from the top of config.toml, move them under their [section] to keep them working']);
         }
     }
 

@@ -131,7 +131,7 @@ class Keymap
      * What this key asks for, if anything.
      *
      * Later bindings do not steal a key from earlier ones, so a rebind that
-     * collides is inert rather than surprising — `tql config` says so.
+     * collides is inert rather than surprising, and `tql config` says so.
      */
     public static function action(string $key): ?string
     {

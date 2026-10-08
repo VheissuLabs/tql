@@ -46,8 +46,8 @@ trait RendersSmoothly
     private ?string $lastShape = null;
 
     /**
-     * Anything that changes the shape of the screen — opening a modal, folding
-     * a box — is a chance for a frame to be left behind, because Prompts
+     * Anything that changes the shape of the screen (opening a modal, folding
+     * a box) is a chance for a frame to be left behind, because Prompts
      * erases using the previous frame's line count. Repaint on the change.
      */
     private function shapeChanged(): bool
@@ -107,7 +107,7 @@ trait RendersSmoothly
      * Force the next render to redraw every row the frame occupies.
      *
      * Not by writing \e[H and erasing: that is the top of the screen, and the
-     * frame does not always start there — the alt screen keeps the cursor row
+     * frame does not always start there. The alt screen keeps the cursor row
      * it was given, so the frame can sit a row down. Instead hand Prompts a
      * blank previous frame as tall as the taller of the two, and its own
      * relative erase clears exactly the rows in play, including the one a

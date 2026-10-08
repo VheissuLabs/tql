@@ -200,8 +200,8 @@ class QueryRunner
     /**
      * Is this table there only to join two others?
      *
-     * A pivot has two foreign keys and nothing of its own worth reading — an
-     * id and a timestamp at most. Showing its rows shows a list of timestamps;
+     * A pivot has two foreign keys and nothing of its own worth reading (an
+     * id and a timestamp at most). Showing its rows shows a list of timestamps;
      * what you wanted was what is on the other side of it.
      *
      * @return array{table: string, on: string, references: string}|null

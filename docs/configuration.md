@@ -4,10 +4,10 @@ Every setting, what it does, and what it is if you never touch it.
 
 There is nothing to configure to start. On first run tql writes
 `~/.config/tql/config.toml` with all of this in it, in this order, one short
-line of comment above each key — the long version stays here rather than in
+line of comment above each key. The long version stays here rather than in
 your file. When a later version adds a setting it is
-written into the place it belongs on the next run — your values and your own
-comments are left alone — and the status line names what arrived.
+written into the place it belongs on the next run (your values and your own
+comments are left alone) and the status line names what arrived.
 
 Defaults live in `config/tql.php` and your file is merged over them, so a
 setting you never touch follows the application instead of freezing at the value
@@ -17,7 +17,7 @@ it starts on the defaults and says so in the status line.
 ## Keeping it yours
 
 The shape of the file is tql's: which sections exist, and the order the settings
-come in. What is in it is yours — the values, which settings you keep, and any
+come in. What is in it is yours: the values, which settings you keep, and any
 comment you write.
 
 ```bash
@@ -34,7 +34,7 @@ file was written for, and only settings that shipped after that are ever added
 back. Deleting something to take the default is a decision, not an accident.
 
 **Every key belongs to a section.** A key written above the first `[section]`
-belongs to no section, is never read, and is a genuinely confusing afternoon —
+belongs to no section, is never read, and makes for a confusing afternoon.
 tql notices and tells you which ones.
 
 ## `[ui]`
@@ -78,8 +78,8 @@ row, `dim-others` fades everything else, and `inverse` is the loud one.
 
 ## `[theme]`
 
-Colors are names, not hexes — `dim`, `default`, `black`, `red`, `green`,
-`yellow`, `blue`, `magenta`, `cyan`, `white`, `gray` — so tql wears the palette
+Colors are names, not hexes (`dim`, `default`, `black`, `red`, `green`,
+`yellow`, `blue`, `magenta`, `cyan`, `white`, `gray`), so tql wears the palette
 your terminal is already themed with, and follows it when you change it.
 
 | Key | Default | What it colors |
@@ -126,7 +126,7 @@ only a Nerd Font draws; your file can hold the escape or the glyph itself.
 | `sqlsrv` | `""` | nf-fa-database |
 | `default` | `""` | anything else |
 
-No Nerd Font? Any character works — `mysql = "M"` — or `""` for nothing.
+Without a Nerd Font, any character works (`mysql = "M"`), or `""` for nothing.
 
 ## `[updates]`
 
@@ -136,14 +136,14 @@ No Nerd Font? Any character works — `mysql = "M"` — or `""` for nothing.
 | `automatic` | `true` | install it by itself, for the next time you start tql |
 
 Once a day, when you start tql, it asks GitHub for the latest release in the
-background — nothing about you or your databases is sent, and a failed check
+background. Nothing about you or your databases is sent, and a failed check
 says nothing. What happens next depends on how you installed it:
 
 - **The install script, or the binary by hand:** with `automatic` on, tql
   downloads the new binary, checks it against the release's `SHA256SUMS`, makes
   sure it runs, and keeps it in a `.tql-versions` folder beside `tql`. The
   connection list says *tql 0.8.0 is ready · restart to use it*, and the next
-  start switches `tql` to it — a symlink into that folder, so a tql that is
+  start switches `tql` to it. It is a symlink into that folder, so a tql that is
   already running, an MCP server included, keeps its own file and carries on.
   The last three versions are kept. A download that does not match its checksum
   is never installed.
@@ -169,11 +169,11 @@ rows.
 
 `provider` takes `anthropic`, `openai`, `gemini`, `groq`, `mistral`,
 `deepseek`, `xai`, `openrouter` or `ollama`, and each reads its own environment
-variable — `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and so on. With `auto`,
+variable: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and so on. With `auto`,
 whichever key you already have exported is the one that answers.
 
 A `url` beats all of that: it points somewhere deliberate, so it wins over any
-key in the environment. That is how you use a local model — see
+key in the environment. That is how you use a local model, see
 [A local model, with LM Studio](../README.md#a-local-model-with-lm-studio).
 
 ```toml

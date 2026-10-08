@@ -75,8 +75,8 @@ class Ask
     /**
      * What a reasoning model said while it was thinking.
      *
-     * Local endpoints serving a reasoning model — qwen3 through LM Studio, for
-     * one — put the whole answer in reasoning_content and leave content empty,
+     * Local endpoints serving a reasoning model (qwen3 through LM Studio, for
+     * one) put the whole answer in reasoning_content and leave content empty,
      * so the structured result arrives blank even though the model answered.
      */
     private static function reasoning(mixed $response): string
@@ -131,11 +131,11 @@ class Ask
         $configured = trim((string) config('tql.ai.provider', 'auto'));
 
         if ($configured !== '' && $configured !== 'auto') {
-            return "no key for {$configured} — set ".Providers::keyVariable($configured)
+            return "no key for {$configured}, set ".Providers::keyVariable($configured)
                 .', or point [ai] url at a local model';
         }
 
-        return 'no model to ask — set an api key such as ANTHROPIC_API_KEY or '.
+        return 'no model to ask, set an api key such as ANTHROPIC_API_KEY or '.
             'OPENAI_API_KEY, or point [ai] url at a local endpoint like LM Studio';
     }
 }

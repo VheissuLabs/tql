@@ -112,8 +112,8 @@ class ConfigTidy
      * Break the file up.
      *
      * A comment block written straight above a setting belongs to it and moves
-     * with it. One with a blank line under it is standing on its own — the
-     * file's heading, or a note under a section header — and stays where it is.
+     * with it. One with a blank line under it is standing on its own (the
+     * file's heading, or a note under a section header) and stays where it is.
      *
      * @return array{preamble: array<int, string>, notes: array<string, array<int, string>>, sections: array<string, array<int, array{key: string, text: string}>>, root: array<int, array{key: string, text: string}>}
      */

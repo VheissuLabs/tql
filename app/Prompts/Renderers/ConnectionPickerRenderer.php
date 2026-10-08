@@ -423,7 +423,7 @@ class ConnectionPickerRenderer extends Renderer
         $rows = $prompt->rows();
 
         if ($rows === []) {
-            return [$this->dim('  No connections yet — press n to add one.')];
+            return [$this->dim('  No connections yet. Press n to add one.')];
         }
 
         $start = count($rows) <= $height

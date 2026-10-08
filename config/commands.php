@@ -87,7 +87,7 @@ return [
     */
 
     // The binary is one TUI with two side doors. The rest is framework
-    // plumbing — migrations tql runs for itself, seeders, scaffolding — still
+    // plumbing (migrations tql runs for itself, seeders, scaffolding) still
     // runnable, just not worth showing to someone who typed `tql list` to find
     // out what tql does. (Laravel Zero's 'remove' cannot take them: the kernel
     // applies it before Laravel's own providers register their commands.)

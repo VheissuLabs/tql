@@ -4,7 +4,7 @@ namespace App\Database;
 
 /**
  * Rewrites the "order by" of a statement the user typed, so clicking a column
- * header sorts query results the same way it sorts a browsed table — and the
+ * header sorts query results the same way it sorts a browsed table, and the
  * SQL pane shows them the clause that did it.
  */
 class OrderBy
