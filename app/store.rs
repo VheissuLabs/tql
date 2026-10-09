@@ -4,7 +4,7 @@ use anyhow::{Context, bail};
 use rusqlite::OpenFlags;
 use rusqlite::types::ValueRef;
 
-use crate::{paths, tag};
+use crate::{dsn, paths, tag};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Connection {
@@ -18,6 +18,7 @@ pub struct Connection {
     pub password: Option<String>,
     pub read_only: bool,
     pub tag: Option<String>,
+    pub group_name: Option<String>,
     pub ssh_host: Option<String>,
     pub ssh_port: Option<u16>,
     pub ssh_user: Option<String>,
@@ -50,6 +51,27 @@ impl Connection {
                 .ssh_host
                 .as_deref()
                 .is_some_and(|host| !host.trim().is_empty())
+    }
+
+    pub fn connection_string(&self, password: Option<&str>) -> String {
+        let database = self.database.clone().unwrap_or_default();
+        if self.driver == "sqlite" {
+            return format!("sqlite://{database}");
+        }
+        let credentials = match (self.username.as_deref(), password) {
+            (None | Some(""), _) => String::new(),
+            (Some(username), None | Some("")) => format!("{}@", dsn::encode(username)),
+            (Some(username), Some(password)) => {
+                format!("{}:{}@", dsn::encode(username), dsn::encode(password))
+            }
+        };
+        format!(
+            "{}://{credentials}{}:{}/{}",
+            self.driver,
+            self.host.clone().unwrap_or_default(),
+            self.port.map(|port| port.to_string()).unwrap_or_default(),
+            dsn::encode(&database)
+        )
     }
 
     pub fn describe(&self) -> String {
@@ -157,6 +179,9 @@ impl Store {
                 password: text("password").filter(|password| !password.is_empty()),
                 read_only: text("read_only").is_some_and(|flag| flag == "1"),
                 tag: text("tag").filter(|tag| !tag.trim().is_empty()),
+                group_name: text("group_name")
+                    .map(|group| group.trim().to_string())
+                    .filter(|group| !group.is_empty()),
                 ssh_host: text("ssh_host"),
                 ssh_port: text("ssh_port").and_then(|port| port.parse().ok()),
                 ssh_user: text("ssh_user"),

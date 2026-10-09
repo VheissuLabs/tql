@@ -1,19 +1,23 @@
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use crate::terminal::prelude::*;
 
 use super::ago::{ago, now};
 use super::chrome::{self, theme};
+use super::clipboard::{Clipboard, Reached, Recorded};
 use super::connection_form::{ConnectionForm, Places, Step, single_line};
 use super::text::{pad, truncate, width, window};
 use crate::encrypter::Encrypter;
 use crate::settings;
 use crate::store::{Connection, Store};
 use crate::store_writer::StoreWriter;
+use crate::updates::remembered::Remembered;
 
 const MIN_LINES: u16 = 10;
 const FIRST_BODY_ROW: i64 = 4;
-const BAR: &str = " ↑↓ Move    ↵ Open    e Edit    n New    d Mark    :w Write    :q Quit";
+const BAR: &str = " ↑↓ Move    ↵ Open    space Fold    e Edit    n New    y/Y Yank db/DSN    d Delete    :w Confirm    :q Quit";
+pub const COLLAPSED: &str = "connections.collapsed_groups";
 const FORM_BAR: &str = " ↑↓ Move    ↵ Select";
 
 pub struct Picker {
@@ -24,12 +28,35 @@ pub struct Picker {
     pub command: Option<String>,
     pub form: Option<ConnectionForm>,
     pub pending_deletes: Vec<i64>,
+    pub collapsed: Vec<String>,
     start: usize,
     store: Option<(PathBuf, PathBuf)>,
     places: Places,
+    clipboard: Box<dyn Clipboard>,
+    status_since: Instant,
+}
+
+enum Entry {
+    Header {
+        group: String,
+        count: usize,
+        collapsed: bool,
+    },
+    Connection {
+        index: usize,
+        group: String,
+    },
+}
+
+struct Header {
+    group: String,
+    count: usize,
+    collapsed: bool,
 }
 
 struct Row {
+    header: Option<Header>,
+    grouped: bool,
     name: String,
     tag: String,
     tag_color: Option<Color>,
@@ -41,7 +68,7 @@ struct Row {
 
 impl Picker {
     pub fn new(connections: Vec<Connection>, notice: Option<String>) -> Self {
-        Picker {
+        let mut picker = Picker {
             connections,
             index: 0,
             notice,
@@ -49,15 +76,204 @@ impl Picker {
             command: None,
             form: None,
             pending_deletes: Vec::new(),
+            collapsed: Vec::new(),
             start: 0,
             store: None,
             places: Places::here(),
-        }
+            clipboard: Box::new(Recorded::default()),
+            status_since: Instant::now(),
+        };
+        picker.start_on_the_first();
+        picker
     }
 
     pub fn with_store(mut self, store: &Path, key: &Path) -> Self {
         self.store = Some((store.to_path_buf(), key.to_path_buf()));
+        self.collapsed = Remembered::new(store)
+            .read(COLLAPSED)
+            .and_then(|groups| serde_json::from_str(&groups).ok())
+            .unwrap_or_default();
+        self.start_on_the_first();
         self
+    }
+
+    pub fn with_clipboard(mut self, clipboard: impl Clipboard + 'static) -> Self {
+        self.clipboard = Box::new(clipboard);
+        self
+    }
+
+    fn start_on_the_first(&mut self) {
+        let first = self.connections.first().map(|connection| connection.id);
+        self.index = self.index_of(first).unwrap_or(0);
+    }
+
+    fn say(&mut self, status: impl Into<String>) {
+        self.status = Some(status.into());
+        self.status_since = Instant::now();
+    }
+
+    pub fn fade_status(&mut self, now: Instant) -> bool {
+        let after = settings::with(|settings| settings.status_seconds);
+        if after <= 0.0 || self.status.as_deref().is_none_or(str::is_empty) {
+            return false;
+        }
+        if now.saturating_duration_since(self.status_since) < Duration::from_secs_f64(after) {
+            return false;
+        }
+        self.status = None;
+        true
+    }
+
+    fn entries(&self, unfolded: bool) -> Vec<Entry> {
+        let mut ungrouped = Vec::new();
+        let mut groups: Vec<(String, Vec<usize>)> = Vec::new();
+        for (index, connection) in self.connections.iter().enumerate() {
+            let group = connection.group_name.clone().unwrap_or_default();
+            if group.is_empty() {
+                ungrouped.push(Entry::Connection {
+                    index,
+                    group: String::new(),
+                });
+                continue;
+            }
+            match groups.iter_mut().find(|(name, _)| *name == group) {
+                Some((_, members)) => members.push(index),
+                None => groups.push((group, vec![index])),
+            }
+        }
+        groups.sort_by_key(|(name, _)| name.to_lowercase());
+
+        let mut entries = ungrouped;
+        for (group, members) in groups {
+            let collapsed = !unfolded && self.is_collapsed(&group);
+            entries.push(Entry::Header {
+                group: group.clone(),
+                count: members.len(),
+                collapsed,
+            });
+            if !collapsed {
+                entries.extend(members.into_iter().map(|index| Entry::Connection {
+                    index,
+                    group: group.clone(),
+                }));
+            }
+        }
+        entries
+    }
+
+    pub fn is_collapsed(&self, group: &str) -> bool {
+        self.collapsed.iter().any(|collapsed| collapsed == group)
+    }
+
+    fn current(&self) -> Option<&Connection> {
+        match self.entries(false).get(self.index)? {
+            Entry::Connection { index, .. } => self.connections.get(*index),
+            Entry::Header { .. } => None,
+        }
+    }
+
+    fn index_of(&self, id: Option<i64>) -> Option<usize> {
+        self.entries(false).iter().position(|entry| {
+            matches!(entry, Entry::Connection { index, .. } if Some(self.connections[*index].id) == id)
+        })
+    }
+
+    fn header_index(&self, wanted: &str) -> usize {
+        self.entries(false)
+            .iter()
+            .position(|entry| matches!(entry, Entry::Header { group, .. } if group == wanted))
+            .unwrap_or(self.index)
+    }
+
+    fn groups(&self) -> Vec<String> {
+        let mut groups: Vec<String> = Vec::new();
+        for group in self
+            .connections
+            .iter()
+            .filter_map(|connection| connection.group_name.clone())
+        {
+            if !groups.contains(&group) {
+                groups.push(group);
+            }
+        }
+        groups.sort_by_key(|group| group.to_lowercase());
+        groups
+    }
+
+    fn remember_collapsed(&self) {
+        if let Some((store, _)) = &self.store {
+            Remembered::new(store).write(
+                COLLAPSED,
+                &serde_json::to_string(&self.collapsed).unwrap_or_default(),
+            );
+        }
+    }
+
+    fn fold(&mut self, shut: Option<bool>) {
+        let (group, header) = match self.entries(false).get(self.index) {
+            Some(Entry::Header { group, .. }) => (group.clone(), true),
+            Some(Entry::Connection { group, .. }) => (group.clone(), false),
+            None => return,
+        };
+        if group.is_empty() || (!header && shut != Some(true)) {
+            return;
+        }
+
+        let shut = shut.unwrap_or(!self.is_collapsed(&group));
+        self.collapsed.retain(|collapsed| *collapsed != group);
+        if shut {
+            self.collapsed.push(group.clone());
+        }
+        self.remember_collapsed();
+        self.index = self.header_index(&group);
+    }
+
+    fn select(&mut self) -> Flow<Option<Connection>> {
+        if let Some(Entry::Header { .. }) = self.entries(false).get(self.index) {
+            self.fold(None);
+            return Flow::Continue;
+        }
+        match self.current() {
+            Some(connection) => Flow::Exit(Some(connection.clone())),
+            None => Flow::Continue,
+        }
+    }
+
+    fn yank_database(&mut self) {
+        let Some(connection) = self.current() else {
+            return;
+        };
+        let database = connection.database.clone().unwrap_or_default();
+        if database.is_empty() {
+            let status = format!(
+                "{} has no database set, so it asks on connect",
+                connection.name
+            );
+            self.say(status);
+            return;
+        }
+        self.yanked(&database, &database);
+    }
+
+    fn yank_connection_string(&mut self) {
+        let Some(connection) = self.current() else {
+            return;
+        };
+        let password = connection.password.as_ref().and_then(|payload| {
+            let (_, key) = self.store.as_ref()?;
+            Encrypter::from_file(key).ok()?.decrypt_string(payload).ok()
+        });
+        let text = connection.connection_string(password.as_deref());
+        self.yanked(&text, "connection string");
+    }
+
+    fn yanked(&mut self, text: &str, what: &str) {
+        let reached = self.clipboard.copy(text);
+        let place = match reached {
+            Reached::Terminal => " to the terminal clipboard",
+            Reached::System => "",
+        };
+        self.say(format!("yanked {what}{place}"));
     }
 
     pub fn with_places(mut self, places: Places) -> Self {
@@ -85,37 +301,32 @@ impl Picker {
     }
 
     fn move_by(&mut self, steps: isize) {
-        let last = self.connections.len().saturating_sub(1);
+        let last = self.entries(false).len().saturating_sub(1);
         self.index = self.index.saturating_add_signed(steps).min(last);
     }
 
     fn create(&mut self) {
-        self.form = Some(ConnectionForm::creating(self.places.clone()));
+        self.form = Some(ConnectionForm::creating(self.places.clone()).with_groups(self.groups()));
         self.status = None;
     }
 
     fn edit(&mut self) {
-        let Some(connection) = self.connections.get(self.index) else {
+        let Some(connection) = self.current() else {
             return;
         };
         let encrypter = self
             .store
             .as_ref()
             .and_then(|(_, key)| Encrypter::from_file(key).ok());
-        self.form = Some(ConnectionForm::editing(
-            connection,
-            encrypter.as_ref(),
-            self.places.clone(),
-        ));
+        self.form = Some(
+            ConnectionForm::editing(connection, encrypter.as_ref(), self.places.clone())
+                .with_groups(self.groups()),
+        );
         self.status = None;
     }
 
     fn mark(&mut self) {
-        let Some(id) = self
-            .connections
-            .get(self.index)
-            .map(|connection| connection.id)
-        else {
+        let Some(id) = self.current().map(|connection| connection.id) else {
             return;
         };
         match self.pending_deletes.iter().position(|marked| *marked == id) {
@@ -126,7 +337,7 @@ impl Picker {
         }
         self.move_by(1);
         let count = self.pending_deletes.len();
-        self.status = Some(match count {
+        self.say(match count {
             0 => "marks cleared".to_string(),
             count => format!("{count} marked for deletion · :w writes · u clears"),
         });
@@ -134,12 +345,12 @@ impl Picker {
 
     fn unmark_all(&mut self) {
         self.pending_deletes.clear();
-        self.status = Some("marks cleared".to_string());
+        self.say("marks cleared");
     }
 
     fn write_pending(&mut self) {
         if self.pending_deletes.is_empty() {
-            self.status = Some("nothing to write".to_string());
+            self.say("nothing to write");
             return;
         }
         let count = self.pending_deletes.len();
@@ -148,12 +359,12 @@ impl Picker {
             .and_then(|writer| writer.delete(&self.pending_deletes))
             .and_then(|_| self.reload());
         if let Err(error) = deleted {
-            self.status = Some(format!("{error:#}"));
+            self.say(format!("{error:#}"));
             return;
         }
         self.pending_deletes.clear();
-        self.index = self.index.min(self.connections.len().saturating_sub(1));
-        self.status = Some(format!(
+        self.index = self.index.min(self.entries(false).len().saturating_sub(1));
+        self.say(format!(
             "deleted {count} connection{}",
             if count == 1 { "" } else { "s" }
         ));
@@ -165,8 +376,8 @@ impl Picker {
         }
         let count = self.pending_deletes.len();
         self.pending_deletes.clear();
-        self.status = Some(format!(
-            "{count} unwritten mark{} dropped — quit again to leave",
+        self.say(format!(
+            "{count} unwritten mark{} dropped, quit again to leave",
             if count == 1 { "" } else { "s" }
         ));
         Flow::Continue
@@ -201,16 +412,15 @@ impl Picker {
         let creating = form.creating;
         let id = form.id;
         let name = form.name().to_string();
+        let group = form.value("group_name").trim().to_string();
         if let Err(error) = self.reload() {
-            self.status = Some(format!("{error:#}"));
+            self.say(format!("{error:#}"));
         }
-        if creating {
-            self.index = self
-                .connections
-                .iter()
-                .position(|connection| Some(connection.id) == id)
-                .unwrap_or(0);
+        if !group.is_empty() && self.is_collapsed(&group) {
+            self.collapsed.retain(|collapsed| *collapsed != group);
+            self.remember_collapsed();
         }
+        self.index = self.index_of(id).unwrap_or(0);
         self.close_form(format!(
             "{} {name}",
             if creating { "added" } else { "saved" }
@@ -219,14 +429,39 @@ impl Picker {
 
     fn close_form(&mut self, status: String) {
         self.form = None;
-        self.status = Some(status);
+        self.say(status);
     }
 
-    fn rows(&self) -> Vec<Row> {
+    fn rows(&self, unfolded: bool) -> Vec<Row> {
         let now = now();
-        self.connections
-            .iter()
-            .map(|connection| {
+        self.entries(unfolded)
+            .into_iter()
+            .map(|entry| {
+                let (index, group) = match entry {
+                    Entry::Header {
+                        group,
+                        count,
+                        collapsed,
+                    } => {
+                        return Row {
+                            header: Some(Header {
+                                group,
+                                count,
+                                collapsed,
+                            }),
+                            grouped: false,
+                            name: String::new(),
+                            tag: String::new(),
+                            tag_color: None,
+                            driver: String::new(),
+                            place: String::new(),
+                            used: String::new(),
+                            marked: false,
+                        };
+                    }
+                    Entry::Connection { index, group } => (index, group),
+                };
+                let connection = &self.connections[index];
                 let tag = connection
                     .tag
                     .clone()
@@ -234,6 +469,8 @@ impl Picker {
                     .trim()
                     .to_string();
                 Row {
+                    header: None,
+                    grouped: !group.is_empty(),
                     name: connection.name.clone(),
                     tag: if connection.read_only {
                         format!("{tag} ro").trim().to_string()
@@ -254,16 +491,19 @@ impl Picker {
         let count = |text: &str| text.chars().count();
         let mut name = rows
             .iter()
-            .map(|row| count(&row.name) + 4)
+            .map(|row| match &row.header {
+                Some(header) => count(&header_text(header)) - 1,
+                None => count(&row.name) + 4 + if row.grouped { 2 } else { 0 },
+            })
             .fold(8, usize::max)
             .min(32);
-        let mut tag = rows
-            .iter()
+        let connections = rows.iter().filter(|row| row.header.is_none());
+        let mut tag = connections
+            .clone()
             .map(|row| count(&row.tag))
             .fold(3, usize::max)
             .min(16);
-        let mut used = rows
-            .iter()
+        let mut used = connections
             .map(|row| count(&row.used))
             .fold(9, usize::max)
             .min(20);
@@ -290,22 +530,62 @@ impl Picker {
         format!("{body}{}", "─".repeat(inner.saturating_sub(used)))
     }
 
+    fn header_line(header: &Header, selected: bool, widths: &[usize; 4]) -> Line<'static> {
+        let grid = theme::border(true, false);
+        let arrow = if header.collapsed { "▶" } else { "▼" };
+        let count = format!("({})", header.count);
+        let room = widths[0] + 1;
+        let name = truncate(&header.group, room.saturating_sub(width(&count) + 3).max(1));
+        let shown = format!(" {arrow} {name} {count}");
+        let plain = format!("{} ", pad(&shown, room));
+        let rest: Vec<String> = widths[1..]
+            .iter()
+            .map(|width| " ".repeat(width + 2))
+            .collect();
+
+        if selected {
+            let room = widths.iter().sum::<usize>() + 3 * widths.len() - 1;
+            let text = std::iter::once(plain)
+                .chain(rest)
+                .collect::<Vec<_>>()
+                .join("│");
+            return Line::styled(pad(&text, room), theme::selection());
+        }
+
+        let mut spans = vec![
+            Span::raw(" "),
+            Span::styled(arrow, theme::dim()),
+            Span::raw(" "),
+            Span::styled(name, theme::bold()),
+            Span::raw(" "),
+            Span::styled(count, theme::dim()),
+            Span::raw(" ".repeat(width(&plain).saturating_sub(width(&shown)))),
+        ];
+        for cell in rest {
+            spans.push(Span::styled("│", grid));
+            spans.push(Span::raw(cell));
+        }
+        Line::from(spans)
+    }
+
     fn row_line(&self, row: &Row, selected: bool, widths: &[usize; 4]) -> Line<'static> {
+        if let Some(header) = &row.header {
+            return Self::header_line(header, selected, widths);
+        }
         let grid = theme::border(true, false);
         let icon = icon(&row.driver);
         let marker = match selected && settings::with(|settings| settings.row_style == "marker") {
             true => "▸",
             false => " ",
         };
-        let label = pad(
-            &truncate(&row.name, widths[0].saturating_sub(4)),
-            widths[0].saturating_sub(4),
-        );
+        let indent = if row.grouped { "  " } else { "" };
+        let room = widths[0].saturating_sub(4 + indent.len());
+        let label = pad(&truncate(&row.name, room), room);
         let cell = |text: &str, width: usize| format!(" {} ", pad(&truncate(text, width), width));
 
         if selected || row.marked {
             let text = format!(
-                " {marker} {icon} {label} │{}│{}│{}",
+                " {marker} {indent}{icon} {label} │{}│{}│{}",
                 cell(&row.tag, widths[1]),
                 cell(&row.place, widths[2]),
                 cell(&row.used, widths[3])
@@ -326,7 +606,7 @@ impl Picker {
             .map(|color| Style::new().fg(color))
             .unwrap_or_else(theme::dim);
         Line::from(vec![
-            Span::raw(format!(" {marker} ")),
+            Span::raw(format!(" {marker} {indent}")),
             Span::styled(icon.to_string(), Style::new().fg(shade)),
             Span::raw(format!(" {label} ")),
             Span::styled("│", grid),
@@ -366,7 +646,7 @@ impl Picker {
                     "q" | "q!" | "quit" => return self.quit(),
                     "w" | "write" => self.write_pending(),
                     "new" => self.create(),
-                    other => self.status = Some(format!("unknown command: :{other}")),
+                    other => self.say(format!("unknown command: :{other}")),
                 }
             }
             Key::Backspace if command.is_empty() => self.command = None,
@@ -378,6 +658,10 @@ impl Picker {
         }
         Flow::Continue
     }
+}
+
+fn header_text(header: &Header) -> String {
+    format!(" ▼ {} ({})", header.group, header.count)
 }
 
 fn icon(driver: &str) -> char {
@@ -420,13 +704,14 @@ impl Tui for Picker {
             Key::Char('e') => self.edit(),
             Key::Char('d') => self.mark(),
             Key::Char('u') => self.unmark_all(),
+            Key::Char('y') => self.yank_database(),
+            Key::Char('Y') => self.yank_connection_string(),
             Key::Up | Key::Char('k') => self.move_by(-1),
             Key::Down | Key::Char('j') => self.move_by(1),
-            Key::Enter => {
-                if let Some(connection) = self.connections.get(self.index) {
-                    return Flow::Exit(Some(connection.clone()));
-                }
-            }
+            Key::Left | Key::Char('h') => self.fold(Some(true)),
+            Key::Right | Key::Char('l') => self.fold(Some(false)),
+            Key::Char(' ') => self.fold(None),
+            Key::Enter => return self.select(),
             _ => {}
         }
         Flow::Continue
@@ -449,22 +734,26 @@ impl Tui for Picker {
         if self.form.is_some() {
             return Flow::Continue;
         }
-        let last = self.connections.len().saturating_sub(1);
+        let count = self.entries(false).len();
         match mouse.button {
             Button::WheelUp => self.index = self.index.saturating_sub(1),
-            Button::WheelDown => self.index = (self.index + 1).min(last),
+            Button::WheelDown => self.index = (self.index + 1).min(count.saturating_sub(1)),
             Button::Left => {
                 let row_offset = crate::settings::with(|settings| settings.mouse_row_offset);
                 let row = mouse.row as i64 - row_offset;
                 let target = self.start as i64 + row - FIRST_BODY_ROW;
-                if row >= FIRST_BODY_ROW && (target as usize) < self.connections.len() {
+                if row >= FIRST_BODY_ROW && (target as usize) < count {
                     self.index = target as usize;
-                    return Flow::Exit(Some(self.connections[self.index].clone()));
+                    return self.select();
                 }
             }
             _ => {}
         }
         Flow::Continue
+    }
+
+    fn idle(&mut self) -> bool {
+        self.fade_status(Instant::now())
     }
 
     fn render(&mut self, frame: &mut Frame) {
@@ -484,8 +773,8 @@ impl Tui for Picker {
 
         let inner = area.width.saturating_sub(2) as usize;
         let body_height = (area.height as usize).saturating_sub(7).max(3);
-        let rows = self.rows();
-        let widths = Self::widths(&rows, inner);
+        let rows = self.rows(false);
+        let widths = Self::widths(&self.rows(true), inner);
         let edge = theme::border(true, false);
         let boxed = |content: Line<'static>| {
             let padding = inner.saturating_sub(content.width());
@@ -543,7 +832,7 @@ impl Tui for Picker {
 
         let body: Vec<Line<'static>> = if rows.is_empty() {
             vec![Line::styled(
-                "  No connections yet — press n to add one.",
+                "  No connections yet. Press n to add one.",
                 theme::dim(),
             )]
         } else {

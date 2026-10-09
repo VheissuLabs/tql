@@ -161,12 +161,12 @@ impl Browser {
 
     pub(super) fn start_editing(&mut self, read_only: bool) {
         if self.raw.is_empty() {
-            self.say("nothing to open — this table has no rows");
+            self.say("nothing to open, this table has no rows");
             return;
         }
         self.focus = Focus::Grid;
         let reason = if read_only {
-            Some("opened with I — press e to edit".to_string())
+            Some("opened with I, press e to edit".to_string())
         } else {
             self.why_read_only()
         };
@@ -279,7 +279,7 @@ impl Browser {
                     None => Some(value.buffer.cursor_line()),
                 };
                 let said = if value.anchor.is_some() {
-                    "visual — move with j/k, y yanks, esc clears"
+                    "visual: move with j/k, y yanks, esc clears"
                 } else {
                     "selection cleared"
                 };
@@ -307,7 +307,7 @@ impl Browser {
         };
         let typed = value.buffer.buffer();
         if value.json && !json::looks_like_json(Some(&typed)) {
-            self.say("not valid json — fix it or press esc to cancel");
+            self.say("not valid json: fix it or press esc to cancel");
             return;
         }
         let typed = match (value.json, now::asked(&typed)) {
@@ -345,7 +345,7 @@ impl Browser {
 
     pub(super) fn mark_delete(&mut self) {
         if self.query.results {
-            self.say("query results have no row to delete — open the table itself");
+            self.say("query results have no row to delete, open the table itself");
             return;
         }
         if self.key_column().is_none() {
@@ -399,7 +399,7 @@ impl Browser {
         self.edits.forget();
         let plural = if count == 1 { "" } else { "s" };
         self.say(format!(
-            "{count} unwritten change{plural} dropped — :q again to quit"
+            "{count} unwritten change{plural} dropped, :q again to quit"
         ));
         Flow::Continue
     }
@@ -472,7 +472,7 @@ impl Browser {
 
     pub(super) fn open_record(&mut self) {
         if self.raw.is_empty() {
-            self.say("nothing to open — this table has no rows");
+            self.say("nothing to open, this table has no rows");
             return;
         }
         if let Some(reason) = self.why_read_only() {
@@ -676,7 +676,7 @@ impl Browser {
                 failed(
                     "COULD NOT ADD THE ROW",
                     error,
-                    "The row is still here — fix it and :w again, or u to drop it.",
+                    "The row is still here. Fix it and :w again, or u to drop it.",
                 )
             })?;
             self.edits.inserts.remove(0);
@@ -690,7 +690,7 @@ impl Browser {
                         failed(
                             "COULD NOT WRITE",
                             error,
-                            "The change is still here — fix it and :w again, or u to drop it.",
+                            "The change is still here. Fix it and :w again, or u to drop it.",
                         )
                     })?;
             }
@@ -704,7 +704,7 @@ impl Browser {
                     failed(
                         "COULD NOT DELETE",
                         error,
-                        "The rows are still marked — u clears them.",
+                        "The rows are still marked. u clears them.",
                     )
                 })?;
             self.edits.deletes.clear();

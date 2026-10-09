@@ -297,3 +297,108 @@ fn a_sqlite_url_reads_the_same_as_its_path() {
 
     assert_eq!(parsed.database.as_deref(), Some("/tmp/app.sqlite"));
 }
+
+#[test]
+fn saves_the_tunnel_and_tag_from_a_tableplus_url() {
+    let scratch = Scratch::new("tableplus");
+    let opened = scratch.open(
+        "mysql+ssh://deploy:hop@bastion.example.com/dbuser:pw@127.0.0.1/shop?env=prod",
+        None,
+        None,
+        false,
+    );
+
+    let connection = &opened.connection;
+    assert_eq!(connection.name, "shop on bastion.example.com");
+    assert_eq!(connection.ssh_host.as_deref(), Some("bastion.example.com"));
+    assert_eq!(connection.ssh_user.as_deref(), Some("deploy"));
+    assert_eq!(connection.tag.as_deref(), Some("production"));
+    let encrypter = opened.encrypter.unwrap();
+    assert_eq!(
+        encrypter
+            .decrypt_string(connection.ssh_password.as_ref().unwrap())
+            .unwrap(),
+        "hop"
+    );
+}
+
+#[test]
+fn a_tag_given_on_the_command_line_wins_over_the_urls() {
+    let scratch = Scratch::new("tag-wins");
+    let opened = scratch.open("mysql://u@h/db?env=prod", None, Some("dev"), false);
+
+    assert_eq!(opened.connection.tag.as_deref(), Some("dev"));
+}
+
+#[test]
+fn keeps_two_servers_behind_different_tunnels_apart() {
+    let scratch = Scratch::new("tunnels");
+    let one = scratch.open(
+        "mysql+ssh://me@one.example.com/root@127.0.0.1/shop",
+        None,
+        None,
+        false,
+    );
+    let again = scratch.open(
+        "mysql+ssh://me@one.example.com/root@127.0.0.1/shop",
+        None,
+        None,
+        false,
+    );
+    let other = scratch.open(
+        "mysql+ssh://me@two.example.com/root@127.0.0.1/shop",
+        None,
+        None,
+        false,
+    );
+    let direct = scratch.open("mysql://root@127.0.0.1/shop", None, None, false);
+
+    assert_eq!(one.connection.id, again.connection.id);
+    assert_ne!(one.connection.id, other.connection.id);
+    assert_ne!(one.connection.id, direct.connection.id);
+    assert_ne!(other.connection.id, direct.connection.id);
+    assert_eq!(scratch.count(), 3);
+}
+
+#[test]
+fn peeks_through_a_tunnel_without_saving_it() {
+    let scratch = Scratch::new("peek-ssh");
+    let opened = scratch.open(
+        "mysql+ssh://me:hop@jump/root@127.0.0.1/shop",
+        None,
+        None,
+        true,
+    );
+
+    assert_eq!(scratch.count(), 0);
+    assert_eq!(opened.connection.ssh_host.as_deref(), Some("jump"));
+    assert_eq!(
+        opened
+            .encrypter
+            .unwrap()
+            .decrypt_string(opened.connection.ssh_password.as_ref().unwrap())
+            .unwrap(),
+        "hop"
+    );
+}
+
+#[test]
+fn connect_is_another_name_for_open() {
+    let scratch = Scratch::new("connect");
+    let text = scratch.root.join("notes.txt");
+    fs::write(&text, "just some text").unwrap();
+
+    let connected = app::application().run_with(["connect", &text.display().to_string()], "");
+    assert_eq!(connected.code, 1);
+    assert!(
+        format!("{}{}", connected.stdout, connected.stderr)
+            .contains("notes.txt is not a SQLite database.")
+    );
+
+    let listed = app::application().run_with(["--help"], "");
+    assert!(listed.stdout.contains("connect"), "{}", listed.stdout);
+    assert_eq!(
+        app::argv::rewrite(vec!["tql".into(), "connect".into()]),
+        ["tql", "connect"]
+    );
+}

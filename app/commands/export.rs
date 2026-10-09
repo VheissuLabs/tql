@@ -22,6 +22,34 @@ impl Command for Export {
         "Export a table, or a whole database, to re-importable SQL"
     }
 
+    fn help(&self) -> &str {
+        r#"Writes rows as <fg=cyan>insert</> statements you can replay into another database.
+Data only, no schema, so the target table must already exist.
+
+<fg=yellow>Examples</>
+
+  <fg=green>tql export</>
+      asks which connection and which table
+
+  <fg=green>tql export prod orders --limit=1000 --sql=./orders.sql</>
+      a thousand rows of one table into a named file
+
+  <fg=green>tql export prod --sql=./prod.sql</>
+      every table in the database, into one file
+
+  <fg=green>tql export prod orders</>
+      auto-named file in ~/.config/tql/exports
+
+  <fg=green>tql export prod --list</>
+      just show which tables are there
+
+<fg=yellow>Notes</>
+
+  --sql takes a file path or a directory.
+  --limit applies per table, so it bounds a whole-database export too.
+  Rows are read in chunks, so a large table does not go through memory at once."#
+    }
+
     fn execute(&self, cmd: &mut Cmd) -> Result {
         export(cmd)
     }

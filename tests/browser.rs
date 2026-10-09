@@ -248,3 +248,20 @@ fn moving_right_scrolls_wide_tables_sideways() {
     assert!(screen.contains("notes"), "{screen}");
     assert!(fake.app.column_offset > 0);
 }
+
+#[test]
+fn ctrl_l_clears_the_screen_and_draws_it_again_even_over_a_form() {
+    use app::terminal::Tui;
+    let mut fake = browser("redraw");
+
+    fake.press("\x0c");
+    assert!(fake.app.take_repaint());
+    assert!(!fake.app.take_repaint());
+    assert!(fake.screen().contains("redrawn"));
+
+    fake.press("j").press("\t").press("e");
+    assert!(fake.app.edits.editing().is_some());
+    fake.press("\x0c");
+    assert!(fake.app.take_repaint());
+    assert!(fake.app.edits.editing().is_some());
+}

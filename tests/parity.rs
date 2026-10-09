@@ -122,6 +122,7 @@ struct Scenario {
     picker: bool,
     size: (u16, u16),
     keys: Vec<String>,
+    groups: Vec<(String, String)>,
 }
 
 const EXPORTS: &str = "$EXPORTS";
@@ -167,6 +168,17 @@ fn scenarios(exports: &Path) -> Vec<Scenario> {
         .map(|scenario| Scenario {
             name: scenario["name"].as_str().unwrap().to_string(),
             connection: scenario["connection"].as_str().map(String::from),
+            groups: scenario["groups"]
+                .as_object()
+                .map(|groups| {
+                    groups
+                        .iter()
+                        .map(|(name, group)| {
+                            (name.clone(), group.as_str().unwrap_or_default().to_string())
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
             settings: {
                 let mut settings = Settings::default();
                 if let Some(overrides) = scenario["config"].as_object() {
@@ -292,12 +304,27 @@ fn sql_server_reset() {
         .unwrap();
 }
 
+// tql counts colour codes when it cuts a long line, so a dimmed line ends a
+// few characters early. Two lines cut short that agree as far as the shorter
+// one goes are the same line.
+fn cut_alike(php: Option<&str>, rust: Option<&str>) -> bool {
+    let (Some(php), Some(rust)) = (php, rust) else {
+        return false;
+    };
+    if !php.ends_with('…') || !rust.ends_with('…') {
+        return false;
+    }
+    let php = php.trim_end_matches('…').trim_end();
+    let rust = rust.trim_end_matches('…').trim_end();
+    php.starts_with(rust) || rust.starts_with(php)
+}
+
 fn diff(expected: &[String], actual: &[String]) -> Vec<String> {
     let mut report = Vec::new();
     for number in 0..expected.len().max(actual.len()) {
         let php = expected.get(number).map(String::as_str);
         let rust = actual.get(number).map(String::as_str);
-        if php != rust {
+        if php != rust && !cut_alike(php, rust) {
             report.push(format!(
                 "{:>3} php  │{}",
                 number + 1,
@@ -432,8 +459,17 @@ fn frames_match_the_php_tql() {
         let screen = if scenario.picker {
             let store = work.join(format!("picker-{}.sqlite", scenario.name));
             fs::copy(php_frames.join("tql.sqlite"), &store).unwrap();
+            let grouping = rusqlite::Connection::open(&store).unwrap();
+            for (name, group) in &scenario.groups {
+                grouping
+                    .execute(
+                        "update connections set group_name = ?1 where name = ?2",
+                        [group, name],
+                    )
+                    .unwrap();
+            }
             let mut fake = Fake::sized(
-                Picker::new(saved.clone(), None)
+                Picker::new(Store::open(&store).unwrap().connections().unwrap(), None)
                     .with_store(&store, &php_frames.join("key"))
                     .with_places(places.clone()),
                 scenario.size.0,

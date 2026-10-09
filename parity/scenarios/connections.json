@@ -282,7 +282,7 @@
       "e",
       "\n",
       "\u001b[D",
-      "\u007f"
+      ""
     ]
   },
   {
@@ -581,6 +581,7 @@
       "j",
       "j",
       "j",
+      "j",
       "\n"
     ]
   },
@@ -593,6 +594,7 @@
     ],
     "keys": [
       "e",
+      "j",
       "j",
       "j",
       "j",
@@ -623,6 +625,7 @@
       "j",
       "j",
       "j",
+      "j",
       "\n",
       "st"
     ]
@@ -636,6 +639,7 @@
     ],
     "keys": [
       "e",
+      "j",
       "j",
       "j",
       "j",
@@ -666,6 +670,7 @@
       "j",
       "j",
       "j",
+      "j",
       "\n",
       "none",
       "\n"
@@ -680,6 +685,7 @@
     ],
     "keys": [
       "e",
+      "j",
       "j",
       "j",
       "j",
@@ -743,19 +749,19 @@
     "keys": [
       "e",
       "\n",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
-      "\u007f",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
+      "",
       "shop",
       "\n",
       "\u0013"
@@ -997,7 +1003,337 @@
       "j",
       "j",
       "j",
+      "j",
       "l"
+    ]
+  },
+  {
+    "name": "groups-listed",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "groups-moved",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "groups-fold-space",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      " "
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "groups-fold-enter",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      "\n"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "groups-fold-h",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "h"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "groups-unfold-l",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      " ",
+      "l"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "groups-past-the-end",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "groups-narrow",
+    "screen": "picker",
+    "size": [
+      60,
+      16
+    ],
+    "keys": [],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "groups-edit-header-does-nothing",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      "e",
+      "d",
+      "y"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "conn-edit-group-picker",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "conn-edit-group-typed",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "La"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "conn-edit-group-new",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "Lab",
+      "\n"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "conn-edit-group-saved",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "Lab",
+      "\n",
+      "\u0013"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "conn-edit-group-none",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "e",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "none",
+      "\n",
+      "\u0013"
+    ],
+    "groups": {
+      "Cloud - quill": "Cloud",
+      "Cloud - notarydash_prod_test": "Cloud",
+      "pg staging": "Staging"
+    }
+  },
+  {
+    "name": "conn-yank-database",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "y"
+    ]
+  },
+  {
+    "name": "conn-yank-connection-string",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "Y"
+    ]
+  },
+  {
+    "name": "conn-yank-no-database",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "y"
     ]
   }
 ]

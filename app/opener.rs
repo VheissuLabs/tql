@@ -71,7 +71,7 @@ pub fn connection_for(
     tag: Option<&str>,
     peek: bool,
 ) -> anyhow::Result<Opened> {
-    let tag = tag.map(|tag| tag::parse(tag).unwrap_or(tag).to_string());
+    let given = tag.map(|tag| tag::parse(tag).unwrap_or(tag).to_string());
     let writer = StoreWriter::open(store, key)?;
 
     if let Some(id) = writer.matching(&identity(&target))? {
@@ -81,7 +81,7 @@ pub fn connection_for(
         if let Some(called) = called.filter(|called| *called != existing.name) {
             writer.update(id, &[("name", Field::Text(writer.free_name(called)?))])?;
         }
-        if let Some(tag) = tag {
+        if let Some(tag) = given {
             writer.update(id, &[("tag", Field::Text(tag))])?;
         }
         return Ok(Opened {
@@ -92,14 +92,18 @@ pub fn connection_for(
         });
     }
 
+    let tag = given.or(target.tag.clone());
     let name = called.map(String::from).unwrap_or(target.name.clone());
     if peek {
         let encrypter = Encrypter::throwaway()?;
-        let password = target
-            .password
-            .as_deref()
-            .map(|password| encrypter.encrypt_string(password))
-            .transpose()?;
+        let secret = |plain: &Option<String>| {
+            plain
+                .as_deref()
+                .map(|plain| encrypter.encrypt_string(plain))
+                .transpose()
+        };
+        let password = secret(&target.password)?;
+        let ssh_password = secret(&target.ssh_password)?;
         return Ok(Opened {
             connection: Connection {
                 name,
@@ -110,6 +114,10 @@ pub fn connection_for(
                 username: target.username,
                 password,
                 tag: tag.filter(|tag| !tag.is_empty()),
+                ssh_host: target.ssh_host,
+                ssh_port: target.ssh_port,
+                ssh_user: target.ssh_user,
+                ssh_password,
                 ..Connection::default()
             },
             encrypter: Some(encrypter),
@@ -137,6 +145,25 @@ pub fn connection_for(
                 target.password.clone().map_or(Field::Null, Field::Secret),
             ),
         ]);
+        if target.ssh_host.is_some() {
+            fields.extend([
+                ("ssh_host", text(target.ssh_host.clone())),
+                (
+                    "ssh_port",
+                    target
+                        .ssh_port
+                        .map_or(Field::Null, |port| Field::Number(port.into())),
+                ),
+                ("ssh_user", text(target.ssh_user.clone())),
+                (
+                    "ssh_password",
+                    target
+                        .ssh_password
+                        .clone()
+                        .map_or(Field::Null, Field::Secret),
+                ),
+            ]);
+        }
     }
     if let Some(tag) = tag {
         fields.push(("tag", Field::Text(tag)));
@@ -163,5 +190,6 @@ fn identity(target: &Dsn) -> Vec<(&'static str, Field)> {
         ),
         ("database", text(&target.database)),
         ("username", text(&target.username)),
+        ("ssh_host", text(&target.ssh_host)),
     ]
 }

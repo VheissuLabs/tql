@@ -5,9 +5,10 @@ use regex::Regex;
 
 use crate::dsn;
 
-pub const COMMANDS: [&str; 12] = [
+pub const COMMANDS: [&str; 13] = [
     "browse",
     "open",
+    "connect",
     "export",
     "config",
     "update",

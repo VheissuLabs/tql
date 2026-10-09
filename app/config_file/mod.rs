@@ -70,7 +70,7 @@ pub fn load(path: &Path) -> Loaded {
     let clashes = settings.keymap.clashes();
     let notice = if !moved.is_empty() {
         Some(format!(
-            "read {} from the top of config.toml — move them under their [section] to keep them working",
+            "read {} from the top of config.toml, move them under their [section] to keep them working",
             moved.join(", ")
         ))
     } else if !clashes.is_empty() {
@@ -161,7 +161,7 @@ mod tests {
         assert_eq!(
             loaded.notice.as_deref(),
             Some(
-                "read sidebar_width from the top of config.toml — move them under their [section] to keep them working"
+                "read sidebar_width from the top of config.toml, move them under their [section] to keep them working"
             )
         );
     }

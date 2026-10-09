@@ -7,6 +7,14 @@ pub trait Command {
         ""
     }
 
+    fn aliases(&self) -> &[&'static str] {
+        &[]
+    }
+
+    fn help(&self) -> &str {
+        ""
+    }
+
     fn execute(&self, cmd: &mut Cmd) -> anyhow::Result<()>;
 }
 

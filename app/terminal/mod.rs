@@ -62,6 +62,10 @@ pub trait Tui {
         CursorShape::Default
     }
 
+    fn take_repaint(&mut self) -> bool {
+        false
+    }
+
     fn on_paste(&mut self, text: &str) -> Flow<Self::Output> {
         for character in text.chars() {
             let key = match character {
@@ -123,6 +127,9 @@ fn event_loop<App: Tui>(
         }
 
         if dirty {
+            if app.take_repaint() {
+                terminal.clear()?;
+            }
             terminal.draw(|frame| app.render(frame))?;
             dirty = false;
             if app.cursor_shape() != shape {

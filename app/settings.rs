@@ -88,9 +88,37 @@ impl Default for Settings {
     }
 }
 
+const ENVIRONMENT: [(&str, &str); 5] = [
+    ("TQL_MOUSE", "ui.mouse"),
+    ("TQL_DOUBLE_CLICK_MS", "ui.double_click_ms"),
+    ("TQL_INSPECT_RELATED", "ui.inspect_related"),
+    ("TQL_MOUSE_ROW_OFFSET", "ui.mouse_row_offset"),
+    ("TQL_MOUSE_COLUMN_OFFSET", "ui.mouse_column_offset"),
+];
+
+fn from_environment(value: &str) -> Value {
+    match value.trim().to_lowercase().as_str() {
+        "true" | "(true)" => Value::Boolean(true),
+        "false" | "(false)" => Value::Boolean(false),
+        number => number
+            .parse()
+            .map(Value::Integer)
+            .unwrap_or_else(|_| Value::String(value.to_string())),
+    }
+}
+
 impl Settings {
     pub fn from_table(table: &Table) -> Self {
+        Self::from_sources(table, |name| std::env::var(name).ok())
+    }
+
+    pub fn from_sources(table: &Table, environment: impl Fn(&str) -> Option<String>) -> Self {
         let mut settings = Settings::default();
+        for (variable, key) in ENVIRONMENT {
+            if let Some(value) = environment(variable) {
+                settings.set(key, &from_environment(&value));
+            }
+        }
         for (section, values) in table {
             let Value::Table(values) = values else {
                 continue;
@@ -220,6 +248,33 @@ mod tests {
 
         assert!(defaults.update_check && defaults.update_automatic);
         assert!(!turned_off.update_check && !turned_off.update_automatic);
+    }
+
+    #[test]
+    fn takes_defaults_from_the_environment_and_the_config_file_over_them() {
+        let environment = |name: &str| match name {
+            "TQL_MOUSE" => Some("false".to_string()),
+            "TQL_DOUBLE_CLICK_MS" => Some("250".to_string()),
+            "TQL_INSPECT_RELATED" => Some("3".to_string()),
+            "TQL_MOUSE_ROW_OFFSET" => Some("-1".to_string()),
+            "TQL_MOUSE_COLUMN_OFFSET" => Some("2".to_string()),
+            _ => None,
+        };
+
+        let from_environment = Settings::from_sources(&Table::new(), environment);
+        let file_wins = Settings::from_sources(
+            &toml::from_str("[ui]\nmouse = true\ninspect_related = 7\n").unwrap(),
+            environment,
+        );
+
+        assert!(!from_environment.mouse);
+        assert_eq!(from_environment.double_click_ms, 250);
+        assert_eq!(from_environment.inspect_related, 3);
+        assert_eq!(from_environment.mouse_row_offset, -1);
+        assert_eq!(from_environment.mouse_column_offset, 2);
+        assert!(file_wins.mouse);
+        assert_eq!(file_wins.inspect_related, 7);
+        assert_eq!(file_wins.double_click_ms, 250);
     }
 
     #[test]

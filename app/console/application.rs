@@ -12,6 +12,7 @@ use crate::console::signature::Signature;
 use crate::console::{Cmd, Command};
 
 const RESERVED_NAMES: [&str; 5] = ["help", "version", "ansi", "no-ansi", "no-interaction"];
+const LIST: &str = "list";
 const RESERVED_SHORTCUTS: [char; 3] = ['h', 'V', 'n'];
 
 pub struct Application {
@@ -169,7 +170,8 @@ impl Application {
             }
         };
 
-        let Some((name, sub_matches)) = matches.subcommand() else {
+        let Some((name, sub_matches)) = matches.subcommand().filter(|(name, _)| *name != LIST)
+        else {
             let help = cli.render_help();
             let help = if ansi {
                 help.ansi().to_string()
@@ -263,14 +265,22 @@ impl Application {
             .arg(global("ansi", "Force ANSI output"))
             .arg(global("no-ansi", "Disable ANSI output"));
 
-        let mut commands: Vec<_> = signatures.iter().zip(&self.commands).collect();
-        commands.sort_by(|left, right| left.0.name.cmp(&right.0.name));
-
-        commands
-            .into_iter()
-            .fold(root, |root, (signature, command)| {
-                root.subcommand(input::to_clap(signature, command.description()))
+        let mut commands: Vec<clap::Command> = signatures
+            .iter()
+            .zip(&self.commands)
+            .map(|(signature, command)| {
+                let clap = input::to_clap(signature, command.description())
+                    .visible_aliases(command.aliases().iter().copied());
+                match command.help() {
+                    "" => clap,
+                    help => clap.after_help(styled_help(help)),
+                }
             })
+            .chain([clap::Command::new(LIST).about("List commands")])
+            .collect();
+        commands.sort_by(|left, right| left.get_name().cmp(right.get_name()));
+
+        commands.into_iter().fold(root, clap::Command::subcommand)
     }
 
     fn load_config(&self) -> anyhow::Result<Config> {
@@ -283,6 +293,27 @@ impl Application {
         }
         Ok(config)
     }
+}
+
+fn styled_help(help: &str) -> String {
+    let tags = regex::Regex::new(r"<fg=(\w+)>|</>").expect("the pattern is valid");
+    let painted = tags.replace_all(help, |tag: &regex::Captures| {
+        match tag.get(1).map(|color| color.as_str()) {
+            Some("green") => "\x1b[32m",
+            Some("yellow") => "\x1b[33m",
+            Some("cyan") => "\x1b[36m",
+            Some(_) => "",
+            None => "\x1b[39m",
+        }
+    });
+    let indented: Vec<String> = painted
+        .lines()
+        .map(|line| match line {
+            "" => String::new(),
+            line => format!("  {line}"),
+        })
+        .collect();
+    format!("\x1b[1mHelp:\x1b[22m\n{}", indented.join("\n"))
 }
 
 fn report(err: &mut dyn Write, error: &anyhow::Error, ansi: bool) {

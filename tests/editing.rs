@@ -225,7 +225,7 @@ fn capital_i_views_a_value_and_e_turns_the_viewer_into_the_editor() {
     assert!(!fake.app.edits.editable());
     assert_eq!(
         fake.app.edits.read_only_reason(),
-        Some("opened with I — press e to edit")
+        Some("opened with I, press e to edit")
     );
 
     fake.press("z");
@@ -251,7 +251,7 @@ fn json_is_edited_pretty_validated_and_kept_compact() {
     assert!(fake.app.edits.editing().is_some());
     assert_eq!(
         fake.app.status(),
-        "not valid json — fix it or press esc to cancel"
+        "not valid json: fix it or press esc to cancel"
     );
 
     fake.press("\x7f\x1b[B\x1b[F\x7f\x7f\x7f\x7f2001\n:w\n");
@@ -331,7 +331,7 @@ fn quitting_with_unwritten_changes_drops_them_first() {
     assert!(!fake.exited());
     assert_eq!(
         fake.app.status(),
-        "1 unwritten change dropped — :q again to quit"
+        "1 unwritten change dropped, :q again to quit"
     );
 
     fake.press(":q\n");
@@ -826,7 +826,7 @@ fn query_results_cannot_be_edited_and_pending_changes_wait_for_the_table() {
     fake.press("d");
     assert_eq!(
         fake.app.status(),
-        "query results have no row to delete — open the table itself"
+        "query results have no row to delete, open the table itself"
     );
     fake.press("N");
     assert!(fake.app.edits.form().is_none());
@@ -873,7 +873,7 @@ fn a_failed_write_uses_the_shared_error_box() {
     assert!(fake.app.problem.as_deref().unwrap().contains("NOT NULL"));
     assert_eq!(
         fake.app.problem_notes,
-        ["The row is still here — fix it and :w again, or u to drop it."]
+        ["The row is still here. Fix it and :w again, or u to drop it."]
     );
 }
 

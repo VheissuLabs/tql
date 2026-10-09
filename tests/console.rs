@@ -49,6 +49,10 @@ impl Command for About {
         "Display application information"
     }
 
+    fn help(&self) -> &str {
+        "Shows the <fg=green>name</>, the version and\nthe <fg=yellow>environment</>."
+    }
+
     fn execute(&self, cmd: &mut Cmd) -> Result {
         let config = cmd.config();
         let rows = [
@@ -257,4 +261,31 @@ fn default_command_runs_when_no_command_is_given() {
         .run_with(Vec::<String>::new(), "");
 
     assert_eq!(result.stdout, "Hello, World!\n");
+}
+
+#[test]
+fn list_shows_the_commands_too() {
+    let listed = app().run_with(["list"], "");
+
+    assert_eq!(listed.code, 0);
+    assert!(
+        listed.stdout.starts_with("Example 1.2.3"),
+        "{}",
+        listed.stdout
+    );
+    for command in ["about", "deploy", "fail", "greet", "list"] {
+        assert!(listed.stdout.contains(command), "missing {command}");
+    }
+}
+
+#[test]
+fn help_says_more_than_the_description_without_its_colour_tags() {
+    let help = app().run_with(["about", "--help"], "");
+
+    assert!(
+        help.stdout
+            .contains("Help:\n  Shows the name, the version and\n  the environment."),
+        "{}",
+        help.stdout
+    );
 }

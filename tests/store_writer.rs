@@ -1,5 +1,5 @@
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use app::encrypter::Encrypter;
 use app::store::Store;
@@ -57,14 +57,66 @@ fn mysql(name: &str, password: &str) -> Vec<(&'static str, Field)> {
     ]
 }
 
+const FRESH_COLUMNS: [&str; 24] = [
+    "id",
+    "name",
+    "driver",
+    "host",
+    "port",
+    "database",
+    "username",
+    "password",
+    "read_only",
+    "last_used_at",
+    "created_at",
+    "updated_at",
+    "ssh_host",
+    "ssh_port",
+    "ssh_user",
+    "ssh_key",
+    "ssh_password",
+    "ssl_mode",
+    "ssl_key",
+    "ssl_cert",
+    "ssl_ca",
+    "colour",
+    "tag",
+    "group_name",
+];
+
+fn columns(store: &Path) -> Vec<String> {
+    let connection = rusqlite::Connection::open(store).unwrap();
+    let mut statement = connection
+        .prepare("select name from pragma_table_info('connections') order by cid")
+        .unwrap();
+    statement
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+
+fn migrations(store: &Path) -> Vec<(String, i64)> {
+    let connection = rusqlite::Connection::open(store).unwrap();
+    let mut statement = connection
+        .prepare("select migration, batch from migrations order by id")
+        .unwrap();
+    statement
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect()
+}
+
 #[test]
 fn a_fresh_store_has_tqls_tables_and_migrations() {
     let scratch = Scratch::new("fresh");
 
     assert_eq!(
         scratch.raw("select cast(count(*) as text) from migrations"),
-        Some("7".into())
+        Some("8".into())
     );
+    assert_eq!(columns(&scratch.store()), FRESH_COLUMNS);
     assert!(
         Store::open(&scratch.store())
             .unwrap()
@@ -243,4 +295,78 @@ fn finds_a_saved_connection_by_where_it_points_never_by_password() {
             .unwrap(),
         None
     );
+}
+
+#[test]
+fn a_store_from_before_groups_gains_the_group_column_in_a_new_batch() {
+    let scratch = Scratch::new("before-groups");
+    scratch.writer().create(&mysql("shop", "secret")).unwrap();
+    rusqlite::Connection::open(scratch.store())
+        .unwrap()
+        .execute_batch(
+            "alter table connections drop column group_name;
+             delete from migrations where migration = '2026_10_07_000000_add_group_to_connections_table';",
+        )
+        .unwrap();
+
+    StoreWriter::prepare(&scratch.store()).unwrap();
+
+    assert_eq!(columns(&scratch.store()), FRESH_COLUMNS);
+    assert_eq!(
+        migrations(&scratch.store()).last().unwrap(),
+        &(
+            "2026_10_07_000000_add_group_to_connections_table".to_string(),
+            2
+        )
+    );
+    assert_eq!(
+        scratch.raw("select name from connections"),
+        Some("shop".into())
+    );
+}
+
+#[test]
+fn a_store_from_the_first_release_is_brought_all_the_way_forward() {
+    let directory = std::env::temp_dir().join(format!("tql-writer-first-{}", std::process::id()));
+    let _ = fs::remove_dir_all(&directory);
+    fs::create_dir_all(&directory).unwrap();
+    let store = directory.join("tql.sqlite");
+    rusqlite::Connection::open(&store)
+        .unwrap()
+        .execute_batch(
+            r#"CREATE TABLE "migrations" ("id" integer primary key autoincrement not null, "migration" varchar not null, "batch" integer not null);
+            CREATE TABLE "connections" ("id" integer primary key autoincrement not null, "name" varchar not null, "driver" varchar not null, "host" varchar, "port" integer, "database" varchar, "username" varchar, "password" text, "color" varchar, "read_only" tinyint(1) not null default '0', "last_used_at" datetime, "created_at" datetime, "updated_at" datetime);
+            CREATE UNIQUE INDEX "connections_name_unique" on "connections" ("name");
+            CREATE TABLE "query_executions" ("id" integer primary key autoincrement not null, "connection_id" integer not null, "statement" text not null, "source" varchar not null, "succeeded" tinyint(1) not null default '1', "error" text, "row_count" integer, "duration_ms" integer, "created_at" datetime, "updated_at" datetime, foreign key("connection_id") references "connections"("id") on delete cascade);
+            insert into "migrations" ("migration", "batch") values ('2026_09_22_051510_create_connections_table', 1);
+            insert into "migrations" ("migration", "batch") values ('2026_09_22_051511_create_query_executions_table', 1);
+            insert into connections (name, driver, color) values ('local', 'sqlite', 'red');"#,
+        )
+        .unwrap();
+
+    StoreWriter::prepare(&store).unwrap();
+
+    assert_eq!(columns(&store), FRESH_COLUMNS);
+    let ran = migrations(&store);
+    assert_eq!(ran.len(), 8);
+    assert!(ran[2..].iter().all(|(_, batch)| *batch == 2));
+    assert!(
+        Store::open(&store)
+            .unwrap()
+            .connections()
+            .unwrap()
+            .iter()
+            .any(|connection| connection.name == "local")
+    );
+    fs::remove_dir_all(&directory).unwrap();
+}
+
+#[test]
+fn preparing_a_store_that_is_up_to_date_changes_nothing() {
+    let scratch = Scratch::new("current");
+    let before = migrations(&scratch.store());
+
+    StoreWriter::prepare(&scratch.store()).unwrap();
+
+    assert_eq!(migrations(&scratch.store()), before);
 }
