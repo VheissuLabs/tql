@@ -7,7 +7,7 @@ use std::os::unix::fs::{DirBuilderExt, PermissionsExt};
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc::{self, Receiver};
-use std::sync::{Arc, LazyLock, Mutex, Weak};
+use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -25,7 +25,7 @@ const WAIT: Duration = Duration::from_secs(10);
 // port someone else holds is not taken for the tunnel while ssh fails.
 const SETTLE: Duration = Duration::from_millis(150);
 
-static OPEN: LazyLock<Mutex<HashMap<String, Weak<Tunnel>>>> =
+static OPEN: LazyLock<Mutex<HashMap<String, Arc<Tunnel>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
 pub struct Tunnel {
@@ -37,13 +37,8 @@ pub fn for_connection(
     connection: &Connection,
     password: Option<String>,
 ) -> anyhow::Result<Arc<Tunnel>> {
-    let mut open = OPEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner());
     let key = key_for(connection);
-    if let Some(tunnel) = open
-        .get(&key)
-        .and_then(Weak::upgrade)
-        .filter(|tunnel| tunnel.running())
-    {
+    if let Some(tunnel) = open().get(&key).filter(|tunnel| tunnel.running()).cloned() {
         return Ok(tunnel);
     }
 
@@ -54,9 +49,29 @@ pub fn for_connection(
         port,
         WAIT,
     )?);
-    open.retain(|_, held| held.strong_count() > 0);
-    open.insert(key, Arc::downgrade(&tunnel));
+    keep(key, Arc::clone(&tunnel));
     Ok(tunnel)
+}
+
+fn open() -> std::sync::MutexGuard<'static, HashMap<String, Arc<Tunnel>>> {
+    OPEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
+}
+
+pub fn keep(key: String, tunnel: Arc<Tunnel>) {
+    open().insert(key, tunnel);
+}
+
+pub fn close_all() {
+    let tunnels: Vec<Arc<Tunnel>> = open().drain().map(|(_, tunnel)| tunnel).collect();
+    tunnels.iter().for_each(|tunnel| tunnel.close());
+}
+
+pub struct CloseAtExit;
+
+impl Drop for CloseAtExit {
+    fn drop(&mut self) {
+        close_all();
+    }
 }
 
 pub fn key_for(connection: &Connection) -> String {
@@ -548,6 +563,27 @@ mod tests {
 
         drop(tunnel);
 
+        assert!(TcpStream::connect((Ipv4Addr::LOCALHOST, port)).is_err());
+        fs::remove_dir_all(directory).unwrap();
+    }
+
+    #[test]
+    fn keeps_a_tunnel_open_until_tql_closes_them_all() {
+        let directory = scratch("kept");
+        let port = free_port();
+        let program = fake_ssh(
+            &directory,
+            &format!(
+                "exec python3 -c \"import socket,time; listener=socket.socket(); listener.bind(('127.0.0.1', {port})); listener.listen(); time.sleep(30)\""
+            ),
+        );
+        let tunnel = Arc::new(Tunnel::start(&[program], None, port, WAIT).unwrap());
+
+        keep(format!("kept-{port}"), Arc::clone(&tunnel));
+        drop(tunnel);
+        assert!(TcpStream::connect((Ipv4Addr::LOCALHOST, port)).is_ok());
+
+        drop(CloseAtExit);
         assert!(TcpStream::connect((Ipv4Addr::LOCALHOST, port)).is_err());
         fs::remove_dir_all(directory).unwrap();
     }
