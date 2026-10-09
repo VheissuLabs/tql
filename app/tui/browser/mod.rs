@@ -316,10 +316,6 @@ impl Tui for Browser {
         settings::with(|settings| settings.mouse)
     }
 
-    fn top_margin(&self) -> u16 {
-        settings::with(|settings| settings.top_margin)
-    }
-
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Exit> {
         let (row_offset, column_offset) =
             settings::with(|settings| (settings.mouse_row_offset, settings.mouse_column_offset));

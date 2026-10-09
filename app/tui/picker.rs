@@ -756,10 +756,6 @@ impl Tui for Picker {
         self.fade_status(Instant::now())
     }
 
-    fn top_margin(&self) -> u16 {
-        settings::with(|settings| settings.top_margin)
-    }
-
     fn render(&mut self, frame: &mut Frame) {
         let area = frame.area();
         if area.width < chrome::MIN_COLUMNS || area.height < MIN_LINES {

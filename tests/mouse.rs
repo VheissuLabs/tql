@@ -15,7 +15,7 @@ fn clicking_a_connection_opens_it() {
     settings::install(Settings::default());
     let mut fake = Fake::new(Picker::new(connections(), None));
 
-    fake.click(10, 6);
+    fake.click(10, 5);
     assert_eq!(
         fake.exit()
             .cloned()
@@ -56,9 +56,9 @@ fn double_clicking_a_cell_opens_it_for_editing() {
     let database = app::database::connect(&connection, None).unwrap();
     let mut fake = Fake::new(Browser::new(connection, database).unwrap());
 
-    fake.click(40, 6);
+    fake.click(40, 5);
     assert_eq!(fake.app.row_index, 1);
     assert_eq!(fake.app.edits.editing(), None);
-    fake.click(40, 6);
+    fake.click(40, 5);
     assert_eq!(fake.app.edits.editing().as_deref(), Some("b"));
 }
