@@ -1027,3 +1027,25 @@ fn a_refused_write_shows_the_statement_with_its_values_in_place() {
         "{problem}"
     );
 }
+
+#[test]
+fn suggests_the_next_key_exactly_however_large_or_fractional_the_highest_is() {
+    for (highest, next) in [("9007199254740993", "9007199254740994"), ("2.5", "3")] {
+        let path = fixture(
+            &format!("next-key-{next}"),
+            &format!(
+                "create table codes (code numeric primary key not null, name text);
+                 insert into codes values ({highest}, 'x');"
+            ),
+        );
+        let mut fake = open(&path, false);
+
+        fake.settle().press("N");
+
+        assert_eq!(
+            fake.app.edits.form().unwrap().value("code"),
+            Some(next),
+            "{highest}"
+        );
+    }
+}

@@ -580,3 +580,30 @@ fn query_results_offer_yanking_on_the_hotkey_bar() {
     let screen = fake.screen();
     assert!(screen.contains("y Yank   Y Row   s Edit query"), "{screen}");
 }
+
+#[test]
+fn writes_from_the_grid_go_into_the_history_as_tql_s_own() {
+    let mut fake = browser("tui-history");
+
+    fake.settle().press("\tle").press("-ripe\x04").press(":w\n");
+
+    let store = std::env::temp_dir().join(format!(
+        "tql-rust-sql-{}-tui-history-store.sqlite",
+        std::process::id()
+    ));
+    let recorded: Vec<(String, String)> = rusqlite::Connection::open(store)
+        .unwrap()
+        .prepare("select source, statement from query_executions order by id")
+        .unwrap()
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert!(
+        recorded.contains(&(
+            "tui".to_string(),
+            "update \"fruit\" set \"name\" = ? where \"id\" = ?".to_string()
+        )),
+        "{recorded:?}"
+    );
+}

@@ -225,11 +225,9 @@ impl Database for Sqlite {
             quote_double(column),
             quote_double(table)
         );
-        let highest: Option<i64> = self
+        Ok(self
             .connection
-            .query_row(&sql, [], |row| row.get(0))
-            .unwrap_or_default();
-        Ok(highest.map(|number| number.to_string()))
+            .query_row(&sql, [], |row| Ok(text(row.get_ref(0)?)))?)
     }
 
     fn update(
