@@ -4,6 +4,7 @@ mod command;
 mod config;
 mod input;
 mod make;
+mod prompt;
 mod signature;
 
 pub use anyhow::{anyhow, bail};

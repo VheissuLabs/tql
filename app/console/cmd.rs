@@ -6,9 +6,11 @@ use anyhow::anyhow;
 
 use crate::console::config::Config;
 use crate::console::input::Input;
+use crate::console::{Exit, prompt};
 
 const GREEN: &str = "32";
 const YELLOW: &str = "33";
+const DIM: &str = "2";
 const RED: &str = "31";
 const QUESTION: &str = "30;46";
 const ERROR: &str = "37;41";
@@ -240,6 +242,45 @@ impl Cmd<'_> {
         }
     }
 
+    pub fn select(
+        &mut self,
+        label: &str,
+        options: &[String],
+        default: Option<usize>,
+    ) -> anyhow::Result<String> {
+        if !(self.terminal && self.interactive) {
+            return self.choice(label, options, default);
+        }
+        let menu = prompt::Menu::select(options.to_vec(), default.unwrap_or(0));
+        self.picked(label, options, menu)
+    }
+
+    pub fn search(
+        &mut self,
+        label: &str,
+        options: &[String],
+        pinned: usize,
+        placeholder: &str,
+    ) -> anyhow::Result<String> {
+        if !(self.terminal && self.interactive) {
+            return self.choice(label, options, None);
+        }
+        let menu = prompt::Menu::search(options.to_vec(), pinned, placeholder);
+        self.picked(label, options, menu)
+    }
+
+    fn picked(
+        &mut self,
+        label: &str,
+        options: &[String],
+        menu: prompt::Menu,
+    ) -> anyhow::Result<String> {
+        match prompt::ask(label, menu)? {
+            Some(chosen) => Ok(options[chosen].clone()),
+            None => Err(Exit(130).into()),
+        }
+    }
+
     pub fn choice<Choice>(
         &mut self,
         question: &str,
@@ -295,17 +336,38 @@ impl Cmd<'_> {
         }
     }
 
+    pub fn ask_with_hint(
+        &mut self,
+        question: &str,
+        default: &str,
+        hint: &str,
+    ) -> anyhow::Result<String> {
+        self.ask_hinted(question, Some(default), Some(hint))
+    }
+
     fn ask_inner(&mut self, question: &str, default: Option<&str>) -> anyhow::Result<String> {
+        self.ask_hinted(question, default, None)
+    }
+
+    fn ask_hinted(
+        &mut self,
+        question: &str,
+        default: Option<&str>,
+        hint: Option<&str>,
+    ) -> anyhow::Result<String> {
         if !self.interactive {
             return default
                 .map(String::from)
                 .ok_or_else(|| anyhow!("cannot ask \"{question}\" without interaction"));
         }
 
-        let hint = default
+        let offered = default
             .map(|value| format!(" [{}]", self.paint(value, YELLOW)))
             .unwrap_or_default();
-        let prompt = format!(" {}{hint}:\n > ", self.paint(question, GREEN));
+        let hint = hint
+            .map(|hint| format!("   {}\n", self.paint(hint, DIM)))
+            .unwrap_or_default();
+        let prompt = format!(" {}{offered}:\n{hint} > ", self.paint(question, GREEN));
 
         let answer = self.read_answer(&prompt)?.unwrap_or_default();
         if answer.trim().is_empty() {
