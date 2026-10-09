@@ -173,10 +173,7 @@ fn joined(next: &Option<Input>) -> Option<Key> {
 fn dispatch<App: Tui>(app: &mut App, input: Input) -> Flow<App::Output> {
     match input {
         Input::Key(key) => app.on_key(key),
-        Input::Mouse(mouse) => match margin::below(mouse, app.top_margin()) {
-            Some(mouse) => app.on_mouse(mouse),
-            None => Flow::Continue,
-        },
+        Input::Mouse(mouse) => app.on_mouse(margin::below(mouse, app.top_margin())),
         Input::Paste(text) => app.on_paste(&text),
     }
 }

@@ -1027,10 +1027,12 @@ impl Browser {
                 content: form.content(width as usize - 2, height as usize - 2),
                 ..Island::default()
             };
-            Modal::new(frame_width, 1, frame_height, width).draw(
+            let editing_expanded = form.expanded && form.editor.is_some();
+            Modal::new(frame_width, 1, frame_height, width).draw_focused(
                 frame.buffer_mut(),
                 island,
                 height,
+                !editing_expanded,
             );
 
             if form.expanded

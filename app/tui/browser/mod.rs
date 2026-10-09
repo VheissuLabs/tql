@@ -362,7 +362,8 @@ impl Tui for Browser {
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Exit> {
-        if !self.wants_mouse() {
+        self.status_fresh = false;
+        if !self.wants_mouse() || self.edits.form().is_some() {
             return Flow::Continue;
         }
         let (row_offset, column_offset) =

@@ -2,7 +2,7 @@ use ratatui::backend::TestBackend;
 use ratatui::layout::Rect;
 use ratatui::{Frame, Terminal};
 
-use crate::terminal::{Mouse, Tui};
+use crate::terminal::{Button, Mouse, Tui};
 
 #[derive(Default)]
 pub struct Margin {
@@ -45,9 +45,15 @@ impl Margin {
     }
 }
 
-pub fn below(mouse: Mouse, rows: u16) -> Option<Mouse> {
-    mouse
-        .row
-        .checked_sub(rows)
-        .map(|row| Mouse { row, ..mouse })
+// A click in the blank rows above the frame lands on nothing, but it is still
+// something done, so the app hears of it as a button that does nothing.
+pub fn below(mouse: Mouse, rows: u16) -> Mouse {
+    match mouse.row.checked_sub(rows) {
+        Some(row) => Mouse { row, ..mouse },
+        None => Mouse {
+            button: Button::Other,
+            row: 0,
+            ..mouse
+        },
+    }
 }
