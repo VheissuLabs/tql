@@ -358,6 +358,9 @@ impl Tui for Browser {
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Exit> {
+        if !self.wants_mouse() {
+            return Flow::Continue;
+        }
         let (row_offset, column_offset) =
             settings::with(|settings| (settings.mouse_row_offset, settings.mouse_column_offset));
         let column = (mouse.column as i64 - column_offset).max(0) as u16;

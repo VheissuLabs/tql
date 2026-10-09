@@ -129,6 +129,9 @@ impl Settings {
                 settings.set(&format!("{section}.{key}"), value);
             }
         }
+        if environment("NO_MOUSE").is_some_and(|value| !value.is_empty()) {
+            settings.mouse = false;
+        }
         settings
     }
 
@@ -285,6 +288,16 @@ mod tests {
         assert!(file_wins.mouse);
         assert_eq!(file_wins.inspect_related, 7);
         assert_eq!(file_wins.double_click_ms, 250);
+    }
+
+    #[test]
+    fn no_mouse_in_the_environment_turns_the_mouse_off_whatever_the_file_says() {
+        let settings =
+            Settings::from_sources(&toml::from_str("[ui]\nmouse = true\n").unwrap(), |name| {
+                (name == "NO_MOUSE").then(|| "1".to_string())
+            });
+
+        assert!(!settings.mouse);
     }
 
     #[test]

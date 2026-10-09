@@ -289,3 +289,18 @@ fn help_says_more_than_the_description_without_its_colour_tags() {
         help.stdout
     );
 }
+
+#[test]
+fn the_default_command_runs_when_only_global_flags_are_given() {
+    for flag in ["-n", "--no-interaction", "--ansi", "--no-ansi"] {
+        let result = app()
+            .config_source("commands", "default = \"greet\"")
+            .run_with([flag], "");
+
+        assert!(
+            result.stdout.contains("Hello, World!"),
+            "{flag}: {}",
+            result.stdout
+        );
+    }
+}

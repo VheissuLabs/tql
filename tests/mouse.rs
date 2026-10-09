@@ -62,3 +62,15 @@ fn double_clicking_a_cell_opens_it_for_editing() {
     fake.click(40, 5);
     assert_eq!(fake.app.edits.editing().as_deref(), Some("b"));
 }
+
+#[test]
+fn clicks_do_nothing_when_the_mouse_is_turned_off() {
+    let mut settings = Settings::default();
+    settings.set("ui.mouse", &toml::Value::Boolean(false));
+    settings::install(settings);
+    let mut fake = Fake::new(Picker::new(connections(), None));
+
+    fake.click(10, 5);
+
+    assert!(!fake.exited());
+}

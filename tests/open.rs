@@ -402,3 +402,15 @@ fn connect_is_another_name_for_open() {
         ["tql", "connect"]
     );
 }
+
+#[test]
+fn browse_says_it_needs_a_terminal_rather_than_failing() {
+    let browsed = app::application().run_with(["browse"], "");
+
+    assert_eq!(browsed.code, 1);
+    assert!(
+        format!("{}{}", browsed.stdout, browsed.stderr)
+            .contains("tql needs a terminal. Run it directly rather than piping into it."),
+        "{browsed:?}"
+    );
+}

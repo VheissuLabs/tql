@@ -1,5 +1,3 @@
-use std::io::IsTerminal;
-
 use crate::console::prelude::*;
 use crate::terminal::CmdTui;
 
@@ -66,7 +64,7 @@ fn open(cmd: &mut Cmd) -> Result {
         }
     };
 
-    if !std::io::stdin().is_terminal() {
+    if !cmd.has_terminal() {
         cmd.error("tql needs a terminal. Run it directly rather than piping into it.");
         return exit(1);
     }

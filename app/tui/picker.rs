@@ -734,7 +734,7 @@ impl Tui for Picker {
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Option<Connection>> {
-        if self.form.is_some() {
+        if self.form.is_some() || !self.wants_mouse() {
             return Flow::Continue;
         }
         let count = self.entries(false).len();

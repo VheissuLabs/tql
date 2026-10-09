@@ -20,6 +20,7 @@ pub struct Cmd<'a> {
     pub(crate) reader: &'a mut dyn BufRead,
     pub(crate) ansi: bool,
     pub(crate) interactive: bool,
+    pub(crate) terminal: bool,
     pub(crate) app_name: &'a str,
     pub(crate) app_version: &'a str,
 }
@@ -71,6 +72,10 @@ impl Cmd<'_> {
 
     pub fn app_version(&self) -> &str {
         self.app_version
+    }
+
+    pub fn has_terminal(&self) -> bool {
+        self.terminal
     }
 
     pub fn is_interactive(&self) -> bool {
