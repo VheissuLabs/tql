@@ -70,11 +70,11 @@ pub fn notice(
             .filter(|remembered_version| version::is_newer(remembered_version, current))
     };
     if let Some(installed) = newer(INSTALLED) {
-        return Some(format!("tql-rust {installed} is ready · restart to use it"));
+        return Some(format!("tql {installed} is ready · restart to use it"));
     }
     newer(LATEST).map(|latest| {
         format!(
-            "tql-rust {latest} is out · {}",
+            "tql {latest} is out · {}",
             installation.upgrade(releases)
         )
     })

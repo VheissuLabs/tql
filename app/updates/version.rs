@@ -31,11 +31,11 @@ mod tests {
     use super::*;
 
     #[test]
-    fn reads_a_version_out_of_what_tql_rust_and_github_call_it() {
+    fn reads_a_version_out_of_what_tql_and_github_call_it() {
         for (raw, version) in [
             ("0.7.0", Some("0.7.0")),
             ("v0.7.0", Some("0.7.0")),
-            ("tql-rust 0.7.0", Some("0.7.0")),
+            ("Tql v0.7.0", Some("0.7.0")),
             ("v0.7.0-3-gabc1234", Some("0.7.0")),
             ("dev", None),
         ] {

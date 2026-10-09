@@ -3,9 +3,9 @@ use std::cell::RefCell;
 use super::http::{self, Fetched};
 use super::version;
 
-pub const REPOSITORY: &str = "VheissuLabs/tql-rust";
+pub const REPOSITORY: &str = "VheissuLabs/tql";
 
-pub const REPOSITORY_VARIABLE: &str = "TQL_RUST_UPDATE_REPOSITORY";
+pub const REPOSITORY_VARIABLE: &str = "TQL_UPDATE_REPOSITORY";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Releases {
@@ -97,26 +97,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn asks_github_about_the_tql_rust_repository_by_default() {
+    fn asks_github_about_the_tql_repository_by_default() {
         let releases = Releases::github(REPOSITORY);
 
         assert_eq!(
             releases.latest,
-            "https://api.github.com/repos/VheissuLabs/tql-rust/releases/latest"
+            "https://api.github.com/repos/VheissuLabs/tql/releases/latest"
         );
         assert_eq!(
             releases.download("0.8.0"),
-            "https://github.com/VheissuLabs/tql-rust/releases/download/v0.8.0"
+            "https://github.com/VheissuLabs/tql/releases/download/v0.8.0"
         );
-        assert_eq!(releases.page(), "github.com/VheissuLabs/tql-rust/releases");
+        assert_eq!(releases.page(), "github.com/VheissuLabs/tql/releases");
     }
 
     #[test]
     fn takes_another_repository_only_when_it_looks_like_one() {
-        assert!(is_repository("someone/tql-rust"));
+        assert!(is_repository("someone/tql"));
         assert!(is_repository("some.one/tql_rust"));
         assert!(!is_repository("someone"));
-        assert!(!is_repository("someone/tql-rust/extra"));
+        assert!(!is_repository("someone/tql/extra"));
         assert!(!is_repository("someone/"));
         assert!(!is_repository("https://example.com/x"));
     }

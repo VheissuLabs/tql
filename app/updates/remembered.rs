@@ -2,11 +2,11 @@ use std::path::{Path, PathBuf};
 
 use rusqlite::{Connection, OpenFlags};
 
-pub const CHECKED: &str = "tql-rust.updates.checked_at";
+pub const CHECKED: &str = "updates.checked_at";
 
-pub const LATEST: &str = "tql-rust.updates.latest";
+pub const LATEST: &str = "updates.latest";
 
-pub const INSTALLED: &str = "tql-rust.updates.installed";
+pub const INSTALLED: &str = "updates.installed";
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Remembered {
@@ -54,7 +54,7 @@ mod tests {
     #[test]
     fn remembers_between_runs_and_never_breaks_without_a_store() {
         let directory =
-            std::env::temp_dir().join(format!("tql-rust-remembered-{}", std::process::id()));
+            std::env::temp_dir().join(format!("tql-remembered-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&directory);
         let missing = Remembered::new(&directory.join("missing.sqlite"));
         missing.write(LATEST, "0.8.0");

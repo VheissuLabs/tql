@@ -1,16 +1,22 @@
-use std::io::Read;
 use std::path::Path;
 
-use flate2::read::GzDecoder;
 use sha2::{Digest, Sha256};
 
 use super::http;
-use super::{BINARY, Releases, TARGET, UpdateFailed, Versions, failed};
+use super::{BINARY, Releases, UpdateFailed, Versions, failed};
 
 pub const CHECKSUMS: &str = "SHA256SUMS";
 
-pub fn asset(version: &str) -> String {
-    format!("{BINARY}-{version}-{TARGET}.tar.gz")
+pub fn asset() -> String {
+    let system = match cfg!(target_os = "macos") {
+        true => "macos",
+        false => "linux",
+    };
+    let machine = match cfg!(target_arch = "aarch64") {
+        true => "aarch64",
+        false => "x86_64",
+    };
+    format!("{BINARY}-{system}-{machine}")
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -24,9 +30,9 @@ impl Updater {
     }
 
     pub fn install(&self, version: &str, target: &Path) -> Result<(), UpdateFailed> {
-        let asset = asset(version);
+        let asset = asset();
         let expected = self.checksum_for(version, &asset)?;
-        let archive = http::fetch(
+        let binary = http::fetch(
             &format!("{}/{asset}", self.releases.download(version)),
             120,
             "application/octet-stream",
@@ -34,17 +40,12 @@ impl Updater {
         .body()
         .ok_or_else(|| failed(format!("could not download {asset} for v{version}")))?;
 
-        if hex(&Sha256::digest(&archive)) != expected {
+        if hex(&Sha256::digest(&binary)) != expected {
             return Err(failed(format!(
                 "the download for v{version} does not match its checksum, so it was not installed"
             )));
         }
 
-        let binary = unpack(&archive).ok_or_else(|| {
-            failed(format!(
-                "{asset} for v{version} holds no {BINARY} to install"
-            ))
-        })?;
         Versions::for_installed(target).stage(version, &binary)
     }
 
@@ -57,7 +58,7 @@ impl Updater {
         .body()
         .ok_or_else(|| {
             failed(format!(
-                "v{version} publishes no checksums, so tql-rust will not install it unchecked"
+                "v{version} publishes no checksums, so tql will not install it unchecked"
             ))
         })?;
         checksum_in(&String::from_utf8_lossy(&sums), asset)
@@ -75,20 +76,6 @@ pub fn checksum_in(sums: &str, asset: &str) -> Option<String> {
     })
 }
 
-pub fn unpack(archive: &[u8]) -> Option<Vec<u8>> {
-    let mut entries = tar::Archive::new(GzDecoder::new(archive));
-    entries.entries().ok()?.flatten().find_map(|mut entry| {
-        let named = entry.path().ok()?.file_name()? == BINARY;
-        let regular = entry.header().entry_type().is_file();
-        if !named || !regular {
-            return None;
-        }
-        let mut binary = Vec::new();
-        entry.read_to_end(&mut binary).ok()?;
-        Some(binary)
-    })
-}
-
 fn hex(bytes: &[u8]) -> String {
     bytes.iter().map(|byte| format!("{byte:02x}")).collect()
 }
@@ -98,25 +85,30 @@ mod tests {
     use super::*;
 
     #[test]
-    fn names_the_asset_for_this_version_and_target() {
-        assert_eq!(asset("0.8.0"), format!("tql-rust-0.8.0-{TARGET}.tar.gz"));
-        assert!(TARGET.contains('-'), "{TARGET}");
+    fn names_the_asset_the_way_every_tql_release_has() {
+        let named = asset();
+        assert!(
+            [
+                "tql-macos-aarch64",
+                "tql-macos-x86_64",
+                "tql-linux-aarch64",
+                "tql-linux-x86_64"
+            ]
+            .contains(&named.as_str()),
+            "{named}"
+        );
     }
 
     #[test]
     fn reads_the_checksum_for_its_own_asset_only() {
         let sum = "a".repeat(64);
         let other = "b".repeat(64);
-        let sums =
-            format!("{other}  tql-rust-0.8.0-other.tar.gz\n{sum} *tql-rust-0.8.0-mine.tar.gz\n");
+        let sums = format!("{other}  tql-linux-x86_64\n{sum} *tql-macos-aarch64\n");
 
-        assert_eq!(checksum_in(&sums, "tql-rust-0.8.0-mine.tar.gz"), Some(sum));
-        assert_eq!(checksum_in(&sums, "tql-rust-0.8.0-mine"), None);
+        assert_eq!(checksum_in(&sums, "tql-macos-aarch64"), Some(sum));
+        assert_eq!(checksum_in(&sums, "tql-macos"), None);
         assert_eq!(
-            checksum_in(
-                "nonsense  tql-rust-0.8.0-mine.tar.gz",
-                "tql-rust-0.8.0-mine.tar.gz"
-            ),
+            checksum_in("nonsense  tql-macos-aarch64", "tql-macos-aarch64"),
             None
         );
     }

@@ -5,11 +5,16 @@ use regex::Regex;
 
 use crate::dsn;
 
-pub const COMMANDS: [&str; 13] = [
+pub const COMMANDS: [&str; 18] = [
     "browse",
     "open",
     "connect",
     "export",
+    "dump",
+    "load",
+    "import",
+    "sync",
+    "tableplus",
     "config",
     "update",
     "connections",

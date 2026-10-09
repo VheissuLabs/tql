@@ -60,9 +60,9 @@ impl Installation {
 
     pub fn upgrade(&self, releases: &Releases) -> String {
         match self.how {
-            How::Homebrew => "brew upgrade tql-rust".to_string(),
+            How::Homebrew => "brew upgrade tql".to_string(),
             How::Package => "install the new .deb, .rpm or PKGBUILD".to_string(),
-            How::ByItself => "tql-rust update".to_string(),
+            How::ByItself => "tql update".to_string(),
             How::Built => format!("get it from {}", releases.page()),
         }
     }
@@ -82,26 +82,26 @@ mod tests {
     use super::*;
 
     #[test]
-    fn knows_how_tql_rust_was_installed_from_where_the_binary_is() {
+    fn knows_how_tql_was_installed_from_where_the_binary_is() {
         for (path, how) in [
             (
-                "/opt/homebrew/Cellar/tql-rust/0.7.0/bin/tql-rust",
+                "/opt/homebrew/Cellar/tql/0.7.0/bin/tql",
                 How::Homebrew,
             ),
             (
-                "/home/linuxbrew/.linuxbrew/Cellar/tql-rust/0.7.0/bin/tql-rust",
+                "/home/linuxbrew/.linuxbrew/Cellar/tql/0.7.0/bin/tql",
                 How::Homebrew,
             ),
-            ("/usr/bin/tql-rust", How::Package),
-            ("/usr/local/bin/tql-rust", How::ByItself),
-            ("/Users/someone/.local/bin/tql-rust", How::ByItself),
+            ("/usr/bin/tql", How::Package),
+            ("/usr/local/bin/tql", How::ByItself),
+            ("/Users/someone/.local/bin/tql", How::ByItself),
             (
-                "/Users/someone/.local/bin/.tql-rust-versions/tql-rust-0.8.0",
+                "/Users/someone/.local/bin/.tql-versions/tql-0.8.0",
                 How::ByItself,
             ),
-            ("/Users/someone/.cargo/bin/tql-rust", How::Built),
+            ("/Users/someone/.cargo/bin/tql", How::Built),
             (
-                "/Users/someone/Code/tql-rust/target/release/tql-rust",
+                "/Users/someone/Code/tql/target/release/tql",
                 How::Built,
             ),
         ] {
@@ -111,14 +111,14 @@ mod tests {
 
     #[test]
     fn tells_each_kind_of_install_how_to_upgrade() {
-        let releases = Releases::github("VheissuLabs/tql-rust");
+        let releases = Releases::github("VheissuLabs/tql");
         for (how, says) in [
-            (How::Homebrew, "brew upgrade tql-rust"),
+            (How::Homebrew, "brew upgrade tql"),
             (How::Package, ".deb"),
-            (How::ByItself, "tql-rust update"),
-            (How::Built, "github.com/VheissuLabs/tql-rust/releases"),
+            (How::ByItself, "tql update"),
+            (How::Built, "github.com/VheissuLabs/tql/releases"),
         ] {
-            let upgrade = Installation::new(how, "/x/tql-rust").upgrade(&releases);
+            let upgrade = Installation::new(how, "/x/tql").upgrade(&releases);
             assert!(upgrade.contains(says), "{upgrade}");
         }
     }

@@ -1,6 +1,6 @@
 [package]
-name = "tql-rust"
-version = "0.1.0"
+name = "tql"
+version = "0.12.0"
 edition = "2024"
 
 [lib]
@@ -8,7 +8,7 @@ name = "app"
 path = "app/mod.rs"
 
 [[bin]]
-name = "tql-rust"
+name = "tql"
 path = "main.rs"
 
 [dependencies]
@@ -18,7 +18,6 @@ base64 = "0.22"
 cbc = "0.1"
 clap = { version = "4.6.7", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions", "color", "string"] }
 clap_complete = "4"
-flate2 = "1.1.10"
 getrandom = "0.3"
 hmac = "0.12"
 jiff = "0.2.37"
@@ -31,7 +30,6 @@ rustls = { version = "0.23", default-features = false, features = ["ring", "std"
 serde_json = { version = "1.0.151", features = ["preserve_order"] }
 sha2 = "0.10"
 futures-util = { version = "0.3", default-features = false }
-tar = "0.4.46"
 tiberius = { version = "0.13", default-features = false, features = ["tds73", "rustls"] }
 tokio = { version = "1", features = ["rt", "net", "time"] }
 tokio-postgres-rustls = { version = "0.14", default-features = false, features = ["ring"] }

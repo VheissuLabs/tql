@@ -13,11 +13,11 @@ pub struct Update;
 
 impl Command for Update {
     fn signature(&self) -> &str {
-        "update {--background : Check and update quietly, the way tql-rust does once a day by itself}"
+        "update {--background : Check and update quietly, the way tql does once a day by itself}"
     }
 
     fn description(&self) -> &str {
-        "Update tql-rust to the latest release"
+        "Update tql to the latest release"
     }
 
     fn execute(&self, cmd: &mut Cmd) -> Result {
@@ -47,7 +47,7 @@ fn update(cmd: &mut Cmd) -> Result {
         Ok(latest) => latest,
         Err(Unavailable::NoReleases) => {
             cmd.error(format!(
-                "No tql-rust release has been published at {} yet.",
+                "No tql release has been published at {} yet.",
                 updater.releases.page()
             ));
             return exit(1);
@@ -61,19 +61,19 @@ fn update(cmd: &mut Cmd) -> Result {
     remembered.write(LATEST, &latest);
 
     if !version::is_newer(&latest, &current) {
-        cmd.info(format!("tql-rust {current} is the latest."));
+        cmd.info(format!("tql {current} is the latest."));
         return Ok(());
     }
 
     if !installation.updates_itself() {
         cmd.line(format!(
-            "tql-rust {latest} is out. You have {current}; {}.",
+            "tql {latest} is out. You have {current}; {}.",
             installation.upgrade(&updater.releases)
         ));
         return Ok(());
     }
 
-    cmd.line(format!("Updating tql-rust {current} to {latest}…"));
+    cmd.line(format!("Updating tql {current} to {latest}…"));
 
     if let Err(failure) = updater.install(&latest, &installation.path) {
         cmd.error(format!("{}.", capitalised(&failure.to_string())));
@@ -85,11 +85,11 @@ fn update(cmd: &mut Cmd) -> Result {
     let versions = Versions::for_installed(&installation.path);
     cmd.info(if versions.switches_safely_now() && versions.activate(|| false) {
         format!(
-            "Updated to {latest}, checked against its published checksum. The next tql-rust you start is the new one."
+            "Updated to {latest}, checked against its published checksum. The next tql you start is the new one."
         )
     } else {
         format!(
-            "Downloaded {latest} and checked it against its published checksum. It takes over the next time you start tql-rust."
+            "Downloaded {latest} and checked it against its published checksum. It takes over the next time you start tql."
         )
     });
     Ok(())
