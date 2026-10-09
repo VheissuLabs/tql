@@ -107,6 +107,21 @@ const DELIBERATE: &[(&str, &str)] = &[
         "mysql-filter-quote",
         "a filter that matches nothing keeps the column headers; the escaped where clause in the SQL pane matches tql exactly",
     ),
+    ("pgsql-inspect-fold-record", TITLES_ARE_NOT_STOPS),
+    ("pgsql-inspect-fold-related", TITLES_ARE_NOT_STOPS),
+    ("pgsql-inspect-empty-table", EMPTY_TABLE_HEADERS),
+    (
+        "pgsql-sql-error",
+        "errors show the database's own words without PDO's SQLSTATE prefix",
+    ),
+    (
+        "pgsql-sql-sort-results",
+        "sorting query results keeps the cursor on the sorted column, and the status is cut by visible width",
+    ),
+    (
+        "pgsql-filter-quote",
+        "a filter that matches nothing keeps the column headers; the escaped where clause in the SQL pane matches tql exactly",
+    ),
 ];
 
 const TITLES_ARE_NOT_STOPS: &str = "the inspector cursor never stops on a box title (there is nothing to do there), so a whole box cannot be folded from its title";
@@ -144,7 +159,7 @@ fn scenario_json(exports: &Path) -> Vec<serde_json::Value> {
         let name = file.file_name().unwrap().to_string_lossy().into_owned();
         (
             name != "sql-editor.json",
-            name.starts_with("mysql-") || name.starts_with("sqlsrv-"),
+            name.starts_with("mysql-") || name.starts_with("sqlsrv-") || name.starts_with("pgsql-"),
             name,
         )
     });
@@ -275,6 +290,46 @@ fn mysql_reset() -> String {
 
 const SQL_SERVER: &str = "mssql";
 
+const POSTGRES: &str = "local pg";
+
+fn postgres(database: &str, sql: &[&str]) {
+    let mut command = Command::new("psql");
+    command.args([
+        "-h127.0.0.1",
+        "-Uroot",
+        "-q",
+        "-vON_ERROR_STOP=1",
+        &format!("-d{database}"),
+    ]);
+    for statement in sql {
+        command.arg(format!("-c{statement}"));
+    }
+    assert!(
+        command.status().expect("psql is installed").success(),
+        "postgres rejected {sql:?}"
+    );
+}
+
+fn postgres_file(file: &str) {
+    let path = Path::new(ROOT).join("parity").join(file);
+    assert!(
+        Command::new("psql")
+            .args([
+                "-h127.0.0.1",
+                "-Uroot",
+                "-q",
+                "-vON_ERROR_STOP=1",
+                "-dtql_rust_scratch",
+                "-f"
+            ])
+            .arg(&path)
+            .status()
+            .expect("psql is installed")
+            .success(),
+        "postgres rejected {file}"
+    );
+}
+
 fn sql_server_place() -> Option<String> {
     std::env::var("TQL_PARITY_SQLSRV").ok()
 }
@@ -356,6 +411,18 @@ fn frames_match_the_php_tql() {
     let pristine = fs::read(&fixture).unwrap();
 
     let mysql = std::env::var_os("TQL_PARITY_MYSQL").is_some();
+    let pgsql = std::env::var_os("TQL_PARITY_PGSQL").is_some();
+    if pgsql {
+        postgres(
+            "postgres",
+            &[
+                "drop database if exists tql_rust_scratch",
+                "create database tql_rust_scratch",
+            ],
+        );
+        postgres_file("fixture-pgsql.sql");
+        postgres_file("fixture-pgsql-data.sql");
+    }
     if mysql {
         herd(&format!(
             "drop database if exists tql_rust_scratch;\n{}\n{}",
@@ -447,12 +514,19 @@ fn frames_match_the_php_tql() {
     for scenario in scenarios(&work.join("exports")) {
         fs::write(&fixture, &pristine).unwrap();
         let on_sql_server = scenario.connection.as_deref() == Some(SQL_SERVER);
-        let available = if on_sql_server { sqlsrv } else { mysql };
+        let on_postgres = scenario.connection.as_deref() == Some(POSTGRES);
+        let available = match (on_sql_server, on_postgres) {
+            (true, _) => sqlsrv,
+            (_, true) => pgsql,
+            _ => mysql,
+        };
         if scenario.connection.is_some() && !available {
             continue;
         }
         if on_sql_server {
             sql_server_reset();
+        } else if on_postgres {
+            postgres_file("fixture-pgsql-data.sql");
         } else if scenario.connection.is_some() {
             herd(&mysql_reset());
         }
@@ -545,6 +619,9 @@ fn frames_match_the_php_tql() {
 
     if mysql {
         herd("drop database tql_rust_scratch;");
+    }
+    if pgsql {
+        postgres("postgres", &["drop database tql_rust_scratch with (force)"]);
     }
     if sqlsrv {
         sql_server("master")

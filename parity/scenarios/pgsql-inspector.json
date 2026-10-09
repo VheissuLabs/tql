@@ -1,0 +1,1001 @@
+[
+  {
+    "name": "pgsql-structure-open",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-structure-tickets",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-structure-scrolled",
+    "size": [
+      80,
+      16
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t",
+      "j",
+      "j"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-structure-scrolled-to-end",
+    "size": [
+      80,
+      16
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t",
+      "G"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-structure-closed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "t",
+      "t"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-open",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-switch",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-unfold-shipments",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-unfold-tickets",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-unfold-everything",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "j",
+      "\n",
+      "j",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-through",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-has-one",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-fold-record",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "k",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-fold-related",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "k",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-related-record",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "j",
+      "j",
+      "i"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-related-record-back",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "j",
+      "j",
+      "i",
+      "\u001b"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-related-record-closed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "j",
+      "j",
+      "i",
+      "\u001b",
+      "\u001b"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-not-on-a-record",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "i",
+      "\u001b"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-shipment",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "i",
+      "\t",
+      "j",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-select",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "V",
+      "j",
+      "j"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-g-and-G",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "\n",
+      "G"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-empty-table",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "\n",
+      "i"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-no-related",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "i"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-limit-zero",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i"
+    ],
+    "config": {
+      "ui.inspect_related": 0
+    },
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-limit-three",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "\n"
+    ],
+    "config": {
+      "ui.inspect_related": 3
+    },
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-standard-80x24",
+    "size": [
+      80,
+      24
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-inspect-wide",
+    "size": [
+      160,
+      40
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "i",
+      "\t",
+      "j",
+      "j",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-link-hint",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-link-hint-off-the-link",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "l"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link-sql",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L"
+    ],
+    "config": {
+      "ui.sql_always": true
+    },
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link-back",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L",
+      "\u000f"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link-escape",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "j",
+      "l",
+      "l",
+      "L",
+      "\u001b"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link-twice",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L",
+      "L"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link-unwind",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "L",
+      "L",
+      "\u001b",
+      "\u001b"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-back-picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "L"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-back-picker-typed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "L",
+      "t",
+      "i",
+      "c"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-back-chosen",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "L",
+      "t",
+      "i",
+      "c",
+      "\n"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-back-picker-cancelled",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "L",
+      "\u001b"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-back-single",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "\n",
+      "L"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link-hidden-by-filter",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "/",
+      "s",
+      "h",
+      "i",
+      "p",
+      "\n",
+      "\t",
+      "l",
+      "l",
+      "L"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-not-a-link",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "L"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-nowhere-to-go-back",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "\u000f"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link-from-filtered",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "l",
+      "f",
+      "c",
+      "o",
+      "u",
+      "r",
+      "i",
+      "e",
+      "r",
+      "\u0013",
+      "l",
+      "l",
+      "L"
+    ],
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link-back-to-filtered",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "l",
+      "f",
+      "c",
+      "o",
+      "u",
+      "r",
+      "i",
+      "e",
+      "r",
+      "\u0013",
+      "l",
+      "l",
+      "L",
+      "\u001b"
+    ],
+    "config": {
+      "ui.sql_always": true
+    },
+    "connection": "local pg"
+  },
+  {
+    "name": "pgsql-follow-link-filter-cleared",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\n",
+      "l",
+      "l",
+      "l",
+      "f",
+      "c",
+      "o",
+      "u",
+      "r",
+      "i",
+      "e",
+      "r",
+      "\u0013",
+      "l",
+      "l",
+      "L",
+      "\u001b",
+      "\u001b"
+    ],
+    "connection": "local pg"
+  }
+]

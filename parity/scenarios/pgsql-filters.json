@@ -1,0 +1,100 @@
+[
+  {
+    "name": "pgsql-filter-applied",
+    "connection": "local pg",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom"
+    },
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "l",
+      "l",
+      "f",
+      "v",
+      "i",
+      "p",
+      "\n",
+      "\n"
+    ]
+  },
+  {
+    "name": "pgsql-filter-quote",
+    "connection": "local pg",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom"
+    },
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "O",
+      "'",
+      "B",
+      "\n",
+      "\n"
+    ]
+  },
+  {
+    "name": "pgsql-filter-then-sort",
+    "connection": "local pg",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom"
+    },
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "l",
+      "l",
+      "f",
+      "v",
+      "i",
+      "p",
+      "\n",
+      "\n",
+      "h",
+      "h",
+      "o",
+      "o"
+    ]
+  },
+  {
+    "name": "pgsql-filter-next-page",
+    "connection": "local pg",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "C",
+      "u",
+      "s",
+      "t",
+      "\n",
+      "\n",
+      "n"
+    ]
+  }
+]

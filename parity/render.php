@@ -35,6 +35,10 @@ foreach ([
         'port' => (int) explode(':', getenv('TQL_PARITY_SQLSRV'))[1], 'database' => 'tql_rust_scratch',
         'username' => 'sa', 'password' => getenv('TQL_PARITY_SQLSRV_PASSWORD'), 'used' => now()->subDays(600),
     ]] : []),
+    ...(getenv('TQL_PARITY_PGSQL') ? [[
+        'name' => 'local pg', 'driver' => 'pgsql', 'host' => '127.0.0.1', 'port' => 5432,
+        'database' => 'tql_rust_scratch', 'username' => 'root', 'used' => now()->subDays(700),
+    ]] : []),
     ['name' => 'demo', 'driver' => 'sqlite', 'database' => getenv('HOME').'/Code/tql/demo.db', 'used' => now()->subDays(3)],
 ] as $attributes) {
     if (str_starts_with($attributes['name'], 'herd') && ! getenv('TQL_PARITY_MYSQL')) {
@@ -52,7 +56,13 @@ copy($fixture, $pristine);
 $defaults = config('tql');
 foreach ($scenarios as $scenario) {
     $sqlServer = ($scenario['connection'] ?? null) === 'mssql';
-    if (isset($scenario['connection']) && ! getenv($sqlServer ? 'TQL_PARITY_SQLSRV' : 'TQL_PARITY_MYSQL')) {
+    $postgres = ($scenario['connection'] ?? null) === 'local pg';
+    $needs = match (true) {
+        $sqlServer => 'TQL_PARITY_SQLSRV',
+        $postgres => 'TQL_PARITY_PGSQL',
+        default => 'TQL_PARITY_MYSQL',
+    };
+    if (isset($scenario['connection']) && ! getenv($needs)) {
         continue;
     }
     copy($pristine, $fixture);
@@ -60,6 +70,9 @@ foreach ($scenarios as $scenario) {
         app(App\Database\ConnectionManager::class)
             ->resolve(App\Models\Connection::where('name', 'mssql')->firstOrFail())
             ->unprepared(file_get_contents(__DIR__.'/fixture-sqlsrv.sql'));
+    } elseif ($postgres) {
+        $process = proc_open(['psql', '-h127.0.0.1', '-Uroot', '-dtql_rust_scratch', '-q', '-vON_ERROR_STOP=1', '-f', __DIR__.'/fixture-pgsql-data.sql'], [], $pipes);
+        proc_close($process);
     } elseif (isset($scenario['connection'])) {
         $reset = file_get_contents(__DIR__.'/reset-mysql.sql')."use tql_rust_scratch;\n".file_get_contents(__DIR__.'/fixture-mysql-data.sql');
         $process = proc_open(['mysql', '-uroot', '-h127.0.0.1', '-P3306'], [0 => ['pipe', 'r']], $pipes);
