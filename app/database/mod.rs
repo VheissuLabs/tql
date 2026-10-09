@@ -370,7 +370,7 @@ pub fn connect(
     }
 }
 
-fn decrypted(
+pub fn decrypted(
     secret: &Option<String>,
     encrypter: Option<&Encrypter>,
 ) -> anyhow::Result<Option<String>> {

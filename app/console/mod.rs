@@ -1,15 +1,17 @@
 mod application;
+pub mod boxes;
 mod cmd;
 mod command;
 mod config;
 mod input;
 mod make;
+pub mod progress;
 mod prompt;
 mod signature;
 
 pub use anyhow::{anyhow, bail};
 pub use application::{Application, RunResult};
-pub use cmd::Cmd;
+pub use cmd::{Cmd, Verbosity};
 pub use command::{Command, Exit, exit};
 pub use config::Config;
 pub use make::MakeCommand;

@@ -16,6 +16,17 @@ const RED: &str = "31";
 const QUESTION: &str = "30;46";
 const ERROR: &str = "37;41";
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Verbosity {
+    Silent,
+    Quiet,
+    #[default]
+    Normal,
+    Verbose,
+    VeryVerbose,
+    Debug,
+}
+
 pub struct Cmd<'a> {
     pub(crate) input: Input,
     pub(crate) config: &'a Config,
@@ -26,6 +37,7 @@ pub struct Cmd<'a> {
     pub(crate) interactive: bool,
     pub(crate) terminal: bool,
     pub(crate) piped: bool,
+    pub(crate) verbosity: Verbosity,
     pub(crate) app_name: &'a str,
     pub(crate) app_version: &'a str,
 }
@@ -106,7 +118,58 @@ impl Cmd<'_> {
     }
 
     pub fn refuse(&mut self, text: impl Display) {
-        let _ = writeln!(self.err, "{text}");
+        if self.verbosity > Verbosity::Silent {
+            let _ = writeln!(self.err, "{text}");
+        }
+    }
+
+    pub fn verbosity(&self) -> Verbosity {
+        self.verbosity
+    }
+
+    pub fn is_verbose(&self) -> bool {
+        self.verbosity >= Verbosity::Verbose
+    }
+
+    pub fn is_quiet(&self) -> bool {
+        self.verbosity < Verbosity::Normal
+    }
+
+    pub fn has_ansi(&self) -> bool {
+        self.ansi
+    }
+
+    pub fn write(&mut self, text: impl Display) {
+        if !self.is_quiet() {
+            let _ = write!(self.out, "{text}");
+            let _ = self.out.flush();
+        }
+    }
+
+    pub fn marked(&mut self, text: &str) {
+        let marked = self.markup(text);
+        self.line(marked);
+    }
+
+    pub fn markup(&self, text: &str) -> String {
+        let tags = regex::Regex::new(r"<fg=(\w+)>|</>").expect("the pattern is valid");
+        let ansi = self.ansi;
+        tags.replace_all(text, |tag: &regex::Captures| {
+            if !ansi {
+                return String::new();
+            }
+            match tag.get(1).map(|color| color.as_str()) {
+                Some("green") => "\x1b[32m",
+                Some("yellow") => "\x1b[33m",
+                Some("cyan") => "\x1b[36m",
+                Some("red") => "\x1b[31m",
+                Some("gray") => "\x1b[90m",
+                Some(_) => "",
+                None => "\x1b[39m",
+            }
+            .to_string()
+        })
+        .into_owned()
     }
 
     pub fn is_interactive(&self) -> bool {
@@ -114,11 +177,15 @@ impl Cmd<'_> {
     }
 
     pub fn line(&mut self, text: impl Display) {
-        let _ = writeln!(self.out, "{text}");
+        if !self.is_quiet() {
+            let _ = writeln!(self.out, "{text}");
+        }
     }
 
     pub fn new_line(&mut self) {
-        let _ = writeln!(self.out);
+        if !self.is_quiet() {
+            let _ = writeln!(self.out);
+        }
     }
 
     pub fn info(&mut self, text: impl Display) {
@@ -138,7 +205,10 @@ impl Cmd<'_> {
     }
 
     pub fn error(&mut self, text: impl Display) {
-        self.styled_line(text, ERROR);
+        if self.verbosity > Verbosity::Silent {
+            let painted = self.paint(text, ERROR);
+            let _ = writeln!(self.out, "{painted}");
+        }
     }
 
     pub fn alert(&mut self, text: impl Display) {
@@ -269,6 +339,14 @@ impl Cmd<'_> {
                 Some(_) => self.error("Please answer yes or no."),
             }
         }
+    }
+
+    pub fn confirm_box(&mut self, label: &str, default: bool) -> anyhow::Result<bool> {
+        if !(self.terminal && self.interactive && !self.piped) {
+            return Ok(default);
+        }
+        let _ = self.out.flush();
+        Ok(prompt::confirm(label, default)?.unwrap_or(false))
     }
 
     pub fn select(

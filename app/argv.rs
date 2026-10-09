@@ -5,7 +5,7 @@ use regex::Regex;
 
 use crate::dsn;
 
-pub const COMMANDS: [&str; 13] = [
+pub const COMMANDS: [&str; 17] = [
     "browse",
     "open",
     "connect",
@@ -19,6 +19,10 @@ pub const COMMANDS: [&str; 13] = [
     "list",
     "help",
     "mcp:start",
+    "dump",
+    "load",
+    "import",
+    "sync",
 ];
 
 static DATABASE_FILE: LazyLock<Regex> =
