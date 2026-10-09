@@ -49,6 +49,10 @@ impl Command for About {
         "Display application information"
     }
 
+    fn help(&self) -> &str {
+        "Shows the <fg=green>name</>, the version and\nthe <fg=yellow>environment</>."
+    }
+
     fn execute(&self, cmd: &mut Cmd) -> Result {
         let config = cmd.config();
         let rows = [
@@ -272,4 +276,16 @@ fn list_shows_the_commands_too() {
     for command in ["about", "deploy", "fail", "greet", "list"] {
         assert!(listed.stdout.contains(command), "missing {command}");
     }
+}
+
+#[test]
+fn help_says_more_than_the_description_without_its_colour_tags() {
+    let help = app().run_with(["about", "--help"], "");
+
+    assert!(
+        help.stdout
+            .contains("Help:\n  Shows the name, the version and\n  the environment."),
+        "{}",
+        help.stdout
+    );
 }

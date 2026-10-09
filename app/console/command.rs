@@ -11,6 +11,10 @@ pub trait Command {
         &[]
     }
 
+    fn help(&self) -> &str {
+        ""
+    }
+
     fn execute(&self, cmd: &mut Cmd) -> anyhow::Result<()>;
 }
 

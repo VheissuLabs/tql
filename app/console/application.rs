@@ -269,8 +269,12 @@ impl Application {
             .iter()
             .zip(&self.commands)
             .map(|(signature, command)| {
-                input::to_clap(signature, command.description())
-                    .visible_aliases(command.aliases().iter().copied())
+                let clap = input::to_clap(signature, command.description())
+                    .visible_aliases(command.aliases().iter().copied());
+                match command.help() {
+                    "" => clap,
+                    help => clap.after_help(styled_help(help)),
+                }
             })
             .chain([clap::Command::new(LIST).about("List commands")])
             .collect();
@@ -289,6 +293,27 @@ impl Application {
         }
         Ok(config)
     }
+}
+
+fn styled_help(help: &str) -> String {
+    let tags = regex::Regex::new(r"<fg=(\w+)>|</>").expect("the pattern is valid");
+    let painted = tags.replace_all(help, |tag: &regex::Captures| {
+        match tag.get(1).map(|color| color.as_str()) {
+            Some("green") => "\x1b[32m",
+            Some("yellow") => "\x1b[33m",
+            Some("cyan") => "\x1b[36m",
+            Some(_) => "",
+            None => "\x1b[39m",
+        }
+    });
+    let indented: Vec<String> = painted
+        .lines()
+        .map(|line| match line {
+            "" => String::new(),
+            line => format!("  {line}"),
+        })
+        .collect();
+    format!("\x1b[1mHelp:\x1b[22m\n{}", indented.join("\n"))
 }
 
 fn report(err: &mut dyn Write, error: &anyhow::Error, ansi: bool) {

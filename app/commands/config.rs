@@ -17,6 +17,16 @@ impl Command for Config {
         "Show where the config file is, and put it back in order"
     }
 
+    fn help(&self) -> &str {
+        r#"tql owns the shape of the file: which sections there are, and the order the
+settings come in. You own what is in it: the values, which settings you keep,
+and any comment you write. <fg=green>--tidy</> reorders without touching any of that,
+and writes a <fg=yellow>.bak</> beside it first.
+
+A setting you delete stays deleted: the file records the version it was
+written for, and only settings newer than that are ever added back."#
+    }
+
     fn execute(&self, cmd: &mut Cmd) -> Result {
         config(cmd)
     }
