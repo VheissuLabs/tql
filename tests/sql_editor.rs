@@ -542,3 +542,26 @@ fn a_filtered_table_opens_the_editor_on_its_filtered_statement_and_escape_clears
     assert!(!fake.app.query.results);
     assert_eq!(names(&fake), ["apple", "banana", "cherry"]);
 }
+
+#[test]
+fn a_change_made_in_the_sql_editor_is_seen_without_reloading() {
+    let mut fake = browser("schema-after-write");
+
+    fake.press("\tt");
+    assert!(!fake.screen().contains("ripe"));
+    fake.press("\x1b");
+    fake.press("s")
+        .press("\x05")
+        .press("; alter table fruit add column ripe integer")
+        .press("\x12")
+        .press("\x1b")
+        .press("\x1b");
+    fake.press("t");
+
+    let screen = fake.screen();
+    let structure: String = screen
+        .lines()
+        .skip_while(|line| !line.contains("STRUCTURE"))
+        .collect();
+    assert!(structure.contains("ripe"), "{screen}");
+}

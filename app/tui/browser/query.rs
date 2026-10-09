@@ -293,14 +293,14 @@ impl Browser {
             );
             return;
         }
-        if writes {
-            self.query.forget_schema();
-            self.keys = self.database.primary_keys().unwrap_or_default();
-        }
-
         let started = Instant::now();
         let ran = self.database.run(statement);
         let elapsed = started.elapsed().as_millis();
+        if writes {
+            self.schema.forget();
+            self.query.forget_schema();
+            self.keys = self.database.primary_keys().unwrap_or_default();
+        }
         let error = ran.as_ref().err().map(|error| error.to_string());
         let counted = ran
             .as_ref()
