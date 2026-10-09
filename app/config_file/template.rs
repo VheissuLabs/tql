@@ -385,7 +385,7 @@ mod tests {
     }
 
     #[test]
-    fn the_defaults_are_the_ones_tql_rust_starts_with() {
+    fn the_defaults_are_the_ones_tql_starts_with() {
         let written = Settings::from_table(&toml::from_str(&render()).unwrap());
 
         assert_eq!(written, Settings::default());

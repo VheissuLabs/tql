@@ -21,7 +21,7 @@ impl Fetched {
 pub fn fetch(url: &str, seconds: u64, accept: &str) -> Fetched {
     let agent = ureq::Agent::config_builder()
         .timeout_global(Some(Duration::from_secs(seconds)))
-        .user_agent(concat!("tql-rust/", env!("CARGO_PKG_VERSION")))
+        .user_agent(concat!("tql/", env!("CARGO_PKG_VERSION")))
         .build()
         .new_agent();
     match agent.get(url).header("Accept", accept).call() {

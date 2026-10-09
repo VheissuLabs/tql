@@ -58,7 +58,7 @@ impl FakeReleases {
 
     fn releases(&self) -> Releases {
         Releases::at(
-            "VheissuLabs/tql-rust",
+            "VheissuLabs/tql",
             &format!("{}/latest", self.base),
             &format!("{}/download", self.base),
         )
@@ -100,20 +100,7 @@ fn route(path: String, status: u16, body: impl Into<Vec<u8>>) -> Route {
 }
 
 fn fake_binary(version: &str) -> String {
-    format!("#!/bin/sh\necho 'tql-rust {version}'\n")
-}
-
-fn archive_holding(name: &str, binary: &[u8]) -> Vec<u8> {
-    let mut header = tar::Header::new_gnu();
-    header.set_size(binary.len() as u64);
-    header.set_mode(0o755);
-    header.set_cksum();
-    let mut archive = tar::Builder::new(flate2::write::GzEncoder::new(
-        Vec::new(),
-        flate2::Compression::default(),
-    ));
-    archive.append_data(&mut header, name, binary).unwrap();
-    archive.into_inner().unwrap().finish().unwrap()
+    format!("#!/bin/sh\necho 'Tql v{version}'\n")
 }
 
 fn sha256(bytes: &[u8]) -> String {
@@ -123,8 +110,8 @@ fn sha256(bytes: &[u8]) -> String {
         .collect()
 }
 
-fn signed(version: &str, archive: &[u8]) -> String {
-    format!("{}  {}\n", sha256(archive), asset(version))
+fn signed(binary: &[u8]) -> String {
+    format!("{}  {}\n", sha256(binary), asset())
 }
 
 fn release_of(version: &str, archive: Vec<u8>, sums: Option<String>) -> FakeReleases {
@@ -135,7 +122,7 @@ fn release_of(version: &str, archive: Vec<u8>, sums: Option<String>) -> FakeRele
             format!("{{\"tag_name\":\"v{version}\"}}"),
         ),
         route(
-            format!("/download/v{version}/{}", asset(version)),
+            format!("/download/v{version}/{}", asset()),
             200,
             archive,
         ),
@@ -147,14 +134,14 @@ fn release_of(version: &str, archive: Vec<u8>, sums: Option<String>) -> FakeRele
 }
 
 fn checked_release(version: &str, binary: &str) -> FakeReleases {
-    let archive = archive_holding("tql-rust", binary.as_bytes());
-    let sums = signed(version, &archive);
+    let archive = binary.as_bytes().to_vec();
+    let sums = signed(&archive);
     release_of(version, archive, Some(sums))
 }
 
 fn scratch(name: &str) -> PathBuf {
     let directory = std::env::temp_dir().join(format!(
-        "tql-rust-update-{}-{}-{name}",
+        "tql-update-{}-{}-{name}",
         std::process::id(),
         NEXT_DIRECTORY.fetch_add(1, Ordering::SeqCst)
     ));
@@ -164,7 +151,7 @@ fn scratch(name: &str) -> PathBuf {
 }
 
 fn installed_at(name: &str) -> PathBuf {
-    let target = scratch(name).join("tql-rust");
+    let target = scratch(name).join("tql");
     fs::write(&target, fake_binary("0.7.0")).unwrap();
     fs::set_permissions(&target, fs::Permissions::from_mode(0o755)).unwrap();
     target
@@ -190,7 +177,7 @@ fn staged_names(target: &Path) -> Vec<String> {
         .unwrap()
         .flatten()
         .map(|entry| entry.file_name().to_string_lossy().into_owned())
-        .filter(|name| name.starts_with("tql-rust-"))
+        .filter(|name| name.starts_with("tql-"))
         .collect();
     names.sort();
     names
@@ -218,7 +205,7 @@ fn stages_a_release_once_its_checksum_matches_without_touching_the_running_binar
 }
 
 #[test]
-fn switches_to_a_staged_version_through_a_symlink_so_a_running_tql_rust_keeps_its_own_file() {
+fn switches_to_a_staged_version_through_a_symlink_so_a_running_tql_keeps_its_own_file() {
     let target = installed_at("switch");
     let binary = fake_binary("0.8.0");
     checked_release("0.8.0", &binary)
@@ -230,14 +217,14 @@ fn switches_to_a_staged_version_through_a_symlink_so_a_running_tql_rust_keeps_it
     assert!(target.is_symlink());
     assert_eq!(
         fs::read_link(&target).unwrap(),
-        Path::new(".tql-rust-versions/tql-rust-0.8.0")
+        Path::new(".tql-versions/tql-0.8.0")
     );
     assert_eq!(fs::read_to_string(&target).unwrap(), binary);
     assert!(!Versions::for_installed(&target).activate(|| false));
 }
 
 #[test]
-fn waits_to_turn_a_plain_binary_into_a_symlink_while_another_tql_rust_runs_from_it() {
+fn waits_to_turn_a_plain_binary_into_a_symlink_while_another_tql_runs_from_it() {
     let target = installed_at("wait");
     checked_release("0.8.0", &fake_binary("0.8.0"))
         .updater()
@@ -251,7 +238,7 @@ fn waits_to_turn_a_plain_binary_into_a_symlink_while_another_tql_rust_runs_from_
 }
 
 #[test]
-fn switches_between_versions_once_it_is_a_symlink_even_with_another_tql_rust_running() {
+fn switches_between_versions_once_it_is_a_symlink_even_with_another_tql_running() {
     let target = installed_at("between");
 
     for version in ["0.8.0", "0.8.1"] {
@@ -264,14 +251,14 @@ fn switches_between_versions_once_it_is_a_symlink_even_with_another_tql_rust_run
 
     assert_eq!(
         fs::read_link(&target).unwrap(),
-        Path::new(".tql-rust-versions/tql-rust-0.8.1")
+        Path::new(".tql-versions/tql-0.8.1")
     );
     assert_eq!(
         Versions::for_installed(
             &target
                 .parent()
                 .unwrap()
-                .join(".tql-rust-versions/tql-rust-0.8.1")
+                .join(".tql-versions/tql-0.8.1")
         )
         .link,
         target
@@ -291,15 +278,15 @@ fn keeps_only_the_last_three_versions() {
 
     assert_eq!(
         staged_names(&target),
-        ["tql-rust-0.10.0", "tql-rust-0.8.1", "tql-rust-0.9.0"]
+        ["tql-0.10.0", "tql-0.8.1", "tql-0.9.0"]
     );
 }
 
 #[test]
 fn refuses_a_download_that_does_not_match_its_checksum_and_leaves_the_old_one_alone() {
     let target = installed_at("mismatch");
-    let archive = archive_holding("tql-rust", fake_binary("0.8.0").as_bytes());
-    let sums = format!("{}  {}\n", "0".repeat(64), asset("0.8.0"));
+    let archive = fake_binary("0.8.0").as_bytes().to_vec();
+    let sums = format!("{}  {}\n", "0".repeat(64), asset());
 
     let failure = release_of("0.8.0", archive, Some(sums))
         .updater()
@@ -314,7 +301,7 @@ fn refuses_a_download_that_does_not_match_its_checksum_and_leaves_the_old_one_al
 #[test]
 fn refuses_a_release_that_publishes_no_checksums() {
     let target = installed_at("unsigned");
-    let archive = archive_holding("tql-rust", fake_binary("0.8.0").as_bytes());
+    let archive = fake_binary("0.8.0").as_bytes().to_vec();
 
     let failure = release_of("0.8.0", archive, None)
         .updater()
@@ -328,8 +315,8 @@ fn refuses_a_release_that_publishes_no_checksums() {
 #[test]
 fn refuses_a_release_with_no_checksum_for_this_platform() {
     let target = installed_at("other-platform");
-    let archive = archive_holding("tql-rust", fake_binary("0.8.0").as_bytes());
-    let sums = format!("{}  tql-rust-0.8.0-elsewhere.tar.gz\n", sha256(&archive));
+    let archive = fake_binary("0.8.0").as_bytes().to_vec();
+    let sums = format!("{}  tql-plan9-mips\n", sha256(&archive));
 
     let failure = release_of("0.8.0", archive, Some(sums))
         .updater()
@@ -338,7 +325,7 @@ fn refuses_a_release_with_no_checksum_for_this_platform() {
 
     assert_eq!(
         failure.to_string(),
-        format!("v0.8.0 has no checksum for {}", asset("0.8.0"))
+        format!("v0.8.0 has no checksum for {}", asset())
     );
 }
 
@@ -360,23 +347,6 @@ fn refuses_a_binary_that_does_not_say_it_is_the_version_it_was_downloaded_as() {
 }
 
 #[test]
-fn refuses_an_archive_without_tql_rust_in_it() {
-    let target = installed_at("empty-archive");
-    let archive = archive_holding("README.md", b"nothing to run");
-    let sums = signed("0.8.0", &archive);
-
-    let failure = release_of("0.8.0", archive, Some(sums))
-        .updater()
-        .install("0.8.0", &target)
-        .unwrap_err();
-
-    assert!(
-        failure.to_string().contains("holds no tql-rust"),
-        "{failure}"
-    );
-}
-
-#[test]
 fn says_to_use_sudo_when_it_cannot_write_beside_the_binary() {
     let target = installed_at("read-only");
     let folder = target.parent().unwrap().to_path_buf();
@@ -390,7 +360,7 @@ fn says_to_use_sudo_when_it_cannot_write_beside_the_binary() {
     assert_eq!(
         failure.unwrap_err().to_string(),
         format!(
-            "{} is not writable; run tql-rust update with sudo",
+            "{} is not writable; run tql update with sudo",
             folder.display()
         )
     );
@@ -399,7 +369,7 @@ fn says_to_use_sudo_when_it_cannot_write_beside_the_binary() {
 #[test]
 fn reads_the_version_from_its_own_line_not_from_whatever_else_the_download_prints() {
     let target = installed_at("noisy");
-    let binary = "#!/bin/sh\necho 'Using something 8.4.26'\necho 'tql-rust 0.8.0'\n";
+    let binary = "#!/bin/sh\necho 'Using something 8.4.26'\necho 'Tql v0.8.0'\n";
 
     checked_release("0.8.0", binary)
         .updater()
@@ -451,7 +421,7 @@ fn updates_by_itself_when_it_can_and_says_a_restart_will_use_it() {
     );
     assert_eq!(
         check::notice("0.7.0", &installation, &releases, &remembered).as_deref(),
-        Some("tql-rust 0.8.0 is ready · restart to use it")
+        Some("tql 0.8.0 is ready · restart to use it")
     );
     assert_eq!(
         check::notice("0.8.0", &installation, &releases, &remembered),
@@ -466,7 +436,7 @@ fn only_says_what_to_run_when_it_cannot_update_itself() {
     let remembered = remembered("homebrew");
     let installation = Installation::new(
         How::Homebrew,
-        "/opt/homebrew/Cellar/tql-rust/0.7.0/bin/tql-rust",
+        "/opt/homebrew/Cellar/tql/0.7.0/bin/tql",
     );
 
     check::run(
@@ -479,7 +449,7 @@ fn only_says_what_to_run_when_it_cannot_update_itself() {
 
     assert_eq!(
         check::notice("0.7.0", &installation, &release.releases(), &remembered).as_deref(),
-        Some("tql-rust 0.8.0 is out · brew upgrade tql-rust")
+        Some("tql 0.8.0 is out · brew upgrade tql")
     );
     assert!(!release.downloaded());
 }
@@ -503,7 +473,7 @@ fn only_says_a_new_version_is_out_when_automatic_updates_are_off() {
     assert!(!release.downloaded());
     assert_eq!(
         check::notice("0.7.0", &installation, &release.releases(), &remembered).as_deref(),
-        Some("tql-rust 0.8.0 is out · tql-rust update")
+        Some("tql 0.8.0 is out · tql update")
     );
 }
 
@@ -546,12 +516,11 @@ fn says_nothing_when_it_is_already_the_latest_or_there_are_no_releases_or_github
 }
 
 #[test]
-fn keeps_its_own_record_apart_from_what_tql_remembers() {
+fn remembers_updates_under_the_keys_tql_has_always_used() {
     let remembered = remembered("apart");
     remembered.write(LATEST, "0.8.0");
 
-    assert_eq!(remembered.read("updates.latest"), None);
-    assert!(LATEST.starts_with("tql-rust."));
+    assert_eq!(remembered.read("updates.latest").as_deref(), Some("0.8.0"));
 }
 
 fn update(directory: &Path, arguments: &[&str]) -> (i32, String) {
@@ -578,7 +547,7 @@ fn says_from_the_command_line_what_is_out_and_how_to_get_it_when_it_cannot_updat
     assert_eq!(
         output,
         format!(
-            "tql-rust 9.0.0 is out. You have {}; get it from github.com/VheissuLabs/tql-rust/releases.\n",
+            "tql 9.0.0 is out. You have {}; get it from github.com/VheissuLabs/tql/releases.\n",
             current()
         )
     );
@@ -593,7 +562,7 @@ fn says_so_from_the_command_line_when_it_is_already_the_latest() {
     let (code, output) = update(&scratch("command-latest"), &[]);
 
     assert_eq!(code, 0, "{output}");
-    assert_eq!(output, format!("tql-rust {} is the latest.\n", current()));
+    assert_eq!(output, format!("tql {} is the latest.\n", current()));
 }
 
 #[test]
@@ -606,7 +575,7 @@ fn says_clearly_when_nothing_has_been_released_yet() {
     assert_eq!(code, 1);
     assert!(
         output.contains(
-            "No tql-rust release has been published at github.com/VheissuLabs/tql-rust/releases yet."
+            "No tql release has been published at github.com/VheissuLabs/tql/releases yet."
         ),
         "{output}"
     );
@@ -640,7 +609,7 @@ fn updates_from_the_command_line_and_says_the_next_start_uses_it() {
     assert_eq!(
         output,
         format!(
-            "Updating tql-rust {} to 9.0.0…\nDownloaded 9.0.0 and checked it against its published checksum. It takes over the next time you start tql-rust.\n",
+            "Updating tql {} to 9.0.0…\nDownloaded 9.0.0 and checked it against its published checksum. It takes over the next time you start tql.\n",
             current()
         )
     );
@@ -667,13 +636,13 @@ fn switches_at_once_from_the_command_line_when_it_is_already_a_symlink() {
     assert_eq!(code, 0, "{output}");
     assert!(
         output.ends_with(
-            "Updated to 9.0.0, checked against its published checksum. The next tql-rust you start is the new one.\n"
+            "Updated to 9.0.0, checked against its published checksum. The next tql you start is the new one.\n"
         ),
         "{output}"
     );
     assert_eq!(
         fs::read_link(&target).unwrap(),
-        Path::new(".tql-rust-versions/tql-rust-9.0.0")
+        Path::new(".tql-versions/tql-9.0.0")
     );
 }
 
@@ -716,7 +685,7 @@ fn checks_and_installs_quietly_in_the_background() {
             &store
         )
         .as_deref(),
-        Some("tql-rust 9.0.0 is ready · restart to use it")
+        Some("tql 9.0.0 is ready · restart to use it")
     );
 }
 
@@ -733,35 +702,35 @@ fn stays_quiet_in_the_background_when_nothing_has_been_released() {
 #[test]
 fn the_next_start_switches_to_the_staged_version_and_runs_it() {
     let folder = scratch("next-start");
-    let versions = folder.join(".tql-rust-versions");
+    let versions = folder.join(".tql-versions");
     fs::create_dir_all(&versions).unwrap();
     fs::copy(
-        env!("CARGO_BIN_EXE_tql-rust"),
-        versions.join(format!("tql-rust-{}", current())),
+        env!("CARGO_BIN_EXE_tql"),
+        versions.join(format!("tql-{}", current())),
     )
     .unwrap();
     std::os::unix::fs::symlink(
-        format!(".tql-rust-versions/tql-rust-{}", current()),
-        folder.join("tql-rust"),
+        format!(".tql-versions/tql-{}", current()),
+        folder.join("tql"),
     )
     .unwrap();
-    fs::write(versions.join("tql-rust-9.9.9"), fake_binary("9.9.9")).unwrap();
+    fs::write(versions.join("tql-9.9.9"), fake_binary("9.9.9")).unwrap();
     fs::set_permissions(
-        versions.join("tql-rust-9.9.9"),
+        versions.join("tql-9.9.9"),
         fs::Permissions::from_mode(0o755),
     )
     .unwrap();
-    fs::write(versions.join("next"), "tql-rust-9.9.9").unwrap();
+    fs::write(versions.join("next"), "tql-9.9.9").unwrap();
 
-    let started = std::process::Command::new(folder.join("tql-rust"))
+    let started = std::process::Command::new(folder.join("tql"))
         .arg("--version")
         .output()
         .unwrap();
 
-    assert_eq!(String::from_utf8_lossy(&started.stdout), "tql-rust 9.9.9\n");
+    assert_eq!(String::from_utf8_lossy(&started.stdout), "Tql v9.9.9\n");
     assert_eq!(
-        fs::read_link(folder.join("tql-rust")).unwrap(),
-        Path::new(".tql-rust-versions/tql-rust-9.9.9")
+        fs::read_link(folder.join("tql")).unwrap(),
+        Path::new(".tql-versions/tql-9.9.9")
     );
     assert!(!versions.join("next").exists());
 }

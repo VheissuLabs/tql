@@ -49,3 +49,10 @@ Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
   the user has open on the connection it names, in place of what is there; one undo
   brings back what was. Nothing runs. When several tqls are open on that connection, the
   one used last gets it. The server's instructions add a sentence about it.
+
+## The command line
+
+- **`tql list` and `--help` are laid out by clap**, not Symfony: the same commands, options
+  and descriptions, in clap's usual order and wording for its own flags.
+- **A `config.php` beside the store is not read.** tql read it only when there was no
+  `config.toml`, and every tql release already wrote `config.toml`.

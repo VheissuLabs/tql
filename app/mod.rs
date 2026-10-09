@@ -20,7 +20,7 @@ pub mod tunnel;
 pub mod updates;
 
 pub fn application() -> console::Application {
-    let application = console::Application::new(env!("CARGO_PKG_NAME"), env!("CARGO_PKG_VERSION"))
+    let application = console::Application::new("Tql", concat!("v", env!("CARGO_PKG_VERSION")))
         .config_source("app", include_str!("../config/app.toml"))
         .config_source("commands", include_str!("../config/commands.toml"))
         .command(commands::browse::Browse)

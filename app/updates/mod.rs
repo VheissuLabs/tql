@@ -15,9 +15,8 @@ pub use remembered::Remembered;
 pub use updater::Updater;
 pub use versions::Versions;
 
-pub const BINARY: &str = "tql-rust";
+pub const BINARY: &str = "tql";
 
-pub const TARGET: &str = env!("TQL_RUST_TARGET");
 
 pub fn current_version() -> String {
     version::of(env!("CARGO_PKG_VERSION")).unwrap_or_else(|| "0.0.0".to_string())

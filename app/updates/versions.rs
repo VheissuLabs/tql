@@ -10,16 +10,16 @@ use regex::Regex;
 use super::installation::{self, Installation};
 use super::{BINARY, UpdateFailed, failed, version};
 
-pub const DIRECTORY: &str = ".tql-rust-versions";
+pub const DIRECTORY: &str = ".tql-versions";
 
 pub const NEXT: &str = "next";
 
 pub const KEPT: usize = 3;
 
-pub const STAGING_VARIABLE: &str = "TQL_RUST_STAGING";
+pub const STAGING_VARIABLE: &str = "TQL_STAGING";
 
 static REPORTED: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)^tql-rust v?(\d+\.\d+\.\d+)").unwrap());
+    LazyLock::new(|| Regex::new(r"^Tql v?(\d+\.\d+\.\d+)").unwrap());
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Versions {
@@ -57,7 +57,7 @@ impl Versions {
     pub fn stage(&self, version: &str, binary: &[u8]) -> Result<(), UpdateFailed> {
         if !writable(&self.folder()) {
             return Err(failed(format!(
-                "{} is not writable; run tql-rust update with sudo",
+                "{} is not writable; run tql update with sudo",
                 self.folder().display()
             )));
         }
@@ -227,11 +227,11 @@ mod tests {
     #[test]
     fn reads_the_version_from_its_own_line_not_whatever_else_is_printed() {
         assert_eq!(
-            reported_version("Using something 8.4.26\ntql-rust 0.8.0\n").as_deref(),
+            reported_version("Using something 8.4.26\nTql v0.8.0\n").as_deref(),
             Some("0.8.0")
         );
         assert_eq!(
-            reported_version("tql-rust v0.8.1").as_deref(),
+            reported_version("Tql 0.8.1").as_deref(),
             Some("0.8.1")
         );
         assert_eq!(reported_version("tql 0.8.0\n"), None);
@@ -241,18 +241,18 @@ mod tests {
     fn links_from_inside_the_versions_folder_back_to_the_binary_beside_it() {
         assert_eq!(
             Versions::for_installed(Path::new(
-                "/home/me/.local/bin/.tql-rust-versions/tql-rust-0.8.1"
+                "/home/me/.local/bin/.tql-versions/tql-0.8.1"
             ))
             .link,
-            Path::new("/home/me/.local/bin/tql-rust")
+            Path::new("/home/me/.local/bin/tql")
         );
         assert_eq!(
-            Versions::for_installed(Path::new("/usr/local/bin/tql-rust")).link,
-            Path::new("/usr/local/bin/tql-rust")
+            Versions::for_installed(Path::new("/usr/local/bin/tql")).link,
+            Path::new("/usr/local/bin/tql")
         );
         assert_eq!(
-            Versions::for_installed(Path::new("/usr/local/bin/tql-rust")).file("0.8.0"),
-            Path::new("/usr/local/bin/.tql-rust-versions/tql-rust-0.8.0")
+            Versions::for_installed(Path::new("/usr/local/bin/tql")).file("0.8.0"),
+            Path::new("/usr/local/bin/.tql-versions/tql-0.8.0")
         );
     }
 }
