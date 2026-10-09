@@ -40,6 +40,7 @@ impl Browser {
                 self.headers.clear();
                 self.rows.clear();
                 self.raw.clear();
+                self.kinds.clear();
                 return;
             }
         };
@@ -48,6 +49,8 @@ impl Browser {
         let mut rows = page.rows;
         self.has_more = rows.len() > PAGE;
         rows.truncate(PAGE);
+        self.kinds = page.kinds;
+        self.kinds.truncate(PAGE);
 
         self.last_statement = Some(sql::shown(&page.statement, PAGE));
         self.query.results = false;

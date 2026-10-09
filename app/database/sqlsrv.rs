@@ -20,7 +20,7 @@ use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 use super::schema::keys_by_table;
 use super::{
     Column, Database, Filters, ForeignKey, Index, Outcome, Page, Scalar, Scalars, Sort, Values,
-    delete_statement, insert_statement, outcome_or_affected, refused, single_column_keys,
+    all_text, delete_statement, insert_statement, outcome_or_affected, refused, single_column_keys,
     split_list, update_statement,
 };
 use crate::store::Connection;
@@ -212,6 +212,7 @@ impl SqlServer {
         Ok(Page {
             statement: statement.to_string(),
             headers,
+            kinds: all_text(&rows),
             rows,
         })
     }
@@ -609,7 +610,10 @@ impl Database for SqlServer {
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
         let (headers, rows) = self.fetch(statement, &[], text)?;
         if !headers.is_empty() {
-            return Ok(outcome_or_affected(headers, rows, 0));
+            return Ok(Outcome {
+                kinds: all_text(&rows),
+                ..outcome_or_affected(headers, rows, 0)
+            });
         }
         let affected = self
             .column("select @@rowcount")?

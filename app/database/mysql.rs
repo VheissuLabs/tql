@@ -9,8 +9,8 @@ use mysql::{Conn, DriverError, OptsBuilder, QueryResult, Value};
 use super::schema::keys_by_table;
 use super::tls::{Mode, Tls};
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Scalar, Scalars, Sort, Values,
-    delete_statement, insert_statement, outcome_or_affected, refused, select_page,
+    Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Scalar, Scalars, Sort,
+    Values, delete_statement, insert_statement, outcome_or_affected, refused, select_page,
     single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
@@ -76,6 +76,19 @@ impl MySql {
     }
 }
 
+fn kind(column_type: ColumnType) -> Kind {
+    match column_type {
+        ColumnType::MYSQL_TYPE_TINY
+        | ColumnType::MYSQL_TYPE_SHORT
+        | ColumnType::MYSQL_TYPE_INT24
+        | ColumnType::MYSQL_TYPE_LONG
+        | ColumnType::MYSQL_TYPE_LONGLONG
+        | ColumnType::MYSQL_TYPE_YEAR => Kind::Integer,
+        ColumnType::MYSQL_TYPE_FLOAT | ColumnType::MYSQL_TYPE_DOUBLE => Kind::Float,
+        _ => Kind::Text,
+    }
+}
+
 fn said(error: mysql::Error) -> anyhow::Error {
     match error {
         mysql::Error::MySqlError(server) => anyhow::anyhow!(server.message),
@@ -86,15 +99,21 @@ fn said(error: mysql::Error) -> anyhow::Error {
 fn page_of<P: Protocol>(mut result: QueryResult<'_, '_, '_, P>) -> anyhow::Result<Page> {
     let mut page = Page::default();
     if let Some(set) = result.iter() {
-        page.headers = set
-            .columns()
+        let columns = set.columns();
+        page.headers = columns
             .as_ref()
             .iter()
             .map(|column| column.name_str().into_owned())
             .collect();
+        let kinds: Vec<Kind> = columns
+            .as_ref()
+            .iter()
+            .map(|column| kind(column.column_type()))
+            .collect();
         for row in set {
             page.rows
                 .push(row.map_err(said)?.unwrap().into_iter().map(text).collect());
+            page.kinds.push(kinds.clone());
         }
     }
     Ok(page)
@@ -308,7 +327,10 @@ impl Database for MySql {
         let result = self.connection.query_iter(statement).map_err(said)?;
         let affected = result.affected_rows() as usize;
         let page = page_of(result)?;
-        Ok(outcome_or_affected(page.headers, page.rows, affected))
+        Ok(Outcome {
+            kinds: page.kinds,
+            ..outcome_or_affected(page.headers, page.rows, affected)
+        })
     }
 
     fn quote(&self, identifier: &str) -> String {

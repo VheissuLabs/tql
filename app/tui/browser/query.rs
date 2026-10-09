@@ -343,6 +343,7 @@ impl Browser {
             })
             .collect();
         self.raw = outcome.rows;
+        self.kinds = outcome.kinds;
         self.row_index = 0;
         self.column_index = 0;
         self.column_offset = 0;

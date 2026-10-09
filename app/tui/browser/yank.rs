@@ -38,13 +38,21 @@ impl Browser {
             })
             .unwrap_or_default();
 
+        let kinds = self.kinds.get(self.row_index);
         let object: serde_json::Map<String, Value> = self
             .headers
             .iter()
             .zip(values)
-            .map(|(column, value)| {
-                let kind = types.get(column).map(String::as_str).unwrap_or_default();
-                (column.clone(), json_value(value, kind))
+            .enumerate()
+            .map(|(index, (column, value))| {
+                let typed = match kinds.and_then(|kinds| kinds.get(index)) {
+                    Some(kind) => typed_value(value, *kind),
+                    None => {
+                        let kind = types.get(column).map(String::as_str).unwrap_or_default();
+                        json_value(value, kind)
+                    }
+                };
+                (column.clone(), typed)
             })
             .collect();
         self.yanked(&pretty(&Value::Object(object)), "row");
@@ -54,6 +62,23 @@ impl Browser {
         let reached = self.clipboard.copy(text);
         self.say(format!("yanked {what} to the {} clipboard", reached.name()));
     }
+}
+
+fn typed_value(value: Option<String>, kind: Kind) -> Value {
+    let Some(text) = value else {
+        return Value::Null;
+    };
+    let typed = match kind {
+        Kind::Integer => text.parse::<i64>().ok().map(Value::from),
+        Kind::Float => text
+            .parse::<f64>()
+            .ok()
+            .and_then(serde_json::Number::from_f64)
+            .map(Value::Number),
+        Kind::Boolean => text.parse::<bool>().ok().map(Value::Bool),
+        Kind::Text => document::json(&text),
+    };
+    typed.unwrap_or(Value::String(text))
 }
 
 fn json_value(value: Option<String>, kind: &str) -> Value {

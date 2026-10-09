@@ -41,7 +41,7 @@ use super::palette::{self, Palette};
 use super::schema::Schema;
 use super::sql;
 use super::text::{self, pad, single_line, truncate, window};
-use crate::database::{Database, Direction, Filters, Sort};
+use crate::database::{Database, Direction, Filters, Kind, Sort};
 use crate::settings;
 use crate::store::Connection;
 
@@ -82,6 +82,7 @@ pub struct Browser {
     pub headers: Vec<String>,
     pub rows: Vec<Vec<String>>,
     pub raw: Vec<Vec<Option<String>>>,
+    kinds: Vec<Vec<Kind>>,
     pub edits: Edits,
     pub row_index: usize,
     pub column_index: usize,
@@ -152,6 +153,7 @@ impl Browser {
             headers: Vec::new(),
             rows: Vec::new(),
             raw: Vec::new(),
+            kinds: Vec::new(),
             edits: Edits::default(),
             row_index: 0,
             column_index: 0,

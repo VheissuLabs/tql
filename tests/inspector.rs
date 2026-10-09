@@ -322,3 +322,20 @@ fn yanks_nothing_from_an_empty_table() {
     assert!(clipboard.copies().is_empty());
     assert!(!fake.app.status().contains("yanked"));
 }
+
+#[test]
+fn yanks_each_value_as_what_it_is_stored_as_whatever_the_column_says() {
+    let clipboard = Recorded::default();
+    let mut fake = browser_with(
+        "create table loose (id integer primary key, n, s text, r);
+         insert into loose values (1, 7, '8', 2.5);",
+        clipboard.clone(),
+    );
+
+    fake.press("\tY");
+
+    assert_eq!(
+        clipboard.last().unwrap(),
+        "{\n    \"id\": 1,\n    \"n\": 7,\n    \"s\": \"8\",\n    \"r\": 2.5\n}"
+    );
+}

@@ -49,11 +49,21 @@ pub struct Sort {
     pub direction: Direction,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Kind {
+    #[default]
+    Text,
+    Integer,
+    Float,
+    Boolean,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Page {
     pub statement: String,
     pub headers: Vec<String>,
     pub rows: Vec<Vec<Option<String>>>,
+    pub kinds: Vec<Vec<Kind>>,
 }
 
 pub type Values = Vec<(String, Option<String>)>;
@@ -87,6 +97,7 @@ impl Named for Values {
 pub struct Outcome {
     pub headers: Vec<String>,
     pub rows: Vec<Vec<Option<String>>>,
+    pub kinds: Vec<Vec<Kind>>,
     pub affected: Option<usize>,
 }
 
@@ -345,6 +356,10 @@ pub(crate) fn split_list(list: Option<String>) -> Vec<String> {
         .unwrap_or_default()
 }
 
+pub(crate) fn all_text(rows: &[Vec<Option<String>>]) -> Vec<Vec<Kind>> {
+    rows.iter().map(|row| vec![Kind::Text; row.len()]).collect()
+}
+
 pub(crate) fn outcome_or_affected(
     headers: Vec<String>,
     rows: Vec<Vec<Option<String>>>,
@@ -360,6 +375,7 @@ pub(crate) fn outcome_or_affected(
         headers,
         rows,
         affected: None,
+        ..Outcome::default()
     }
 }
 

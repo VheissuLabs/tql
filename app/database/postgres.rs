@@ -4,15 +4,18 @@ use std::net::Ipv4Addr;
 use std::sync::Arc;
 
 use anyhow::{Context, bail};
+use postgres::types::Type;
+
+type Rows = Vec<Vec<Option<String>>>;
 use postgres::{Client, SimpleQueryMessage};
 use tokio_postgres_rustls::MakeRustlsConnect;
 
 use super::schema::{fill, keys_by_table};
 use super::tls::Tls;
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort, Values, delete_statement,
-    insert_statement, outcome_or_affected, quote_double, refused, select_page, single_column_keys,
-    split_list, update_statement,
+    Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Values,
+    delete_statement, insert_statement, outcome_or_affected, quote_double, refused, select_page,
+    single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 use crate::tunnel::Tunnel;
@@ -69,13 +72,60 @@ impl Postgres {
         })
     }
 
+    fn simple(&mut self, statement: &str) -> anyhow::Result<(Vec<String>, Rows, usize)> {
+        let mut headers = Vec::new();
+        let mut rows = Vec::new();
+        let mut affected = 0;
+        for message in self.client.simple_query(statement)? {
+            match message {
+                SimpleQueryMessage::RowDescription(columns) => {
+                    headers = columns
+                        .iter()
+                        .map(|column| column.name().to_string())
+                        .collect();
+                }
+                SimpleQueryMessage::Row(row) => {
+                    rows.push(
+                        (0..row.len())
+                            .map(|index| row.get(index).map(String::from))
+                            .collect(),
+                    );
+                }
+                SimpleQueryMessage::CommandComplete(count) => affected = count as usize,
+                _ => {}
+            }
+        }
+        Ok((headers, rows, affected))
+    }
+
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
+        let (headers, rows, _) = self.simple(sql)?;
+        Ok(Page {
+            headers,
+            rows,
+            ..Page::default()
+        })
+    }
+
+    fn shown(&mut self, sql: &str) -> anyhow::Result<Page> {
         let outcome = self.run(sql)?;
         Ok(Page {
             headers: outcome.headers,
             rows: outcome.rows,
+            kinds: outcome.kinds,
             ..Page::default()
         })
+    }
+
+    fn filled(statement: &str, values: &[String]) -> anyhow::Result<String> {
+        if values.iter().any(|value| value.contains('\0')) {
+            bail!("a value cannot contain a NUL character in PostgreSQL");
+        }
+        Ok(fill(statement, values, escaped_literal))
+    }
+
+    fn query_with(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
+        self.query(&Self::filled(statement, values)?)
     }
 
     fn column(&mut self, sql: &str) -> anyhow::Result<Vec<String>> {
@@ -85,6 +135,35 @@ impl Postgres {
             .into_iter()
             .filter_map(|mut row| row.swap_remove(0))
             .collect())
+    }
+}
+
+impl Postgres {
+    fn kinds(&mut self, statement: &str, width: usize) -> Option<Vec<Kind>> {
+        let prepared = self.client.prepare(statement).ok()?;
+        let kinds: Vec<Kind> = prepared
+            .columns()
+            .iter()
+            .map(|column| match *column.type_() {
+                Type::INT2 | Type::INT4 | Type::INT8 => Kind::Integer,
+                Type::BOOL => Kind::Boolean,
+                _ => Kind::Text,
+            })
+            .collect();
+        (kinds.len() == width).then_some(kinds)
+    }
+}
+
+fn spell_booleans(row: &mut [Option<String>], kinds: &[Kind]) {
+    for (value, kind) in row.iter_mut().zip(kinds) {
+        if *kind != Kind::Boolean {
+            continue;
+        }
+        *value = match value.as_deref() {
+            Some("t") => Some("true".to_string()),
+            Some("f") => Some("false".to_string()),
+            _ => value.take(),
+        };
     }
 }
 
@@ -141,7 +220,7 @@ impl Database for Postgres {
         {
             bail!("a filter value cannot contain a NUL character in PostgreSQL");
         }
-        let mut rows = self.query(&page(
+        let mut rows = self.shown(&page(
             condition
                 .as_ref()
                 .map(|condition| condition.render(escaped_literal)),
@@ -236,44 +315,34 @@ impl Database for Postgres {
     }
 
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
-        let mut headers = Vec::new();
-        let mut rows = Vec::new();
-        let mut affected = 0;
-        for message in self.client.simple_query(statement)? {
-            match message {
-                SimpleQueryMessage::RowDescription(columns) => {
-                    headers = columns
-                        .iter()
-                        .map(|column| column.name().to_string())
-                        .collect();
-                }
-                SimpleQueryMessage::Row(row) => {
-                    rows.push(
-                        (0..row.len())
-                            .map(|index| row.get(index).map(String::from))
-                            .collect(),
-                    );
-                }
-                SimpleQueryMessage::CommandComplete(count) => affected = count as usize,
-                _ => {}
+        let (headers, mut rows, affected) = self.simple(statement)?;
+        if headers.is_empty() {
+            return Ok(outcome_or_affected(headers, rows, affected));
+        }
+        let kinds = self.kinds(statement, headers.len());
+        if let Some(kinds) = &kinds {
+            for row in &mut rows {
+                spell_booleans(row, kinds);
             }
         }
-        Ok(outcome_or_affected(headers, rows, affected))
+        Ok(Outcome {
+            kinds: kinds
+                .map(|kinds| vec![kinds; rows.len()])
+                .unwrap_or_default(),
+            ..outcome_or_affected(headers, rows, affected)
+        })
     }
 
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
-        if values.iter().any(|value| value.contains('\0')) {
-            bail!("a value cannot contain a NUL character in PostgreSQL");
-        }
-        let filled = fill(statement, values, escaped_literal);
-        let mut page = self.query(&filled)?;
+        let filled = Self::filled(statement, values)?;
+        let mut page = self.shown(&filled)?;
         page.statement = filled;
         Ok(page)
     }
 
     fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
         Ok(self
-            .select(
+            .query_with(
                 "select a.attname as name, t.typname as type_name, not a.attnotnull as nullable, \
                  (select pg_get_expr(adbin, adrelid) from pg_attrdef where c.oid = pg_attrdef.adrelid and pg_attrdef.adnum = a.attnum) as default, \
                  a.attgenerated as generated \
@@ -349,7 +418,7 @@ impl Database for Postgres {
 }
 
 fn truthy(value: &Option<String>) -> bool {
-    value.as_deref() == Some("t")
+    matches!(value.as_deref(), Some("t" | "true"))
 }
 
 #[cfg(test)]

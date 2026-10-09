@@ -9,4 +9,4 @@ create table shipments (id int primary key, order_id int references orders(id), 
 create table tags (id int primary key, name varchar(30) not null unique);
 create table taggings (customer_id int references customers(id), tag_id int references tags(id), created_at date);
 create table tickets (id serial primary key, customer_id int not null references customers(id), subject varchar(200), status varchar(10) default 'open');
-create table wallets (id int primary key, customer_id int unique references customers(id), balance decimal(8, 2));
+create table wallets (id int primary key, customer_id int unique references customers(id), balance decimal(8, 2), frozen boolean not null default false);

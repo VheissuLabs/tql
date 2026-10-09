@@ -6,9 +6,9 @@ use rusqlite::types::ValueRef;
 
 use super::schema::keys_by_table;
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Scalar, Scalars, Sort, Values,
-    delete_statement, insert_statement, outcome_or_affected, primary_key, quote_double, refused,
-    select_page, single_column_keys, split_list, update_statement,
+    Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Scalar, Scalars, Sort,
+    Values, delete_statement, insert_statement, outcome_or_affected, primary_key, quote_double,
+    refused, select_page, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 
@@ -63,7 +63,7 @@ impl Database for Sqlite {
             .as_ref()
             .map(|condition| condition.bindings())
             .unwrap_or_default();
-        let (headers, rows) = fetch(
+        let (headers, rows, kinds) = fetch(
             &mut self.connection.prepare(&sql)?,
             rusqlite::params_from_iter(bindings),
         )?;
@@ -72,6 +72,7 @@ impl Database for Sqlite {
             statement: page(condition.as_ref().map(|condition| condition.readable())),
             headers,
             rows,
+            kinds,
         })
     }
 
@@ -81,8 +82,11 @@ impl Database for Sqlite {
             let affected = prepared.execute([])?;
             return Ok(outcome_or_affected(Vec::new(), Vec::new(), affected));
         }
-        let (headers, rows) = fetch(&mut prepared, [])?;
-        Ok(outcome_or_affected(headers, rows, 0))
+        let (headers, rows, kinds) = fetch(&mut prepared, [])?;
+        Ok(Outcome {
+            kinds,
+            ..outcome_or_affected(headers, rows, 0)
+        })
     }
 
     fn scalars(&mut self, statement: &str) -> anyhow::Result<Scalars> {
@@ -115,7 +119,7 @@ impl Database for Sqlite {
     }
 
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
-        let (headers, rows) = fetch(
+        let (headers, rows, kinds) = fetch(
             &mut self.connection.prepare(statement)?,
             rusqlite::params_from_iter(values),
         )?;
@@ -123,6 +127,7 @@ impl Database for Sqlite {
             statement: statement.to_string(),
             headers,
             rows,
+            kinds,
         })
     }
 
@@ -273,11 +278,12 @@ fn plain(error: rusqlite::Error) -> anyhow::Error {
 }
 
 type Rows = Vec<Vec<Option<String>>>;
+type Kinds = Vec<Vec<Kind>>;
 
 fn fetch(
     statement: &mut rusqlite::Statement,
     bindings: impl rusqlite::Params,
-) -> anyhow::Result<(Vec<String>, Rows)> {
+) -> anyhow::Result<(Vec<String>, Rows, Kinds)> {
     let headers: Vec<String> = statement
         .column_names()
         .into_iter()
@@ -285,12 +291,30 @@ fn fetch(
         .collect();
     let width = headers.len();
 
-    let rows = statement.query_map(bindings, |row| {
+    let typed = statement.query_map(bindings, |row| {
         (0..width)
-            .map(|index| Ok(text(row.get_ref(index)?)))
-            .collect()
+            .map(|index| {
+                let value = row.get_ref(index)?;
+                Ok((text(value), kind(value)))
+            })
+            .collect::<rusqlite::Result<Vec<_>>>()
     })?;
-    Ok((headers, rows.collect::<Result<_, _>>()?))
+    let mut rows = Vec::new();
+    let mut kinds = Vec::new();
+    for row in typed {
+        let (values, row_kinds) = row?.into_iter().unzip();
+        rows.push(values);
+        kinds.push(row_kinds);
+    }
+    Ok((headers, rows, kinds))
+}
+
+fn kind(value: ValueRef) -> Kind {
+    match value {
+        ValueRef::Integer(_) => Kind::Integer,
+        ValueRef::Real(_) => Kind::Float,
+        _ => Kind::Text,
+    }
 }
 
 fn scalar(value: ValueRef) -> Scalar {

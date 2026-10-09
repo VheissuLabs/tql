@@ -736,6 +736,10 @@ impl Browser {
             .iter()
             .map(|values| self.added_row(values))
             .unzip();
+        let added: Vec<Vec<Kind>> = raw.iter().map(|row| vec![Kind::Text; row.len()]).collect();
+        if !self.kinds.is_empty() {
+            self.kinds.splice(0..0, added);
+        }
         self.raw.splice(0..0, raw);
         self.rows.splice(0..0, shown);
     }
