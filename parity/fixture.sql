@@ -38,3 +38,4 @@ select 7, 'Ticket number ' || i || ' about an order that went somewhere unexpect
 from n;
 insert into tickets (customer_id, subject) values (3, 'Wrong colour');
 insert into wallets values (1, 7, 42.5), (2, 3, 0);
+create view big_spenders as select customer_id, sum(total) as spent from orders group by customer_id;

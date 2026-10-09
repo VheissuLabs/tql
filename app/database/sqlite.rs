@@ -32,7 +32,8 @@ impl Sqlite {
 impl Database for Sqlite {
     fn tables(&mut self) -> anyhow::Result<Vec<String>> {
         let mut statement = self.connection.prepare(
-            "select name from sqlite_master where type in ('table', 'view') and name not like 'sqlite_%' order by name",
+            "select name from pragma_table_list where type in ('table', 'virtual') \
+             and name not like 'sqlite\\_%' escape '\\' order by schema, name",
         )?;
         let names = statement.query_map([], |row| row.get(0))?;
         Ok(names.collect::<Result<_, _>>()?)

@@ -109,8 +109,8 @@ fn escaped_literal(value: &str) -> String {
 impl Database for Postgres {
     fn tables(&mut self) -> anyhow::Result<Vec<String>> {
         self.column(
-            "select table_name from information_schema.tables \
-             where table_schema = current_schema() and table_type in ('BASE TABLE', 'VIEW') order by table_name",
+            "select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace \
+             where c.relkind in ('r', 'p') and n.nspname = current_schema() order by c.relname",
         )
     }
 
