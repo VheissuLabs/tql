@@ -21,6 +21,10 @@ const DID_NOT_COME_UP: &str = "the ssh tunnel did not come up";
 
 const WAIT: Duration = Duration::from_secs(10);
 
+// ssh that answers on the port must still be running a moment later, so a
+// port someone else holds is not taken for the tunnel while ssh fails.
+const SETTLE: Duration = Duration::from_millis(150);
+
 static OPEN: LazyLock<Mutex<HashMap<String, Weak<Tunnel>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
 
@@ -203,7 +207,8 @@ impl Tunnel {
                 return false;
             }
             if TcpStream::connect_timeout(&address, Duration::from_millis(200)).is_ok() {
-                return true;
+                thread::sleep(SETTLE);
+                return self.running();
             }
             thread::sleep(Duration::from_millis(100));
         }
