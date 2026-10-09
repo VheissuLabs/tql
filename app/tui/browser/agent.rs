@@ -36,6 +36,7 @@ impl Browser {
             || self.databases.is_some()
             || self.link_picker.is_some()
             || self.filter_form.is_some()
+            || self.question.is_some()
             || self.command.is_some()
             || self.structure.is_some()
             || self.inspector.is_some()

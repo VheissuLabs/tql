@@ -1,0 +1,500 @@
+{
+    "anthropic": {
+        "model": "claude-sonnet-5",
+        "path": "/v1/messages",
+        "headers": {
+            "x-api-key": "KEY",
+            "anthropic-version": "2023-06-01",
+            "anthropic-beta": "web-fetch-2025-09-10"
+        },
+        "body": {
+            "model": "claude-sonnet-5",
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Q?"
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": 64000,
+            "system": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA",
+            "output_config": {
+                "format": {
+                    "type": "json_schema",
+                    "schema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "query": {
+                                "type": "string"
+                            },
+                            "explanation": {
+                                "type": "string"
+                            },
+                            "notes": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "required": [
+                            "query",
+                            "explanation"
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "openai": {
+        "model": "gpt-5",
+        "path": "/v1/responses",
+        "headers": {
+            "authorization": "Bearer KEY"
+        },
+        "body": {
+            "model": "gpt-5",
+            "input": [
+                {
+                    "role": "system",
+                    "content": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA"
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": "Q?"
+                        }
+                    ]
+                }
+            ],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "schema_definition",
+                    "schema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "query": {
+                                "type": "string"
+                            },
+                            "explanation": {
+                                "type": "string"
+                            },
+                            "notes": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "required": [
+                            "query",
+                            "explanation"
+                        ]
+                    },
+                    "strict": false
+                }
+            },
+            "include": [
+                "reasoning.encrypted_content"
+            ]
+        }
+    },
+    "azure": {
+        "model": "gpt-4o",
+        "path": "/openai/v1/responses",
+        "headers": {
+            "api-key": "KEY"
+        },
+        "body": {
+            "model": "gpt-4o",
+            "input": [
+                {
+                    "role": "system",
+                    "content": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA"
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": "Q?"
+                        }
+                    ]
+                }
+            ],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "schema_definition",
+                    "schema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "query": {
+                                "type": "string"
+                            },
+                            "explanation": {
+                                "type": "string"
+                            },
+                            "notes": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "required": [
+                            "query",
+                            "explanation"
+                        ]
+                    },
+                    "strict": false
+                }
+            }
+        }
+    },
+    "gemini": {
+        "model": "gemini-2.5-pro",
+        "path": "/v1beta/interactions",
+        "headers": {
+            "x-goog-api-key": "KEY"
+        },
+        "body": {
+            "model": "gemini-2.5-pro",
+            "input": [
+                {
+                    "type": "user_input",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Q?"
+                        }
+                    ]
+                }
+            ],
+            "store": false,
+            "system_instruction": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA",
+            "response_format": {
+                "type": "text",
+                "mime_type": "application/json",
+                "schema": {
+                    "additionalProperties": false,
+                    "properties": {
+                        "query": {
+                            "type": "string"
+                        },
+                        "explanation": {
+                            "type": "string"
+                        },
+                        "notes": {
+                            "type": "string"
+                        }
+                    },
+                    "type": "object",
+                    "required": [
+                        "query",
+                        "explanation"
+                    ]
+                }
+            }
+        }
+    },
+    "groq": {
+        "model": "llama-3.3-70b-versatile",
+        "path": "/openai/v1/chat/completions",
+        "headers": {
+            "authorization": "Bearer KEY"
+        },
+        "body": {
+            "model": "llama-3.3-70b-versatile",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA"
+                },
+                {
+                    "role": "user",
+                    "content": "Q?"
+                }
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "schema_definition",
+                    "schema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "query": {
+                                "type": "string"
+                            },
+                            "explanation": {
+                                "type": "string"
+                            },
+                            "notes": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "required": [
+                            "query",
+                            "explanation"
+                        ]
+                    },
+                    "strict": false
+                }
+            }
+        }
+    },
+    "mistral": {
+        "model": "mistral-large-latest",
+        "path": "/v1/chat/completions",
+        "headers": {
+            "authorization": "Bearer KEY"
+        },
+        "body": {
+            "model": "mistral-large-latest",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA"
+                },
+                {
+                    "role": "user",
+                    "content": "Q?"
+                }
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "schema_definition",
+                    "schema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "query": {
+                                "type": "string"
+                            },
+                            "explanation": {
+                                "type": "string"
+                            },
+                            "notes": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "required": [
+                            "query",
+                            "explanation"
+                        ]
+                    },
+                    "strict": false
+                }
+            }
+        }
+    },
+    "deepseek": {
+        "model": "deepseek-chat",
+        "path": "/v1/chat/completions",
+        "headers": {
+            "authorization": "Bearer KEY"
+        },
+        "body": {
+            "model": "deepseek-chat",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA\n\nYou MUST respond EXCLUSIVELY with a JSON object that strictly adheres to the following schema. Do NOT explain or add other content. Validate your response against this schema:\n{\n    \"additionalProperties\": false,\n    \"properties\": {\n        \"query\": {\n            \"type\": \"string\"\n        },\n        \"explanation\": {\n            \"type\": \"string\"\n        },\n        \"notes\": {\n            \"type\": \"string\"\n        }\n    },\n    \"type\": \"object\",\n    \"required\": [\n        \"query\",\n        \"explanation\"\n    ]\n}"
+                },
+                {
+                    "role": "user",
+                    "content": "Q?"
+                }
+            ],
+            "response_format": {
+                "type": "json_object"
+            }
+        }
+    },
+    "xai": {
+        "model": "grok-4",
+        "path": "/v1/responses",
+        "headers": {
+            "authorization": "Bearer KEY"
+        },
+        "body": {
+            "model": "grok-4",
+            "input": [
+                {
+                    "role": "system",
+                    "content": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA"
+                },
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "input_text",
+                            "text": "Q?"
+                        }
+                    ]
+                }
+            ],
+            "text": {
+                "format": {
+                    "type": "json_schema",
+                    "name": "schema_definition",
+                    "schema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "query": {
+                                "type": "string"
+                            },
+                            "explanation": {
+                                "type": "string"
+                            },
+                            "notes": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "required": [
+                            "query",
+                            "explanation"
+                        ]
+                    },
+                    "strict": false
+                }
+            }
+        }
+    },
+    "openrouter": {
+        "model": "anthropic/claude-sonnet-5",
+        "path": "/api/v1/chat/completions",
+        "headers": {
+            "authorization": "Bearer KEY"
+        },
+        "body": {
+            "model": "anthropic/claude-sonnet-5",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA"
+                },
+                {
+                    "role": "user",
+                    "content": "Q?"
+                }
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "schema_definition",
+                    "schema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "query": {
+                                "type": "string"
+                            },
+                            "explanation": {
+                                "type": "string"
+                            },
+                            "notes": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "required": [
+                            "query",
+                            "explanation"
+                        ]
+                    },
+                    "strict": false
+                }
+            }
+        }
+    },
+    "ollama": {
+        "model": "llama3.2",
+        "path": "/api/chat",
+        "headers": {
+            "authorization": "Bearer KEY"
+        },
+        "body": {
+            "model": "llama3.2",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA\n\nYou MUST respond EXCLUSIVELY with a JSON object that strictly adheres to the following schema. Do NOT explain or add other content. Validate your response against this schema:\n{\n    \"additionalProperties\": false,\n    \"properties\": {\n        \"query\": {\n            \"type\": \"string\"\n        },\n        \"explanation\": {\n            \"type\": \"string\"\n        },\n        \"notes\": {\n            \"type\": \"string\"\n        }\n    },\n    \"type\": \"object\",\n    \"required\": [\n        \"query\",\n        \"explanation\"\n    ]\n}"
+                },
+                {
+                    "role": "user",
+                    "content": "Q?"
+                }
+            ],
+            "stream": false,
+            "format": {
+                "additionalProperties": false,
+                "properties": {
+                    "query": {
+                        "type": "string"
+                    },
+                    "explanation": {
+                        "type": "string"
+                    },
+                    "notes": {
+                        "type": "string"
+                    }
+                },
+                "type": "object",
+                "required": [
+                    "query",
+                    "explanation"
+                ]
+            }
+        }
+    },
+    "openai-compatible": {
+        "model": "M",
+        "path": "/v1/chat/completions",
+        "headers": {
+            "authorization": "Bearer KEY"
+        },
+        "body": {
+            "model": "M",
+            "messages": [
+                {
+                    "role": "system",
+                    "content": "You write a single SQL query for a sqlite database, for someone\nwho knows Eloquent but not much SQL.\n\nRules:\n- Return exactly one statement. Never several, never a transaction.\n- Only read data: select, with, show, explain. Never insert, update,\n  delete, drop, alter, truncate, grant or create. If the question asks\n  for a write, explain in the notes what it would take and return a\n  select that shows the rows it would affect.\n- Use only the tables and columns in the schema below. If the question\n  cannot be answered with them, say so in the notes and return an empty\n  query rather than inventing a column.\n- Add a limit unless the question is an aggregate.\n- Quote identifiers the way sqlite does.\n- Write it over several lines so it can be read.\n\nThe explanation is for someone learning SQL. Say what each clause is\ndoing in plain words, in two or three sentences. No preamble.\n\nThe schema:\n\nSCHEMA"
+                },
+                {
+                    "role": "user",
+                    "content": "Q?"
+                }
+            ],
+            "response_format": {
+                "type": "json_schema",
+                "json_schema": {
+                    "name": "schema_definition",
+                    "schema": {
+                        "additionalProperties": false,
+                        "properties": {
+                            "query": {
+                                "type": "string"
+                            },
+                            "explanation": {
+                                "type": "string"
+                            },
+                            "notes": {
+                                "type": "string"
+                            }
+                        },
+                        "type": "object",
+                        "required": [
+                            "query",
+                            "explanation"
+                        ]
+                    },
+                    "strict": false
+                }
+            }
+        }
+    }
+}

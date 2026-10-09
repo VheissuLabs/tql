@@ -1,4 +1,5 @@
 pub mod agent;
+pub mod ai;
 pub mod argv;
 pub mod commands;
 pub mod config_file;

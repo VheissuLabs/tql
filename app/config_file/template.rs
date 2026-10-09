@@ -293,8 +293,6 @@ pub const SETTINGS: &[Setting] = &[
     ),
 ];
 
-pub const NOT_YET: &[&str] = &["ai.provider", "ai.model", "ai.timeout", "ai.url", "ai.key"];
-
 const NOTES: &[(&str, &str)] = &[
     (
         "theme",
@@ -375,12 +373,12 @@ mod tests {
     }
 
     #[test]
-    fn every_setting_is_read_or_listed_as_not_yet_ported() {
+    fn every_setting_is_read() {
         let table: toml::Table = toml::from_str(&render()).unwrap();
         for setting in SETTINGS {
             let name = format!("{}.{}", setting.section, setting.key);
             let read = Settings::default().set(&name, &table[setting.section][setting.key]);
-            assert_ne!(read, NOT_YET.contains(&name.as_str()), "{name}");
+            assert!(read, "{name}");
         }
     }
 

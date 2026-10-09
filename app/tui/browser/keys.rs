@@ -301,12 +301,9 @@ impl Browser {
             Action::Sql | Action::FocusSql => self.open_query(),
             Action::History => self.open_history(),
             Action::Palette => self.open_palette(),
+            Action::Ask => self.open_question(),
             Action::Escape => self.escape(),
             Action::Redraw => {}
-            other => {
-                let description = keymap::binding(other).description;
-                self.say(format!("{description}: not ported yet"));
-            }
         }
         Flow::Continue
     }

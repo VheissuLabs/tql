@@ -1,0 +1,192 @@
+[
+  {
+    "name": "ask-open",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a"
+    ]
+  },
+  {
+    "name": "ask-typed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "how many customers"
+    ]
+  },
+  {
+    "name": "ask-two-lines",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "first line",
+      "\u001b[13;2u",
+      "second line"
+    ]
+  },
+  {
+    "name": "ask-alt-enter",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "one",
+      "\u001b\r",
+      "two"
+    ]
+  },
+  {
+    "name": "ask-cursor-moved",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "count them",
+      "\u001b[D",
+      "\u001b[D",
+      "\u001b[D"
+    ]
+  },
+  {
+    "name": "ask-cursor-home",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "count them",
+      "\u001b[H"
+    ]
+  },
+  {
+    "name": "ask-wrapped",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "show me every customer who has placed more than three orders this year, with their email and the total they spent, biggest first"
+    ]
+  },
+  {
+    "name": "ask-wrapped-cursor-back",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "show me every customer who has placed more than three orders this year, with their email and the total they spent, biggest first",
+      "\u001b[H"
+    ]
+  },
+  {
+    "name": "ask-long-word",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+    ]
+  },
+  {
+    "name": "ask-tab",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "\t",
+      "x"
+    ]
+  },
+  {
+    "name": "ask-closed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "count them",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "ask-empty-enter",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "\n"
+    ]
+  },
+  {
+    "name": "ask-blank-enter",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "   ",
+      "\n"
+    ]
+  },
+  {
+    "name": "ask-backspace",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "a",
+      "count themx",
+      ""
+    ]
+  },
+  {
+    "name": "ask-narrow",
+    "size": [
+      60,
+      24
+    ],
+    "keys": [
+      "a",
+      "show me every customer who has placed more than three orders this year, with their email and the total they spent, biggest first"
+    ]
+  },
+  {
+    "name": "ask-from-the-grid",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "j",
+      "a",
+      "rows please"
+    ]
+  }
+]

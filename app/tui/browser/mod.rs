@@ -6,6 +6,7 @@ use crate::live::Live;
 use crate::terminal::prelude::*;
 
 mod agent;
+mod ask;
 mod command_palette;
 mod databases;
 mod editing;
@@ -23,6 +24,7 @@ mod structure;
 mod vim;
 mod yank;
 
+pub use ask::Question;
 pub use editing::Edits;
 pub use inspect::Inspector;
 use links::{Jump, LinkPicker};
@@ -126,6 +128,8 @@ pub struct Browser {
     link_picker: Option<LinkPicker>,
     clipboard: Box<dyn Clipboard>,
     live: Option<Live>,
+    pub question: Option<Question>,
+    ai_environment: std::sync::Arc<crate::ai::Environment>,
 }
 
 impl Browser {
@@ -199,6 +203,8 @@ impl Browser {
             link_picker: None,
             clipboard: Box::new(Recorded::default()),
             live: None,
+            question: None,
+            ai_environment: ask::environment(),
         };
         if undecided {
             browser.open_databases();
@@ -335,6 +341,10 @@ impl Tui for Browser {
             self.type_into_filter_form(key);
             return Flow::Continue;
         }
+        if self.question.is_some() {
+            self.type_into_question(key);
+            return Flow::Continue;
+        }
         if self.command.is_some() {
             return self.type_into_command(key);
         }
@@ -387,6 +397,7 @@ impl Tui for Browser {
             || self.palette.is_some()
             || self.databases.is_some()
             || self.filter_form.is_some()
+            || self.question.is_some()
             || self.mode == Mode::Help
             || self.modal_over_grid()
         {
@@ -409,6 +420,9 @@ impl Tui for Browser {
     }
 
     fn idle(&mut self) -> bool {
+        if self.wait_for_answer() {
+            return true;
+        }
         if self.take_from_agent() {
             return true;
         }
