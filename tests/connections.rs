@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use app::encrypter::Encrypter;
 use app::store::{Connection, Store};
 use app::store_writer::{Field, StoreWriter};
+use app::terminal::Fake;
 use app::tui::{Picker, Places};
-use zerorust_tui::Fake;
 
 const SAVE: &str = "\x13";
 

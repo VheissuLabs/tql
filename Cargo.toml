@@ -16,12 +16,15 @@ aes = "0.8"
 anyhow = "1.0.104"
 base64 = "0.22"
 cbc = "0.1"
+clap = { version = "4.6.7", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions", "color", "string"] }
+dotenvy = "0.15.7"
 flate2 = "1.1.10"
 getrandom = "0.3"
 hmac = "0.12"
 jiff = "0.2.37"
 mysql = { version = "28.0.3", default-features = false, features = ["minimal", "rustls-tls-ring"] }
 postgres = "0.19.14"
+ratatui = "0.30.2"
 regex = "1.13.1"
 rusqlite = { version = "0.40.2", features = ["bundled"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
@@ -37,11 +40,6 @@ toml = "1.1.6"
 unicode-width = "0.2.2"
 ureq = "3.4.2"
 webpki-roots = "1"
-zerorust = { path = "/Users/karlm/Code/zeroRust/zerorust" }
-zerorust-tui = { path = "/Users/karlm/Code/zeroRust/zerorust-tui" }
-
-[build-dependencies]
-zerorust-build = { path = "/Users/karlm/Code/zeroRust/zerorust-build" }
 
 [workspace]
 

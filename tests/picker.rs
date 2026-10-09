@@ -1,6 +1,6 @@
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::Picker;
-use zerorust_tui::Fake;
 
 fn connections() -> Vec<Connection> {
     vec![

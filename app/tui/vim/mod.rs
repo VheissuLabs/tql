@@ -4,7 +4,7 @@ mod range;
 mod text;
 mod text_objects;
 
-use zerorust_tui::Key;
+use crate::terminal::Key;
 
 use super::editor::QueryEditor;
 use motions::kind;

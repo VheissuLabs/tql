@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use app::database::{self, Filter, Filters, Joiner, Sort};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::{Browser, Cell, Focus};
-use zerorust_tui::Fake;
 
 const ESCAPE: &str = "\x1b";
 const SHIFT_TAB: &str = "\x1b[Z";

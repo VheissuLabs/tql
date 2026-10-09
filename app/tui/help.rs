@@ -1,4 +1,4 @@
-use zerorust_tui::prelude::*;
+use crate::terminal::prelude::*;
 
 use super::chrome::theme;
 use super::keymap::{self, Action};

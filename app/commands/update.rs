@@ -1,4 +1,4 @@
-use zerorust::prelude::*;
+use crate::console::prelude::*;
 
 use crate::config_file;
 use crate::paths;
@@ -9,10 +9,22 @@ use crate::updates::{
     self, Installation, Releases, Remembered, Unavailable, Updater, Versions, check, version,
 };
 
-#[command(
-    "update {--background : Check and update quietly, the way tql-rust does once a day by itself}",
-    description = "Update tql-rust to the latest release"
-)]
+pub struct Update;
+
+impl Command for Update {
+    fn signature(&self) -> &str {
+        "update {--background : Check and update quietly, the way tql-rust does once a day by itself}"
+    }
+
+    fn description(&self) -> &str {
+        "Update tql-rust to the latest release"
+    }
+
+    fn execute(&self, cmd: &mut Cmd) -> Result {
+        update(cmd)
+    }
+}
+
 fn update(cmd: &mut Cmd) -> Result {
     let loaded = config_file::prepare(&paths::config_file());
     let automatic = loaded.settings.update_automatic;

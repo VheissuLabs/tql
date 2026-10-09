@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use zerorust::prelude::*;
+use crate::console::prelude::*;
 
 use crate::config_file;
 use crate::database::{self, Database, Exporter};
@@ -11,10 +11,22 @@ use crate::store::{Connection, Store};
 
 const EVERY_TABLE: &str = "every table";
 
-#[command(
-    "export {connection? : The tql connection name, asked for when left out} {table? : The table to export, or every table when omitted} {--sql= : Where to write the file, a path or a directory} {--database= : Which database on the server, for a connection that names none} {--limit= : Export at most this many rows per table} {--list : List the tables in the connection and stop}",
-    description = "Export a table, or a whole database, to re-importable SQL"
-)]
+pub struct Export;
+
+impl Command for Export {
+    fn signature(&self) -> &str {
+        "export {connection? : The tql connection name, asked for when left out} {table? : The table to export, or every table when omitted} {--sql= : Where to write the file, a path or a directory} {--database= : Which database on the server, for a connection that names none} {--limit= : Export at most this many rows per table} {--list : List the tables in the connection and stop}"
+    }
+
+    fn description(&self) -> &str {
+        "Export a table, or a whole database, to re-importable SQL"
+    }
+
+    fn execute(&self, cmd: &mut Cmd) -> Result {
+        export(cmd)
+    }
+}
+
 fn export(cmd: &mut Cmd) -> Result {
     let loaded = config_file::prepare(&paths::config_file());
     if let Some(error) = &loaded.error {
@@ -185,7 +197,10 @@ fn named_database(cmd: &mut Cmd, connection: &mut Connection) -> Option<bool> {
     }
 
     if !cmd.is_interactive() {
-        cmd.error(format!("[{}] is a server, not a database.", connection.name));
+        cmd.error(format!(
+            "[{}] is a server, not a database.",
+            connection.name
+        ));
         cmd.line("  name one with --database=.");
         return None;
     }

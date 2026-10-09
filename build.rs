@@ -3,5 +3,4 @@ fn main() {
         "cargo:rustc-env=TQL_RUST_TARGET={}",
         std::env::var("TARGET").unwrap_or_default()
     );
-    zerorust_build::discover();
 }

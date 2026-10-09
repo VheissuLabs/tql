@@ -2,8 +2,8 @@ use std::time::Instant;
 
 use app::database;
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::Browser;
-use zerorust_tui::Fake;
 
 #[test]
 #[ignore]

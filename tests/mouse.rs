@@ -1,7 +1,7 @@
 use app::settings::{self, Settings};
 use app::store::Connection;
+use app::terminal::{Fake, Tui};
 use app::tui::{Browser, Picker};
-use zerorust_tui::{Fake, Tui};
 
 fn connections() -> Vec<Connection> {
     vec![

@@ -1,8 +1,8 @@
 use std::ops::Range;
 use std::sync::LazyLock;
 
+use crate::terminal::prelude::*;
 use regex::Regex;
-use zerorust_tui::prelude::*;
 
 use super::chrome::theme;
 use super::editor::QueryEditor;

@@ -3,8 +3,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use app::database::{self, Column, Index, Link, links};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::Browser;
-use zerorust_tui::Fake;
 
 const LINKED: &str = "
     create table artists (id integer primary key, name text not null);

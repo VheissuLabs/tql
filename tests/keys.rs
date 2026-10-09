@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use app::database;
 use app::settings::{self, Settings};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::{Browser, Focus};
-use zerorust_tui::Fake;
 
 fn fixture(name: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!(
