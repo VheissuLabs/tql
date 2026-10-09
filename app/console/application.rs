@@ -38,6 +38,7 @@ struct Streams<'a> {
     err: &'a mut dyn Write,
     ansi: bool,
     terminal: bool,
+    piped: bool,
 }
 
 impl Application {
@@ -85,6 +86,7 @@ impl Application {
                 err: &mut io::stderr().lock(),
                 ansi,
                 terminal: io::stdin().is_terminal(),
+                piped: !stdout.is_terminal(),
             },
         );
 
@@ -109,6 +111,7 @@ impl Application {
                 err: &mut err,
                 ansi: false,
                 terminal: false,
+                piped: true,
             },
         );
 
@@ -126,6 +129,7 @@ impl Application {
             err,
             ansi,
             terminal,
+            piped,
         } = streams;
 
         let signatures = match self.signatures() {
@@ -224,10 +228,12 @@ impl Application {
             input: Input::from_matches(&signatures[index], sub_matches),
             config: &config,
             out,
+            err,
             reader,
             ansi,
             interactive: !global_flag("no-interaction"),
             terminal,
+            piped,
             app_name: &self.name,
             app_version: &self.version,
         };
@@ -299,7 +305,8 @@ impl Application {
             .zip(&self.commands)
             .map(|(signature, command)| {
                 let clap = input::to_clap(signature, command.description())
-                    .visible_aliases(command.aliases().iter().copied());
+                    .visible_aliases(command.aliases().iter().copied())
+                    .hide(command.hidden());
                 match command.help() {
                     "" => clap,
                     help => clap.after_help(styled_help(help)),

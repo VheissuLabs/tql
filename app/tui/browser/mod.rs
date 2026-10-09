@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use crate::live::Live;
 use crate::terminal::prelude::*;
 
+mod agent;
 mod command_palette;
 mod databases;
 mod editing;
@@ -123,6 +125,7 @@ pub struct Browser {
     jumps: Vec<Jump>,
     link_picker: Option<LinkPicker>,
     clipboard: Box<dyn Clipboard>,
+    live: Option<Live>,
 }
 
 impl Browser {
@@ -195,6 +198,7 @@ impl Browser {
             jumps: Vec::new(),
             link_picker: None,
             clipboard: Box::new(Recorded::default()),
+            live: None,
         };
         if undecided {
             browser.open_databases();
@@ -206,6 +210,11 @@ impl Browser {
 
     pub fn with_clipboard(mut self, clipboard: impl Clipboard + 'static) -> Self {
         self.clipboard = Box::new(clipboard);
+        self
+    }
+
+    pub fn with_live(mut self, live: Option<Live>) -> Self {
+        self.live = live;
         self
     }
 
@@ -275,6 +284,7 @@ impl Tui for Browser {
 
     fn on_key(&mut self, key: Key) -> Flow<Exit> {
         self.status_fresh = false;
+        self.used();
         if self.problem.is_some() {
             self.type_into_problem(key);
             return Flow::Continue;
@@ -357,12 +367,14 @@ impl Tui for Browser {
     }
 
     fn on_paste(&mut self, text: &str) -> Flow<Exit> {
+        self.used();
         self.paste(text);
         Flow::Continue
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Exit> {
         self.status_fresh = false;
+        self.used();
         if !self.wants_mouse() || self.edits.form().is_some() {
             return Flow::Continue;
         }
@@ -397,6 +409,9 @@ impl Tui for Browser {
     }
 
     fn idle(&mut self) -> bool {
+        if self.take_from_agent() {
+            return true;
+        }
         if self.load_related() {
             return true;
         }

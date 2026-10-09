@@ -494,6 +494,7 @@ mod tests {
             nullable,
             default: default.map(String::from),
             auto_increment: false,
+            ..Column::default()
         }
     }
 

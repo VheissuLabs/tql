@@ -3,6 +3,7 @@ use crate::terminal::CmdTui;
 
 use crate::config_file;
 use crate::database;
+use crate::live::{self, Live};
 use crate::opener;
 use crate::paths;
 use crate::settings;
@@ -77,10 +78,12 @@ fn open(cmd: &mut Cmd) -> Result {
     let message = loaded.message();
     settings::install(loaded.settings);
 
+    let live = Live::register(&live::directory(), &opened.connection.name);
     let mut browser = Browser::new(opened.connection, database)?
         .with_status(message)
         .with_store(paths::store())
-        .with_clipboard(SystemClipboard);
+        .with_clipboard(SystemClipboard)
+        .with_live(live);
     cmd.tui(&mut browser)?;
     Ok(())
 }

@@ -2,14 +2,15 @@ use std::collections::HashMap;
 use std::path::Path;
 
 use anyhow::{Context, bail};
+use regex::Regex;
 use rusqlite::types::ValueRef;
 
 use super::schema::keys_by_table;
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Scalar, Scalars, Sort,
-    Values, delete_statement, insert_statement, outcome_or_affected, primary_key, quote_double,
-    refused, select_page, shown_delete, shown_insert, shown_update, single_column_keys, split_list,
-    update_statement,
+    Column, Database, Filters, ForeignKey, Generation, Index, Kind, Outcome, Page, Scalar, Scalars,
+    Sort, Values, delete_statement, insert_statement, outcome_or_affected, primary_key,
+    quote_double, refused, select_page, shown_delete, shown_insert, shown_update,
+    single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 
@@ -28,6 +29,28 @@ impl Sqlite {
                 .with_context(|| format!("cannot open {path}"))?,
         })
     }
+}
+
+fn collated(created: &str, column: &str) -> Option<String> {
+    let pattern = format!(
+        r#"(?i)\b{}\b[^,(]+(?:\([^()]+\)[^,]*)?(?:(?:default|check|as)\s*(?:\(.*?\))?[^,]*)*collate\s+["'`]?(\w+)"#,
+        regex::escape(column)
+    );
+    Regex::new(&pattern)
+        .ok()?
+        .captures(created)
+        .map(|found| found[1].to_lowercase())
+}
+
+fn generated_as(created: &str, column: &str) -> Option<String> {
+    let pattern = format!(
+        r"(?i)\b{}\b[^,]+\s+as\s+\(((?:[^()]+|\((?:[^()]+|\([^()]*\))*\))*)\)",
+        regex::escape(column)
+    );
+    Regex::new(&pattern)
+        .ok()?
+        .captures(created)
+        .map(|found| found[1].to_string())
 }
 
 impl Database for Sqlite {
@@ -135,11 +158,21 @@ impl Database for Sqlite {
     fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
         let rows = self
             .select(
-                "select name, type, not \"notnull\" as \"nullable\", dflt_value as \"default\", pk as \"primary\" \
-                 from pragma_table_xinfo(?, 'main') order by cid asc",
+                "select name, type, not \"notnull\" as \"nullable\", dflt_value as \"default\", pk as \"primary\", \
+                 hidden as \"extra\" from pragma_table_xinfo(?, 'main') order by cid asc",
                 &[table.to_string()],
             )?
             .rows;
+        let created = self
+            .select(
+                "select sql from sqlite_master where type = 'table' and name = ?",
+                &[table.to_string()],
+            )?
+            .rows
+            .into_iter()
+            .next()
+            .and_then(|mut row| row[0].take())
+            .unwrap_or_default();
         let keyed = rows
             .iter()
             .filter(|row| row[4].as_deref() != Some("0"))
@@ -151,8 +184,17 @@ impl Database for Sqlite {
             .map(|mut row| {
                 let declared = row[1].take().unwrap_or_default().to_lowercase();
                 let primary = row[4].as_deref() != Some("0");
+                let name = row[0].take().unwrap_or_default();
+                let generation = match row[5].as_deref() {
+                    Some("2") => Some("virtual"),
+                    Some("3") => Some("stored"),
+                    _ => None,
+                }
+                .map(|kind| Generation {
+                    kind: Some(kind.to_string()),
+                    expression: generated_as(&created, &name),
+                });
                 Column {
-                    name: row[0].take().unwrap_or_default(),
                     type_name: declared
                         .trim_start_matches('(')
                         .split('(')
@@ -162,6 +204,11 @@ impl Database for Sqlite {
                     nullable: row[2].as_deref() == Some("1"),
                     default: row[3].take(),
                     auto_increment: keyed && primary && declared == "integer",
+                    collation: collated(&created, &name),
+                    comment: None,
+                    generation,
+                    full_type: declared,
+                    name,
                 }
             })
             .collect())
@@ -282,6 +329,7 @@ fn numbered(position: usize) -> String {
 fn plain(error: rusqlite::Error) -> anyhow::Error {
     match error {
         rusqlite::Error::SqlInputError { msg, .. } => anyhow::anyhow!(msg),
+        rusqlite::Error::SqliteFailure(_, Some(msg)) => anyhow::anyhow!(msg),
         other => other.into(),
     }
 }

@@ -9,8 +9,8 @@ use mysql::{Conn, DriverError, OptsBuilder, QueryResult, Value};
 use super::schema::keys_by_table;
 use super::tls::{Mode, Tls};
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Scalar, Scalars, Sort,
-    Values, delete_statement, insert_statement, outcome_or_affected, refused, select_page,
+    Column, Database, Filters, ForeignKey, Generation, Index, Kind, Outcome, Page, Scalar, Scalars,
+    Sort, Values, delete_statement, insert_statement, outcome_or_affected, refused, select_page,
     shown_delete, shown_insert, shown_update, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
@@ -396,19 +396,36 @@ impl Database for MySql {
     fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
         Ok(self
             .select(
-                "select column_name as `name`, data_type as `type_name`, is_nullable as `nullable`, \
-                 column_default as `default`, extra as `extra` from information_schema.columns \
-                 where table_schema = database() and table_name = ? order by ordinal_position",
+                "select column_name as `name`, data_type as `type_name`, column_type as `type`, \
+                 collation_name as `collation`, is_nullable as `nullable`, \
+                 column_default as `default`, column_comment as `comment`, \
+                 generation_expression as `expression`, extra as `extra` \
+                 from information_schema.columns where table_schema = database() and table_name = ? \
+                 order by ordinal_position asc",
                 &[table.to_string()],
             )?
             .rows
             .into_iter()
-            .map(|mut row| Column {
-                name: row[0].take().unwrap_or_default(),
-                type_name: row[1].take().unwrap_or_default(),
-                nullable: row[2].as_deref() == Some("YES"),
-                default: row[3].take(),
-                auto_increment: row[4].as_deref() == Some("auto_increment"),
+            .map(|mut row| {
+                let expression = row[7].take().filter(|expression| !expression.is_empty());
+                Column {
+                    name: row[0].take().unwrap_or_default(),
+                    type_name: row[1].take().unwrap_or_default(),
+                    full_type: row[2].take().unwrap_or_default(),
+                    collation: row[3].take(),
+                    nullable: row[4].as_deref() == Some("YES"),
+                    default: row[5].take(),
+                    comment: row[6].take().filter(|comment| !comment.is_empty()),
+                    auto_increment: row[8].as_deref() == Some("auto_increment"),
+                    generation: expression.map(|expression| Generation {
+                        kind: match row[8].as_deref() {
+                            Some("STORED GENERATED") => Some("stored".to_string()),
+                            Some("VIRTUAL GENERATED") => Some("virtual".to_string()),
+                            _ => None,
+                        },
+                        expression: Some(expression),
+                    }),
+                }
             })
             .collect())
     }

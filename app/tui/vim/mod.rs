@@ -255,6 +255,12 @@ impl Vim {
         self.recording = None;
     }
 
+    pub fn rest(&self, editor: &mut QueryEditor) {
+        if self.mode != VimMode::Insert {
+            keep_on_character(editor);
+        }
+    }
+
     pub fn take_copied(&mut self) -> Option<String> {
         self.copied.take()
     }

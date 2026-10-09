@@ -70,11 +70,7 @@ fn typed_value(value: Option<String>, kind: Kind) -> Value {
     };
     let typed = match kind {
         Kind::Integer => text.parse::<i64>().ok().map(Value::from),
-        Kind::Float => text
-            .parse::<f64>()
-            .ok()
-            .and_then(serde_json::Number::from_f64)
-            .map(Value::Number),
+        Kind::Float => crate::database::json_float(&text),
         Kind::Boolean => text.parse::<bool>().ok().map(Value::Bool),
         Kind::Text => document::json(&text),
     };
@@ -94,11 +90,7 @@ fn json_value(value: Option<String>, kind: &str) -> Value {
         .any(|name| kind.contains(name));
     let number = match (whole, fractional) {
         (true, _) => value.parse::<i64>().ok().map(Value::from),
-        (_, true) => value
-            .parse::<f64>()
-            .ok()
-            .and_then(serde_json::Number::from_f64)
-            .map(Value::Number),
+        (_, true) => crate::database::json_float(&value),
         _ => None,
     };
     number.unwrap_or(Value::String(value))

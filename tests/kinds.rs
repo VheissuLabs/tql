@@ -35,7 +35,7 @@ fn sqlite_says_what_each_value_is_stored_as() {
 #[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
 fn postgres_says_which_values_are_whole_numbers_and_booleans() {
     let outcome = herd("pgsql", 5432, "postgres")
-        .run("select 7::int, true, false, 1.5::numeric, 'x'::text")
+        .run("select 7::int, true, false, 1.5::numeric, 'x'::text, 0.25::float8")
         .unwrap();
 
     assert_eq!(
@@ -46,6 +46,7 @@ fn postgres_says_which_values_are_whole_numbers_and_booleans() {
             Some("false".to_string()),
             Some("1.5".to_string()),
             Some("x".to_string()),
+            Some("0.25".to_string()),
         ]]
     );
     assert_eq!(
@@ -55,7 +56,8 @@ fn postgres_says_which_values_are_whole_numbers_and_booleans() {
             Kind::Boolean,
             Kind::Boolean,
             Kind::Text,
-            Kind::Text
+            Kind::Text,
+            Kind::Float
         ]]
     );
 }
@@ -70,5 +72,18 @@ fn mysql_says_which_values_are_numbers_and_leaves_decimals_as_text() {
     assert_eq!(
         outcome.kinds,
         [[Kind::Integer, Kind::Float, Kind::Text, Kind::Text]]
+    );
+}
+
+#[test]
+#[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
+fn postgres_errors_are_in_postgres_own_words() {
+    let failed = herd("pgsql", 5432, "postgres")
+        .run("select * from nowhere_at_all")
+        .unwrap_err();
+
+    assert_eq!(
+        failed.to_string(),
+        "relation \"nowhere_at_all\" does not exist"
     );
 }

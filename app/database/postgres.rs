@@ -13,7 +13,7 @@ use tokio_postgres_rustls::MakeRustlsConnect;
 use super::schema::{fill, keys_by_table};
 use super::tls::Tls;
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Values,
+    Column, Database, Filters, ForeignKey, Generation, Index, Kind, Outcome, Page, Sort, Values,
     delete_statement, insert_statement, outcome_or_affected, quote_double, refused, select_page,
     shown_delete, shown_insert, shown_update, single_column_keys, split_list, update_statement,
 };
@@ -76,7 +76,7 @@ impl Postgres {
         let mut headers = Vec::new();
         let mut rows = Vec::new();
         let mut affected = 0;
-        for message in self.client.simple_query(statement)? {
+        for message in self.client.simple_query(statement).map_err(own_words)? {
             match message {
                 SimpleQueryMessage::RowDescription(columns) => {
                     headers = columns
@@ -146,12 +146,25 @@ impl Postgres {
             .iter()
             .map(|column| match *column.type_() {
                 Type::INT2 | Type::INT4 | Type::INT8 => Kind::Integer,
+                Type::FLOAT4 | Type::FLOAT8 => Kind::Float,
                 Type::BOOL => Kind::Boolean,
                 _ => Kind::Text,
             })
             .collect();
         (kinds.len() == width).then_some(kinds)
     }
+}
+
+fn own_words(error: postgres::Error) -> anyhow::Error {
+    let Some(database) = error.as_db_error() else {
+        return error.into();
+    };
+    let said = [Some(database.message()), database.detail(), database.hint()]
+        .into_iter()
+        .flatten()
+        .collect::<Vec<_>>()
+        .join("\n");
+    anyhow::anyhow!(said)
 }
 
 fn spell_booleans(row: &mut [Option<String>], kinds: &[Kind]) {
@@ -359,9 +372,11 @@ impl Database for Postgres {
     fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
         Ok(self
             .query_with(
-                "select a.attname as name, t.typname as type_name, not a.attnotnull as nullable, \
+                "select a.attname as name, t.typname as type_name, format_type(a.atttypid, a.atttypmod) as type, \
+                 (select tc.collcollate from pg_catalog.pg_collation tc where tc.oid = a.attcollation) as collation, \
+                 not a.attnotnull as nullable, \
                  (select pg_get_expr(adbin, adrelid) from pg_attrdef where c.oid = pg_attrdef.adrelid and pg_attrdef.adnum = a.attnum) as default, \
-                 a.attgenerated as generated \
+                 a.attgenerated as generated, col_description(c.oid, a.attnum) as comment \
                  from pg_attribute a, pg_class c, pg_type t, pg_namespace n \
                  where c.relname = ? and n.nspname = current_schema() and a.attnum > 0 and a.attrelid = c.oid \
                  and a.atttypid = t.oid and n.oid = c.relnamespace order by a.attnum",
@@ -370,16 +385,27 @@ impl Database for Postgres {
             .rows
             .into_iter()
             .map(|mut row| {
-                let generated = row[4].as_deref().is_some_and(|kind| !kind.is_empty());
-                let default = row[3].take();
+                let generated = row[6].take().filter(|kind| !kind.is_empty());
+                let default = row[5].take();
                 Column {
                     name: row[0].take().unwrap_or_default(),
                     type_name: row[1].take().unwrap_or_default(),
-                    nullable: truthy(&row[2]),
+                    full_type: row[2].take().unwrap_or_default(),
+                    collation: row[3].take(),
+                    nullable: truthy(&row[4]),
                     auto_increment: default
                         .as_deref()
                         .is_some_and(|default| default.starts_with("nextval(")),
-                    default: default.filter(|_| !generated),
+                    comment: row[7].take(),
+                    default: default.clone().filter(|_| generated.is_none()),
+                    generation: generated.map(|kind| Generation {
+                        kind: match kind.as_str() {
+                            "s" => Some("stored".to_string()),
+                            "v" => Some("virtual".to_string()),
+                            _ => None,
+                        },
+                        expression: default,
+                    }),
                 }
             })
             .collect())
