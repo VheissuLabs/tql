@@ -323,6 +323,10 @@ impl Tui for Browser {
         settings::with(|settings| settings.mouse)
     }
 
+    fn top_margin(&self) -> u16 {
+        settings::with(|settings| settings.top_margin)
+    }
+
     fn take_repaint(&mut self) -> bool {
         std::mem::take(&mut self.repaint)
     }

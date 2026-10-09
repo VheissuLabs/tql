@@ -70,7 +70,7 @@ pub const SETTINGS: &[Setting] = &[
     setting(
         "ui",
         "top_margin",
-        "1",
+        "0",
         "0.3.0",
         &["Blank rows above the frame"],
     ),
@@ -293,14 +293,7 @@ pub const SETTINGS: &[Setting] = &[
     ),
 ];
 
-pub const NOT_YET: &[&str] = &[
-    "ui.top_margin",
-    "ai.provider",
-    "ai.model",
-    "ai.timeout",
-    "ai.url",
-    "ai.key",
-];
+pub const NOT_YET: &[&str] = &["ai.provider", "ai.model", "ai.timeout", "ai.url", "ai.key"];
 
 const NOTES: &[(&str, &str)] = &[
     (

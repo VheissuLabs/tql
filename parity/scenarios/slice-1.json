@@ -980,5 +980,143 @@
       "\u001b[<65;10;6M",
       "\u001b[<64;10;6M"
     ]
+  },
+  {
+    "name": "top-margin",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": []
+  },
+  {
+    "name": "top-margin-one",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 1
+    },
+    "keys": []
+  },
+  {
+    "name": "top-margin-sql",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "s"
+    ]
+  },
+  {
+    "name": "top-margin-small",
+    "size": [
+      80,
+      24
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\t",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "top-margin-mouse-pick-table",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<0;5;5M",
+      "\u001b[<0;5;5m"
+    ]
+  },
+  {
+    "name": "top-margin-mouse-click-cell",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<0;5;5M",
+      "\u001b[<0;5;5m",
+      "\u001b[<0;45;8M",
+      "\u001b[<0;45;8m"
+    ]
+  },
+  {
+    "name": "top-margin-mouse-sort-header",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<0;5;5M",
+      "\u001b[<0;5;5m",
+      "\u001b[<0;45;4M",
+      "\u001b[<0;45;4m"
+    ]
+  },
+  {
+    "name": "top-margin-click-in-margin",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<0;5;1M",
+      "\u001b[<0;5;1m"
+    ]
+  },
+  {
+    "name": "top-margin-picker",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": []
+  },
+  {
+    "name": "top-margin-picker-wheel",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<65;10;8M",
+      "\u001b[<65;10;8M",
+      "\u001b[<64;10;8M"
+    ]
   }
 ]

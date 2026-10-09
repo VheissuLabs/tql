@@ -181,6 +181,7 @@ fn scenarios(exports: &Path) -> Vec<Scenario> {
                 .unwrap_or_default(),
             settings: {
                 let mut settings = Settings::default();
+                settings.set("ui.top_margin", &toml::Value::Integer(0));
                 if let Some(overrides) = scenario["config"].as_object() {
                     for (key, value) in overrides {
                         let value: toml::Value = serde_json::from_value(value.clone()).unwrap();
@@ -836,7 +837,10 @@ fn the_config_file_matches_the_php_tql() {
     for case in &cases {
         let name = case["name"].as_str().unwrap();
         let (written, result) = rust_config_case(case, &rust);
-        let expected = fs::read_to_string(php.join(format!("{name}.toml"))).unwrap();
+        // tql-rust starts with no blank rows above the frame; tql starts with one.
+        let expected = fs::read_to_string(php.join(format!("{name}.toml")))
+            .unwrap()
+            .replace("top_margin = 1\n", "top_margin = 0\n");
         let expected_result = fs::read_to_string(php.join(format!("{name}.json")))
             .map(|json| serde_json::from_str(&json).unwrap())
             .unwrap_or(serde_json::Value::Null);

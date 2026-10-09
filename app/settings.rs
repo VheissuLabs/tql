@@ -12,6 +12,7 @@ const COLORS: [&str; 11] = [
 pub struct Settings {
     pub modal_ring: bool,
     pub hotkey_bar: bool,
+    pub top_margin: u16,
     pub status_seconds: f64,
     pub sidebar_width: usize,
     pub sql_at_bottom: bool,
@@ -39,6 +40,7 @@ impl Default for Settings {
         Settings {
             modal_ring: true,
             hotkey_bar: true,
+            top_margin: 0,
             status_seconds: 4.0,
             sidebar_width: 24,
             sql_at_bottom: false,
@@ -143,6 +145,7 @@ impl Settings {
         match key {
             "ui.modal_ring" => self.modal_ring = flag(),
             "ui.hotkey_bar" => self.hotkey_bar = flag(),
+            "ui.top_margin" => self.top_margin = number().min(u16::MAX as usize) as u16,
             "ui.status_seconds" => {
                 self.status_seconds = value
                     .as_float()
@@ -248,6 +251,13 @@ mod tests {
 
         assert!(defaults.update_check && defaults.update_automatic);
         assert!(!turned_off.update_check && !turned_off.update_automatic);
+    }
+
+    #[test]
+    fn reads_the_blank_rows_above_the_frame() {
+        let settings = Settings::from_table(&toml::from_str("[ui]\ntop_margin = 2\n").unwrap());
+
+        assert_eq!(settings.top_margin, 2);
     }
 
     #[test]
