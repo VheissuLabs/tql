@@ -217,9 +217,28 @@ impl Browser {
     }
 
     pub(super) fn say(&mut self, text: impl Into<String>) {
-        self.status = Some(text.into());
-        self.status_since = Instant::now();
-        self.status_fresh = true;
+        let text = text.into();
+        self.status_fresh = self.status.as_deref() != Some(text.as_str());
+        if self.status_fresh {
+            self.status_since = Instant::now();
+        }
+        self.status = Some(text);
+    }
+
+    pub fn status_is_fresh(&self) -> bool {
+        self.status_fresh
+    }
+
+    pub fn fade_status(&mut self, now: Instant) -> bool {
+        let after = settings::with(|settings| settings.status_seconds);
+        if after <= 0.0 || self.status.as_deref().is_none_or(str::is_empty) {
+            return false;
+        }
+        if now.saturating_duration_since(self.status_since) < Duration::from_secs_f64(after) {
+            return false;
+        }
+        self.hush();
+        true
     }
 
     pub(super) fn hush(&mut self) {
@@ -251,6 +270,7 @@ impl Tui for Browser {
     type Output = Exit;
 
     fn on_key(&mut self, key: Key) -> Flow<Exit> {
+        self.status_fresh = false;
         if self.problem.is_some() {
             self.type_into_problem(key);
             return Flow::Continue;
@@ -376,9 +396,7 @@ impl Tui for Browser {
             self.load(keep_cursor);
             return true;
         }
-        let fade = Duration::from_secs_f64(settings::with(|settings| settings.status_seconds));
-        if self.status_fresh && self.status_since.elapsed() >= fade {
-            self.status_fresh = false;
+        if self.fade_status(Instant::now()) {
             return true;
         }
         false

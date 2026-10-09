@@ -108,8 +108,11 @@ impl Picker {
     }
 
     fn say(&mut self, status: impl Into<String>) {
-        self.status = Some(status.into());
-        self.status_since = Instant::now();
+        let status = status.into();
+        if self.status.as_deref() != Some(status.as_str()) {
+            self.status_since = Instant::now();
+        }
+        self.status = Some(status);
     }
 
     pub fn fade_status(&mut self, now: Instant) -> bool {
