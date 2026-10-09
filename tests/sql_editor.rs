@@ -565,3 +565,21 @@ fn a_change_made_in_the_sql_editor_is_seen_without_reloading() {
         .collect();
     assert!(structure.contains("ripe"), "{screen}");
 }
+
+#[test]
+fn query_results_offer_yanking_on_the_hotkey_bar() {
+    let mut fake = browser("results-bar");
+
+    fake.press("s")
+        .press("\x05")
+        .press("; select name from fruit")
+        .press("\x12")
+        .press("\x1b")
+        .press("\t");
+
+    let screen = fake.screen();
+    assert!(
+        screen.contains("y Yank   Y Row   s Edit query"),
+        "{screen}"
+    );
+}

@@ -988,3 +988,20 @@ fn filtering_the_table_list_keeps_unwritten_changes_while_the_same_table_stays_o
     assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
     assert!(!fake.app.edits.pending());
 }
+
+#[test]
+fn widening_a_long_column_starts_from_a_comfortable_width() {
+    let path = fixture(
+        "widen-long",
+        &format!(
+            "create table notes (id integer primary key, body text);
+             insert into notes (body) values ('{}');",
+            "x".repeat(60)
+        ),
+    );
+    let mut fake = open(&path, false);
+
+    fake.settle().press("l.");
+
+    assert_eq!(fake.app.status(), "body width 32");
+}

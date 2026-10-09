@@ -7,7 +7,7 @@ use super::text::{pad, truncate, width, window};
 use crate::database::{Direction, Sort};
 
 pub const GUTTER: usize = 2;
-const COMFORTABLE: usize = 28;
+pub const COMFORTABLE: usize = 28;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Tone {
@@ -39,6 +39,7 @@ pub struct Grid<'a> {
     pub focused: bool,
     pub overrides: &'a HashMap<String, usize>,
     pub tones: &'a [Option<Tone>],
+    pub locked: bool,
 }
 
 impl Grid<'_> {
@@ -295,6 +296,9 @@ impl Grid<'_> {
     }
 
     fn scroll(&self, all: &[usize], available: usize) -> usize {
+        if self.locked {
+            return self.column_offset;
+        }
         let mut offset = self.column_offset.min(self.column_index);
         while offset < self.column_index {
             let used: usize = all[offset..=self.column_index]
@@ -313,6 +317,9 @@ impl Grid<'_> {
         let leftover = available.saturating_sub(total(&widths));
         if leftover == 0 || widths.is_empty() {
             return widths;
+        }
+        if self.locked {
+            return self.grow_last(offset, widths, leftover);
         }
 
         let mut wanted: Vec<(usize, usize)> = widths
@@ -342,6 +349,10 @@ impl Grid<'_> {
             wanted.retain(|(_, deficit)| *deficit > 0);
         }
 
+        self.grow_last(offset, widths, leftover)
+    }
+
+    fn grow_last(&self, offset: usize, mut widths: Vec<usize>, leftover: usize) -> Vec<usize> {
         let last = offset + widths.len() - 1;
         if !self.overrides.contains_key(&self.headers[last])
             && let Some(width) = widths.last_mut()
@@ -406,6 +417,7 @@ mod tests {
             sort: None,
             focused: true,
             tones: &[],
+            locked: false,
         }
     }
 
@@ -433,6 +445,23 @@ mod tests {
         let (_, widths) = grid(&headers, &rows, 0).fit(70);
 
         assert_eq!(widths, [3, 30, 29]);
+    }
+
+    #[test]
+    fn while_a_column_is_dragged_the_others_hold_still_and_the_last_takes_the_room() {
+        let headers = strings(&["a", "b", "c"]);
+        let rows = vec![strings(&[&"x".repeat(40), &"y".repeat(40), "z"])];
+        let shared = grid(&headers, &rows, 0).fit(80).1;
+
+        let locked = Grid {
+            locked: true,
+            ..grid(&headers, &rows, 0)
+        }
+        .fit(80)
+        .1;
+
+        assert_ne!(shared, locked);
+        assert_eq!(locked[..2], [COMFORTABLE, COMFORTABLE]);
     }
 
     #[test]

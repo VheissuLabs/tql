@@ -97,6 +97,8 @@ impl Browser {
         }
         if self.query.results {
             return vec![
+                (key(Action::YankValue, 0), "Yank"),
+                (key(Action::YankRow, 0), "Row"),
                 (key(Action::Sql, 0), "Edit query"),
                 ("esc".into(), "Back"),
                 more,
@@ -331,6 +333,7 @@ impl Browser {
             focused: island.focused,
             overrides: &self.width_overrides,
             tones: &tones,
+            locked: self.drag.is_some(),
         };
         let (offset, widths, content) = grid.lines(island.inner_width(), island.inner_height());
         self.column_offset = offset;
