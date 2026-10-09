@@ -218,7 +218,7 @@ impl Browser {
         let kind = match key {
             Key::Enter => EditKind::Newline,
             Key::Backspace | Key::Ctrl('h') | Key::Delete => EditKind::Delete,
-            Key::Char(_) => EditKind::Type,
+            Key::Char(_) | Key::Tab => EditKind::Type,
             _ => EditKind::Other,
         };
         let breaks_a_word = matches!(key, Key::Enter | Key::Char(' '));

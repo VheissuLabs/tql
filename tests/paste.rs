@@ -148,3 +148,27 @@ fn a_paste_into_the_row_filter_stays_on_one_line() {
     let form = fake.app.filter_form.as_ref().unwrap();
     assert_eq!(form.editor.as_ref().unwrap().text(), "Gr ace");
 }
+
+#[test]
+fn alt_enter_adds_a_line_in_vims_insert_mode() {
+    let mut fake = browser("vim-alt-enter");
+    vim();
+    fake.press("s").press("A");
+    let before = fake.app.query.editor.buffer();
+
+    fake.press("\x1b\r");
+
+    assert_eq!(fake.app.query.editor.buffer(), format!("{before}\n"));
+    assert_eq!(fake.app.query.vim.mode, app::tui::vim::VimMode::Insert);
+}
+
+#[test]
+fn a_tab_typed_between_words_is_undone_with_them() {
+    let mut fake = browser("tab-undo");
+    fake.press("s").press("\x05");
+    let before = fake.app.query.editor.buffer();
+
+    fake.press(" ab\tcd").press("\x1a");
+
+    assert_eq!(fake.app.query.editor.buffer(), before);
+}

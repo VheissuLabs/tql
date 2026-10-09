@@ -578,8 +578,5 @@ fn query_results_offer_yanking_on_the_hotkey_bar() {
         .press("\t");
 
     let screen = fake.screen();
-    assert!(
-        screen.contains("y Yank   Y Row   s Edit query"),
-        "{screen}"
-    );
+    assert!(screen.contains("y Yank   Y Row   s Edit query"), "{screen}");
 }
