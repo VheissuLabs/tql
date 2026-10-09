@@ -1,12 +1,19 @@
 use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 
 use app::dump::{DumpOptions, Engine, Job, LoadOptions};
 use app::encrypter::Encrypter;
 use app::store::Connection;
 
+static KEYS: AtomicUsize = AtomicUsize::new(0);
+
 fn encrypter() -> Encrypter {
-    let key = std::env::temp_dir().join(format!("tql-dump-engines-{}.key", std::process::id()));
+    let key = std::env::temp_dir().join(format!(
+        "tql-dump-engines-{}-{}.key",
+        std::process::id(),
+        KEYS.fetch_add(1, Ordering::Relaxed)
+    ));
     Encrypter::ensure(&key).unwrap()
 }
 

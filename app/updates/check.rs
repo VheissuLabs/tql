@@ -72,12 +72,7 @@ pub fn notice(
     if let Some(installed) = newer(INSTALLED) {
         return Some(format!("tql {installed} is ready · restart to use it"));
     }
-    newer(LATEST).map(|latest| {
-        format!(
-            "tql {latest} is out · {}",
-            installation.upgrade(releases)
-        )
-    })
+    newer(LATEST).map(|latest| format!("tql {latest} is out · {}", installation.upgrade(releases)))
 }
 
 pub fn in_the_background(enabled: bool, remembered: &Remembered) {

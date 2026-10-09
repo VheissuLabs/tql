@@ -121,11 +121,7 @@ fn release_of(version: &str, archive: Vec<u8>, sums: Option<String>) -> FakeRele
             200,
             format!("{{\"tag_name\":\"v{version}\"}}"),
         ),
-        route(
-            format!("/download/v{version}/{}", asset()),
-            200,
-            archive,
-        ),
+        route(format!("/download/v{version}/{}", asset()), 200, archive),
     ];
     if let Some(sums) = sums {
         routes.push(route(format!("/download/v{version}/SHA256SUMS"), 200, sums));
@@ -254,13 +250,7 @@ fn switches_between_versions_once_it_is_a_symlink_even_with_another_tql_running(
         Path::new(".tql-versions/tql-0.8.1")
     );
     assert_eq!(
-        Versions::for_installed(
-            &target
-                .parent()
-                .unwrap()
-                .join(".tql-versions/tql-0.8.1")
-        )
-        .link,
+        Versions::for_installed(&target.parent().unwrap().join(".tql-versions/tql-0.8.1")).link,
         target
     );
 }
@@ -434,10 +424,7 @@ fn updates_by_itself_when_it_can_and_says_a_restart_will_use_it() {
 fn only_says_what_to_run_when_it_cannot_update_itself() {
     let release = checked_release("0.8.0", &fake_binary("0.8.0"));
     let remembered = remembered("homebrew");
-    let installation = Installation::new(
-        How::Homebrew,
-        "/opt/homebrew/Cellar/tql/0.7.0/bin/tql",
-    );
+    let installation = Installation::new(How::Homebrew, "/opt/homebrew/Cellar/tql/0.7.0/bin/tql");
 
     check::run(
         "0.7.0",

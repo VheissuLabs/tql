@@ -17,7 +17,6 @@ pub use versions::Versions;
 
 pub const BINARY: &str = "tql";
 
-
 pub fn current_version() -> String {
     version::of(env!("CARGO_PKG_VERSION")).unwrap_or_else(|| "0.0.0".to_string())
 }

@@ -18,8 +18,7 @@ pub const KEPT: usize = 3;
 
 pub const STAGING_VARIABLE: &str = "TQL_STAGING";
 
-static REPORTED: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"^Tql v?(\d+\.\d+\.\d+)").unwrap());
+static REPORTED: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^Tql v?(\d+\.\d+\.\d+)").unwrap());
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Versions {
@@ -230,20 +229,14 @@ mod tests {
             reported_version("Using something 8.4.26\nTql v0.8.0\n").as_deref(),
             Some("0.8.0")
         );
-        assert_eq!(
-            reported_version("Tql 0.8.1").as_deref(),
-            Some("0.8.1")
-        );
+        assert_eq!(reported_version("Tql 0.8.1").as_deref(), Some("0.8.1"));
         assert_eq!(reported_version("tql 0.8.0\n"), None);
     }
 
     #[test]
     fn links_from_inside_the_versions_folder_back_to_the_binary_beside_it() {
         assert_eq!(
-            Versions::for_installed(Path::new(
-                "/home/me/.local/bin/.tql-versions/tql-0.8.1"
-            ))
-            .link,
+            Versions::for_installed(Path::new("/home/me/.local/bin/.tql-versions/tql-0.8.1")).link,
             Path::new("/home/me/.local/bin/tql")
         );
         assert_eq!(

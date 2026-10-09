@@ -331,8 +331,7 @@ mod tests {
     }
 
     fn scratch(name: &str) -> PathBuf {
-        let directory =
-            env::temp_dir().join(format!("tql-tunnel-{name}-{}", std::process::id()));
+        let directory = env::temp_dir().join(format!("tql-tunnel-{name}-{}", std::process::id()));
         let _ = fs::remove_dir_all(&directory);
         fs::create_dir_all(&directory).unwrap();
         directory

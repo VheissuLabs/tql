@@ -84,10 +84,7 @@ mod tests {
     #[test]
     fn knows_how_tql_was_installed_from_where_the_binary_is() {
         for (path, how) in [
-            (
-                "/opt/homebrew/Cellar/tql/0.7.0/bin/tql",
-                How::Homebrew,
-            ),
+            ("/opt/homebrew/Cellar/tql/0.7.0/bin/tql", How::Homebrew),
             (
                 "/home/linuxbrew/.linuxbrew/Cellar/tql/0.7.0/bin/tql",
                 How::Homebrew,
@@ -100,10 +97,7 @@ mod tests {
                 How::ByItself,
             ),
             ("/Users/someone/.cargo/bin/tql", How::Built),
-            (
-                "/Users/someone/Code/tql/target/release/tql",
-                How::Built,
-            ),
+            ("/Users/someone/Code/tql/target/release/tql", How::Built),
         ] {
             assert_eq!(Installation::of(Path::new(path)).how, how, "{path}");
         }
