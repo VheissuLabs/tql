@@ -239,10 +239,7 @@ fn says_so_when_there_is_no_row_to_inspect() {
     fake.press("\ni");
 
     assert!(fake.app.inspector.is_none());
-    assert_eq!(
-        fake.app.status(),
-        "nothing to open, this table has no rows"
-    );
+    assert_eq!(fake.app.status(), "nothing to open, this table has no rows");
 }
 
 #[test]

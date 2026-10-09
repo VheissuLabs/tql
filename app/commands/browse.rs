@@ -56,7 +56,8 @@ fn browse(cmd: &mut Cmd) -> Result {
             None => {
                 let mut picker =
                     Picker::new(store.connections()?, notice.take().or_else(update_notice))
-                        .with_store(&paths::store(), &paths::key());
+                        .with_store(&paths::store(), &paths::key())
+                        .with_clipboard(SystemClipboard);
                 let Some(connection) = cmd.tui(&mut picker)? else {
                     return Ok(());
                 };

@@ -119,6 +119,17 @@ fn query_value(query: &str, wanted: &str) -> Option<String> {
         .map(|(_, value)| decode(value, true))
 }
 
+pub fn encode(text: &str) -> String {
+    text.bytes()
+        .map(|byte| match byte {
+            b'A'..=b'Z' | b'a'..=b'z' | b'0'..=b'9' | b'-' | b'_' | b'.' | b'~' => {
+                (byte as char).to_string()
+            }
+            other => format!("%{other:02X}"),
+        })
+        .collect()
+}
+
 fn decode(text: &str, plus_is_space: bool) -> String {
     let bytes = text.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());

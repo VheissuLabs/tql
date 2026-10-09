@@ -26,6 +26,7 @@ pub const SSL_MODES: [&str; 6] = [
     "verify-full",
 ];
 pub const TYPE_IT: &str = "type a path…";
+pub const NO_GROUP: &str = "none";
 
 const YES_NO: [&str; 2] = ["no", "yes"];
 const VALUE_WIDTH: usize = 34;
@@ -72,6 +73,7 @@ pub struct ConnectionForm {
     pub picker: Option<Choice>,
     unreadable: Vec<&'static str>,
     places: Places,
+    groups: Vec<String>,
 }
 
 impl ConnectionForm {
@@ -97,6 +99,7 @@ impl ConnectionForm {
             ("ssl_ca", text(&connection.ssl_ca)),
             ("ssl_cert", text(&connection.ssl_cert)),
             ("ssl_key", text(&connection.ssl_key)),
+            ("group_name", text(&connection.group_name)),
             ("tag", text(&connection.tag)),
             ("ssh_host", text(&connection.ssh_host)),
             ("ssh_port", number(connection.ssh_port)),
@@ -146,7 +149,20 @@ impl ConnectionForm {
             picker: None,
             unreadable: Vec::new(),
             places,
+            groups: Vec::new(),
         }
+    }
+
+    pub fn with_groups(mut self, groups: Vec<String>) -> Self {
+        self.groups = groups;
+        self
+    }
+
+    pub fn choice_options(&self) -> Vec<String> {
+        self.picker
+            .as_ref()
+            .map(|picker| picker.options.clone())
+            .unwrap_or_default()
     }
 
     pub fn value(&self, key: &str) -> &str {
@@ -201,7 +217,11 @@ impl ConnectionForm {
                 fields.extend(SSH_FIELDS);
             }
         }
-        fields.extend([("tag", "Tag"), ("read_only", "Read only")]);
+        fields.extend([
+            ("group_name", "Group"),
+            ("tag", "Tag"),
+            ("read_only", "Read only"),
+        ]);
         fields
     }
 
@@ -223,7 +243,7 @@ impl ConnectionForm {
     }
 
     fn picked(key: &str) -> bool {
-        FILES.contains(&key) || key == "tag"
+        FILES.contains(&key) || key == "tag" || key == "group_name"
     }
 
     pub fn move_by(&mut self, steps: isize) {
@@ -271,7 +291,7 @@ impl ConnectionForm {
         match key {
             "driver" | "name" => "",
             "over_ssh" => "ssh",
-            "tag" | "read_only" => "labels",
+            "group_name" | "tag" | "read_only" => "labels",
             ssl if ssl.starts_with("ssl_") => "tls",
             ssh if ssh.starts_with("ssh_") => "ssh",
             _ => "where",
@@ -298,6 +318,7 @@ impl ConnectionForm {
             "ssh_key" if value.is_empty() => "agent or ~/.ssh/config".to_string(),
             "ssl_mode" if value.is_empty() => "driver default".to_string(),
             "tag" if value.is_empty() => tag::NONE.to_string(),
+            "group_name" if value.is_empty() => NO_GROUP.to_string(),
             "database" if value.is_empty() && self.driver() != "sqlite" => {
                 "ask on connect".to_string()
             }
@@ -313,7 +334,7 @@ impl ConnectionForm {
 
     pub fn is_placeholder(&self, key: &str) -> bool {
         self.value(key).is_empty()
-            && !["over_ssh", "read_only", "tag"].contains(&key)
+            && !["over_ssh", "read_only", "tag", "group_name"].contains(&key)
             && !SECRETS.contains(&key)
             && !self.display(key).is_empty()
     }
@@ -385,15 +406,26 @@ impl ConnectionForm {
         }
         let title = key.replace('_', " ").to_uppercase();
         let chosen = self.value(key).to_string();
-        self.picker = Some(if key == "tag" {
-            let chosen = if chosen.is_empty() {
-                tag::NONE.to_string()
-            } else {
-                chosen
-            };
-            Choice::new(&title, tag::choices(), &chosen, false).with_colors(tag::colors())
-        } else {
-            Choice::new(&title, self.files(key), &chosen, false)
+        self.picker = Some(match key {
+            "tag" => {
+                let chosen = if chosen.is_empty() {
+                    tag::NONE.to_string()
+                } else {
+                    chosen
+                };
+                Choice::new(&title, tag::choices(), &chosen, false).with_colors(tag::colors())
+            }
+            "group_name" => {
+                let chosen = if chosen.is_empty() {
+                    NO_GROUP.to_string()
+                } else {
+                    chosen
+                };
+                let mut groups = vec![NO_GROUP.to_string()];
+                groups.extend(self.groups.iter().cloned());
+                Choice::new("GROUP", groups, &chosen, true)
+            }
+            _ => Choice::new(&title, self.files(key), &chosen, false),
         });
     }
 
@@ -417,10 +449,11 @@ impl ConnectionForm {
             return;
         }
         let key = self.current_key();
-        let value = if key == "tag" {
-            tag::value(&chosen)
-        } else {
-            chosen
+        let value = match key {
+            "tag" => tag::value(&chosen),
+            "group_name" if chosen == NO_GROUP => String::new(),
+            "group_name" => chosen.trim().to_string(),
+            _ => chosen,
         };
         self.set(key, value);
     }
@@ -499,6 +532,8 @@ impl ConnectionForm {
                     .map(Field::Number)
                     .unwrap_or(Field::Null),
                 "read_only" => Field::Flag(matches!(value, "yes" | "1")),
+                "group_name" if value.trim().is_empty() => Field::Null,
+                "group_name" => Field::Text(value.trim().to_string()),
                 secret if SECRETS.contains(&secret) && value.is_empty() => Field::Null,
                 secret if SECRETS.contains(&secret) => Field::Secret(value.to_string()),
                 _ => Field::Text(value.to_string()),

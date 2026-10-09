@@ -189,7 +189,9 @@ fn offers_managing_connections_on_the_hotkey_bar() {
     let mut fake = scratch.with_two();
 
     let screen = fake.screen();
-    assert!(screen.contains("e Edit    n New    d Mark    :w Write    :q Quit"));
+    assert!(
+        screen.contains("e Edit    n New    y/Y Yank db/DSN    d Delete    :w Confirm    :q Quit")
+    );
     let lines: Vec<&str> = screen
         .lines()
         .filter(|line| !line.trim().is_empty())
@@ -230,7 +232,10 @@ fn offers_only_the_fields_that_driver_has() {
     let mut fake = scratch.picker();
 
     fake.press("e");
-    assert_eq!(form_keys(&fake), ["name", "database", "tag", "read_only"]);
+    assert_eq!(
+        form_keys(&fake),
+        ["name", "database", "group_name", "tag", "read_only"]
+    );
 
     fake.press("\x1b").press("je");
     assert_eq!(
@@ -244,6 +249,7 @@ fn offers_only_the_fields_that_driver_has() {
             "password",
             "ssl_mode",
             "over_ssh",
+            "group_name",
             "tag",
             "read_only"
         ]
@@ -326,7 +332,14 @@ fn creates_a_connection_in_the_modal_rather_than_leaving() {
     assert!(fake.screen().contains("NEW CONNECTION"));
     assert_eq!(
         form_keys(&fake),
-        ["driver", "name", "database", "tag", "read_only"]
+        [
+            "driver",
+            "name",
+            "database",
+            "group_name",
+            "tag",
+            "read_only"
+        ]
     );
 }
 
@@ -365,6 +378,7 @@ fn cycles_the_driver_instead_of_typing_it() {
             "password",
             "ssl_mode",
             "over_ssh",
+            "group_name",
             "tag",
             "read_only"
         ]
@@ -829,4 +843,354 @@ fn a_saved_password_is_one_tql_can_read() {
     assert_eq!(read[1], 3306);
     assert_eq!(read[2], false);
     assert!(read[3].as_str().unwrap().starts_with("20"));
+}
+
+fn grouped(scratch: &Scratch) {
+    for (name, group, used) in [
+        ("blog", Some("Acme"), "2026-10-01 10:00:00"),
+        ("nd-dev", Some("notarydash"), "2026-10-02 10:00:00"),
+        ("scratch", None, "2026-10-04 10:00:00"),
+        ("nd-prod", Some("notarydash"), "2026-10-03 10:00:00"),
+    ] {
+        let mut fields = sqlite(name, &format!("/tmp/{name}.sqlite"));
+        if let Some(group) = group {
+            fields.push(("group_name", Field::Text(group.into())));
+        }
+        fields.push(("last_used_at", Field::Text(used.into())));
+        scratch.add(&fields);
+    }
+}
+
+fn labels(fake: &mut Fake<Picker>) -> Vec<String> {
+    let screen = fake.screen();
+    let mut labels = Vec::new();
+    for line in screen.lines().skip(3) {
+        let Some(cell) = line
+            .strip_prefix('│')
+            .and_then(|line| line.split('│').next())
+        else {
+            continue;
+        };
+        let cell = cell.trim_start_matches([' ', '▸']);
+        if let Some(header) = cell.strip_prefix('▼').or_else(|| cell.strip_prefix('▶')) {
+            let name = header.trim().rsplit_once(" (").unwrap().0;
+            labels.push(format!("# {name}"));
+        } else if let Some((_, name)) = cell.split_once(' ')
+            && !name.trim().is_empty()
+        {
+            labels.push(name.trim().to_string());
+        }
+    }
+    labels
+}
+
+fn current_name(fake: &mut Fake<Picker>) -> String {
+    let screen = fake.screen();
+    let line = screen
+        .lines()
+        .find(|line| line.contains('▸'))
+        .unwrap_or_default();
+    line.split('│')
+        .nth(1)
+        .unwrap_or_default()
+        .trim_start_matches([' ', '▸'])
+        .trim_end()
+        .to_string()
+}
+
+#[test]
+fn lists_ungrouped_connections_first_then_each_group_under_a_header() {
+    let scratch = Scratch::new("groups-listed");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    assert_eq!(
+        labels(&mut fake),
+        [
+            "scratch",
+            "# Acme",
+            "blog",
+            "# notarydash",
+            "nd-prod",
+            "nd-dev"
+        ]
+    );
+    let screen = fake.screen();
+    assert!(screen.contains("▼ notarydash (2)"), "{screen}");
+    assert!(screen.contains("▼ Acme (1)"), "{screen}");
+}
+
+#[test]
+fn folds_a_group_on_enter_over_its_header_and_unfolds_it_again() {
+    let scratch = Scratch::new("groups-enter");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    fake.press("jjj\r");
+    assert_eq!(
+        labels(&mut fake),
+        ["scratch", "# Acme", "blog", "# notarydash"]
+    );
+    assert!(fake.screen().contains("▶ notarydash (2)"));
+    assert!(!fake.exited());
+
+    fake.press("\r");
+    assert_eq!(labels(&mut fake).len(), 6);
+}
+
+#[test]
+fn folds_the_group_the_cursor_is_in_on_h_and_lands_on_its_header() {
+    let scratch = Scratch::new("groups-h");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    fake.press("jjjjh");
+    assert_eq!(fake.app.index, 3);
+    assert_eq!(
+        labels(&mut fake),
+        ["scratch", "# Acme", "blog", "# notarydash"]
+    );
+
+    fake.press("l");
+    assert_eq!(labels(&mut fake).len(), 6);
+
+    fake.press(" ");
+    assert_eq!(labels(&mut fake).len(), 4);
+}
+
+#[test]
+fn remembers_folded_groups_the_next_time() {
+    let scratch = Scratch::new("groups-remembered");
+    grouped(&scratch);
+    scratch.picker().press("j ");
+
+    assert_eq!(
+        labels(&mut scratch.picker()),
+        ["scratch", "# Acme", "# notarydash", "nd-prod", "nd-dev"]
+    );
+}
+
+#[test]
+fn starts_on_the_connection_used_last_wherever_its_group_put_it() {
+    let scratch = Scratch::new("groups-start");
+    grouped(&scratch);
+    scratch
+        .writer()
+        .update(
+            scratch.named("blog").unwrap().id,
+            &[("last_used_at", Field::Text("2026-10-08 10:00:00".into()))],
+        )
+        .unwrap();
+
+    assert_eq!(
+        current_name(&mut scratch.picker())
+            .split_whitespace()
+            .last(),
+        Some("blog")
+    );
+}
+
+#[test]
+fn does_not_edit_delete_or_yank_a_group_header() {
+    let scratch = Scratch::new("groups-header-keys");
+    grouped(&scratch);
+    let clipboard = app::tui::clipboard::Recorded::default();
+    let mut fake = Fake::sized(
+        Picker::new(scratch.connections(), None)
+            .with_store(&scratch.store(), &scratch.key())
+            .with_clipboard(clipboard.clone()),
+        120,
+        30,
+    );
+
+    fake.press("jedyY");
+
+    assert!(fake.app.form.is_none());
+    assert!(fake.app.pending_deletes.is_empty());
+    assert!(clipboard.copies().is_empty());
+}
+
+#[test]
+fn keeps_the_columns_where_they_are_when_a_group_folds() {
+    let scratch = Scratch::new("groups-columns");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+    let edges = |screen: &str| {
+        let header = screen.lines().nth(1).unwrap_or_default().to_string();
+        header
+            .char_indices()
+            .filter(|(_, character)| *character == '│')
+            .map(|(index, _)| index)
+            .collect::<Vec<_>>()
+    };
+    let before = edges(&fake.screen());
+
+    fake.press("jjj ");
+
+    assert_eq!(edges(&fake.screen()), before);
+}
+
+#[test]
+fn picks_a_group_from_the_ones_in_use_or_makes_a_new_one_by_typing_it() {
+    let scratch = Scratch::new("groups-form");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    fake.press("e");
+    move_to(&mut fake, "group_name");
+    fake.press("\r");
+    let screen = fake.screen();
+    assert!(screen.contains("GROUP"), "{screen}");
+    assert_eq!(
+        fake.app.form.as_ref().unwrap().choice_options(),
+        ["none", "Acme", "notarydash"]
+    );
+
+    fake.press("side\r").press(SAVE);
+
+    assert_eq!(
+        scratch.named("scratch").unwrap().group_name.as_deref(),
+        Some("side")
+    );
+    assert!(labels(&mut fake).contains(&"# side".to_string()));
+    assert!(current_name(&mut fake).ends_with("scratch"));
+}
+
+#[test]
+fn takes_a_connection_out_of_its_group_when_none_is_picked() {
+    let scratch = Scratch::new("groups-none");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    fake.press("jje");
+    move_to(&mut fake, "group_name");
+    fake.press("\r").press("none\r").press(SAVE);
+
+    assert_eq!(scratch.named("blog").unwrap().group_name, None);
+    assert!(!labels(&mut fake).contains(&"# Acme".to_string()));
+}
+
+#[test]
+fn saving_into_a_folded_group_opens_it_and_follows_the_connection() {
+    let scratch = Scratch::new("groups-follow");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    fake.press("jjj ").press("kkk").press("e");
+    move_to(&mut fake, "group_name");
+    fake.press("\r").press("notarydash\r").press(SAVE);
+
+    assert!(fake.screen().contains("▼ notarydash (3)"));
+    assert!(current_name(&mut fake).ends_with("scratch"));
+}
+
+#[test]
+fn says_on_the_hotkey_bar_how_to_fold_yank_and_delete() {
+    let scratch = Scratch::new("groups-bar");
+    let mut fake = scratch.with_two();
+    let screen = fake.screen();
+
+    assert!(screen.contains("space Fold"), "{screen}");
+    assert!(screen.contains("y/Y Yank db/DSN"), "{screen}");
+    assert!(screen.contains("d Delete"), "{screen}");
+}
+
+fn yanking(scratch: &Scratch) -> (Fake<Picker>, app::tui::clipboard::Recorded) {
+    let clipboard = app::tui::clipboard::Recorded::default();
+    let fake = Fake::sized(
+        Picker::new(scratch.connections(), None)
+            .with_store(&scratch.store(), &scratch.key())
+            .with_clipboard(clipboard.clone()),
+        120,
+        30,
+    );
+    (fake, clipboard)
+}
+
+#[test]
+fn yanks_the_database_name_on_y_and_the_connection_string_on_shift_y() {
+    let scratch = Scratch::new("yank-mysql");
+    scratch.add(&mysql("shop", Some("p@ss word")));
+    let (mut fake, clipboard) = yanking(&scratch);
+
+    fake.press("y");
+    assert_eq!(fake.app.status.as_deref(), Some("yanked shop"));
+
+    fake.press("Y");
+    assert_eq!(fake.app.status.as_deref(), Some("yanked connection string"));
+    assert_eq!(
+        clipboard.copies(),
+        [
+            "shop",
+            "mysql://alice:p%40ss%20word@db.example.com:3306/shop"
+        ]
+    );
+}
+
+#[test]
+fn yanks_a_sqlite_connection_as_its_path() {
+    let scratch = Scratch::new("yank-sqlite");
+    scratch.add(&sqlite("local", "/tmp/a.sqlite"));
+    let (mut fake, clipboard) = yanking(&scratch);
+
+    fake.press("yY");
+
+    assert_eq!(
+        clipboard.copies(),
+        ["/tmp/a.sqlite", "sqlite:///tmp/a.sqlite"]
+    );
+}
+
+#[test]
+fn says_so_when_there_is_no_database_name_to_yank() {
+    let scratch = Scratch::new("yank-none");
+    let mut fields = mysql("server", None);
+    fields.retain(|(column, _)| *column != "database");
+    scratch.add(&fields);
+    let (mut fake, clipboard) = yanking(&scratch);
+
+    fake.press("y");
+
+    assert!(clipboard.copies().is_empty());
+    assert_eq!(
+        fake.app.status.as_deref(),
+        Some("server has no database set, so it asks on connect")
+    );
+}
+
+#[test]
+fn says_when_a_yank_went_to_the_terminal_clipboard() {
+    let scratch = Scratch::new("yank-terminal");
+    scratch.add(&sqlite("local", "/tmp/a.sqlite"));
+    let mut fake = Fake::sized(
+        Picker::new(scratch.connections(), None).with_clipboard(
+            app::tui::clipboard::Recorded::reaching(app::tui::clipboard::Reached::Terminal),
+        ),
+        120,
+        30,
+    );
+
+    fake.press("y");
+
+    assert_eq!(
+        fake.app.status.as_deref(),
+        Some("yanked /tmp/a.sqlite to the terminal clipboard")
+    );
+}
+
+#[test]
+fn lets_the_status_line_fade_back_to_the_connection_count() {
+    let scratch = Scratch::new("yank-fade");
+    scratch.add(&sqlite("local", "/tmp/a.sqlite"));
+    let (mut fake, _) = yanking(&scratch);
+    fake.press("y");
+    let since = std::time::Instant::now();
+
+    assert!(!fake.app.fade_status(since));
+    assert_eq!(fake.app.status.as_deref(), Some("yanked /tmp/a.sqlite"));
+    assert!(
+        fake.app
+            .fade_status(since + std::time::Duration::from_secs(60))
+    );
+    assert_eq!(fake.app.status, None);
 }
