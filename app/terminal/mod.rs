@@ -1,5 +1,6 @@
 mod fake;
 mod key;
+mod margin;
 mod mouse;
 
 use std::time::Duration;
@@ -62,6 +63,10 @@ pub trait Tui {
         CursorShape::Default
     }
 
+    fn top_margin(&self) -> u16 {
+        0
+    }
+
     fn on_paste(&mut self, text: &str) -> Flow<Self::Output> {
         for character in text.chars() {
             let key = match character {
@@ -107,13 +112,17 @@ fn event_loop<App: Tui>(
 ) -> anyhow::Result<App::Output> {
     let mut dirty = true;
     let mut shape = CursorShape::Default;
+    let mut margin = margin::Margin::default();
 
     loop {
         while event::poll(Duration::ZERO)? {
             dirty = true;
             let flow = match input(event::read()?) {
                 Some(Input::Key(key)) => app.on_key(key),
-                Some(Input::Mouse(mouse)) => app.on_mouse(mouse),
+                Some(Input::Mouse(mouse)) => match margin::below(mouse, app.top_margin()) {
+                    Some(mouse) => app.on_mouse(mouse),
+                    None => Flow::Continue,
+                },
                 Some(Input::Paste(text)) => app.on_paste(&text),
                 None => Flow::Continue,
             };
@@ -123,7 +132,7 @@ fn event_loop<App: Tui>(
         }
 
         if dirty {
-            terminal.draw(|frame| app.render(frame))?;
+            terminal.draw(|frame| margin.draw(app, frame))?;
             dirty = false;
             if app.cursor_shape() != shape {
                 shape = app.cursor_shape();

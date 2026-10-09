@@ -2,11 +2,13 @@ use ratatui::Terminal;
 use ratatui::backend::TestBackend;
 use ratatui::style::Modifier;
 
+use crate::terminal::margin::{self, Margin};
 use crate::terminal::{Flow, Input, Key, Mouse, Tui};
 
 pub struct Fake<App: Tui> {
     pub app: App,
     terminal: Terminal<TestBackend>,
+    margin: Margin,
     exit: Option<App::Output>,
 }
 
@@ -20,6 +22,7 @@ impl<App: Tui> Fake<App> {
             app,
             terminal: Terminal::new(TestBackend::new(width, height))
                 .expect("test backend never fails"),
+            margin: Margin::default(),
             exit: None,
         }
     }
@@ -60,6 +63,9 @@ impl<App: Tui> Fake<App> {
             return self;
         }
         self.render();
+        let Some(mouse) = margin::below(mouse, self.app.top_margin()) else {
+            return self;
+        };
         if let Flow::Exit(output) = self.app.on_mouse(mouse) {
             self.exit = Some(output);
         }
@@ -167,8 +173,9 @@ impl<App: Tui> Fake<App> {
 
     fn render(&mut self) {
         let app = &mut self.app;
+        let margin = &mut self.margin;
         self.terminal
-            .draw(|frame| app.render(frame))
+            .draw(|frame| margin.draw(app, frame))
             .expect("test backend never fails");
     }
 }
