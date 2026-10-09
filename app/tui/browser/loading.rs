@@ -46,6 +46,7 @@ impl Browser {
         };
         let elapsed = started.elapsed().as_millis();
 
+        self.loaded = Some(table.clone());
         let mut rows = page.rows;
         self.has_more = rows.len() > PAGE;
         rows.truncate(PAGE);
@@ -108,9 +109,13 @@ impl Browser {
         }
         self.table_index = self.table_index.min(count - 1);
         self.offset = 0;
-        self.edits.forget();
         self.sort = None;
-        self.filters = None;
+        if self.current_table() == self.loaded {
+            self.edits.deletes.clear();
+        } else {
+            self.edits.forget();
+            self.filters = None;
+        }
         self.queue_load(false);
     }
 

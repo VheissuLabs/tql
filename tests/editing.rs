@@ -971,3 +971,20 @@ fn y_copies_a_failed_write_without_closing_it() {
     assert_eq!(fake.app.status(), "copied the error");
     assert!(fake.app.problem.is_some());
 }
+
+#[test]
+fn filtering_the_table_list_keeps_unwritten_changes_while_the_same_table_stays_open() {
+    let path = fixture("filter-keeps", LINKED);
+    let mut fake = open(&path, false);
+
+    fake.press("\tle").press("-edited\x04");
+    assert!(fake.app.edits.pending());
+
+    fake.press("/alb");
+    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert!(fake.app.edits.pending());
+
+    fake.press("\x7f\x7f\x7fart");
+    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert!(!fake.app.edits.pending());
+}
