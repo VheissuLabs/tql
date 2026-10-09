@@ -5,7 +5,7 @@ use regex::Regex;
 
 use crate::dsn;
 
-pub const COMMANDS: [&str; 13] = [
+pub const COMMANDS: [&str; 14] = [
     "browse",
     "open",
     "connect",
@@ -16,6 +16,7 @@ pub const COMMANDS: [&str; 13] = [
     "tables",
     "describe",
     "query",
+    "tableplus",
     "list",
     "help",
     "mcp:start",

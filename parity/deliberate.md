@@ -49,3 +49,17 @@ Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
   the user has open on the connection it names, in place of what is there; one undo
   brings back what was. Nothing runs. When several tqls are open on that connection, the
   one used last gets it. The server's instructions add a sentence about it.
+
+## tableplus
+
+`tests/tableplus.rs` follows tql 0.11.0's TablePlus tests, and a dry run and an import of
+the same folder give the same lines, JSON and stored connections. Where it differs:
+
+- **A `--from` folder with no `Connections.plist`** says so and asks for the TablePlus
+  Data folder. tql shows PHP's `DOMDocument::loadXML(): Argument #1 ($source) must not be
+  empty`.
+- **Property lists are read without `plutil`**, so binary ones work on any system, and a
+  file that is neither XML nor binary is read as an old-style (OpenStep) property list,
+  as `plutil` reads it.
+- **The Keychain is asked without tql's 120 second limit**; macOS's own prompt decides
+  how long it waits.
