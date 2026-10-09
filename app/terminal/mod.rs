@@ -121,17 +121,18 @@ fn event_loop<App: Tui>(
     loop {
         while event::poll(Duration::ZERO)? {
             dirty = true;
-            let flow = match input(event::read()?) {
-                Some(Input::Key(key)) => app.on_key(key),
-                Some(Input::Mouse(mouse)) => match margin::below(mouse, app.top_margin()) {
-                    Some(mouse) => app.on_mouse(mouse),
-                    None => Flow::Continue,
-                },
-                Some(Input::Paste(text)) => app.on_paste(&text),
-                None => Flow::Continue,
-            };
-            if let Flow::Exit(output) = flow {
-                return Ok(output);
+            let mut inputs = vec![input(event::read()?)];
+            if matches!(inputs[0], Some(Input::Key(Key::Escape))) && event::poll(SPLIT_ESCAPE)? {
+                let next = input(event::read()?);
+                inputs = match joined(&next) {
+                    Some(key) => vec![Some(Input::Key(key))],
+                    None => vec![inputs.remove(0), next],
+                };
+            }
+            for input in inputs.into_iter().flatten() {
+                if let Flow::Exit(output) = dispatch(app, input) {
+                    return Ok(output);
+                }
             }
         }
 
@@ -154,6 +155,29 @@ fn event_loop<App: Tui>(
         }
 
         event::poll(TICK)?;
+    }
+}
+
+// A terminal multiplexer can split alt+h into escape and h a moment apart;
+// a key that follows escape this closely was meant with it.
+const SPLIT_ESCAPE: Duration = Duration::from_millis(30);
+
+fn joined(next: &Option<Input>) -> Option<Key> {
+    match next {
+        Some(Input::Key(Key::Char(character))) => Some(Key::Alt(*character)),
+        Some(Input::Key(Key::Enter)) => Some(Key::ShiftEnter),
+        _ => None,
+    }
+}
+
+fn dispatch<App: Tui>(app: &mut App, input: Input) -> Flow<App::Output> {
+    match input {
+        Input::Key(key) => app.on_key(key),
+        Input::Mouse(mouse) => match margin::below(mouse, app.top_margin()) {
+            Some(mouse) => app.on_mouse(mouse),
+            None => Flow::Continue,
+        },
+        Input::Paste(text) => app.on_paste(&text),
     }
 }
 
@@ -184,4 +208,20 @@ pub mod prelude {
     pub use ratatui::layout::Rect;
     pub use ratatui::style::{Color, Modifier, Style, Stylize};
     pub use ratatui::text::{Line, Span, Text};
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_key_close_behind_escape_is_its_alt_key() {
+        assert_eq!(
+            joined(&Some(Input::Key(Key::Char('h')))),
+            Some(Key::Alt('h'))
+        );
+        assert_eq!(joined(&Some(Input::Key(Key::Enter))), Some(Key::ShiftEnter));
+        assert_eq!(joined(&Some(Input::Key(Key::Up))), None);
+        assert_eq!(joined(&None), None);
+    }
 }
