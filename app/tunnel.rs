@@ -338,6 +338,16 @@ mod tests {
         directory
     }
 
+    // These tests pick a free port and bind it a moment later, so two of them
+    // at once can pick the same one.
+    static PORTS: Mutex<()> = Mutex::new(());
+
+    fn one_at_a_time() -> std::sync::MutexGuard<'static, ()> {
+        PORTS
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner())
+    }
+
     fn fake_ssh(directory: &Path, body: &str) -> String {
         let script = directory.join("ssh");
         fs::write(&script, format!("#!/bin/sh\n{body}\n")).unwrap();
@@ -415,6 +425,7 @@ mod tests {
 
     #[test]
     fn asks_the_system_for_a_port_that_is_free() {
+        let _ports = one_at_a_time();
         let port = free_port();
 
         assert!(port > 1024);
@@ -469,6 +480,7 @@ mod tests {
 
     #[test]
     fn hands_the_password_to_ssh_through_askpass_only_when_there_is_one() {
+        let _ports = one_at_a_time();
         let directory = scratch("askpass");
         let seen = directory.join("seen");
         let program = fake_ssh(
@@ -495,6 +507,7 @@ mod tests {
 
     #[test]
     fn says_what_ssh_said_when_it_gives_up() {
+        let _ports = one_at_a_time();
         let directory = scratch("refused");
         let program = fake_ssh(
             &directory,
@@ -514,6 +527,7 @@ mod tests {
 
     #[test]
     fn says_the_tunnel_did_not_come_up_when_ssh_is_silent() {
+        let _ports = one_at_a_time();
         let directory = scratch("silent");
         let program = fake_ssh(&directory, "exit 1");
 
@@ -527,6 +541,7 @@ mod tests {
 
     #[test]
     fn gives_up_on_a_tunnel_that_never_listens_and_stops_it() {
+        let _ports = one_at_a_time();
         let directory = scratch("never");
         let pid = directory.join("pid");
         let program = fake_ssh(
@@ -547,6 +562,7 @@ mod tests {
 
     #[test]
     fn waits_for_the_forwarded_port_and_stops_ssh_when_dropped() {
+        let _ports = one_at_a_time();
         let directory = scratch("listening");
         let port = free_port();
         let program = fake_ssh(
@@ -569,6 +585,7 @@ mod tests {
 
     #[test]
     fn keeps_a_tunnel_open_until_tql_closes_them_all() {
+        let _ports = one_at_a_time();
         let directory = scratch("kept");
         let port = free_port();
         let program = fake_ssh(
