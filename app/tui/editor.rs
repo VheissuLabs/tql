@@ -1,4 +1,4 @@
-use zerorust_tui::Key;
+use crate::terminal::Key;
 
 #[derive(Debug, Clone, Default)]
 pub struct QueryEditor {

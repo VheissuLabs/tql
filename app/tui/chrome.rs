@@ -1,5 +1,5 @@
-use zerorust_tui::prelude::*;
-use zerorust_tui::ratatui::buffer::Buffer;
+use crate::terminal::prelude::*;
+use ratatui::buffer::Buffer;
 
 use super::text::{truncate, width};
 
@@ -7,7 +7,7 @@ pub const MIN_COLUMNS: u16 = 60;
 pub const MIN_LINES: u16 = 12;
 
 pub mod theme {
-    use zerorust_tui::prelude::*;
+    use crate::terminal::prelude::*;
 
     use crate::settings;
 

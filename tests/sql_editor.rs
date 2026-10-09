@@ -3,8 +3,8 @@ use std::path::PathBuf;
 use app::database;
 use app::settings::{self, Settings};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::{Browser, Exit, Focus, Mode};
-use zerorust_tui::Fake;
 
 const RUN: &str = "\x12";
 const ESCAPE: &str = "\x1b";

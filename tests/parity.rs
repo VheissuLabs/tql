@@ -5,8 +5,8 @@ use std::process::Command;
 use app::database::{self, Exporter};
 use app::settings::{self, Settings};
 use app::store::Store;
+use app::terminal::Fake;
 use app::tui::{Browser, Picker, Places};
-use zerorust_tui::Fake;
 
 const ROOT: &str = env!("CARGO_MANIFEST_DIR");
 

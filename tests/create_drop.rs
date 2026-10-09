@@ -5,8 +5,8 @@ use std::rc::Rc;
 use anyhow::bail;
 use app::database::{Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::Browser;
-use zerorust_tui::Fake;
 
 const PALETTE: &str = "\x0b";
 const DROP: &str = "\x04";

@@ -1,5 +1,5 @@
-use zerorust_tui::prelude::*;
-use zerorust_tui::ratatui::buffer::Buffer;
+use crate::terminal::prelude::*;
+use ratatui::buffer::Buffer;
 
 use super::chrome::{Island, Modal, theme};
 use super::text::{pad, truncate, window};

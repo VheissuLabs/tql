@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
-use zerorust_tui::prelude::*;
+use crate::terminal::prelude::*;
 
 mod command_palette;
 mod databases;

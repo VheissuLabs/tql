@@ -1,5 +1,5 @@
-use zerorust::prelude::*;
-use zerorust_tui::CmdTui;
+use crate::console::prelude::*;
+use crate::terminal::CmdTui;
 
 use crate::config_file;
 use crate::database;
@@ -12,7 +12,22 @@ use crate::tui::clipboard::SystemClipboard;
 use crate::tui::{Browser, Exit, Picker};
 use crate::updates::{self, Installation, Releases, Remembered, check};
 
-#[command("browse", description = "Browse and query your databases")]
+pub struct Browse;
+
+impl Command for Browse {
+    fn signature(&self) -> &str {
+        "browse"
+    }
+
+    fn description(&self) -> &str {
+        "Browse and query your databases"
+    }
+
+    fn execute(&self, cmd: &mut Cmd) -> Result {
+        browse(cmd)
+    }
+}
+
 fn browse(cmd: &mut Cmd) -> Result {
     let loaded = config_file::prepare(&paths::config_file());
     let message = loaded.message();
@@ -39,8 +54,9 @@ fn browse(cmd: &mut Cmd) -> Result {
         let connection = match chosen.take() {
             Some(connection) => connection,
             None => {
-                let mut picker = Picker::new(store.connections()?, notice.take().or_else(update_notice))
-                    .with_store(&paths::store(), &paths::key());
+                let mut picker =
+                    Picker::new(store.connections()?, notice.take().or_else(update_notice))
+                        .with_store(&paths::store(), &paths::key());
                 let Some(connection) = cmd.tui(&mut picker)? else {
                     return Ok(());
                 };

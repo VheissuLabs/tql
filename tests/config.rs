@@ -5,8 +5,8 @@ use app::config_file::{self, template};
 use app::database;
 use app::paths;
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::Browser;
-use zerorust_tui::Fake;
 
 fn directory(name: &str) -> PathBuf {
     let directory =

@@ -1538,26 +1538,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "linkme"
-version = "0.3.37"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3045e122bd98aef8ec3ad58ce84f0791f64e70163d1a02710af4aa11a4d54cc5"
-dependencies = [
- "linkme-impl",
-]
-
-[[package]]
-name = "linkme-impl"
-version = "0.3.37"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77060ebe535362c3da75682cd17b0431017b6e7c5661e714fc69a7ad017d1301"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 3.0.6",
-]
-
-[[package]]
 name = "linux-raw-sys"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3232,6 +3212,8 @@ dependencies = [
  "anyhow",
  "base64 0.22.1",
  "cbc",
+ "clap",
+ "dotenvy",
  "flate2",
  "futures-util",
  "getrandom 0.3.4",
@@ -3239,6 +3221,7 @@ dependencies = [
  "jiff",
  "mysql",
  "postgres",
+ "ratatui",
  "rcgen",
  "regex",
  "rusqlite",
@@ -3254,9 +3237,6 @@ dependencies = [
  "unicode-width",
  "ureq",
  "webpki-roots",
- "zerorust",
- "zerorust-build",
- "zerorust-tui",
 ]
 
 [[package]]
@@ -3889,46 +3869,6 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.119",
-]
-
-[[package]]
-name = "zerorust"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "clap",
- "dotenvy",
- "linkme",
- "toml",
- "zerorust-macros",
- "zerorust-signature",
-]
-
-[[package]]
-name = "zerorust-build"
-version = "0.1.0"
-
-[[package]]
-name = "zerorust-macros"
-version = "0.1.0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.119",
- "zerorust-signature",
-]
-
-[[package]]
-name = "zerorust-signature"
-version = "0.1.0"
-
-[[package]]
-name = "zerorust-tui"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "ratatui",
- "zerorust",
 ]
 
 [[package]]

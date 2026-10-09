@@ -1,4 +1,4 @@
-use zerorust_tui::prelude::*;
+use crate::terminal::prelude::*;
 
 use super::chrome::{Island, theme};
 use super::editor::QueryEditor;

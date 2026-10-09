@@ -2,8 +2,8 @@ use std::path::PathBuf;
 
 use app::database;
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::{Browser, Exit, Focus, Mode, PAGE};
-use zerorust_tui::Fake;
 
 fn fixture(name: &str) -> PathBuf {
     let path = std::env::temp_dir().join(format!("tql-rust-{}-{name}.sqlite", std::process::id()));

@@ -5,8 +5,8 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 
 use app::database::{self, Column, Database, Filters, ForeignKey, Index, Page, Sort};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::Browser;
-use zerorust_tui::Fake;
 
 struct Counted {
     inner: Box<dyn Database>,
@@ -146,7 +146,7 @@ fn composite_keys_are_not_a_default_sort_like_in_tql() {
 fn the_grid_says_loading_until_the_rows_arrive() {
     let (mut fake, _) = counted();
 
-    fake.key(zerorust_tui::Key::Char('j'));
+    fake.key(app::terminal::Key::Char('j'));
     assert!(fake.screen().contains("loading…"));
     assert!(fake.screen().contains("[2] b"));
 

@@ -91,7 +91,7 @@ impl Sandbox {
     }
 }
 
-fn run(arguments: &[&str], stdin: &str) -> zerorust::RunResult {
+fn run(arguments: &[&str], stdin: &str) -> app::console::RunResult {
     app::application().run_with(arguments.iter().copied(), stdin)
 }
 

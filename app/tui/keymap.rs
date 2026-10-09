@@ -1,5 +1,5 @@
+use crate::terminal::Key;
 use toml::Value;
-use zerorust_tui::Key;
 
 use crate::settings;
 

@@ -4,8 +4,8 @@ use std::path::{Path, PathBuf};
 use app::database::{self, Database, Exporter};
 use app::settings::{self, Settings};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::Browser;
-use zerorust_tui::Fake;
 
 const PALETTE: &str = "\x0b";
 const RUN: &str = "\x12";

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use app::database::{Column, Database, Filters, ForeignKey, Index, Page, Sort};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::Browser;
-use zerorust_tui::Fake;
 
 struct Server {
     current: Option<String>,

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use zerorust_tui::prelude::*;
+use crate::terminal::prelude::*;
 
 use super::ago::{ago, now};
 use super::chrome::{self, theme};

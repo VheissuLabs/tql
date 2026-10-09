@@ -3,9 +3,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use app::database;
 use app::settings::{self, Settings};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::Browser;
 use app::tui::clipboard::{Reached, Recorded};
-use zerorust_tui::Fake;
 
 const ARTISTS: &str = "
     create table artists (id integer primary key, name text not null, profile text);

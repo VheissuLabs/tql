@@ -4,10 +4,10 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use app::database;
 use app::settings::{self, Settings};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::clipboard::Recorded;
 use app::tui::vim::VimMode;
 use app::tui::{Browser, Mode};
-use zerorust_tui::Fake;
 
 static OPENED: AtomicUsize = AtomicUsize::new(0);
 
@@ -533,7 +533,7 @@ fn reopening_the_editor_starts_in_normal_mode() {
 
 #[test]
 fn insert_mode_asks_for_a_bar_cursor() {
-    use zerorust_tui::{CursorShape, Tui};
+    use app::terminal::{CursorShape, Tui};
 
     let mut fake = opened("cursor-shape", Recorded::default());
     assert_eq!(fake.app.cursor_shape(), CursorShape::Default);

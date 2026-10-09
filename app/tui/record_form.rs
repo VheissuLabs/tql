@@ -1,5 +1,5 @@
-use zerorust_tui::Key;
-use zerorust_tui::prelude::*;
+use crate::terminal::Key;
+use crate::terminal::prelude::*;
 
 use super::chrome::theme;
 use super::editor::QueryEditor;

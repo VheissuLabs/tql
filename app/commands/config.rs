@@ -1,15 +1,27 @@
 use std::fs;
 
-use zerorust::prelude::*;
+use crate::console::prelude::*;
 
 use crate::config_file::{file, template, tidy};
 use crate::paths;
 use crate::settings::Settings;
 
-#[command(
-    "config {--tidy : Put the settings back in order, keeping your values} {--path : Print the path to the file and stop}",
-    description = "Show where the config file is, and put it back in order"
-)]
+pub struct Config;
+
+impl Command for Config {
+    fn signature(&self) -> &str {
+        "config {--tidy : Put the settings back in order, keeping your values} {--path : Print the path to the file and stop}"
+    }
+
+    fn description(&self) -> &str {
+        "Show where the config file is, and put it back in order"
+    }
+
+    fn execute(&self, cmd: &mut Cmd) -> Result {
+        config(cmd)
+    }
+}
+
 fn config(cmd: &mut Cmd) -> Result {
     let path = paths::config_file();
     let _ = file::ensure(&path);

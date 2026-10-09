@@ -1,21 +1,33 @@
 use std::io::IsTerminal;
 
-use zerorust::prelude::*;
-use zerorust_tui::CmdTui;
+use crate::console::prelude::*;
+use crate::terminal::CmdTui;
 
+use crate::config_file;
 use crate::database;
 use crate::opener;
 use crate::paths;
-use crate::config_file;
 use crate::settings;
 use crate::store_writer::StoreWriter;
 use crate::tui::Browser;
 use crate::tui::clipboard::SystemClipboard;
 
-#[command(
-    "open {path : a SQLite file, or a mysql:// pgsql:// connection string} {--name= : what to call it in the connection list} {--tag= : what it is: production, staging, dev or local} {--peek : open it without remembering it}",
-    description = "Open a database by path or connection string"
-)]
+pub struct Open;
+
+impl Command for Open {
+    fn signature(&self) -> &str {
+        "open {path : a SQLite file, or a mysql:// pgsql:// connection string} {--name= : what to call it in the connection list} {--tag= : what it is: production, staging, dev or local} {--peek : open it without remembering it}"
+    }
+
+    fn description(&self) -> &str {
+        "Open a database by path or connection string"
+    }
+
+    fn execute(&self, cmd: &mut Cmd) -> Result {
+        open(cmd)
+    }
+}
+
 fn open(cmd: &mut Cmd) -> Result {
     let tag = cmd.option("tag").map(String::from);
     if let Some(refusal) = opener::refuse_tag(tag.as_deref()) {
@@ -24,7 +36,7 @@ fn open(cmd: &mut Cmd) -> Result {
         return exit(1);
     }
 
-    let target = match opener::target(cmd.argument("path")) {
+    let target = match opener::target(cmd.argument("path").unwrap_or_default()) {
         Ok(target) => target,
         Err(refusal) => {
             cmd.error(refusal);

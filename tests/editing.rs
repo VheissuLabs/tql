@@ -3,9 +3,9 @@ use std::path::{Path, PathBuf};
 use app::database;
 use app::settings::{self, Settings};
 use app::store::Connection;
+use app::terminal::Fake;
 use app::tui::clipboard::Recorded;
 use app::tui::{Browser, Exit, State};
-use zerorust_tui::Fake;
 
 const SAVE: &str = "\x13";
 const NULL: &str = "\x0e";

@@ -2,8 +2,8 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 
-use zerorust_tui::prelude::*;
-use zerorust_tui::ratatui::buffer::Buffer;
+use crate::terminal::prelude::*;
+use ratatui::buffer::Buffer;
 
 use super::choice::Choice;
 use super::chrome::{Island, theme};
