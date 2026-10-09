@@ -70,3 +70,18 @@ the same folder give the same lines, JSON and stored connections. Where it diffe
   as `plutil` reads it.
 - **The Keychain is asked without tql's 120 second limit**; macOS's own prompt decides
   how long it waits.
+
+## dump, load and sync
+
+`tests/dump.rs` and `tests/dump_engines.rs` hold them to tql 0.11.0's tests, and dry runs,
+real dumps, loads and syncs on MySQL and Postgres print what tql prints. Where they differ:
+
+- **Errors give the database's own words** when a connection fails or a replayed
+  statement fails, without PDO's `SQLSTATE[...]` prefix.
+- **`--to=/` or `--via=/` is refused as a folder with something in it.** tql trims the
+  slash away and fails with a PHP error.
+- **`-q` still shows errors.** Symfony's `-q` hides them along with everything else; its
+  own help says only errors are displayed, which is what tql-rust does. `--silent` hides
+  everything.
+- **`tql.json` writes names as they are.** tql escapes every character outside ASCII as
+  `\uXXXX`; both read either.

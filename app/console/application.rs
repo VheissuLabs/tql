@@ -9,13 +9,34 @@ use crate::console::command::Exit;
 use crate::console::config::Config;
 use crate::console::input::{self, Input};
 use crate::console::signature::Signature;
-use crate::console::{Cmd, Command};
+use crate::console::{Cmd, Command, Verbosity};
 
-const RESERVED_NAMES: [&str; 5] = ["help", "version", "ansi", "no-ansi", "no-interaction"];
+const RESERVED_NAMES: [&str; 8] = [
+    "help",
+    "version",
+    "ansi",
+    "no-ansi",
+    "no-interaction",
+    "quiet",
+    "silent",
+    "verbose",
+];
 const LIST: &str = "list";
 const COMPLETION: &str = "completion";
-const GLOBAL_FLAGS: [&str; 4] = ["-n", "--no-interaction", "--ansi", "--no-ansi"];
-const RESERVED_SHORTCUTS: [char; 3] = ['h', 'V', 'n'];
+const GLOBAL_FLAGS: [&str; 11] = [
+    "-n",
+    "--no-interaction",
+    "--ansi",
+    "--no-ansi",
+    "-q",
+    "--quiet",
+    "--silent",
+    "-v",
+    "-vv",
+    "-vvv",
+    "--verbose",
+];
+const RESERVED_SHORTCUTS: [char; 5] = ['h', 'V', 'n', 'q', 'v'];
 
 pub struct Application {
     name: String,
@@ -216,6 +237,21 @@ impl Application {
 
         let global_flag = |flag: &str| matches.get_flag(flag) || sub_matches.get_flag(flag);
         let ansi = !global_flag("no-ansi") && (ansi || global_flag("ansi"));
+        let verbosity = if global_flag("silent") {
+            Verbosity::Silent
+        } else if global_flag("quiet") {
+            Verbosity::Quiet
+        } else {
+            match matches
+                .get_count("verbose")
+                .max(sub_matches.get_count("verbose"))
+            {
+                0 => Verbosity::Normal,
+                1 => Verbosity::Verbose,
+                2 => Verbosity::VeryVerbose,
+                _ => Verbosity::Debug,
+            }
+        };
 
         let Some(index) = signatures
             .iter()
@@ -234,6 +270,7 @@ impl Application {
             interactive: !global_flag("no-interaction"),
             terminal,
             piped,
+            verbosity,
             app_name: &self.name,
             app_version: &self.version,
         };
@@ -296,9 +333,25 @@ impl Application {
             .help_template(format!(
                 "{display_name} {{version}}\n\n{{usage-heading}} {{usage}}\n\n{{all-args}}"
             ))
+            .arg(global("silent", "Do not output any message"))
+            .arg(
+                global(
+                    "quiet",
+                    "Only errors are displayed. All other output is suppressed",
+                )
+                .short('q'),
+            )
             .arg(global("no-interaction", "Do not ask any interactive question").short('n'))
             .arg(global("ansi", "Force ANSI output"))
-            .arg(global("no-ansi", "Disable ANSI output"));
+            .arg(global("no-ansi", "Disable ANSI output"))
+            .arg(
+                global(
+                    "verbose",
+                    "Increase the verbosity of messages: 1 for normal output, 2 for more verbose output and 3 for debug",
+                )
+                .short('v')
+                .action(ArgAction::Count),
+            );
 
         let mut commands: Vec<clap::Command> = signatures
             .iter()

@@ -5,6 +5,7 @@ pub mod config_file;
 pub mod console;
 pub mod database;
 pub mod dsn;
+pub mod dump;
 pub mod encrypter;
 pub mod live;
 pub mod mcp;
@@ -28,10 +29,13 @@ pub fn application() -> console::Application {
         .command(commands::config::Config)
         .command(commands::connections::Connections)
         .command(commands::describe::Describe)
+        .command(commands::dump::Dump)
         .command(commands::export::Export)
+        .command(commands::load::Load)
         .command(commands::mcp::McpStart)
         .command(commands::open::Open)
         .command(commands::query::Query)
+        .command(commands::sync::Sync)
         .command(commands::tables::Tables)
         .command(commands::tableplus::TablePlus)
         .command(commands::update::Update);

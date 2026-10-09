@@ -5,6 +5,7 @@ use ratatui::crossterm::style::Stylize;
 use ratatui::crossterm::terminal::{self, ClearType};
 use ratatui::crossterm::{cursor, execute, queue};
 
+use crate::console::boxes;
 use crate::terminal::Key;
 
 const ROWS: usize = 10;
@@ -158,6 +159,75 @@ pub fn ask(label: &str, mut menu: Menu) -> io::Result<Option<usize>> {
     )?;
     terminal::disable_raw_mode()?;
     Ok(picked)
+}
+
+pub fn confirm_lines(label: &str, confirmed: Option<bool>, answered: bool) -> Vec<String> {
+    let columns = terminal::size()
+        .map(|(columns, _)| columns as usize)
+        .unwrap_or(80);
+    let label = boxes::truncate(label, columns.saturating_sub(6).max(1));
+    let confirmed = confirmed.unwrap_or(false);
+    let mut lines = vec![String::new()];
+    if answered {
+        let answer = if confirmed { "Yes" } else { "No" };
+        lines.extend(boxes::boxed(&boxes::dim(&label), answer, "", columns));
+        return lines;
+    }
+    let options = match confirmed {
+        true => format!("{} Yes {}", boxes::green("●"), boxes::dim("/ ○ No")),
+        false => format!("{} {} No", boxes::dim("○ Yes /"), boxes::green("●")),
+    };
+    lines.extend(boxes::boxed(&boxes::cyan(&label), &options, "", columns));
+    lines.push(String::new());
+    lines
+}
+
+pub fn confirm(label: &str, default: bool) -> io::Result<Option<bool>> {
+    let mut out = io::stdout();
+    terminal::enable_raw_mode()?;
+    write!(out, "\x1b[?25l")?;
+    let mut confirmed = default;
+    let mut drawn = 0;
+    let answer = loop {
+        drawn = draw(
+            &mut out,
+            &confirm_lines(label, Some(confirmed), false),
+            drawn,
+        )?;
+        let Event::Key(pressed) = event::read()? else {
+            continue;
+        };
+        if pressed.kind == KeyEventKind::Release {
+            continue;
+        }
+        match Key::from_event(pressed) {
+            Some(Key::Char('y')) => confirmed = true,
+            Some(Key::Char('n')) => confirmed = false,
+            Some(
+                Key::Tab
+                | Key::Up
+                | Key::Down
+                | Key::Left
+                | Key::Right
+                | Key::Ctrl('p' | 'f' | 'n' | 'b')
+                | Key::Char('h' | 'j' | 'k' | 'l'),
+            ) => confirmed = !confirmed,
+            Some(Key::Enter) => break Some(confirmed),
+            Some(Key::Ctrl('c')) => break None,
+            _ => {}
+        }
+    };
+    if let Some(confirmed) = answer {
+        draw(
+            &mut out,
+            &confirm_lines(label, Some(confirmed), true),
+            drawn,
+        )?;
+    }
+    write!(out, "\x1b[?25h")?;
+    out.flush()?;
+    terminal::disable_raw_mode()?;
+    Ok(answer)
 }
 
 fn draw(out: &mut impl Write, lines: &[String], drawn: usize) -> io::Result<usize> {
