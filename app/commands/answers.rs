@@ -25,7 +25,7 @@ pub fn refuse(cmd: &mut Cmd, refusal: impl std::fmt::Display) -> Result {
     exit(1)
 }
 
-fn wants_json(cmd: &Cmd) -> bool {
+pub fn wants_json(cmd: &Cmd) -> bool {
     cmd.flag("json") || (!cmd.flag("table") && cmd.is_piped())
 }
 

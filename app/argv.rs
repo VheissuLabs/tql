@@ -21,6 +21,7 @@ pub const COMMANDS: [&str; 18] = [
     "tables",
     "describe",
     "query",
+    "tableplus",
     "list",
     "help",
     "mcp:start",

@@ -13,6 +13,7 @@ pub mod paths;
 pub mod settings;
 pub mod store;
 pub mod store_writer;
+pub mod tableplus;
 pub mod tag;
 pub mod terminal;
 pub mod tui;
@@ -32,6 +33,7 @@ pub fn application() -> console::Application {
         .command(commands::open::Open)
         .command(commands::query::Query)
         .command(commands::tables::Tables)
+        .command(commands::tableplus::TablePlus)
         .command(commands::update::Update);
 
     if cfg!(debug_assertions) {

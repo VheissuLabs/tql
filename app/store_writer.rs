@@ -147,6 +147,14 @@ impl StoreWriter {
         )?)
     }
 
+    pub fn name_of(&self, id: i64) -> anyhow::Result<String> {
+        Ok(self.connection.query_row(
+            "select name from connections where id = ?1",
+            [id],
+            |row| row.get(0),
+        )?)
+    }
+
     pub fn free_name(&self, name: &str) -> anyhow::Result<String> {
         if !self.name_taken(name, None)? {
             return Ok(name.to_string());

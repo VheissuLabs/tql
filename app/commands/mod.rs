@@ -7,5 +7,6 @@ pub mod export;
 pub mod mcp;
 pub mod open;
 pub mod query;
+pub mod tableplus;
 pub mod tables;
 pub mod update;

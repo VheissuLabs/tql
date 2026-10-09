@@ -10,6 +10,7 @@ use crate::console::input::Input;
 use crate::console::{Exit, prompt};
 
 const GREEN: &str = "32";
+const GRAY: &str = "90";
 const YELLOW: &str = "33";
 const DIM: &str = "2";
 const RED: &str = "31";
@@ -139,6 +140,14 @@ impl Cmd<'_> {
 
     pub fn error(&mut self, text: impl Display) {
         self.styled_line(text, ERROR);
+    }
+
+    pub fn green(&self, text: impl Display) -> String {
+        self.paint(text, GREEN)
+    }
+
+    pub fn gray(&self, text: impl Display) -> String {
+        self.paint(text, GRAY)
     }
 
     pub fn alert(&mut self, text: impl Display) {
