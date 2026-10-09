@@ -435,6 +435,17 @@ impl Browser {
 }
 
 impl Browser {
+    pub(super) fn replace_query(&mut self, sql: &str) {
+        self.query.completion = None;
+        let editor = &mut self.query.editor;
+        editor.commit();
+        editor.checkpoint();
+        let end = editor.buffer().chars().count();
+        editor.replace(0, end, &crate::tui::text::pasted(sql));
+        editor.commit();
+        self.query.last_edit = None;
+    }
+
     pub(super) fn paste_into_query(&mut self, text: &str) {
         if let Some(command) = self.command.as_mut() {
             command.push_str(&single_line(text));

@@ -63,6 +63,8 @@ fn reads_columns_indexes_and_foreign_keys_from_sqlite() {
             nullable: false,
             default: Some("'untitled'".into()),
             auto_increment: false,
+            full_type: "text".into(),
+            ..Column::default()
         }
     );
     assert!(database.columns("albums").unwrap()[0].auto_increment);

@@ -1,3 +1,4 @@
+pub mod agent;
 pub mod argv;
 pub mod commands;
 pub mod config_file;
@@ -5,6 +6,8 @@ pub mod console;
 pub mod database;
 pub mod dsn;
 pub mod encrypter;
+pub mod live;
+pub mod mcp;
 pub mod opener;
 pub mod paths;
 pub mod settings;
@@ -22,8 +25,13 @@ pub fn application() -> console::Application {
         .config_source("commands", include_str!("../config/commands.toml"))
         .command(commands::browse::Browse)
         .command(commands::config::Config)
+        .command(commands::connections::Connections)
+        .command(commands::describe::Describe)
         .command(commands::export::Export)
+        .command(commands::mcp::McpStart)
         .command(commands::open::Open)
+        .command(commands::query::Query)
+        .command(commands::tables::Tables)
         .command(commands::update::Update);
 
     if cfg!(debug_assertions) {

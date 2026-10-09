@@ -9,6 +9,16 @@ pub struct Column {
     pub nullable: bool,
     pub default: Option<String>,
     pub auto_increment: bool,
+    pub full_type: String,
+    pub collation: Option<String>,
+    pub comment: Option<String>,
+    pub generation: Option<Generation>,
+}
+
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Generation {
+    pub kind: Option<String>,
+    pub expression: Option<String>,
 }
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

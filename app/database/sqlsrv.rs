@@ -19,9 +19,9 @@ use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
 use super::schema::keys_by_table;
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Outcome, Page, Scalar, Scalars, Sort, Values,
-    all_text, delete_statement, insert_statement, outcome_or_affected, refused, shown_delete,
-    shown_insert, shown_update, single_column_keys, split_list, update_statement,
+    Column, Database, Filters, ForeignKey, Generation, Index, Outcome, Page, Scalar, Scalars, Sort,
+    Values, all_text, delete_statement, insert_statement, outcome_or_affected, refused,
+    shown_delete, shown_insert, shown_update, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 use crate::tunnel::Tunnel;
@@ -531,25 +531,62 @@ impl Database for SqlServer {
     fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
         Ok(self
             .select(
-                "select col.name, type.name as type_name, col.is_nullable as nullable, \
-                 def.definition as [default], col.is_identity as autoincrement \
+                "select col.name, type.name as type_name, \
+                 col.max_length as length, col.precision as precision, col.scale as places, \
+                 col.is_nullable as nullable, def.definition as [default], \
+                 col.is_identity as autoincrement, col.collation_name as collation, \
+                 com.definition as [expression], is_persisted as [persisted], \
+                 cast(prop.value as nvarchar(max)) as comment \
                  from sys.columns as col \
                  join sys.types as type on col.user_type_id = type.user_type_id \
                  join sys.objects as obj on col.object_id = obj.object_id \
                  join sys.schemas as scm on obj.schema_id = scm.schema_id \
                  left join sys.default_constraints def on col.default_object_id = def.object_id and col.object_id = def.parent_object_id \
+                 left join sys.extended_properties as prop on obj.object_id = prop.major_id and col.column_id = prop.minor_id and prop.name = 'MS_Description' \
+                 left join sys.computed_columns as com on col.column_id = com.column_id and col.object_id = com.object_id \
                  where obj.type in ('U', 'V') and obj.name = ? and scm.name = schema_name() \
                  order by col.column_id",
                 &[table.to_string()],
             )?
             .rows
             .into_iter()
-            .map(|mut row| Column {
-                name: row[0].take().unwrap_or_default(),
-                type_name: row[1].take().unwrap_or_default(),
-                nullable: flag(&row[2]),
-                default: row[3].take(),
-                auto_increment: flag(&row[4]),
+            .map(|mut row| {
+                let type_name = row[1].take().unwrap_or_default();
+                let number = |at: usize| row[at].clone().unwrap_or_default();
+                let full_type = match type_name.as_str() {
+                    "binary" | "varbinary" | "char" | "varchar" | "nchar" | "nvarchar" => {
+                        match number(2).as_str() {
+                            "-1" => format!("{type_name}(max)"),
+                            length => format!("{type_name}({length})"),
+                        }
+                    }
+                    "decimal" | "numeric" => format!("{type_name}({},{})", number(3), number(4)),
+                    "float" | "datetime2" | "datetimeoffset" | "time" => {
+                        format!("{type_name}({})", number(3))
+                    }
+                    _ => type_name.clone(),
+                };
+                let expression = row[9].take().filter(|expression| !expression.is_empty());
+                Column {
+                    name: row[0].take().unwrap_or_default(),
+                    type_name,
+                    full_type,
+                    nullable: flag(&row[5]),
+                    default: row[6].take(),
+                    auto_increment: flag(&row[7]),
+                    collation: row[8].take(),
+                    comment: row[11].take(),
+                    generation: expression.map(|expression| Generation {
+                        kind: Some(
+                            match flag(&row[10]) {
+                                true => "stored",
+                                false => "virtual",
+                            }
+                            .to_string(),
+                        ),
+                        expression: Some(expression),
+                    }),
+                }
             })
             .collect())
     }

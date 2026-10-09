@@ -11,7 +11,7 @@ mod error;
 mod filters;
 mod grid;
 mod help;
-mod history;
+pub mod history;
 mod json;
 mod key_files;
 pub mod keymap;

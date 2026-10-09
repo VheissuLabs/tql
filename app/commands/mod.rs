@@ -1,5 +1,11 @@
+pub mod answers;
 pub mod browse;
 pub mod config;
+pub mod connections;
+pub mod describe;
 pub mod export;
+pub mod mcp;
 pub mod open;
+pub mod query;
+pub mod tables;
 pub mod update;

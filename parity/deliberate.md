@@ -34,3 +34,18 @@ Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
 - **A connection that fails from the connection list comes back as a notice on the list**
   rather than outside the browser with a pause.
 - **Errors give the database's own words**, without PDO's `SQLSTATE[...]` prefix.
+
+## The agent commands and the MCP server
+
+`tests/agent.rs` and `tests/mcp.rs` hold them to tql 0.11.0's answers. Where they differ:
+
+- **Errors give the database's own words** here too, without PDO's prefix or Laravel's
+  `(Connection: …, SQL: …)` suffix.
+- **`query --table` shows a Postgres boolean as `true` or `false`.** tql shows `1`, or
+  nothing for false. The JSON is the same in both: `true` and `false`.
+- **`mcp:start` with a name other than `tql`** says tql's one server is named `tql`, not
+  to register it with Laravel's `Mcp::local()`.
+- **There is a fifth tool, `write-sql-tool`.** It puts SQL in the SQL editor of the tql
+  the user has open on the connection it names, in place of what is there; one undo
+  brings back what was. Nothing runs. When several tqls are open on that connection, the
+  one used last gets it. The server's instructions add a sentence about it.

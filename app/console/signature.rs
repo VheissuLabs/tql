@@ -89,7 +89,7 @@ impl Signature {
             match token.strip_prefix("--") {
                 Some(option) => {
                     let option = parse_option(option, description)?;
-                    parsed.ensure_unique(&option.name)?;
+                    parsed.ensure_unique(&option.name, true)?;
                     parsed.options.push(option);
                 }
                 None => parsed.push_argument(parse_argument(token, description)?)?,
@@ -99,9 +99,11 @@ impl Signature {
         Ok(parsed)
     }
 
-    fn ensure_unique(&self, name: &str) -> Result<(), SignatureError> {
-        let taken = self.arguments.iter().any(|argument| argument.name == name)
-            || self.options.iter().any(|option| option.name == name);
+    fn ensure_unique(&self, name: &str, option: bool) -> Result<(), SignatureError> {
+        let taken = match option {
+            true => self.options.iter().any(|option| option.name == name),
+            false => self.arguments.iter().any(|argument| argument.name == name),
+        };
         if taken {
             return error(format!("`{name}` is defined twice in `{}`", self.name));
         }
@@ -109,7 +111,7 @@ impl Signature {
     }
 
     fn push_argument(&mut self, argument: Argument) -> Result<(), SignatureError> {
-        self.ensure_unique(&argument.name)?;
+        self.ensure_unique(&argument.name, false)?;
         if let Some(last) = self.arguments.last() {
             if last.array {
                 return error(format!(
@@ -259,11 +261,19 @@ mod tests {
             "x {a?} {b}",
             "x {a*} {b?}",
             "x {a} {a}",
-            "x {a} {--a}",
+            "x {--a} {--a}",
             "x {--ab|long}",
             "x {bad name}",
         ] {
             assert!(Signature::parse(bad).is_err(), "`{bad}` should be rejected");
         }
+    }
+
+    #[test]
+    fn an_argument_and_an_option_may_share_a_name() {
+        let parsed = Signature::parse("describe {table} {--table}").unwrap();
+
+        assert_eq!(parsed.arguments[0].name, "table");
+        assert_eq!(parsed.options[0].name, "table");
     }
 }

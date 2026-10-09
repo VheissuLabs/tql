@@ -4,6 +4,7 @@ use crate::terminal::CmdTui;
 use crate::config_file;
 use crate::database;
 use crate::encrypter::Encrypter;
+use crate::live::{self, Live};
 use crate::paths;
 use crate::settings;
 use crate::store::Store;
@@ -77,6 +78,7 @@ fn browse(cmd: &mut Cmd) -> Result {
                     .with_store(paths::store())
                     .with_clipboard(SystemClipboard)
                     .with_status(message.clone())
+                    .with_live(Live::register(&live::directory(), &connection.name))
             });
         let mut browser = match opened {
             Ok(browser) => browser,

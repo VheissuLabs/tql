@@ -24,8 +24,8 @@ use crate::tunnel;
 
 pub use filters::{Condition, Filter, Filters, Joiner, OPERATORS, operator_names, readable_value};
 pub use schema::{
-    BackLink, Column, Count, ForeignKey, Index, Link, Pivot, Relations, is_plumbing, links,
-    primary_key, unique_columns,
+    BackLink, Column, Count, ForeignKey, Generation, Index, Link, Pivot, Relations, is_plumbing,
+    links, primary_key, unique_columns,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -416,6 +416,14 @@ pub(crate) fn split_list(list: Option<String>) -> Vec<String> {
         .unwrap_or_default()
 }
 
+pub fn json_float(text: &str) -> Option<serde_json::Value> {
+    let number = text.parse::<f64>().ok()?;
+    if number.fract() == 0.0 && number.abs() < 1e15 {
+        return Some(serde_json::Value::from(number as i64));
+    }
+    serde_json::Number::from_f64(number).map(serde_json::Value::Number)
+}
+
 pub(crate) fn all_text(rows: &[Vec<Option<String>>]) -> Vec<Vec<Kind>> {
     rows.iter().map(|row| vec![Kind::Text; row.len()]).collect()
 }
@@ -453,6 +461,16 @@ pub(crate) fn single_column_keys(pairs: Vec<(String, String)>) -> HashMap<String
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_whole_fraction_is_written_as_a_whole_number_as_tql_always_has() {
+        assert_eq!(json_float("3").unwrap().to_string(), "3");
+        assert_eq!(json_float("3.0").unwrap().to_string(), "3");
+        assert_eq!(json_float("2.5").unwrap().to_string(), "2.5");
+        assert_eq!(json_float("-0.25").unwrap().to_string(), "-0.25");
+        assert_eq!(json_float("NaN"), None);
+        assert_eq!(json_float("x"), None);
+    }
 
     #[test]
     fn only_a_single_reading_statement_is_read_only() {

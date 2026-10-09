@@ -3,6 +3,7 @@ use std::io::{BufRead, Write};
 use std::str::FromStr;
 
 use anyhow::anyhow;
+use unicode_width::UnicodeWidthStr;
 
 use crate::console::config::Config;
 use crate::console::input::Input;
@@ -19,10 +20,12 @@ pub struct Cmd<'a> {
     pub(crate) input: Input,
     pub(crate) config: &'a Config,
     pub(crate) out: &'a mut dyn Write,
+    pub(crate) err: &'a mut dyn Write,
     pub(crate) reader: &'a mut dyn BufRead,
     pub(crate) ansi: bool,
     pub(crate) interactive: bool,
     pub(crate) terminal: bool,
+    pub(crate) piped: bool,
     pub(crate) app_name: &'a str,
     pub(crate) app_version: &'a str,
 }
@@ -78,6 +81,32 @@ impl Cmd<'_> {
 
     pub fn has_terminal(&self) -> bool {
         self.terminal
+    }
+
+    pub fn is_piped(&self) -> bool {
+        self.piped
+    }
+
+    pub fn read_all(&mut self) -> anyhow::Result<String> {
+        let mut read = String::new();
+        self.reader.read_to_string(&mut read)?;
+        Ok(read)
+    }
+
+    pub fn read_line(&mut self) -> anyhow::Result<Option<String>> {
+        let mut line = String::new();
+        if self.reader.read_line(&mut line)? == 0 {
+            return Ok(None);
+        }
+        Ok(Some(line.trim_end_matches(['\r', '\n']).to_string()))
+    }
+
+    pub fn flush(&mut self) {
+        let _ = self.out.flush();
+    }
+
+    pub fn refuse(&mut self, text: impl Display) {
+        let _ = writeln!(self.err, "{text}");
     }
 
     pub fn is_interactive(&self) -> bool {
@@ -146,7 +175,7 @@ impl Cmd<'_> {
         let mut widths = vec![0; columns];
         for row in std::iter::once(&headers).chain(&rows) {
             for (column, cell) in row.iter().enumerate() {
-                widths[column] = widths[column].max(cell.chars().count());
+                widths[column] = widths[column].max(cell.width());
             }
         }
 
@@ -164,7 +193,7 @@ impl Cmd<'_> {
                 .enumerate()
                 .map(|(column, width)| {
                     let cell = row.get(column).map(String::as_str).unwrap_or("");
-                    let padding = " ".repeat(width - cell.chars().count());
+                    let padding = " ".repeat(width - cell.width());
                     let cell = match style {
                         Some(style) => self.paint(cell, style),
                         None => cell.to_string(),

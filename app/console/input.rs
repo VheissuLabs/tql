@@ -48,9 +48,9 @@ impl Input {
             .iter()
             .map(|option| {
                 let value = match option.kind {
-                    OptionKind::Flag => Value::Flag(matches.get_flag(&option.name)),
-                    OptionKind::Value => one(&option.name),
-                    OptionKind::Array => many(&option.name),
+                    OptionKind::Flag => Value::Flag(matches.get_flag(&option_id(&option.name))),
+                    OptionKind::Value => one(&option_id(&option.name)),
+                    OptionKind::Array => many(&option_id(&option.name)),
                 };
                 (option.name.clone(), value)
             })
@@ -107,6 +107,10 @@ fn list<'a>(value: &'a Value, name: &str) -> &'a [String] {
     }
 }
 
+fn option_id(name: &str) -> String {
+    format!("--{name}")
+}
+
 pub(crate) fn to_clap(signature: &Signature, about: &str) -> clap::Command {
     let command = clap::Command::new(signature.name.clone()).about(about.to_string());
 
@@ -128,7 +132,7 @@ pub(crate) fn to_clap(signature: &Signature, about: &str) -> clap::Command {
         });
 
     signature.options.iter().fold(command, |command, option| {
-        let mut arg = Arg::new(option.name.clone())
+        let mut arg = Arg::new(option_id(&option.name))
             .long(option.name.clone())
             .help(option.description.clone());
         if let Some(shortcut) = option.shortcut {

@@ -15,6 +15,10 @@ pub trait Command {
         ""
     }
 
+    fn hidden(&self) -> bool {
+        false
+    }
+
     fn execute(&self, cmd: &mut Cmd) -> anyhow::Result<()>;
 }
 
