@@ -40,7 +40,7 @@ impl Default for Settings {
         Settings {
             modal_ring: true,
             hotkey_bar: true,
-            top_margin: 0,
+            top_margin: 1,
             status_seconds: 4.0,
             sidebar_width: 24,
             sql_at_bottom: false,

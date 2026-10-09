@@ -181,6 +181,7 @@ fn scenarios(exports: &Path) -> Vec<Scenario> {
                 .unwrap_or_default(),
             settings: {
                 let mut settings = Settings::default();
+                settings.set("ui.top_margin", &toml::Value::Integer(0));
                 if let Some(overrides) = scenario["config"].as_object() {
                     for (key, value) in overrides {
                         let value: toml::Value = serde_json::from_value(value.clone()).unwrap();

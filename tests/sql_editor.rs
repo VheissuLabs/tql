@@ -497,11 +497,11 @@ fn clicking_the_sql_pane_puts_the_cursor_where_you_clicked() {
     settings::install(always);
     fake.screen();
 
-    fake.click(31, 2);
+    fake.click(31, 3);
     assert_eq!(fake.app.mode, Mode::Query);
     assert_eq!(fake.app.query.editor.cursor(), 2);
 
-    fake.click(60, 20);
+    fake.click(60, 21);
     assert_eq!(fake.app.mode, Mode::Browse);
 }
 

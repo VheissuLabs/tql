@@ -294,7 +294,6 @@ pub const SETTINGS: &[Setting] = &[
 ];
 
 pub const NOT_YET: &[&str] = &[
-    "ui.top_margin",
     "ai.provider",
     "ai.model",
     "ai.timeout",
