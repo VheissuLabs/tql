@@ -414,3 +414,19 @@ fn browse_says_it_needs_a_terminal_rather_than_failing() {
         "{browsed:?}"
     );
 }
+
+#[test]
+fn an_empty_name_keeps_the_name_from_the_file_and_a_tag_is_kept_as_typed() {
+    let scratch = Scratch::new("empty-name");
+    let path = scratch.sqlite_file("shop.sqlite");
+
+    let opened = scratch.open(
+        &path.display().to_string(),
+        Some(""),
+        Some("Production"),
+        false,
+    );
+
+    assert_eq!(opened.connection.name, "shop.sqlite");
+    assert_eq!(opened.connection.tag.as_deref(), Some("Production"));
+}

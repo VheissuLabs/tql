@@ -71,14 +71,15 @@ pub fn connection_for(
     tag: Option<&str>,
     peek: bool,
 ) -> anyhow::Result<Opened> {
-    let given = tag.map(|tag| tag::parse(tag).unwrap_or(tag).to_string());
+    let given = tag.map(tag::value);
     let writer = StoreWriter::open(store, key)?;
 
     if let Some(id) = writer.matching(&identity(&target))? {
         let existing = Store::open(store)?
             .connection(id)?
             .context("the matching connection has gone")?;
-        if let Some(called) = called.filter(|called| *called != existing.name) {
+        if let Some(called) = called.filter(|called| !called.is_empty() && *called != existing.name)
+        {
             writer.update(id, &[("name", Field::Text(writer.free_name(called)?))])?;
         }
         if let Some(tag) = given {
@@ -93,7 +94,10 @@ pub fn connection_for(
     }
 
     let tag = given.or(target.tag.clone());
-    let name = called.map(String::from).unwrap_or(target.name.clone());
+    let name = called
+        .filter(|called| !called.is_empty())
+        .map(String::from)
+        .unwrap_or(target.name.clone());
     if peek {
         let encrypter = Encrypter::throwaway()?;
         let secret = |plain: &Option<String>| {

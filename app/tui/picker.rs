@@ -238,6 +238,7 @@ impl Picker {
         }
         match self.current() {
             Some(connection) => Flow::Exit(Some(connection.clone())),
+            None if self.connections.is_empty() => Flow::Exit(None),
             None => Flow::Continue,
         }
     }
@@ -576,7 +577,7 @@ impl Picker {
             return Self::header_line(header, selected, widths);
         }
         let grid = theme::border(true, false);
-        let icon = icon(&row.driver);
+        let icon = settings::with(|settings| settings.icon(&row.driver));
         let marker = match selected && settings::with(|settings| settings.row_style == "marker") {
             true => "▸",
             false => " ",
@@ -665,15 +666,6 @@ impl Picker {
 
 fn header_text(header: &Header) -> String {
     format!(" ▼ {} ({})", header.group, header.count)
-}
-
-fn icon(driver: &str) -> char {
-    match driver {
-        "mysql" | "mariadb" => '\u{e704}',
-        "pgsql" => '\u{e76e}',
-        "sqlite" => '\u{e7c4}',
-        _ => '\u{f1c0}',
-    }
 }
 
 fn driver_color(driver: &str) -> Color {
