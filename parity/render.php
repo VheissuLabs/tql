@@ -91,6 +91,9 @@ foreach ($scenarios as $scenario) {
         }
         Illuminate\Support\Facades\DB::beginTransaction();
         try {
+            foreach ($scenario['groups'] ?? [] as $name => $group) {
+                App\Models\Connection::where('name', $name)->update(['group_name' => $group]);
+            }
             $prompt = new App\Tui\ConnectionPicker(App\Models\Connection::orderByDesc('last_used_at')->orderBy('name')->get());
             $prompt->terminal()->initDimensions();
             foreach ($scenario['keys'] as $key) {
