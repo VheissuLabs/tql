@@ -258,3 +258,18 @@ fn default_command_runs_when_no_command_is_given() {
 
     assert_eq!(result.stdout, "Hello, World!\n");
 }
+
+#[test]
+fn list_shows_the_commands_too() {
+    let listed = app().run_with(["list"], "");
+
+    assert_eq!(listed.code, 0);
+    assert!(
+        listed.stdout.starts_with("Example 1.2.3"),
+        "{}",
+        listed.stdout
+    );
+    for command in ["about", "deploy", "fail", "greet", "list"] {
+        assert!(listed.stdout.contains(command), "missing {command}");
+    }
+}

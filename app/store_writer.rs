@@ -167,6 +167,9 @@ impl StoreWriter {
             .collect();
         let mut values: Vec<Value> = Vec::new();
         let mut conditions: Vec<String> = Vec::new();
+        if identity.contains(&("ssh_host", Field::Null)) {
+            conditions.push("coalesce(\"ssh_host\", '') = ''".to_string());
+        }
         for (column, field) in present {
             values.push(self.stored(field)?);
             conditions.push(format!("\"{column}\" = ?{}", values.len()));
