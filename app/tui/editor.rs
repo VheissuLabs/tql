@@ -168,6 +168,10 @@ impl QueryEditor {
         }
     }
 
+    pub fn paste(&mut self, text: &str) {
+        self.insert(&super::text::pasted(text));
+    }
+
     fn insert(&mut self, text: &str) {
         let at = self.cursor;
         self.replace(at, at, text);

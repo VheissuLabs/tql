@@ -432,3 +432,25 @@ impl Browser {
         self.query.editor.move_to_line_column(line, column);
     }
 }
+
+impl Browser {
+    pub(super) fn paste_into_query(&mut self, text: &str) {
+        if let Some(command) = self.command.as_mut() {
+            command.push_str(&single_line(text));
+            return;
+        }
+        if settings::with(|settings| settings.sql_vim) {
+            if self.query.vim.mode == crate::tui::vim::VimMode::Insert {
+                self.query.editor.paste(text);
+            }
+            return;
+        }
+        self.query.completion = None;
+        let editor = &mut self.query.editor;
+        editor.commit();
+        editor.checkpoint();
+        editor.paste(text);
+        editor.commit();
+        self.query.last_edit = None;
+    }
+}

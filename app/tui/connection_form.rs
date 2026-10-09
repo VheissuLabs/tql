@@ -9,7 +9,7 @@ use super::choice::Choice;
 use super::chrome::{Island, theme};
 use super::filters::LineEditor;
 use super::key_files;
-use super::text::{pad, truncate, width};
+use super::text::{pad, single_line, truncate, width};
 use crate::encrypter::Encrypter;
 use crate::paths;
 use crate::store::Connection;
@@ -703,15 +703,6 @@ fn draw_picker(picker: &Choice, buffer: &mut Buffer, frame_width: u16, frame_lin
 
 fn centred(frame_width: u16, box_width: u16) -> u16 {
     ((frame_width as i32 - box_width as i32) / 2 + 1).max(1) as u16
-}
-
-pub fn single_line(text: &str) -> String {
-    text.replace("\r\n", "\n")
-        .replace('\r', "\n")
-        .replace('\n', " ")
-        .chars()
-        .filter(|character| *character == '\t' || !character.is_control())
-        .collect()
 }
 
 fn typing(text: &str, cursor: usize, room: usize) -> Vec<Span<'static>> {

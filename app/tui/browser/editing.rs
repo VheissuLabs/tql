@@ -1016,3 +1016,17 @@ fn draw_view(frame: &mut Frame, view: &ValueView, room: usize, frame_height: u16
         height,
     }
 }
+
+impl Browser {
+    pub(super) fn paste_into_edits(&mut self, text: &str) {
+        if let Some(form) = self.edits.form.as_mut() {
+            form.paste(text);
+            return;
+        }
+        if let Some(value) = self.edits.value.as_mut()
+            && value.editable()
+        {
+            value.buffer.paste(text);
+        }
+    }
+}

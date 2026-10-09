@@ -56,6 +56,18 @@ pub fn cell(value: Option<&str>) -> String {
     single_line
 }
 
+pub fn pasted(text: &str) -> String {
+    text.replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .chars()
+        .filter(|character| matches!(character, '\n' | '\t') || !character.is_control())
+        .collect()
+}
+
+pub fn single_line(text: &str) -> String {
+    pasted(text).replace('\n', " ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

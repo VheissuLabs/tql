@@ -106,3 +106,23 @@ fn move_or_cycle(form: &mut FilterForm, forward: bool) {
     }
     form.cycle(forward);
 }
+
+impl Browser {
+    pub(super) fn paste_into_filter_form(&mut self, text: &str) {
+        let Some(form) = self.filter_form.as_mut() else {
+            return;
+        };
+        let line = single_line(text);
+        let typed = line.chars().map(Key::Char);
+        if let Some(picker) = form.picker.as_mut() {
+            typed.for_each(|key| picker.type_key(key));
+            return;
+        }
+        if form.editor.is_none() && form.cell == Cell::Value {
+            form.start_editing();
+        }
+        if let Some(editor) = form.editor.as_mut() {
+            typed.for_each(|key| editor.handle(key));
+        }
+    }
+}

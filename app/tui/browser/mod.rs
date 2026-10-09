@@ -14,6 +14,7 @@ mod keys;
 mod links;
 mod loading;
 mod mouse;
+mod paste;
 mod query;
 mod render;
 mod structure;
@@ -39,7 +40,7 @@ use super::keymap::{self, Action};
 use super::palette::{self, Palette};
 use super::schema::Schema;
 use super::sql;
-use super::text::{self, pad, truncate, window};
+use super::text::{self, pad, single_line, truncate, window};
 use crate::database::{Database, Direction, Filters, Sort};
 use crate::settings;
 use crate::store::Connection;
@@ -329,6 +330,11 @@ impl Tui for Browser {
 
     fn take_repaint(&mut self) -> bool {
         std::mem::take(&mut self.repaint)
+    }
+
+    fn on_paste(&mut self, text: &str) -> Flow<Exit> {
+        self.paste(text);
+        Flow::Continue
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Exit> {
