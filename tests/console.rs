@@ -304,3 +304,16 @@ fn the_default_command_runs_when_only_global_flags_are_given() {
         );
     }
 }
+
+#[test]
+fn completion_prints_a_script_for_the_shell_without_being_listed() {
+    let zsh = app().run_with(["completion", "zsh"], "");
+    assert_eq!(zsh.code, 0, "{}", zsh.stderr);
+    assert!(zsh.stdout.contains("#compdef"), "{}", zsh.stdout);
+    assert!(zsh.stdout.contains("greet"));
+
+    let bash = app().run_with(["completion", "bash"], "");
+    assert!(bash.stdout.contains("complete -F"), "{}", bash.stdout);
+
+    assert!(!app().run_with(["list"], "").stdout.contains("completion"));
+}

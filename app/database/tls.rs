@@ -80,11 +80,16 @@ impl Tls {
             (Some(_), None) => bail!("an SSL cert needs its SSL key; set both or neither"),
             (None, Some(_)) => bail!("an SSL key needs its SSL cert; set both or neither"),
         };
-        Ok(Tls {
-            mode,
-            ca: file(&connection.ssl_ca),
-            identity,
-        })
+        let mut ca = file(&connection.ssl_ca);
+        let mut identity = identity;
+        if connection.driver == "pgsql" {
+            let libpq = home.join(".postgresql");
+            let existing = |name: &str| Some(libpq.join(name)).filter(|path| path.is_file());
+            ca = ca.or_else(|| existing("root.crt"));
+            identity =
+                identity.or_else(|| existing("postgresql.crt").zip(existing("postgresql.key")));
+        }
+        Ok(Tls { mode, ca, identity })
     }
 
     pub fn checks_chain(&self) -> bool {
@@ -285,6 +290,32 @@ impl ServerCertVerifier for Verified {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn postgres_uses_libpqs_files_in_home_when_the_connection_names_none() {
+        let home = std::env::temp_dir().join(format!("tql-pg-home-{}", std::process::id()));
+        let folder = home.join(".postgresql");
+        std::fs::create_dir_all(&folder).unwrap();
+        for file in ["root.crt", "postgresql.crt", "postgresql.key"] {
+            std::fs::write(folder.join(file), "").unwrap();
+        }
+        let postgres = Connection {
+            driver: "pgsql".to_string(),
+            ..server("require")
+        };
+
+        let found = Tls::from_home(&postgres, &home).unwrap();
+        let mysql = Tls::from_home(&server("require"), &home).unwrap();
+        std::fs::remove_dir_all(&home).unwrap();
+
+        assert_eq!(found.ca, Some(folder.join("root.crt")));
+        assert_eq!(
+            found.identity,
+            Some((folder.join("postgresql.crt"), folder.join("postgresql.key")))
+        );
+        assert!(found.checks_chain());
+        assert_eq!(mysql.ca, None);
+    }
 
     fn server(mode: &str) -> Connection {
         Connection {

@@ -118,9 +118,10 @@ fn configured(connection: &Connection, password: Option<&str>, database: Option<
     } else if let Some(authority) = connection
         .ssl_ca
         .as_deref()
-        .filter(|authority| !authority.trim().is_empty())
+        .map(str::trim)
+        .filter(|authority| !authority.is_empty())
     {
-        config.trust_cert_ca(authority);
+        config.trust_cert_ca(crate::paths::expand(authority));
     }
     config
 }

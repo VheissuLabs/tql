@@ -13,6 +13,7 @@ use crate::console::{Cmd, Command};
 
 const RESERVED_NAMES: [&str; 5] = ["help", "version", "ansi", "no-ansi", "no-interaction"];
 const LIST: &str = "list";
+const COMPLETION: &str = "completion";
 const GLOBAL_FLAGS: [&str; 4] = ["-n", "--no-interaction", "--ansi", "--no-ansi"];
 const RESERVED_SHORTCUTS: [char; 3] = ['h', 'V', 'n'];
 
@@ -175,6 +176,28 @@ impl Application {
             }
         };
 
+        if let Some((COMPLETION, asked)) = matches.subcommand() {
+            let shell = asked
+                .get_one::<String>("shell")
+                .cloned()
+                .or_else(|| {
+                    std::env::var("SHELL")
+                        .ok()
+                        .and_then(|path| path.rsplit('/').next().map(String::from))
+                })
+                .unwrap_or_default();
+            let Ok(shell) = shell.parse::<clap_complete::Shell>() else {
+                let _ = writeln!(
+                    err,
+                    "no completion for the shell \"{shell}\"; try bash, zsh or fish"
+                );
+                return 1;
+            };
+            let name = cli.get_bin_name().unwrap_or(&self.name).to_string();
+            clap_complete::generate(shell, &mut cli, name, out);
+            return 0;
+        }
+
         let Some((name, sub_matches)) = matches.subcommand().filter(|(name, _)| *name != LIST)
         else {
             let help = cli.render_help();
@@ -282,7 +305,13 @@ impl Application {
                     help => clap.after_help(styled_help(help)),
                 }
             })
-            .chain([clap::Command::new(LIST).about("List commands")])
+            .chain([
+                clap::Command::new(LIST).about("List commands"),
+                clap::Command::new(COMPLETION)
+                    .about("Dump the shell completion script")
+                    .hide(true)
+                    .arg(Arg::new("shell").help("bash, zsh or fish; $SHELL when left out")),
+            ])
             .collect();
         commands.sort_by(|left, right| left.get_name().cmp(right.get_name()));
 

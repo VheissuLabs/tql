@@ -188,7 +188,7 @@ impl Tunnel {
 
         tunnel.close();
         match said
-            .recv_timeout(Duration::from_millis(500))
+            .recv_timeout(Duration::from_secs(2))
             .unwrap_or_default()
             .trim()
         {
