@@ -15,7 +15,7 @@ use super::tls::Tls;
 use super::{
     Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Values,
     delete_statement, insert_statement, outcome_or_affected, quote_double, refused, select_page,
-    single_column_keys, split_list, update_statement,
+    shown_delete, shown_insert, shown_update, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 use crate::tunnel::Tunnel;
@@ -174,10 +174,10 @@ fn literal(value: Option<&str>) -> String {
 }
 
 impl Postgres {
-    fn write(&mut self, sql: String) -> anyhow::Result<()> {
+    fn write(&mut self, sql: String, shown: String) -> anyhow::Result<()> {
         self.client
             .batch_execute(&sql)
-            .map_err(|error| refused(error, &sql))
+            .map_err(|error| refused(error, &shown))
     }
 }
 
@@ -289,7 +289,10 @@ impl Database for Postgres {
             column,
             key,
         );
-        self.write(sql)
+        self.write(
+            sql,
+            shown_update(quote_double, table, column, key, value, key_value),
+        )
     }
 
     fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
@@ -300,7 +303,10 @@ impl Database for Postgres {
             values,
             "default values",
         );
-        self.write(sql)
+        self.write(
+            sql,
+            shown_insert(quote_double, table, values, "default values"),
+        )
     }
 
     fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
@@ -311,7 +317,7 @@ impl Database for Postgres {
             key,
             key_values.len(),
         );
-        self.write(sql)
+        self.write(sql, shown_delete(quote_double, table, key, key_values))
     }
 
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {

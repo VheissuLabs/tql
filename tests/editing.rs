@@ -1005,3 +1005,25 @@ fn widening_a_long_column_starts_from_a_comfortable_width() {
 
     assert_eq!(fake.app.status(), "body width 32");
 }
+
+#[test]
+fn a_refused_write_shows_the_statement_with_its_values_in_place() {
+    let path = fixture(
+        "refused-shown",
+        "create table people (id integer primary key, name text not null, email text unique);
+         insert into people (name, email) values ('Ada', 'ada@example.com');",
+    );
+    let mut fake = open(&path, false);
+
+    fake.press("N")
+        .press(&format!("\nGrace\n\nada@example.com\n{SAVE}"))
+        .press(":w\n");
+
+    let problem = fake.app.problem.clone().unwrap_or_default();
+    assert!(
+        problem.contains(
+            "insert into \"people\" (\"name\", \"email\") values (Grace, ada@example.com)"
+        ),
+        "{problem}"
+    );
+}

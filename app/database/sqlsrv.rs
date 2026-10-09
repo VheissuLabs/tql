@@ -20,8 +20,8 @@ use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 use super::schema::keys_by_table;
 use super::{
     Column, Database, Filters, ForeignKey, Index, Outcome, Page, Scalar, Scalars, Sort, Values,
-    all_text, delete_statement, insert_statement, outcome_or_affected, refused, single_column_keys,
-    split_list, update_statement,
+    all_text, delete_statement, insert_statement, outcome_or_affected, refused, shown_delete,
+    shown_insert, shown_update, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 use crate::tunnel::Tunnel;
@@ -258,10 +258,15 @@ impl SqlServer {
             .collect())
     }
 
-    fn write(&mut self, statement: &str, values: &[Option<&str>]) -> anyhow::Result<()> {
+    fn write(
+        &mut self,
+        statement: &str,
+        values: &[Option<&str>],
+        shown: &str,
+    ) -> anyhow::Result<()> {
         self.execute(statement, values)
             .map(|_| ())
-            .map_err(|error| refused(error, statement))
+            .map_err(|error| refused(error, shown))
     }
 }
 
@@ -669,13 +674,15 @@ impl Database for SqlServer {
         value: Option<&str>,
     ) -> anyhow::Result<()> {
         let statement = update_statement(quote_bracket, question, table, column, key);
-        self.write(&statement, &[value, Some(key_value)])
+        let shown = shown_update(quote_bracket, table, column, key, value, key_value);
+        self.write(&statement, &[value, Some(key_value)], &shown)
     }
 
     fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
         let statement = insert_statement(quote_bracket, question, table, values, "default values");
         let bound: Vec<Option<&str>> = values.iter().map(|(_, value)| value.as_deref()).collect();
-        self.write(&statement, &bound)
+        let shown = shown_insert(quote_bracket, table, values, "default values");
+        self.write(&statement, &bound, &shown)
     }
 
     fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
@@ -684,7 +691,8 @@ impl Database for SqlServer {
             .iter()
             .map(|value| Some(value.as_str()))
             .collect();
-        self.write(&statement, &bound)
+        let shown = shown_delete(quote_bracket, table, key, key_values);
+        self.write(&statement, &bound, &shown)
     }
 }
 

@@ -11,7 +11,7 @@ use super::tls::{Mode, Tls};
 use super::{
     Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Scalar, Scalars, Sort,
     Values, delete_statement, insert_statement, outcome_or_affected, refused, select_page,
-    single_column_keys, split_list, update_statement,
+    shown_delete, shown_insert, shown_update, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 use crate::tunnel::Tunnel;
@@ -295,7 +295,12 @@ impl Database for MySql {
         let sql = update_statement(quote_backtick, question, table, column, key);
         self.connection
             .exec_drop(&sql, vec![bound(value), bound(Some(key_value))])
-            .map_err(|error| refused(said(error), &sql))
+            .map_err(|error| {
+                refused(
+                    said(error),
+                    &shown_update(quote_backtick, table, column, key, value, key_value),
+                )
+            })
     }
 
     fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
@@ -309,7 +314,12 @@ impl Database for MySql {
         } else {
             self.connection.exec_drop(&sql, bindings)
         };
-        outcome.map_err(|error| refused(said(error), &sql))
+        outcome.map_err(|error| {
+            refused(
+                said(error),
+                &shown_insert(quote_backtick, table, values, "() values ()"),
+            )
+        })
     }
 
     fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
@@ -318,9 +328,12 @@ impl Database for MySql {
             .iter()
             .map(|key_value| bound(Some(key_value)))
             .collect();
-        self.connection
-            .exec_drop(&sql, bindings)
-            .map_err(|error| refused(said(error), &sql))
+        self.connection.exec_drop(&sql, bindings).map_err(|error| {
+            refused(
+                said(error),
+                &shown_delete(quote_backtick, table, key, key_values),
+            )
+        })
     }
 
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {

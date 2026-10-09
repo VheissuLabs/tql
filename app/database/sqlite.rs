@@ -8,7 +8,8 @@ use super::schema::keys_by_table;
 use super::{
     Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Scalar, Scalars, Sort,
     Values, delete_statement, insert_statement, outcome_or_affected, primary_key, quote_double,
-    refused, select_page, single_column_keys, split_list, update_statement,
+    refused, select_page, shown_delete, shown_insert, shown_update, single_column_keys, split_list,
+    update_statement,
 };
 use crate::store::Connection;
 
@@ -242,7 +243,12 @@ impl Database for Sqlite {
         let sql = update_statement(quote_double, numbered, table, column, key);
         self.connection
             .execute(&sql, rusqlite::params![value, key_value])
-            .map_err(|error| refused(error, &sql))?;
+            .map_err(|error| {
+                refused(
+                    error,
+                    &shown_update(quote_double, table, column, key, value, key_value),
+                )
+            })?;
         Ok(())
     }
 
@@ -253,7 +259,12 @@ impl Database for Sqlite {
                 &sql,
                 rusqlite::params_from_iter(values.iter().map(|(_, value)| value)),
             )
-            .map_err(|error| refused(error, &sql))?;
+            .map_err(|error| {
+                refused(
+                    error,
+                    &shown_insert(quote_double, table, values, "default values"),
+                )
+            })?;
         Ok(())
     }
 
@@ -261,7 +272,7 @@ impl Database for Sqlite {
         let sql = delete_statement(quote_double, numbered, table, key, key_values.len());
         self.connection
             .execute(&sql, rusqlite::params_from_iter(key_values))
-            .map_err(|error| refused(error, &sql))?;
+            .map_err(|error| refused(error, &shown_delete(quote_double, table, key, key_values)))?;
         Ok(())
     }
 }
