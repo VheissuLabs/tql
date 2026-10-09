@@ -415,7 +415,7 @@ fn the_palette_types_j_and_k_and_moves_with_the_arrows() {
 }
 
 #[test]
-fn the_palette_goes_to_a_table_runs_commands_and_says_what_is_not_ported() {
+fn the_palette_goes_to_a_table_runs_commands_and_asks_in_english() {
     let mut fake = browser("palette-targets");
 
     fake.press(PALETTE);
@@ -429,7 +429,7 @@ fn the_palette_goes_to_a_table_runs_commands_and_says_what_is_not_ported() {
 
     fake.press(PALETTE);
     fake.press("ask in english\n");
-    assert_eq!(fake.app.status(), "ask in english: not ported yet");
+    assert!(fake.app.question.is_some());
 }
 
 #[test]

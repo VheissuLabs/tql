@@ -124,10 +124,16 @@ const DELIBERATE: &[(&str, &str)] = &[
     ),
 ];
 
-const LOOKS_DELIBERATE: &[(&str, &str)] = &[(
-    "row-style-inverse",
-    "the whole cursor row is reversed; tql's cursor cell ends the reverse video it sits in, so only the key reverses",
-)];
+const LOOKS_DELIBERATE: &[(&str, &str)] = &[
+    (
+        "row-style-inverse",
+        "the whole cursor row is reversed; tql's cursor cell ends the reverse video it sits in, so only the key reverses",
+    ),
+    (
+        "ask-long-word",
+        "the question's cursor stays at the end of a word cut across lines; tql counts a cut as a space it dropped and draws the cursor two places early",
+    ),
+];
 
 const TITLES_ARE_NOT_STOPS: &str = "the inspector cursor never stops on a box title (there is nothing to do there), so a whole box cannot be folded from its title";
 

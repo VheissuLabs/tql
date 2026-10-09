@@ -56,7 +56,6 @@ pub struct Binding {
     pub name: &'static str,
     pub keys: Vec<Key>,
     pub description: &'static str,
-    pub ported: bool,
     pub rebindable: bool,
 }
 
@@ -76,15 +75,7 @@ fn ported(action: Action, name: &'static str, keys: &[Key], description: &'stati
         name,
         keys: keys.to_vec(),
         description,
-        ported: true,
         rebindable: true,
-    }
-}
-
-fn later(action: Action, name: &'static str, keys: &[Key], description: &'static str) -> Binding {
-    Binding {
-        ported: false,
-        ..ported(action, name, keys, description)
     }
 }
 
@@ -203,7 +194,7 @@ pub fn defaults() -> Vec<Binding> {
             "drop changes",
         ),
         ported(Action::NewRow, "new_row", &[Key::Char('N')], "add a row"),
-        later(Action::Ask, "ask", &[Key::Char('a')], "ask in english"),
+        ported(Action::Ask, "ask", &[Key::Char('a')], "ask in english"),
         ported(
             Action::FilterRows,
             "filter_rows",

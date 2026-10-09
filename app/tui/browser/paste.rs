@@ -35,6 +35,9 @@ impl Browser {
         if self.filter_form.is_some() {
             return self.paste_into_filter_form(text);
         }
+        if self.question.is_some() {
+            return self.paste_into_question(text);
+        }
         if let Some(command) = self.command.as_mut() {
             command.push_str(&single_line(text));
             return;

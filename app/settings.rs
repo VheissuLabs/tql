@@ -31,6 +31,7 @@ pub struct Settings {
     pub export_path: String,
     pub update_check: bool,
     pub update_automatic: bool,
+    pub ai: Ai,
     theme: HashMap<String, String>,
     icons: HashMap<String, String>,
 }
@@ -59,6 +60,7 @@ impl Default for Settings {
             export_path: String::new(),
             update_check: true,
             update_automatic: true,
+            ai: Ai::default(),
             theme: [
                 ("border", "dim"),
                 ("focus_border", "cyan"),
@@ -90,6 +92,35 @@ impl Default for Settings {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Ai {
+    pub provider: String,
+    pub model: String,
+    pub timeout: u64,
+    pub url: String,
+    pub key: String,
+}
+
+impl Default for Ai {
+    fn default() -> Self {
+        Ai {
+            provider: "auto".to_string(),
+            model: String::new(),
+            timeout: 60,
+            url: String::new(),
+            key: String::new(),
+        }
+    }
+}
+
+const AI_ENVIRONMENT: [(&str, &str); 5] = [
+    ("TQL_AI_PROVIDER", "ai.provider"),
+    ("TQL_AI_MODEL", "ai.model"),
+    ("TQL_AI_TIMEOUT", "ai.timeout"),
+    ("TQL_AI_URL", "ai.url"),
+    ("TQL_AI_KEY", "ai.key"),
+];
+
 const ENVIRONMENT: [(&str, &str); 5] = [
     ("TQL_MOUSE", "ui.mouse"),
     ("TQL_DOUBLE_CLICK_MS", "ui.double_click_ms"),
@@ -106,6 +137,13 @@ fn from_environment(value: &str) -> Value {
             .parse()
             .map(Value::Integer)
             .unwrap_or_else(|_| Value::String(value.to_string())),
+    }
+}
+
+fn scalar(value: &Value) -> String {
+    match value {
+        Value::String(text) => text.trim().to_string(),
+        other => other.to_string(),
     }
 }
 
@@ -127,6 +165,11 @@ impl Settings {
             };
             for (key, value) in values {
                 settings.set(&format!("{section}.{key}"), value);
+            }
+        }
+        for (variable, key) in AI_ENVIRONMENT {
+            if let Some(value) = environment(variable).filter(|value| !value.trim().is_empty()) {
+                settings.set(key, &from_environment(&value));
             }
         }
         if environment("NO_MOUSE").is_some_and(|value| !value.is_empty()) {
@@ -174,6 +217,22 @@ impl Settings {
             "ui.export_path" => self.export_path = text(),
             "updates.check" => self.update_check = flag(),
             "updates.automatic" => self.update_automatic = flag(),
+            "ai.provider" => self.ai.provider = scalar(value),
+            "ai.model" => self.ai.model = scalar(value),
+            "ai.timeout" => {
+                self.ai.timeout = value
+                    .as_integer()
+                    .or_else(|| value.as_float().map(|seconds| seconds as i64))
+                    .or_else(|| {
+                        value
+                            .as_str()
+                            .and_then(|seconds| seconds.trim().parse().ok())
+                    })
+                    .unwrap_or(60)
+                    .max(1) as u64;
+            }
+            "ai.url" => self.ai.url = scalar(value),
+            "ai.key" => self.ai.key = scalar(value),
             _ => {
                 if let Some(name) = key.strip_prefix("theme.") {
                     self.theme.insert(name.to_string(), text());

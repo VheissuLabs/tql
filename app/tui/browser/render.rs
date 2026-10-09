@@ -27,6 +27,9 @@ impl Browser {
                 ("esc".into(), "Cancel"),
             ];
         }
+        if let Some(offers) = self.question_offers() {
+            return offers;
+        }
         if let Some(offers) = self.editing_offers() {
             return offers;
         }
@@ -448,6 +451,8 @@ impl Browser {
         if let Some(form) = &self.filter_form {
             form.draw_modal(frame.buffer_mut(), area.width, frame_height);
         }
+
+        self.draw_question(frame, frame_height);
 
         if let Some(choice) = &self.databases {
             choice.draw_modal(frame.buffer_mut(), area.width, frame_height);

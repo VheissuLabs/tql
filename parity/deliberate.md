@@ -85,3 +85,34 @@ real dumps, loads and syncs on MySQL and Postgres print what tql prints. Where t
   everything.
 - **`tql.json` writes names as they are.** tql escapes every character outside ASCII as
   `\uXXXX`; both read either.
+
+## Ask in english (`a`)
+
+`tests/ask.rs` holds it to tql 0.11.0's `AskTest.php`, and to the exact requests tql's AI
+SDK sent to each provider (`tests/fixtures/ai-wire.json`). The `ask-*` frames match tql.
+Where it differs:
+
+- **Asking does not freeze tql.** The question goes out in the background; the box says
+  `asking…    esc cancels`, and esc closes it and throws the answer away. tql blocked
+  until the model answered or timed out, with no way out.
+- **With nothing configured, tql says what to set.** tql reached for Ollama on
+  `localhost:11434` without being told to, so the "no model to ask" message never showed
+  and an `OPENAI_API_KEY` lost to an Ollama that was not running. Ollama answers only when
+  `OLLAMA_URL` is set.
+- **`auto` only picks providers that write SQL.** tql could pick Cohere, Jina, Voyage AI
+  or ElevenLabs when theirs was the only key.
+- **`TQL_AI_PROVIDER`, `TQL_AI_MODEL`, `TQL_AI_TIMEOUT`, `TQL_AI_URL` and `TQL_AI_KEY`
+  work, and win over config.toml.** In tql they never did, because config.toml always
+  carries every `[ai]` key.
+- **Every provider's address can be moved with `{PROVIDER}_URL`** (`GROQ_URL`,
+  `MISTRAL_URL`, `DEEPSEEK_URL`, `XAI_URL`, `OPENROUTER_URL` as well as tql's
+  `ANTHROPIC_URL`, `OPENAI_URL`, `GEMINI_URL`, `OLLAMA_URL`), and `openai-compatible`
+  needs `OPENAI_COMPATIBLE_URL`.
+- **A failure shows on one line.** tql put the HTTP body's line breaks into the status
+  line.
+- **Only the comment the model signed off with is dropped**: a `/* … */` inside the query
+  stays. tql cut from the first `/*` when the query had one of its own.
+- **The answer replaces the SQL editor's contents as one edit**, so one undo brings back
+  what was there.
+- **The cursor in the question stays where it is when a long word is cut across lines.**
+  tql drew it two places early.
