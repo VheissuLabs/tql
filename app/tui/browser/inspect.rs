@@ -68,7 +68,7 @@ impl Inspector {
 impl Browser {
     pub(super) fn inspect_row(&mut self) {
         if self.raw.is_empty() {
-            self.say("nothing to open — this table has no rows");
+            self.say("nothing to open, this table has no rows");
             return;
         }
         let Some(row) = self.raw_row(self.row_index) else {
@@ -349,7 +349,7 @@ impl Browser {
             return;
         };
         if inspector.nested() {
-            self.say("this record is not in the grid — open its table to edit it");
+            self.say("this record is not in the grid, open its table to edit it");
             return;
         }
         let level = inspector.level();
@@ -376,7 +376,7 @@ impl Browser {
             Some((table, row))
         });
         let Some((table, row)) = found else {
-            self.say("i opens a related record — move onto one first");
+            self.say("i opens a related record, move onto one first");
             return;
         };
 

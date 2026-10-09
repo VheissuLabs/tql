@@ -401,7 +401,7 @@ impl Browser {
             self.database.quote(name)
         });
         let Some(rewritten) = rewritten else {
-            self.say("this query is too complex to sort — add an order by yourself");
+            self.say("this query is too complex to sort, add an order by yourself");
             return;
         };
 

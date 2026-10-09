@@ -187,7 +187,7 @@ fn says_so_when_i_is_not_on_a_related_record() {
 
     assert_eq!(
         fake.app.status(),
-        "i opens a related record — move onto one first"
+        "i opens a related record, move onto one first"
     );
     assert!(fake.screen().contains("RECORD  (3)"));
 }
@@ -201,7 +201,7 @@ fn will_not_edit_a_related_record_through_the_grid() {
     assert!(fake.app.inspector.is_some());
     assert_eq!(
         fake.app.status(),
-        "this record is not in the grid — open its table to edit it"
+        "this record is not in the grid, open its table to edit it"
     );
 }
 
@@ -241,7 +241,7 @@ fn says_so_when_there_is_no_row_to_inspect() {
     assert!(fake.app.inspector.is_none());
     assert_eq!(
         fake.app.status(),
-        "nothing to open — this table has no rows"
+        "nothing to open, this table has no rows"
     );
 }
 

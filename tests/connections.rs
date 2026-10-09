@@ -179,7 +179,7 @@ fn does_nothing_when_there_is_nothing_to_edit() {
     assert!(!fake.exited());
     assert!(
         fake.screen()
-            .contains("No connections yet — press n to add one.")
+            .contains("No connections yet. Press n to add one.")
     );
 }
 
@@ -580,7 +580,7 @@ fn drops_unwritten_marks_before_quitting() {
     assert!(fake.app.pending_deletes.is_empty());
     assert!(
         fake.screen()
-            .contains("1 unwritten mark dropped — quit again to leave")
+            .contains("1 unwritten mark dropped, quit again to leave")
     );
 
     fake.press("q");

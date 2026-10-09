@@ -238,7 +238,7 @@ impl RecordForm {
         };
         let typed = editor.buffer();
         if self.json && !json::looks_like_json(Some(&typed)) {
-            self.error = Some("not valid json — fix it, or esc to put it back".to_string());
+            self.error = Some("not valid json: fix it, or esc to put it back".to_string());
             return false;
         }
         let kept = if self.json {

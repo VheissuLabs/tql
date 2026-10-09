@@ -166,7 +166,7 @@ impl Picker {
         let count = self.pending_deletes.len();
         self.pending_deletes.clear();
         self.status = Some(format!(
-            "{count} unwritten mark{} dropped — quit again to leave",
+            "{count} unwritten mark{} dropped, quit again to leave",
             if count == 1 { "" } else { "s" }
         ));
         Flow::Continue
@@ -543,7 +543,7 @@ impl Tui for Picker {
 
         let body: Vec<Line<'static>> = if rows.is_empty() {
             vec![Line::styled(
-                "  No connections yet — press n to add one.",
+                "  No connections yet. Press n to add one.",
                 theme::dim(),
             )]
         } else {
