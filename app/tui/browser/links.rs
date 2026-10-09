@@ -244,3 +244,13 @@ impl Browser {
 fn is(column: &str, value: &str) -> Filters {
     Filters::new(vec![Filter::new(column, "is", value)], Joiner::And)
 }
+
+impl Browser {
+    pub(super) fn paste_into_link_picker(&mut self, text: &str) {
+        if let Some(picker) = self.link_picker.as_mut() {
+            single_line(text)
+                .chars()
+                .for_each(|character| picker.choice.type_key(Key::Char(character)));
+        }
+    }
+}

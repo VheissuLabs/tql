@@ -225,6 +225,16 @@ impl RecordForm {
         }
     }
 
+    pub fn paste(&mut self, text: &str) {
+        let Some(editor) = self.editor.as_mut() else {
+            return;
+        };
+        editor.paste(text);
+        if editor.buffer().contains('\n') {
+            self.expanded = true;
+        }
+    }
+
     pub fn now(&mut self) {
         let typed = now::for_type(Some(&self.current().type_name));
         if let Some(editor) = self.editor.as_mut() {

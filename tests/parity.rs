@@ -124,6 +124,11 @@ const DELIBERATE: &[(&str, &str)] = &[
     ),
 ];
 
+const LOOKS_DELIBERATE: &[(&str, &str)] = &[(
+    "row-style-inverse",
+    "the whole cursor row is reversed; tql's cursor cell ends the reverse video it sits in, so only the key reverses",
+)];
+
 const TITLES_ARE_NOT_STOPS: &str = "the inspector cursor never stops on a box title (there is nothing to do there), so a whole box cannot be folded from its title";
 
 const HOTKEY_BAR_REASON: &str =
@@ -375,6 +380,196 @@ fn cut_alike(php: Option<&str>, rust: Option<&str>) -> bool {
     php.starts_with(rust) || rust.starts_with(php)
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+struct Look {
+    foreground: u8,
+    background: u8,
+    bold: bool,
+    dim: bool,
+    reverse: bool,
+}
+
+impl Look {
+    fn plain() -> Look {
+        Look {
+            foreground: 39,
+            background: 49,
+            ..Look::default()
+        }
+    }
+
+    fn shown(&self) -> String {
+        let mut parts = vec![self.foreground.to_string()];
+        if self.background != 49 {
+            parts.push(format!("bg{}", self.background));
+        }
+        for (on, name) in [
+            (self.bold, "bold"),
+            (self.dim, "dim"),
+            (self.reverse, "reverse"),
+        ] {
+            if on {
+                parts.push(name.to_string());
+            }
+        }
+        parts.join("+")
+    }
+}
+
+type Row = Vec<(String, Look)>;
+
+fn php_looks(ansi: &str) -> Vec<Row> {
+    let escape = regex::Regex::new(r"\x1b\[([0-9;?]*)([A-Za-z])").unwrap();
+    ansi.split('\n')
+        .map(|line| {
+            let mut look = Look::plain();
+            let mut row = Row::new();
+            let mut at = 0;
+            for found in escape.captures_iter(line) {
+                let whole = found.get(0).unwrap();
+                push_text(&mut row, &line[at..whole.start()], look);
+                at = whole.end();
+                if &found[2] != "m" {
+                    continue;
+                }
+                for code in found[1].split(';') {
+                    match code.parse::<u8>().unwrap_or(0) {
+                        0 => look = Look::plain(),
+                        1 => look.bold = true,
+                        2 => look.dim = true,
+                        22 => (look.bold, look.dim) = (false, false),
+                        7 => look.reverse = true,
+                        27 => look.reverse = false,
+                        39 => look.foreground = 39,
+                        49 => look.background = 49,
+                        code @ (30..=37 | 90..=97) => look.foreground = code,
+                        code @ (40..=47 | 100..=107) => look.background = code,
+                        _ => {}
+                    }
+                }
+            }
+            push_text(&mut row, &line[at..], look);
+            row
+        })
+        .collect()
+}
+
+fn push_text(row: &mut Row, text: &str, look: Look) {
+    for character in text.chars() {
+        if character == '\r' {
+            continue;
+        }
+        row.push((character.to_string(), look));
+        let width = unicode_width::UnicodeWidthChar::width(character).unwrap_or(1);
+        for _ in 1..width {
+            row.push((String::new(), look));
+        }
+    }
+}
+
+fn code_of(color: ratatui::style::Color, plain: u8) -> u8 {
+    use ratatui::style::Color;
+    let offset = if plain == 39 { 0 } else { 10 };
+    match color {
+        Color::Reset => plain,
+        Color::Black => 30 + offset,
+        Color::Red => 31 + offset,
+        Color::Green => 32 + offset,
+        Color::Yellow => 33 + offset,
+        Color::Blue => 34 + offset,
+        Color::Magenta => 35 + offset,
+        Color::Cyan => 36 + offset,
+        Color::Gray => 37 + offset,
+        Color::DarkGray => 90 + offset,
+        Color::LightRed => 91 + offset,
+        Color::LightGreen => 92 + offset,
+        Color::LightYellow => 93 + offset,
+        Color::LightBlue => 94 + offset,
+        Color::LightMagenta => 95 + offset,
+        Color::LightCyan => 96 + offset,
+        Color::White => 97 + offset,
+        _ => 255,
+    }
+}
+
+fn rust_looks(buffer: &ratatui::buffer::Buffer) -> Vec<Row> {
+    use ratatui::style::Modifier;
+    let width = buffer.area.width as usize;
+    buffer
+        .content
+        .chunks(width)
+        .map(|cells| {
+            let mut row = Row::new();
+            let mut skip = 0;
+            for cell in cells {
+                let look = Look {
+                    foreground: code_of(cell.fg, 39),
+                    background: code_of(cell.bg, 49),
+                    bold: cell.modifier.contains(Modifier::BOLD),
+                    dim: cell.modifier.contains(Modifier::DIM),
+                    reverse: cell.modifier.contains(Modifier::REVERSED),
+                };
+                if skip > 0 {
+                    skip -= 1;
+                    row.push((String::new(), look));
+                    continue;
+                }
+                let symbol = cell.symbol().to_string();
+                skip = unicode_width::UnicodeWidthStr::width(symbol.as_str()).saturating_sub(1);
+                row.push((symbol, look));
+            }
+            row
+        })
+        .collect()
+}
+
+// Where both frames say the same thing on a row, they should look the same
+// there too. A blank only shows reverse video, so only that is compared on one.
+fn differing_looks(ansi: &str, buffer: &ratatui::buffer::Buffer) -> Vec<String> {
+    let php = php_looks(ansi);
+    let rust = rust_looks(buffer);
+    let text = |row: &Row| {
+        row.iter()
+            .map(|(symbol, _)| symbol.as_str())
+            .collect::<String>()
+            .trim_end()
+            .to_string()
+    };
+    let status_row = php.iter().rposition(|row| !text(row).is_empty());
+    let mut differing = Vec::new();
+    for (number, (expected, actual)) in php.iter().zip(&rust).enumerate() {
+        if text(expected) != text(actual) {
+            continue;
+        }
+        // The connection's name on the status line wears its tag's color, as it
+        // does on the connection list; tql's comes from a column it dropped, so
+        // it is always dim.
+        let named = match Some(number) == status_row {
+            true => expected
+                .iter()
+                .position(|(symbol, _)| symbol == "·")
+                .unwrap_or(0),
+            false => 0,
+        };
+        let first = expected.iter().zip(actual).enumerate().skip(named).find(
+            |(_, ((symbol, php_look), (_, rust_look)))| match symbol.trim().is_empty() {
+                true => php_look.reverse != rust_look.reverse,
+                false => php_look != rust_look,
+            },
+        );
+        if let Some((column, ((symbol, php_look), (_, rust_look)))) = first {
+            differing.push(format!(
+                "{:>3}:{column:<3} {symbol:?} php {} · rust {} │{}",
+                number + 1,
+                php_look.shown(),
+                rust_look.shown(),
+                text(expected)
+            ));
+        }
+    }
+    differing
+}
+
 fn diff(expected: &[String], actual: &[String]) -> Vec<String> {
     let mut report = Vec::new();
     for number in 0..expected.len().max(actual.len()) {
@@ -492,6 +687,7 @@ fn frames_match_the_php_tql() {
     let mut matching = Vec::new();
     let mut differing = Vec::new();
     let mut deliberate = Vec::new();
+    let mut styled = Vec::new();
 
     let saved = Store::open(&php_frames.join("tql.sqlite"))
         .unwrap()
@@ -531,7 +727,7 @@ fn frames_match_the_php_tql() {
             herd(&mysql_reset());
         }
         settings::install(scenario.settings.clone());
-        let screen = if scenario.picker {
+        let (screen, buffer) = if scenario.picker {
             let store = work.join(format!("picker-{}.sqlite", scenario.name));
             fs::copy(php_frames.join("tql.sqlite"), &store).unwrap();
             let grouping = rusqlite::Connection::open(&store).unwrap();
@@ -553,7 +749,7 @@ fn frames_match_the_php_tql() {
             for key in &scenario.keys {
                 fake.press(key);
             }
-            fake.screen()
+            (fake.screen(), fake.buffer())
         } else {
             let connection = match &scenario.connection {
                 Some(name) => saved
@@ -574,7 +770,7 @@ fn frames_match_the_php_tql() {
             for key in &scenario.keys {
                 fake.press(key);
             }
-            fake.screen()
+            (fake.screen(), fake.buffer())
         };
 
         let mut expected = normalize(
@@ -606,6 +802,20 @@ fn frames_match_the_php_tql() {
         if let Some((_, reason)) = DELIBERATE.iter().find(|(name, _)| *name == scenario.name) {
             deliberate.push(format!("{} ({reason})", scenario.name));
         } else if lines.is_empty() {
+            let ansi = fs::read_to_string(php_frames.join(format!("{}.ansi", scenario.name)))
+                .unwrap_or_default();
+            let looks = differing_looks(&ansi, &buffer);
+            let looks_deliberate = LOOKS_DELIBERATE
+                .iter()
+                .any(|(name, _)| *name == scenario.name);
+            if !looks.is_empty() && !looks_deliberate {
+                fs::write(
+                    report_dir.join(format!("{}.looks", scenario.name)),
+                    looks.join("\n"),
+                )
+                .unwrap();
+                styled.push(format!("{} ({} lines)", scenario.name, looks.len()));
+            }
             matching.push(scenario.name);
         } else {
             fs::write(
@@ -638,7 +848,13 @@ fn frames_match_the_php_tql() {
         deliberate.len(),
         deliberate.join("; ")
     );
+    println!("styled differently {}: {}", styled.len(), styled.join(", "));
     println!("frames and diffs in {}", report_dir.display());
+    assert!(
+        styled.is_empty(),
+        "{} scenarios look different from the PHP tql",
+        styled.len()
+    );
     assert!(
         differing.is_empty(),
         "{} scenarios differ from the PHP tql",

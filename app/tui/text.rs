@@ -48,7 +48,14 @@ pub fn cell(value: Option<&str>) -> String {
             .unwrap_or_else(|_| value.to_string()),
         _ => value.to_string(),
     };
-    let single_line = compact.split_whitespace().collect::<Vec<_>>().join(" ");
+    let mut single_line = String::with_capacity(compact.len());
+    for character in compact.chars() {
+        if !character.is_ascii_whitespace() && character != '\x0b' {
+            single_line.push(character);
+        } else if !single_line.ends_with(' ') || single_line.is_empty() {
+            single_line.push(' ');
+        }
+    }
 
     if single_line.chars().count() > 500 {
         return single_line.chars().take(499).collect::<String>() + "…";
@@ -56,9 +63,27 @@ pub fn cell(value: Option<&str>) -> String {
     single_line
 }
 
+pub fn pasted(text: &str) -> String {
+    text.replace("\r\n", "\n")
+        .replace('\r', "\n")
+        .chars()
+        .filter(|character| matches!(character, '\n' | '\t') || !character.is_control())
+        .collect()
+}
+
+pub fn single_line(text: &str) -> String {
+    pasted(text).replace('\n', " ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_cell_folds_each_run_of_whitespace_into_one_space_and_keeps_the_ends() {
+        assert_eq!(cell(Some("  hi \n\t there ")), " hi there ");
+        assert_eq!(cell(Some("a\u{a0}b")), "a\u{a0}b");
+    }
 
     #[test]
     fn truncates_by_display_width_with_an_ellipsis() {

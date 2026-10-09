@@ -34,8 +34,32 @@ pub fn suits(column_type: Option<&str>) -> bool {
 
 fn moment() -> Zoned {
     let zone = settings::with(|settings| settings.time_zone.trim().to_string());
-    let zone = TimeZone::get(&zone).unwrap_or(TimeZone::UTC);
+    let zone = TimeZone::get(&zone)
+        .ok()
+        .or_else(|| offset(&zone).map(TimeZone::fixed))
+        .unwrap_or(TimeZone::UTC);
     Zoned::now().with_time_zone(zone)
+}
+
+fn offset(zone: &str) -> Option<jiff::tz::Offset> {
+    let (sign, digits) = match zone.split_at_checked(1)? {
+        ("+", digits) => (1, digits),
+        ("-", digits) => (-1, digits),
+        _ => return None,
+    };
+    let digits = digits.replace(':', "");
+    if !digits.chars().all(|digit| digit.is_ascii_digit()) {
+        return None;
+    }
+    let (hours, minutes) = match digits.len() {
+        1 | 2 => (digits.parse::<i32>().ok()?, 0),
+        4 => (digits[..2].parse().ok()?, digits[2..].parse().ok()?),
+        _ => return None,
+    };
+    if hours > 14 || minutes > 59 {
+        return None;
+    }
+    jiff::tz::Offset::from_seconds(sign * (hours * 3600 + minutes * 60)).ok()
 }
 
 #[cfg(test)]
@@ -47,6 +71,17 @@ mod tests {
         let mut settings = Settings::default();
         settings.time_zone = zone.to_string();
         settings::install(settings);
+    }
+
+    #[test]
+    fn takes_an_offset_as_well_as_a_zone_name() {
+        for (zone, seconds) in [("+05:30", 19_800), ("+0530", 19_800), ("-03", -10_800)] {
+            in_zone(zone);
+            assert_eq!(moment().offset().seconds(), seconds, "{zone}");
+        }
+        in_zone("nowhere");
+        assert_eq!(moment().offset().seconds(), 0);
+        in_zone("UTC");
     }
 
     fn utc(format: &str) -> String {

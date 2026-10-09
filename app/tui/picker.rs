@@ -6,8 +6,8 @@ use crate::terminal::prelude::*;
 use super::ago::{ago, now};
 use super::chrome::{self, theme};
 use super::clipboard::{Clipboard, Reached, Recorded};
-use super::connection_form::{ConnectionForm, Places, Step, single_line};
-use super::text::{pad, truncate, width, window};
+use super::connection_form::{ConnectionForm, Places, Step};
+use super::text::{pad, single_line, truncate, width, window};
 use crate::encrypter::Encrypter;
 use crate::settings;
 use crate::store::{Connection, Store};
@@ -108,8 +108,11 @@ impl Picker {
     }
 
     fn say(&mut self, status: impl Into<String>) {
-        self.status = Some(status.into());
-        self.status_since = Instant::now();
+        let status = status.into();
+        if self.status.as_deref() != Some(status.as_str()) {
+            self.status_since = Instant::now();
+        }
+        self.status = Some(status);
     }
 
     pub fn fade_status(&mut self, now: Instant) -> bool {
@@ -235,6 +238,7 @@ impl Picker {
         }
         match self.current() {
             Some(connection) => Flow::Exit(Some(connection.clone())),
+            None if self.connections.is_empty() => Flow::Exit(None),
             None => Flow::Continue,
         }
     }
@@ -573,7 +577,7 @@ impl Picker {
             return Self::header_line(header, selected, widths);
         }
         let grid = theme::border(true, false);
-        let icon = icon(&row.driver);
+        let icon = settings::with(|settings| settings.icon(&row.driver));
         let marker = match selected && settings::with(|settings| settings.row_style == "marker") {
             true => "▸",
             false => " ",
@@ -664,15 +668,6 @@ fn header_text(header: &Header) -> String {
     format!(" ▼ {} ({})", header.group, header.count)
 }
 
-fn icon(driver: &str) -> char {
-    match driver {
-        "mysql" | "mariadb" => '\u{e704}',
-        "pgsql" => '\u{e76e}',
-        "sqlite" => '\u{e7c4}',
-        _ => '\u{f1c0}',
-    }
-}
-
 fn driver_color(driver: &str) -> Color {
     match driver {
         "mysql" | "mariadb" => Color::Yellow,
@@ -731,7 +726,7 @@ impl Tui for Picker {
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Option<Connection>> {
-        if self.form.is_some() {
+        if self.form.is_some() || !self.wants_mouse() {
             return Flow::Continue;
         }
         let count = self.entries(false).len();

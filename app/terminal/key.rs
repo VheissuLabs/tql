@@ -32,7 +32,7 @@ impl Key {
             KeyCode::Char(character) if control => Key::Ctrl(character.to_ascii_lowercase()),
             KeyCode::Char(character) if alt => Key::Alt(character),
             KeyCode::Char(character) => Key::Char(character),
-            KeyCode::Enter if shift => Key::ShiftEnter,
+            KeyCode::Enter if shift || alt => Key::ShiftEnter,
             KeyCode::Enter => Key::Enter,
             KeyCode::Esc => Key::Escape,
             KeyCode::Tab => Key::Tab,
@@ -152,6 +152,16 @@ mod tests {
                 Key::Ctrl('k'),
                 Key::Char('?'),
             ]
+        );
+    }
+
+    #[test]
+    fn alt_enter_from_the_terminal_is_shift_enter() {
+        use ratatui::crossterm::event::{KeyCode, KeyEvent, KeyModifiers};
+
+        assert_eq!(
+            Key::from_event(KeyEvent::new(KeyCode::Enter, KeyModifiers::ALT)),
+            Some(Key::ShiftEnter)
         );
     }
 

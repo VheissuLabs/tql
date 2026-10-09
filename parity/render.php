@@ -114,6 +114,7 @@ foreach ($scenarios as $scenario) {
             }
             $frame = (string) (new App\Prompts\Renderers\ConnectionPickerRenderer($prompt))($prompt);
             file_put_contents("{$out}/{$scenario['name']}.txt", preg_replace('/\e\[[0-9;?]*[A-Za-z]/', '', $frame));
+            file_put_contents("{$out}/{$scenario['name']}.ansi", $frame);
         } finally {
             Illuminate\Support\Facades\DB::rollBack();
             putenv("HOME={$realHome}");
@@ -139,6 +140,7 @@ foreach ($scenarios as $scenario) {
 
     $frame = (string) (new App\Prompts\Renderers\BrowserRenderer($browser))($browser);
     file_put_contents("{$out}/{$scenario['name']}.txt", preg_replace('/\e\[[0-9;?]*[A-Za-z]/', '', $frame));
+    file_put_contents("{$out}/{$scenario['name']}.ansi", $frame);
 }
 
 copy(getenv('XDG_CONFIG_HOME').'/tql/tql.sqlite', "{$out}/tql.sqlite");

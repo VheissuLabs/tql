@@ -19,4 +19,4 @@ insert into tickets (customer_id, subject, status)
 select 7, 'Ticket number ' || i || ' about an order that went somewhere unexpected', case when i % 3 = 0 then 'closed' else 'open' end
 from generate_series(1, 12) as n(i);
 insert into tickets (customer_id, subject) values (3, 'Wrong colour');
-insert into wallets values (1, 7, 42.5), (2, 3, 0);
+insert into wallets values (1, 7, 42.5, true), (2, 3, 0, false);

@@ -63,9 +63,7 @@ impl<App: Tui> Fake<App> {
             return self;
         }
         self.render();
-        let Some(mouse) = margin::below(mouse, self.app.top_margin()) else {
-            return self;
-        };
+        let mouse = margin::below(mouse, self.app.top_margin());
         if let Flow::Exit(output) = self.app.on_mouse(mouse) {
             self.exit = Some(output);
         }
@@ -138,6 +136,11 @@ impl<App: Tui> Fake<App> {
             })
             .collect::<Vec<_>>()
             .join("\n")
+    }
+
+    pub fn buffer(&mut self) -> ratatui::buffer::Buffer {
+        self.render();
+        self.terminal.backend().buffer().clone()
     }
 
     pub fn highlighted(&mut self) -> Vec<String> {

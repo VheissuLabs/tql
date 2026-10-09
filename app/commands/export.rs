@@ -192,7 +192,7 @@ fn chosen_connection(
         .iter()
         .map(|connection| format!("{}  ·  {}", connection.name, connection.describe()))
         .collect();
-    let answer = cmd.choice("Export from", &labels, None)?;
+    let answer = cmd.select("Export from", &labels, None)?;
     let chosen = labels
         .iter()
         .position(|label| *label == answer)
@@ -246,7 +246,7 @@ fn ask_database(
         return Ok(false);
     }
 
-    let chosen = cmd.choice("Which database?", &databases, None)?;
+    let chosen = cmd.select("Which database?", &databases, None)?;
     if let Err(error) = database.use_database(&chosen) {
         cmd.error(format!("{error:#}"));
         return Ok(false);
@@ -257,10 +257,19 @@ fn ask_database(
 
 fn choose_table(cmd: &mut Cmd, available: &[String]) -> Result<Option<String>> {
     let every = format!("{EVERY_TABLE} ({})", available.len());
-    let options: Vec<&str> = std::iter::once(every.as_str())
-        .chain(available.iter().map(String::as_str))
+    let options: Vec<String> = std::iter::once(every.clone())
+        .chain(available.iter().cloned())
         .collect();
-    let chosen = cmd.choice("Which table?", &options, None)?;
+    let chosen = if available.len() <= 15 {
+        cmd.select("Which table?", &options, None)?
+    } else {
+        cmd.search(
+            "Which table?",
+            &options,
+            1,
+            "type to filter, or pick the first for all of them",
+        )?
+    };
     Ok((chosen != every).then_some(chosen))
 }
 
@@ -275,7 +284,11 @@ fn ask_where(cmd: &mut Cmd, exporter: &Exporter, tables: &[String]) -> Result<Op
     let only = (tables.len() == 1).then(|| tables[0].as_str());
     let suggested = exporter.filename(only)?.display().to_string();
     loop {
-        let answer = cmd.ask_with_default("Save it where?", &paths::shorten(&suggested))?;
+        let answer = cmd.ask_with_hint(
+            "Save it where?",
+            &paths::shorten(&suggested),
+            "a file, or a folder to have it named for you",
+        )?;
         let answer = answer.trim().to_string();
         let wanted = if answer.is_empty() {
             suggested.clone()

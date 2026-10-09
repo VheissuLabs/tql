@@ -1,9 +1,10 @@
 use std::borrow::Cow;
 
 use super::*;
-use crate::database::{Column, Named, Values};
+use crate::database::{self, Column, Named, Values};
 use crate::tui::editor::QueryEditor;
 use crate::tui::grid::Tone;
+use crate::tui::history::{self, Execution};
 use crate::tui::record_form::RecordForm;
 use crate::tui::value_editor::ValueView;
 use crate::tui::{json, now};
@@ -430,13 +431,23 @@ impl Browser {
         if !required || !numeric {
             return Values::new();
         }
-        let Ok(highest) = self.database.highest(table, &key) else {
+        let statement = format!(
+            "select max({}) as highest from {}",
+            self.database.quote(&key),
+            self.database.quote(table)
+        );
+        let started = Instant::now();
+        let highest = self.database.highest(table, &key);
+        let counted = highest
+            .as_ref()
+            .map(|_| ())
+            .map_err(|error| anyhow::anyhow!("{error:#}"));
+        self.remember_write(&statement, started, &counted, 1);
+        let Ok(highest) = highest else {
             return Values::new();
         };
-        let highest = highest
-            .and_then(|highest| highest.trim().parse::<f64>().ok())
-            .unwrap_or(0.0) as i64;
-        vec![(key, Some((highest + 1).to_string()))]
+        let highest = highest.map(|highest| whole(&highest)).unwrap_or(0);
+        vec![(key, Some(highest.saturating_add(1).to_string()))]
     }
 
     pub(super) fn new_row(&mut self) {
@@ -671,8 +682,23 @@ impl Browser {
     fn write_all(&mut self, table: &str, key: &str) -> Result<(), Failure> {
         let failed = |title, error, note| Failure { title, error, note };
 
-        while let Some(values) = self.edits.inserts.first() {
-            self.database.insert(table, values).map_err(|error| {
+        let defaults_only = match self.connection.driver.as_str() {
+            "mysql" | "mariadb" => "() values ()",
+            _ => "default values",
+        };
+
+        while let Some(values) = self.edits.inserts.first().cloned() {
+            let statement = database::insert_statement(
+                |identifier| self.database.quote(identifier),
+                question,
+                table,
+                &values,
+                defaults_only,
+            );
+            let started = Instant::now();
+            let written = self.database.insert(table, &values);
+            self.remember_write(&statement, started, &written, 1);
+            written.map_err(|error| {
                 failed(
                     "COULD NOT ADD THE ROW",
                     error,
@@ -682,34 +708,77 @@ impl Browser {
             self.edits.inserts.remove(0);
         }
 
-        while let Some((key_value, columns)) = self.edits.updates.first() {
-            for (column, value) in columns {
-                self.database
-                    .update(table, column, key, key_value, value.as_deref())
-                    .map_err(|error| {
-                        failed(
-                            "COULD NOT WRITE",
-                            error,
-                            "The change is still here. Fix it and :w again, or u to drop it.",
-                        )
-                    })?;
+        while let Some((key_value, columns)) = self.edits.updates.first().cloned() {
+            for (column, value) in &columns {
+                let statement = database::update_statement(
+                    |identifier| self.database.quote(identifier),
+                    question,
+                    table,
+                    column,
+                    key,
+                );
+                let started = Instant::now();
+                let written =
+                    self.database
+                        .update(table, column, key, &key_value, value.as_deref());
+                self.remember_write(&statement, started, &written, 1);
+                written.map_err(|error| {
+                    failed(
+                        "COULD NOT WRITE",
+                        error,
+                        "The change is still here. Fix it and :w again, or u to drop it.",
+                    )
+                })?;
             }
             self.edits.updates.remove(0);
         }
 
         if !self.edits.deletes.is_empty() {
-            self.database
-                .delete(table, key, &self.edits.deletes)
-                .map_err(|error| {
-                    failed(
-                        "COULD NOT DELETE",
-                        error,
-                        "The rows are still marked. u clears them.",
-                    )
-                })?;
+            let deletes = self.edits.deletes.clone();
+            let statement = database::delete_statement(
+                |identifier| self.database.quote(identifier),
+                question,
+                table,
+                key,
+                deletes.len(),
+            );
+            let started = Instant::now();
+            let written = self.database.delete(table, key, &deletes);
+            self.remember_write(&statement, started, &written, deletes.len());
+            written.map_err(|error| {
+                failed(
+                    "COULD NOT DELETE",
+                    error,
+                    "The rows are still marked. u clears them.",
+                )
+            })?;
             self.edits.deletes.clear();
         }
         Ok(())
+    }
+
+    fn remember_write(
+        &self,
+        statement: &str,
+        started: Instant,
+        written: &anyhow::Result<()>,
+        rows: usize,
+    ) {
+        let Some(store) = &self.store else {
+            return;
+        };
+        let error = written.as_ref().err().map(|error| format!("{error:#}"));
+        history::record(
+            store,
+            "tui",
+            Execution {
+                connection_id: self.connection.id,
+                statement,
+                error: error.as_deref(),
+                rows: written.is_ok().then_some(rows),
+                duration_ms: started.elapsed().as_millis(),
+            },
+        );
     }
 
     fn added_row(&self, values: &Values) -> (Vec<Option<String>>, Vec<String>) {
@@ -736,6 +805,10 @@ impl Browser {
             .iter()
             .map(|values| self.added_row(values))
             .unzip();
+        let added: Vec<Vec<Kind>> = raw.iter().map(|row| vec![Kind::Text; row.len()]).collect();
+        if !self.kinds.is_empty() {
+            self.kinds.splice(0..0, added);
+        }
         self.raw.splice(0..0, raw);
         self.rows.splice(0..0, shown);
     }
@@ -954,10 +1027,12 @@ impl Browser {
                 content: form.content(width as usize - 2, height as usize - 2),
                 ..Island::default()
             };
-            Modal::new(frame_width, 1, frame_height, width).draw(
+            let editing_expanded = form.expanded && form.editor.is_some();
+            Modal::new(frame_width, 1, frame_height, width).draw_focused(
                 frame.buffer_mut(),
                 island,
                 height,
+                !editing_expanded,
             );
 
             if form.expanded
@@ -1015,4 +1090,32 @@ fn draw_view(frame: &mut Frame, view: &ValueView, room: usize, frame_height: u16
         width,
         height,
     }
+}
+
+impl Browser {
+    pub(super) fn paste_into_edits(&mut self, text: &str) {
+        if let Some(form) = self.edits.form.as_mut() {
+            form.paste(text);
+            return;
+        }
+        if let Some(value) = self.edits.value.as_mut()
+            && value.editable()
+        {
+            value.buffer.paste(text);
+        }
+    }
+}
+
+fn question(_: usize) -> String {
+    "?".to_string()
+}
+
+// A number as tql reads one: whole numbers exactly, however large, and
+// anything with a fraction or an exponent through a float.
+fn whole(text: &str) -> i64 {
+    let text = text.trim();
+    text.parse::<i64>()
+        .ok()
+        .or_else(|| text.parse::<f64>().ok().map(|number| number as i64))
+        .unwrap_or(0)
 }

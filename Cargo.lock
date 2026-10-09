@@ -420,6 +420,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "clap_complete"
+version = "4.6.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "037e2a1a92236d0aff7e845093f64661d6df4c02c9fcc61a60e9e1d736fa392f"
+dependencies = [
+ "clap",
+]
+
+[[package]]
 name = "clap_lex"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -817,12 +826,6 @@ checksum = "d4b8a88685455ed29a21542a33abd9cb6510b6b129abadabdcef0f4c55bc8f61"
 dependencies = [
  "litrs",
 ]
-
-[[package]]
-name = "dotenvy"
-version = "0.15.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1aaf95b3e5c8f23aa320147307562d361db0ae0d51242340f558153b4eb2439b"
 
 [[package]]
 name = "dunce"
@@ -3213,7 +3216,7 @@ dependencies = [
  "base64 0.22.1",
  "cbc",
  "clap",
- "dotenvy",
+ "clap_complete",
  "flate2",
  "futures-util",
  "getrandom 0.3.4",

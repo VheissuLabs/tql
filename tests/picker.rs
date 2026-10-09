@@ -69,3 +69,25 @@ fn an_empty_store_says_how_to_add_one() {
 
     assert!(fake.screen().contains("No connections yet"));
 }
+
+#[test]
+fn shows_the_icon_the_config_file_sets_for_a_driver() {
+    let mut settings = app::settings::Settings::default();
+    settings.set("icons.sqlite", &toml::Value::String("S".into()));
+    app::settings::install(settings);
+    let mut fake = Fake::new(Picker::new(connections(), None));
+
+    let screen = fake.screen();
+    app::settings::install(app::settings::Settings::default());
+
+    assert!(screen.contains("S shop"), "{screen}");
+}
+
+#[test]
+fn enter_on_an_empty_list_quits() {
+    let mut fake = Fake::new(Picker::new(Vec::new(), None));
+
+    fake.press("\r");
+
+    assert!(fake.exited());
+}

@@ -108,6 +108,7 @@ impl Browser {
         self.headers.clear();
         self.rows.clear();
         self.raw.clear();
+        self.kinds.clear();
         self.forget_links();
     }
 

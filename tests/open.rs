@@ -402,3 +402,31 @@ fn connect_is_another_name_for_open() {
         ["tql", "connect"]
     );
 }
+
+#[test]
+fn browse_says_it_needs_a_terminal_rather_than_failing() {
+    let browsed = app::application().run_with(["browse"], "");
+
+    assert_eq!(browsed.code, 1);
+    assert!(
+        format!("{}{}", browsed.stdout, browsed.stderr)
+            .contains("tql needs a terminal. Run it directly rather than piping into it."),
+        "{browsed:?}"
+    );
+}
+
+#[test]
+fn an_empty_name_keeps_the_name_from_the_file_and_a_tag_is_kept_as_typed() {
+    let scratch = Scratch::new("empty-name");
+    let path = scratch.sqlite_file("shop.sqlite");
+
+    let opened = scratch.open(
+        &path.display().to_string(),
+        Some(""),
+        Some("Production"),
+        false,
+    );
+
+    assert_eq!(opened.connection.name, "shop.sqlite");
+    assert_eq!(opened.connection.tag.as_deref(), Some("Production"));
+}

@@ -542,3 +542,68 @@ fn a_filtered_table_opens_the_editor_on_its_filtered_statement_and_escape_clears
     assert!(!fake.app.query.results);
     assert_eq!(names(&fake), ["apple", "banana", "cherry"]);
 }
+
+#[test]
+fn a_change_made_in_the_sql_editor_is_seen_without_reloading() {
+    let mut fake = browser("schema-after-write");
+
+    fake.press("\tt");
+    assert!(!fake.screen().contains("ripe"));
+    fake.press("\x1b");
+    fake.press("s")
+        .press("\x05")
+        .press("; alter table fruit add column ripe integer")
+        .press("\x12")
+        .press("\x1b")
+        .press("\x1b");
+    fake.press("t");
+
+    let screen = fake.screen();
+    let structure: String = screen
+        .lines()
+        .skip_while(|line| !line.contains("STRUCTURE"))
+        .collect();
+    assert!(structure.contains("ripe"), "{screen}");
+}
+
+#[test]
+fn query_results_offer_yanking_on_the_hotkey_bar() {
+    let mut fake = browser("results-bar");
+
+    fake.press("s")
+        .press("\x05")
+        .press("; select name from fruit")
+        .press("\x12")
+        .press("\x1b")
+        .press("\t");
+
+    let screen = fake.screen();
+    assert!(screen.contains("y Yank   Y Row   s Edit query"), "{screen}");
+}
+
+#[test]
+fn writes_from_the_grid_go_into_the_history_as_tql_s_own() {
+    let mut fake = browser("tui-history");
+
+    fake.settle().press("\tle").press("-ripe\x04").press(":w\n");
+
+    let store = std::env::temp_dir().join(format!(
+        "tql-rust-sql-{}-tui-history-store.sqlite",
+        std::process::id()
+    ));
+    let recorded: Vec<(String, String)> = rusqlite::Connection::open(store)
+        .unwrap()
+        .prepare("select source, statement from query_executions order by id")
+        .unwrap()
+        .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert!(
+        recorded.contains(&(
+            "tui".to_string(),
+            "update \"fruit\" set \"name\" = ? where \"id\" = ?".to_string()
+        )),
+        "{recorded:?}"
+    );
+}

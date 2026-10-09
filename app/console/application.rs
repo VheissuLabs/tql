@@ -13,6 +13,8 @@ use crate::console::{Cmd, Command};
 
 const RESERVED_NAMES: [&str; 5] = ["help", "version", "ansi", "no-ansi", "no-interaction"];
 const LIST: &str = "list";
+const COMPLETION: &str = "completion";
+const GLOBAL_FLAGS: [&str; 4] = ["-n", "--no-interaction", "--ansi", "--no-ansi"];
 const RESERVED_SHORTCUTS: [char; 3] = ['h', 'V', 'n'];
 
 pub struct Application {
@@ -35,6 +37,7 @@ struct Streams<'a> {
     out: &'a mut dyn Write,
     err: &'a mut dyn Write,
     ansi: bool,
+    terminal: bool,
 }
 
 impl Application {
@@ -72,8 +75,6 @@ impl Application {
         Args: IntoIterator<Item = Arg>,
         Arg: Into<OsString>,
     {
-        let _ = dotenvy::dotenv();
-
         let stdout = io::stdout();
         let ansi = stdout.is_terminal() && std::env::var_os("NO_COLOR").is_none();
         let code = self.execute(
@@ -83,6 +84,7 @@ impl Application {
                 out: &mut stdout.lock(),
                 err: &mut io::stderr().lock(),
                 ansi,
+                terminal: io::stdin().is_terminal(),
             },
         );
 
@@ -106,6 +108,7 @@ impl Application {
                 out: &mut out,
                 err: &mut err,
                 ansi: false,
+                terminal: false,
             },
         );
 
@@ -122,6 +125,7 @@ impl Application {
             out,
             err,
             ansi,
+            terminal,
         } = streams;
 
         let signatures = match self.signatures() {
@@ -141,9 +145,11 @@ impl Application {
         };
 
         let mut argv: Vec<OsString> = argv.into_iter().collect();
-        if argv.len() == 1
-            && let Some(default) = config.str("commands.default")
-        {
+        let only_global_flags = argv
+            .iter()
+            .skip(1)
+            .all(|argument| GLOBAL_FLAGS.contains(&argument.to_string_lossy().as_ref()));
+        if only_global_flags && let Some(default) = config.str("commands.default") {
             argv.push(default.into());
         }
         let binary = argv
@@ -169,6 +175,28 @@ impl Application {
                 return error.exit_code();
             }
         };
+
+        if let Some((COMPLETION, asked)) = matches.subcommand() {
+            let shell = asked
+                .get_one::<String>("shell")
+                .cloned()
+                .or_else(|| {
+                    std::env::var("SHELL")
+                        .ok()
+                        .and_then(|path| path.rsplit('/').next().map(String::from))
+                })
+                .unwrap_or_default();
+            let Ok(shell) = shell.parse::<clap_complete::Shell>() else {
+                let _ = writeln!(
+                    err,
+                    "no completion for the shell \"{shell}\"; try bash, zsh or fish"
+                );
+                return 1;
+            };
+            let name = cli.get_bin_name().unwrap_or(&self.name).to_string();
+            clap_complete::generate(shell, &mut cli, name, out);
+            return 0;
+        }
 
         let Some((name, sub_matches)) = matches.subcommand().filter(|(name, _)| *name != LIST)
         else {
@@ -199,6 +227,7 @@ impl Application {
             reader,
             ansi,
             interactive: !global_flag("no-interaction"),
+            terminal,
             app_name: &self.name,
             app_version: &self.version,
         };
@@ -276,7 +305,13 @@ impl Application {
                     help => clap.after_help(styled_help(help)),
                 }
             })
-            .chain([clap::Command::new(LIST).about("List commands")])
+            .chain([
+                clap::Command::new(LIST).about("List commands"),
+                clap::Command::new(COMPLETION)
+                    .about("Dump the shell completion script")
+                    .hide(true)
+                    .arg(Arg::new("shell").help("bash, zsh or fish; $SHELL when left out")),
+            ])
             .collect();
         commands.sort_by(|left, right| left.get_name().cmp(right.get_name()));
 

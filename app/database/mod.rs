@@ -49,11 +49,21 @@ pub struct Sort {
     pub direction: Direction,
 }
 
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Kind {
+    #[default]
+    Text,
+    Integer,
+    Float,
+    Boolean,
+}
+
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Page {
     pub statement: String,
     pub headers: Vec<String>,
     pub rows: Vec<Vec<Option<String>>>,
+    pub kinds: Vec<Vec<Kind>>,
 }
 
 pub type Values = Vec<(String, Option<String>)>;
@@ -87,6 +97,7 @@ impl Named for Values {
 pub struct Outcome {
     pub headers: Vec<String>,
     pub rows: Vec<Vec<Option<String>>>,
+    pub kinds: Vec<Vec<Kind>>,
     pub affected: Option<usize>,
 }
 
@@ -244,6 +255,66 @@ pub(crate) fn delete_statement(
     )
 }
 
+// The statement as tql shows it in a refusal: each placeholder filled with its
+// value as written, and one with no value left as a question mark.
+fn filled_in(statement: &str, values: &[Option<&str>]) -> String {
+    let mut segments = statement.split('?');
+    let mut shown = segments.next().unwrap_or_default().to_string();
+    let mut values = values.iter();
+    for segment in segments {
+        shown.push_str(values.next().copied().flatten().unwrap_or("?"));
+        shown.push_str(segment);
+    }
+    shown
+}
+
+fn question(_: usize) -> String {
+    "?".to_string()
+}
+
+pub(crate) fn shown_update(
+    quote: impl Fn(&str) -> String,
+    table: &str,
+    column: &str,
+    key: &str,
+    value: Option<&str>,
+    key_value: &str,
+) -> String {
+    filled_in(
+        &update_statement(quote, question, table, column, key),
+        &[value, Some(key_value)],
+    )
+}
+
+pub(crate) fn shown_insert(
+    quote: impl Fn(&str) -> String,
+    table: &str,
+    values: &Values,
+    defaults_only: &str,
+) -> String {
+    let filled: Vec<Option<&str>> = values.iter().map(|(_, value)| value.as_deref()).collect();
+    filled_in(
+        &insert_statement(quote, question, table, values, defaults_only),
+        &filled,
+    )
+}
+
+pub(crate) fn shown_delete(
+    quote: impl Fn(&str) -> String,
+    table: &str,
+    key: &str,
+    key_values: &[String],
+) -> String {
+    let filled: Vec<Option<&str>> = key_values
+        .iter()
+        .map(|value| Some(value.as_str()))
+        .collect();
+    filled_in(
+        &delete_statement(quote, question, table, key, key_values.len()),
+        &filled,
+    )
+}
+
 pub(crate) fn refused(error: impl std::fmt::Display, statement: &str) -> anyhow::Error {
     anyhow!("{error}\n\n{statement}")
 }
@@ -345,6 +416,10 @@ pub(crate) fn split_list(list: Option<String>) -> Vec<String> {
         .unwrap_or_default()
 }
 
+pub(crate) fn all_text(rows: &[Vec<Option<String>>]) -> Vec<Vec<Kind>> {
+    rows.iter().map(|row| vec![Kind::Text; row.len()]).collect()
+}
+
 pub(crate) fn outcome_or_affected(
     headers: Vec<String>,
     rows: Vec<Vec<Option<String>>>,
@@ -360,6 +435,7 @@ pub(crate) fn outcome_or_affected(
         headers,
         rows,
         affected: None,
+        ..Outcome::default()
     }
 }
 

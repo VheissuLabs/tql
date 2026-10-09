@@ -265,3 +265,50 @@ fn ctrl_l_clears_the_screen_and_draws_it_again_even_over_a_form() {
     assert!(fake.app.take_repaint());
     assert!(fake.app.edits.editing().is_some());
 }
+
+#[test]
+fn the_status_line_fades_back_after_a_few_seconds() {
+    app::settings::install(app::settings::Settings::default());
+    let mut fake = browser("fade");
+    fake.press("\x0c");
+    let since = std::time::Instant::now();
+
+    assert!(!fake.app.fade_status(since));
+    assert_eq!(fake.app.status(), "redrawn");
+    assert!(
+        fake.app
+            .fade_status(since + std::time::Duration::from_secs(60))
+    );
+    assert_eq!(fake.app.status(), "");
+}
+
+#[test]
+fn a_status_never_fades_when_status_seconds_is_zero() {
+    let mut settings = app::settings::Settings::default();
+    settings.set("ui.status_seconds", &toml::Value::Integer(0));
+    app::settings::install(settings);
+    let mut fake = browser("no-fade");
+    fake.press("\x0c");
+
+    assert!(
+        !fake
+            .app
+            .fade_status(std::time::Instant::now() + std::time::Duration::from_secs(600))
+    );
+    assert_eq!(fake.app.status(), "redrawn");
+}
+
+#[test]
+fn the_status_stops_standing_out_at_the_next_key_and_the_same_words_do_not_relight_it() {
+    app::settings::install(app::settings::Settings::default());
+    let mut fake = browser("fresh");
+
+    fake.press("\x0c");
+    assert!(fake.app.status_is_fresh());
+
+    fake.press("k");
+    assert!(!fake.app.status_is_fresh());
+
+    fake.press("\x0c");
+    assert!(!fake.app.status_is_fresh());
+}

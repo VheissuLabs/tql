@@ -69,7 +69,10 @@ impl Browser {
             .width_overrides
             .get(&column)
             .copied()
-            .unwrap_or_else(|| grid::natural_width(&self.headers, &self.rows, self.column_index));
+            .unwrap_or_else(|| {
+                grid::natural_width(&self.headers, &self.rows, self.column_index)
+                    .min(grid::COMFORTABLE)
+            });
         let width = (current as isize + by).clamp(3, 120) as usize;
         self.width_overrides.insert(column.clone(), width);
         self.say(format!("{column} width {width}"));
@@ -113,8 +116,7 @@ impl Browser {
                 return self.run_command(&command);
             }
             Key::Escape => self.command = None,
-            Key::Backspace if command.is_empty() => self.command = None,
-            Key::Backspace => {
+            Key::Backspace | Key::Ctrl('h') => {
                 command.pop();
             }
             Key::Char(character) => command.push(character),

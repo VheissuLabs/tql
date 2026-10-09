@@ -29,7 +29,7 @@ pub mod theme {
             "blue" => Style::new().fg(Color::Blue),
             "magenta" => Style::new().fg(Color::Magenta),
             "cyan" => Style::new().fg(Color::Cyan),
-            "white" => Style::new().fg(Color::White),
+            "white" => Style::new().fg(Color::Gray),
             "gray" => Style::new().fg(Color::DarkGray),
             _ => dim(),
         }
@@ -242,8 +242,18 @@ impl Modal {
         }
     }
 
-    pub fn draw(&self, buffer: &mut Buffer, mut island: Island, height: u16) {
-        island.focused = true;
+    pub fn draw(&self, buffer: &mut Buffer, island: Island, height: u16) {
+        self.draw_focused(buffer, island, height, true);
+    }
+
+    pub fn draw_focused(
+        &self,
+        buffer: &mut Buffer,
+        mut island: Island,
+        height: u16,
+        focused: bool,
+    ) {
+        island.focused = focused;
         self.draw_stack(buffer, vec![(island, height)]);
     }
 

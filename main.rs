@@ -1,7 +1,9 @@
 use std::process::ExitCode;
 
 fn main() -> ExitCode {
+    app::paths::carry_over_dotsql();
     app::updates::versions::activate_on_start();
+    let _tunnels = app::tunnel::CloseAtExit;
     let argv = std::env::args_os()
         .map(|argument| argument.to_string_lossy().into_owned())
         .collect();

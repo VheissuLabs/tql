@@ -218,7 +218,7 @@ impl Browser {
         let kind = match key {
             Key::Enter => EditKind::Newline,
             Key::Backspace | Key::Ctrl('h') | Key::Delete => EditKind::Delete,
-            Key::Char(_) => EditKind::Type,
+            Key::Char(_) | Key::Tab => EditKind::Type,
             _ => EditKind::Other,
         };
         let breaks_a_word = matches!(key, Key::Enter | Key::Char(' '));
@@ -293,14 +293,14 @@ impl Browser {
             );
             return;
         }
-        if writes {
-            self.query.forget_schema();
-            self.keys = self.database.primary_keys().unwrap_or_default();
-        }
-
         let started = Instant::now();
         let ran = self.database.run(statement);
         let elapsed = started.elapsed().as_millis();
+        if writes {
+            self.schema.forget();
+            self.query.forget_schema();
+            self.keys = self.database.primary_keys().unwrap_or_default();
+        }
         let error = ran.as_ref().err().map(|error| error.to_string());
         let counted = ran
             .as_ref()
@@ -343,6 +343,7 @@ impl Browser {
             })
             .collect();
         self.raw = outcome.rows;
+        self.kinds = outcome.kinds;
         self.row_index = 0;
         self.column_index = 0;
         self.column_offset = 0;
@@ -430,5 +431,27 @@ impl Browser {
         };
         let (line, column) = pane.position_at(local_row, local_column);
         self.query.editor.move_to_line_column(line, column);
+    }
+}
+
+impl Browser {
+    pub(super) fn paste_into_query(&mut self, text: &str) {
+        if let Some(command) = self.command.as_mut() {
+            command.push_str(&single_line(text));
+            return;
+        }
+        if settings::with(|settings| settings.sql_vim) {
+            if self.query.vim.mode == crate::tui::vim::VimMode::Insert {
+                self.query.editor.paste(text);
+            }
+            return;
+        }
+        self.query.completion = None;
+        let editor = &mut self.query.editor;
+        editor.commit();
+        editor.checkpoint();
+        editor.paste(text);
+        editor.commit();
+        self.query.last_edit = None;
     }
 }

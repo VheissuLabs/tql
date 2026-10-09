@@ -29,6 +29,10 @@ impl Command for Browse {
 }
 
 fn browse(cmd: &mut Cmd) -> Result {
+    if !cmd.has_terminal() {
+        cmd.error("tql needs a terminal. Run it directly rather than piping into it.");
+        return exit(1);
+    }
     let loaded = config_file::prepare(&paths::config_file());
     let message = loaded.message();
     let update_check = check::enabled(loaded.settings.update_check);

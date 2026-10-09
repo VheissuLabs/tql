@@ -14,6 +14,7 @@ mod keys;
 mod links;
 mod loading;
 mod mouse;
+mod paste;
 mod query;
 mod render;
 mod structure;
@@ -39,8 +40,8 @@ use super::keymap::{self, Action};
 use super::palette::{self, Palette};
 use super::schema::Schema;
 use super::sql;
-use super::text::{self, pad, truncate, window};
-use crate::database::{Database, Direction, Filters, Sort};
+use super::text::{self, pad, single_line, truncate, window};
+use crate::database::{Database, Direction, Filters, Kind, Sort};
 use crate::settings;
 use crate::store::Connection;
 
@@ -81,6 +82,8 @@ pub struct Browser {
     pub headers: Vec<String>,
     pub rows: Vec<Vec<String>>,
     pub raw: Vec<Vec<Option<String>>>,
+    kinds: Vec<Vec<Kind>>,
+    loaded: Option<String>,
     pub edits: Edits,
     pub row_index: usize,
     pub column_index: usize,
@@ -151,6 +154,8 @@ impl Browser {
             headers: Vec::new(),
             rows: Vec::new(),
             raw: Vec::new(),
+            kinds: Vec::new(),
+            loaded: None,
             edits: Edits::default(),
             row_index: 0,
             column_index: 0,
@@ -216,9 +221,28 @@ impl Browser {
     }
 
     pub(super) fn say(&mut self, text: impl Into<String>) {
-        self.status = Some(text.into());
-        self.status_since = Instant::now();
-        self.status_fresh = true;
+        let text = text.into();
+        self.status_fresh = self.status.as_deref() != Some(text.as_str());
+        if self.status_fresh {
+            self.status_since = Instant::now();
+        }
+        self.status = Some(text);
+    }
+
+    pub fn status_is_fresh(&self) -> bool {
+        self.status_fresh
+    }
+
+    pub fn fade_status(&mut self, now: Instant) -> bool {
+        let after = settings::with(|settings| settings.status_seconds);
+        if after <= 0.0 || self.status.as_deref().is_none_or(str::is_empty) {
+            return false;
+        }
+        if now.saturating_duration_since(self.status_since) < Duration::from_secs_f64(after) {
+            return false;
+        }
+        self.hush();
+        true
     }
 
     pub(super) fn hush(&mut self) {
@@ -250,6 +274,7 @@ impl Tui for Browser {
     type Output = Exit;
 
     fn on_key(&mut self, key: Key) -> Flow<Exit> {
+        self.status_fresh = false;
         if self.problem.is_some() {
             self.type_into_problem(key);
             return Flow::Continue;
@@ -331,7 +356,16 @@ impl Tui for Browser {
         std::mem::take(&mut self.repaint)
     }
 
+    fn on_paste(&mut self, text: &str) -> Flow<Exit> {
+        self.paste(text);
+        Flow::Continue
+    }
+
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Exit> {
+        self.status_fresh = false;
+        if !self.wants_mouse() || self.edits.form().is_some() {
+            return Flow::Continue;
+        }
         let (row_offset, column_offset) =
             settings::with(|settings| (settings.mouse_row_offset, settings.mouse_column_offset));
         let column = (mouse.column as i64 - column_offset).max(0) as u16;
@@ -370,9 +404,7 @@ impl Tui for Browser {
             self.load(keep_cursor);
             return true;
         }
-        let fade = Duration::from_secs_f64(settings::with(|settings| settings.status_seconds));
-        if self.status_fresh && self.status_since.elapsed() >= fade {
-            self.status_fresh = false;
+        if self.fade_status(Instant::now()) {
             return true;
         }
         false

@@ -971,3 +971,81 @@ fn y_copies_a_failed_write_without_closing_it() {
     assert_eq!(fake.app.status(), "copied the error");
     assert!(fake.app.problem.is_some());
 }
+
+#[test]
+fn filtering_the_table_list_keeps_unwritten_changes_while_the_same_table_stays_open() {
+    let path = fixture("filter-keeps", LINKED);
+    let mut fake = open(&path, false);
+
+    fake.press("\tle").press("-edited\x04");
+    assert!(fake.app.edits.pending());
+
+    fake.press("/alb");
+    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert!(fake.app.edits.pending());
+
+    fake.press("\x7f\x7f\x7fart");
+    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert!(!fake.app.edits.pending());
+}
+
+#[test]
+fn widening_a_long_column_starts_from_a_comfortable_width() {
+    let path = fixture(
+        "widen-long",
+        &format!(
+            "create table notes (id integer primary key, body text);
+             insert into notes (body) values ('{}');",
+            "x".repeat(60)
+        ),
+    );
+    let mut fake = open(&path, false);
+
+    fake.settle().press("l.");
+
+    assert_eq!(fake.app.status(), "body width 32");
+}
+
+#[test]
+fn a_refused_write_shows_the_statement_with_its_values_in_place() {
+    let path = fixture(
+        "refused-shown",
+        "create table people (id integer primary key, name text not null, email text unique);
+         insert into people (name, email) values ('Ada', 'ada@example.com');",
+    );
+    let mut fake = open(&path, false);
+
+    fake.press("N")
+        .press(&format!("\nGrace\n\nada@example.com\n{SAVE}"))
+        .press(":w\n");
+
+    let problem = fake.app.problem.clone().unwrap_or_default();
+    assert!(
+        problem.contains(
+            "insert into \"people\" (\"name\", \"email\") values (Grace, ada@example.com)"
+        ),
+        "{problem}"
+    );
+}
+
+#[test]
+fn suggests_the_next_key_exactly_however_large_or_fractional_the_highest_is() {
+    for (highest, next) in [("9007199254740993", "9007199254740994"), ("2.5", "3")] {
+        let path = fixture(
+            &format!("next-key-{next}"),
+            &format!(
+                "create table codes (code numeric primary key not null, name text);
+                 insert into codes values ({highest}, 'x');"
+            ),
+        );
+        let mut fake = open(&path, false);
+
+        fake.settle().press("N");
+
+        assert_eq!(
+            fake.app.edits.form().unwrap().value("code"),
+            Some(next),
+            "{highest}"
+        );
+    }
+}

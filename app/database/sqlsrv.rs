@@ -20,8 +20,8 @@ use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 use super::schema::keys_by_table;
 use super::{
     Column, Database, Filters, ForeignKey, Index, Outcome, Page, Scalar, Scalars, Sort, Values,
-    delete_statement, insert_statement, outcome_or_affected, refused, single_column_keys,
-    split_list, update_statement,
+    all_text, delete_statement, insert_statement, outcome_or_affected, refused, shown_delete,
+    shown_insert, shown_update, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
 use crate::tunnel::Tunnel;
@@ -118,9 +118,10 @@ fn configured(connection: &Connection, password: Option<&str>, database: Option<
     } else if let Some(authority) = connection
         .ssl_ca
         .as_deref()
-        .filter(|authority| !authority.trim().is_empty())
+        .map(str::trim)
+        .filter(|authority| !authority.is_empty())
     {
-        config.trust_cert_ca(authority);
+        config.trust_cert_ca(crate::paths::expand(authority));
     }
     config
 }
@@ -212,6 +213,7 @@ impl SqlServer {
         Ok(Page {
             statement: statement.to_string(),
             headers,
+            kinds: all_text(&rows),
             rows,
         })
     }
@@ -257,10 +259,15 @@ impl SqlServer {
             .collect())
     }
 
-    fn write(&mut self, statement: &str, values: &[Option<&str>]) -> anyhow::Result<()> {
+    fn write(
+        &mut self,
+        statement: &str,
+        values: &[Option<&str>],
+        shown: &str,
+    ) -> anyhow::Result<()> {
         self.execute(statement, values)
             .map(|_| ())
-            .map_err(|error| refused(error, statement))
+            .map_err(|error| refused(error, shown))
     }
 }
 
@@ -609,7 +616,10 @@ impl Database for SqlServer {
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
         let (headers, rows) = self.fetch(statement, &[], text)?;
         if !headers.is_empty() {
-            return Ok(outcome_or_affected(headers, rows, 0));
+            return Ok(Outcome {
+                kinds: all_text(&rows),
+                ..outcome_or_affected(headers, rows, 0)
+            });
         }
         let affected = self
             .column("select @@rowcount")?
@@ -665,13 +675,15 @@ impl Database for SqlServer {
         value: Option<&str>,
     ) -> anyhow::Result<()> {
         let statement = update_statement(quote_bracket, question, table, column, key);
-        self.write(&statement, &[value, Some(key_value)])
+        let shown = shown_update(quote_bracket, table, column, key, value, key_value);
+        self.write(&statement, &[value, Some(key_value)], &shown)
     }
 
     fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
         let statement = insert_statement(quote_bracket, question, table, values, "default values");
         let bound: Vec<Option<&str>> = values.iter().map(|(_, value)| value.as_deref()).collect();
-        self.write(&statement, &bound)
+        let shown = shown_insert(quote_bracket, table, values, "default values");
+        self.write(&statement, &bound, &shown)
     }
 
     fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
@@ -680,7 +692,8 @@ impl Database for SqlServer {
             .iter()
             .map(|value| Some(value.as_str()))
             .collect();
-        self.write(&statement, &bound)
+        let shown = shown_delete(quote_bracket, table, key, key_values);
+        self.write(&statement, &bound, &shown)
     }
 }
 

@@ -438,6 +438,8 @@ fn reaches_a_database_only_the_bastion_can_see() {
     drop(keyed);
     drop(shared_first);
     drop(shared_second);
+    assert!(TcpStream::connect((Ipv4Addr::LOCALHOST, forwarded)).is_ok());
+    tunnel::close_all();
     assert!(TcpStream::connect((Ipv4Addr::LOCALHOST, forwarded)).is_err());
 
     let by_password = Connection {
