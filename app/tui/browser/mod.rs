@@ -93,6 +93,7 @@ pub struct Browser {
     pub filter_form: Option<FilterForm>,
     status: Option<String>,
     status_since: Instant,
+    repaint: bool,
     status_fresh: bool,
     pub command: Option<String>,
     pub count_prefix: String,
@@ -162,6 +163,7 @@ impl Browser {
             filter_form: None,
             status: None,
             status_since: Instant::now(),
+            repaint: false,
             status_fresh: false,
             command: None,
             count_prefix: String::new(),
@@ -255,6 +257,11 @@ impl Tui for Browser {
         if key == Key::Ctrl('c') {
             return Flow::Exit(Exit::Quit);
         }
+        if key == Key::Ctrl('l') {
+            self.repaint = true;
+            self.say("redrawn");
+            return Flow::Continue;
+        }
         if self.edits.form().is_some() {
             self.type_into_edits(key);
             return Flow::Continue;
@@ -314,6 +321,10 @@ impl Tui for Browser {
 
     fn wants_mouse(&self) -> bool {
         settings::with(|settings| settings.mouse)
+    }
+
+    fn take_repaint(&mut self) -> bool {
+        std::mem::take(&mut self.repaint)
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Exit> {
