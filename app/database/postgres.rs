@@ -45,7 +45,7 @@ impl Postgres {
                     .unwrap_or(5432),
             )
             .ssl_mode(settings.postgres_mode())
-            .user(connection.username.as_deref().unwrap_or("postgres"))
+            .user(&user_or_yours(connection.username.as_deref()))
             .dbname(
                 connection
                     .database
@@ -165,6 +165,16 @@ fn spell_booleans(row: &mut [Option<String>], kinds: &[Kind]) {
             _ => value.take(),
         };
     }
+}
+
+// Without a username, libpq connects as the user you are logged in as.
+fn user_or_yours(username: Option<&str>) -> String {
+    username
+        .map(str::trim)
+        .filter(|username| !username.is_empty())
+        .map(String::from)
+        .or_else(|| std::env::var("USER").ok().filter(|user| !user.is_empty()))
+        .unwrap_or_else(|| "postgres".to_string())
 }
 
 fn literal(value: Option<&str>) -> String {
@@ -429,7 +439,16 @@ fn truthy(value: &Option<String>) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::escaped_literal;
+    use super::{escaped_literal, user_or_yours};
+
+    #[test]
+    fn connects_as_you_when_no_username_is_set() {
+        let yours = std::env::var("USER").unwrap_or_else(|_| "postgres".to_string());
+
+        assert_eq!(user_or_yours(None), yours);
+        assert_eq!(user_or_yours(Some(" ")), yours);
+        assert_eq!(user_or_yours(Some("app")), "app");
+    }
 
     #[test]
     fn escapes_quotes_and_backslashes_whatever_the_server_thinks_of_backslashes() {
