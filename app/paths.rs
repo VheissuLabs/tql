@@ -25,24 +25,6 @@ fn config_base() -> PathBuf {
     }
 }
 
-pub fn carry_over_dotsql() -> bool {
-    carry_over(&config_base().join("dotsql"), &config_directory())
-}
-
-// tql was dotsql once. Its folder moves over whole, since the passwords in the
-// store only open with the key that sits beside them.
-pub fn carry_over(from: &Path, to: &Path) -> bool {
-    if from == to || to.is_dir() || !from.is_dir() || fs::rename(from, to).is_err() {
-        return false;
-    }
-    let old = to.join("dotsql.sqlite");
-    let new = to.join("tql.sqlite");
-    if old.is_file() && !new.is_file() {
-        let _ = fs::rename(old, new);
-    }
-    true
-}
-
 pub fn store() -> PathBuf {
     config_directory().join("tql.sqlite")
 }
@@ -100,27 +82,6 @@ pub fn home() -> PathBuf {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn carries_a_dotsql_folder_over_with_its_store_renamed() {
-        let base = env::temp_dir().join(format!("tql-dotsql-{}", std::process::id()));
-        let _ = fs::remove_dir_all(&base);
-        fs::create_dir_all(base.join("dotsql")).unwrap();
-        fs::write(base.join("dotsql/dotsql.sqlite"), "store").unwrap();
-        fs::write(base.join("dotsql/key"), "key").unwrap();
-
-        assert!(carry_over(&base.join("dotsql"), &base.join("tql")));
-        assert_eq!(
-            fs::read_to_string(base.join("tql/tql.sqlite")).unwrap(),
-            "store"
-        );
-        assert_eq!(fs::read_to_string(base.join("tql/key")).unwrap(), "key");
-        assert!(!base.join("dotsql").exists());
-
-        fs::create_dir_all(base.join("dotsql")).unwrap();
-        assert!(!carry_over(&base.join("dotsql"), &base.join("tql")));
-        fs::remove_dir_all(base).unwrap();
-    }
 
     #[test]
     fn resolves_a_path_under_home_and_one_relative_to_where_it_started() {

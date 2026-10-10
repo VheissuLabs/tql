@@ -54,6 +54,8 @@ Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
 
 - **`tql list` and `--help` are laid out by clap**, not Symfony: the same commands, options
   and descriptions, in clap's usual order and wording for its own flags.
+- **A `~/.config/dotsql` folder from before tql was named tql is left alone.** tql moved it
+  to `~/.config/tql` on start.
 - **A `config.php` beside the store is not read.** tql read it only when there was no
   `config.toml`, and every tql release already wrote `config.toml`.
 
