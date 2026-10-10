@@ -193,7 +193,7 @@ mod tests {
         .unwrap();
         assert_eq!(
             prepare(&path).notice.as_deref(),
-            Some("2 new settings added to config.toml: check, automatic")
+            Some("3 new settings added to config.toml: bottom_margin, check, automatic")
         );
     }
 

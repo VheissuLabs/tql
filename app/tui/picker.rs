@@ -771,7 +771,8 @@ impl Tui for Picker {
         }
 
         let inner = area.width.saturating_sub(2) as usize;
-        let body_height = (area.height as usize).saturating_sub(7).max(3);
+        let under = settings::with(|settings| settings.bottom_margin) as usize;
+        let body_height = (area.height as usize).saturating_sub(6 + under).max(3);
         let rows = self.rows(false);
         let widths = Self::widths(&self.rows(true), inner);
         let edge = theme::border(true, false);

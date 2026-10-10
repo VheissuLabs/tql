@@ -1,4 +1,4 @@
-pub const VERSION: &str = "0.7.1";
+pub const VERSION: &str = "0.12.0";
 
 pub struct Setting {
     pub section: &'static str,
@@ -73,6 +73,13 @@ pub const SETTINGS: &[Setting] = &[
         "0",
         "0.3.0",
         &["Blank rows above the frame"],
+    ),
+    setting(
+        "ui",
+        "bottom_margin",
+        "0",
+        "0.12.0",
+        &["Blank rows below the frame"],
     ),
     setting(
         "ui",

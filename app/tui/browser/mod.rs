@@ -50,7 +50,6 @@ use crate::settings;
 use crate::store::Connection;
 
 pub const PAGE: usize = 100;
-const BOTTOM_MARGIN: u16 = 1;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Exit {

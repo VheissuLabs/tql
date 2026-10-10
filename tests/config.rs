@@ -62,7 +62,7 @@ fn says_what_is_out_of_order_and_which_keys_clash() {
     let directory = directory("report");
     fs::create_dir_all(&directory).unwrap();
     let path = directory.join("config.toml");
-    let file = "# tql configuration 0.7.1\n\n[keys]\nfilter_rows = \"r\"\n\n[ui]\nsidebar_width = 40\nsql_position = \"bottom\"\n";
+    let file = "# tql configuration 0.12.0\n\n[keys]\nfilter_rows = \"r\"\n\n[ui]\nsidebar_width = 40\nsql_position = \"bottom\"\n";
     fs::write(&path, file).unwrap();
 
     let (code, output) = config(&[]);
@@ -71,7 +71,7 @@ fn says_what_is_out_of_order_and_which_keys_clash() {
     assert_eq!(
         output,
         format!(
-            "  {}\n  written for 0.7.1, template is {}\n  r is both filter_rows and reload\n  out of order: sidebar_width, sql_position\n  tql config --tidy sorts it, keeping your values.\n",
+            "  {}\n  written for 0.12.0, template is {}\n  r is both filter_rows and reload\n  out of order: sidebar_width, sql_position\n  tql config --tidy sorts it, keeping your values.\n",
             path.display(),
             template::VERSION
         )

@@ -360,18 +360,16 @@ impl Browser {
         }
 
         let area = frame.area();
-        let (hotkey_bar, sql_always, sql_at_bottom) = settings::with(|settings| {
+        let (hotkey_bar, sql_always, sql_at_bottom, under) = settings::with(|settings| {
             (
                 settings.hotkey_bar,
                 settings.sql_always,
                 settings.sql_at_bottom,
+                settings.bottom_margin,
             )
         });
         let chrome_lines = if hotkey_bar { 2 } else { 1 };
-        let frame_height = area
-            .height
-            .saturating_sub(chrome_lines + BOTTOM_MARGIN)
-            .max(6);
+        let frame_height = area.height.saturating_sub(chrome_lines + under).max(6);
         let tables_width = self
             .tables_width()
             .min((area.width as usize).saturating_sub(30).max(8));

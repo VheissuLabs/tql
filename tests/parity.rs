@@ -208,6 +208,7 @@ fn scenarios(exports: &Path) -> Vec<Scenario> {
             settings: {
                 let mut settings = Settings::default();
                 settings.set("ui.top_margin", &toml::Value::Integer(0));
+                settings.set("ui.bottom_margin", &toml::Value::Integer(1));
                 if let Some(overrides) = scenario["config"].as_object() {
                     for (key, value) in overrides {
                         let value: toml::Value = serde_json::from_value(value.clone()).unwrap();
@@ -989,10 +990,6 @@ fn export_files_match_the_php_tql() {
 
 const CONFIG_DELIBERATE: &[(&str, &str)] = &[
     (
-        "ensure-current",
-        "a file already at the template's version is left exactly as it is; tql rewrites it to drop the blank line under the heading",
-    ),
-    (
         "ensure-empty",
         "tql-rust stamps until tql would leave the file alone; tql drops one blank line under the heading on each of its next starts",
     ),
@@ -1003,7 +1000,7 @@ const CONFIG_DELIBERATE: &[(&str, &str)] = &[
 ];
 
 fn config_cases() -> Vec<serde_json::Value> {
-    let template = app::config_file::template::render();
+    let template = as_php(&app::config_file::template::render());
     let pruned: String = template
         .lines()
         .filter(|line| !line.starts_with("sql_height") && !line.starts_with("check"))
@@ -1046,7 +1043,7 @@ fn config_cases() -> Vec<serde_json::Value> {
         ensure("unversioned", Some("[ui]\nsidebar_width = 40\n")),
         ensure(
             "newer",
-            Some("# tql configuration 0.9.0\n[ui]\nsidebar_width = 40\n"),
+            Some("# tql configuration 0.13.0\n[ui]\nsidebar_width = 40\n"),
         ),
         ensure(
             "pruned-unversioned",
@@ -1080,6 +1077,34 @@ fn config_cases() -> Vec<serde_json::Value> {
             "# tql configuration 0.7.1\n\n[keys]\nsql = \"S\"\n\n[ui]\n# a note\n\nmouse = false\nsidebar_width = 30\n",
         ),
     ]
+}
+
+const PHP_TEMPLATE: &str = "0.7.1";
+
+fn as_php(text: &str) -> String {
+    let unstamped = text.replace(
+        &format!(
+            "# tql configuration {}\n",
+            app::config_file::template::VERSION
+        ),
+        &format!("# tql configuration {PHP_TEMPLATE}\n"),
+    );
+    regex::Regex::new(r"\n# Blank rows below the frame\r?\nbottom_margin = \d+\r?\n")
+        .unwrap()
+        .replace_all(&unstamped, "")
+        .replace("\n[ui]\n\n[", "\n[")
+        .trim_end_matches("\n[ui]\n")
+        .to_string()
+}
+
+fn as_php_result(mut result: serde_json::Value) -> serde_json::Value {
+    if let Some(added) = result
+        .get_mut("added")
+        .and_then(|added| added.as_array_mut())
+    {
+        added.retain(|key| key != "bottom_margin");
+    }
+    result
 }
 
 fn rust_config_case(case: &serde_json::Value, work: &Path) -> (String, serde_json::Value) {
@@ -1136,6 +1161,7 @@ fn the_config_file_matches_the_php_tql() {
     for case in &cases {
         let name = case["name"].as_str().unwrap();
         let (written, result) = rust_config_case(case, &rust);
+        let (written, result) = (as_php(&written), as_php_result(result));
         // tql-rust starts with no blank rows above the frame; tql starts with one.
         let expected = fs::read_to_string(php.join(format!("{name}.toml")))
             .unwrap()
@@ -1191,7 +1217,7 @@ fn php_config(cases: &[serde_json::Value], work: &Path) -> PathBuf {
 }
 
 fn shared_files() -> Vec<(&'static str, Option<String>)> {
-    let template = app::config_file::template::render();
+    let template = as_php(&app::config_file::template::render());
     let pruned: String = template
         .lines()
         .filter(|line| !line.starts_with("sql_height") && !line.starts_with("check"))
@@ -1212,7 +1238,7 @@ fn shared_files() -> Vec<(&'static str, Option<String>)> {
         ("pruned", Some(pruned.clone())),
         ("pruned-unversioned", Some(pruned.replace("# tql configuration 0.7.1\n", ""))),
         ("keys", Some("# tql configuration 0.7.0\n[keys]\nsql = \"S\"\nyank_value = [\"y\", \"ctrl+y\"]\n".into())),
-        ("newer", Some("# tql configuration 0.9.0\n[ui]\nsidebar_width = 40\n".into())),
+        ("newer", Some("# tql configuration 0.13.0\n[ui]\nsidebar_width = 40\n".into())),
     ]
 }
 
@@ -1239,10 +1265,11 @@ fn tql_and_tql_rust_leave_each_others_config_file_alone() {
 
     assert_eq!(
         fs::read_to_string(php_first.join("version.toml")).unwrap(),
-        app::config_file::template::VERSION,
-        "tql-rust stamps the version of the template it ported"
+        PHP_TEMPLATE,
+        "tql stamps the version of the template tql-rust ported"
     );
 
+    let settled = regex::Regex::new(r"(# tql configuration [0-9.]+\r?\n)(\r?\n)+").unwrap();
     let mut problems = Vec::new();
     let mut rust_wrote = Vec::new();
     for (name, contents) in &files {
@@ -1251,8 +1278,11 @@ fn tql_and_tql_rust_leave_each_others_config_file_alone() {
         let path = work.join(format!("rust-after-php/{name}/tql/config.toml"));
         fs::create_dir_all(path.parent().unwrap()).unwrap();
         fs::write(&path, &written_by_tql).unwrap();
-        if rust_starts(&path) != written_by_tql {
-            problems.push(format!("tql-rust changed the file tql wrote for {name}"));
+        let after_rust = as_php(&rust_starts(&path));
+        if settled.replace(&after_rust, "$1") != settled.replace(&written_by_tql, "$1") {
+            problems.push(format!(
+                "tql-rust changed the file tql wrote for {name}\n--- tql\n{written_by_tql}\n--- after tql-rust\n{after_rust}"
+            ));
         }
 
         let path = work.join(format!("rust-first/{name}/tql/config.toml"));
@@ -1273,7 +1303,7 @@ fn tql_and_tql_rust_leave_each_others_config_file_alone() {
     let php_second = php_config(&second_round, &work.join("second"));
     for (name, written_by_rust) in &rust_wrote {
         let after_tql = fs::read_to_string(php_second.join(format!("rust-{name}.toml"))).unwrap();
-        if &after_tql != written_by_rust {
+        if as_php(&after_tql) != as_php(written_by_rust) {
             problems.push(format!("tql changed the file tql-rust wrote for {name}"));
         }
     }

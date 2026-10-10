@@ -240,9 +240,18 @@ mod tests {
             "# tql configuration 0.6.0\n\n[ui]\n# mine\nsql_editor = \"simple\"\n\nrow_style = \"bold\"\n",
         );
 
-        assert_eq!(added, ["sql_complete", "hotkey_bar", "check", "automatic"]);
+        assert_eq!(
+            added,
+            [
+                "sql_complete",
+                "bottom_margin",
+                "hotkey_bar",
+                "check",
+                "automatic"
+            ]
+        );
         assert!(topped.starts_with(
-            "# tql configuration 0.7.1\n[ui]\n# mine\nsql_editor = \"simple\"\n\n# Offer tables"
+            "# tql configuration 0.12.0\n[ui]\n# mine\nsql_editor = \"simple\"\n\n# Offer tables"
         ));
     }
 
@@ -257,7 +266,7 @@ mod tests {
     fn offers_a_setting_from_a_newer_version_once() {
         let (topped, added) = top_up("# tql configuration 0.6.2\n\n[ui]\nsidebar_width = 40\n");
 
-        assert_eq!(added, ["check", "automatic"]);
+        assert_eq!(added, ["bottom_margin", "check", "automatic"]);
         assert!(topped.starts_with(&format!("# tql configuration {VERSION}\n[ui]")));
 
         let deleted = topped.replace("automatic = true", "");
@@ -267,9 +276,9 @@ mod tests {
     #[test]
     fn leaves_a_file_at_this_version_or_newer_exactly_as_it_is() {
         for file in [
-            "# tql configuration 0.7.1\n\n\n[ui]\nsidebar_width = 40\n",
-            "#tql configuration 0.7.1   \r\n[ui]\r\nsidebar_width = 40\r\n",
-            "# tql configuration 0.9.0\n[ui]\nsidebar_width = 40\n",
+            "# tql configuration 0.12.0\n\n\n[ui]\nsidebar_width = 40\n",
+            "#tql configuration 0.12.0   \r\n[ui]\r\nsidebar_width = 40\r\n",
+            "# tql configuration 0.13.0\n[ui]\nsidebar_width = 40\n",
             "# tql configuration 1.0.0\n",
         ] {
             assert_eq!(top_up(file), (file.to_string(), Vec::new()), "{file:?}");
@@ -280,8 +289,8 @@ mod tests {
     fn stamps_an_older_file_until_tql_would_leave_it_alone() {
         let (topped, added) = top_up("# tql configuration 0.6.2\n\n\n[ui]\nsidebar_width = 40\n");
 
-        assert_eq!(added, ["check", "automatic"]);
-        assert!(topped.starts_with("# tql configuration 0.7.1\n[ui]\n"));
+        assert_eq!(added, ["bottom_margin", "check", "automatic"]);
+        assert!(topped.starts_with("# tql configuration 0.12.0\n[ui]\n"));
         assert_eq!(stamp(&topped), topped);
     }
 

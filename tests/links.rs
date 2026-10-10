@@ -135,7 +135,7 @@ fn scrolls_a_structure_that_runs_past_its_box() {
     let path = fixture(LINKED);
     let connection = Connection::sqlite("links", path.to_str().unwrap());
     let database = database::connect(&connection, None).unwrap();
-    let mut fake = Fake::sized(Browser::new(connection, database).unwrap(), 80, 14);
+    let mut fake = Fake::sized(Browser::new(connection, database).unwrap(), 80, 13);
     fake.press("\nt");
 
     assert!(fake.screen().contains("j / ↓ for more"));
@@ -325,7 +325,7 @@ fn keeps_a_sidebar_filter_that_still_shows_the_table() {
 #[test]
 fn offers_a_way_back_in_the_hotkey_bar_after_a_jump() {
     let mut fake = browser(LINKED);
-    let hotkeys = |fake: &mut Fake<Browser>| fake.screen().lines().nth(27).unwrap().to_string();
+    let hotkeys = |fake: &mut Fake<Browser>| fake.screen().lines().nth(28).unwrap().to_string();
 
     assert!(!hotkeys(&mut fake).contains("esc Back"));
 
