@@ -31,6 +31,9 @@ Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
   large.
 - **An SSH tunnel is only called up while ssh is still running**, so a port another
   program holds is not mistaken for it.
+- **The connection list stays on screen while a connection opens**, saying
+  `connecting to {name}…`, and the browser takes its place. tql leaves the screen blank
+  in between.
 - **A connection that fails from the connection list comes back as a notice on the list**
   rather than outside the browser with a pause.
 - **Errors give the database's own words**, without PDO's `SQLSTATE[...]` prefix.

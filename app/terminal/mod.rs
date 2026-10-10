@@ -91,23 +91,46 @@ pub trait Tui {
 }
 
 pub fn run<App: Tui>(app: &mut App) -> anyhow::Result<App::Output> {
-    let mut terminal = ratatui::init();
-    execute!(std::io::stdout(), EnableBracketedPaste)?;
-    let mouse = app.wants_mouse();
-    if mouse {
-        execute!(std::io::stdout(), EnableMouseCapture)?;
+    Session::start()?.run(app)
+}
+
+pub struct Session {
+    terminal: ratatui::DefaultTerminal,
+}
+
+impl Session {
+    pub fn start() -> anyhow::Result<Session> {
+        let terminal = ratatui::init();
+        let session = Session { terminal };
+        execute!(std::io::stdout(), EnableBracketedPaste)?;
+        Ok(session)
     }
-    let outcome = event_loop(&mut terminal, app);
-    if mouse {
-        let _ = execute!(std::io::stdout(), DisableMouseCapture);
+
+    pub fn run<App: Tui>(&mut self, app: &mut App) -> anyhow::Result<App::Output> {
+        let mouse = app.wants_mouse();
+        if mouse {
+            execute!(std::io::stdout(), EnableMouseCapture)?;
+        }
+        let outcome = event_loop(&mut self.terminal, app);
+        if mouse {
+            let _ = execute!(std::io::stdout(), DisableMouseCapture);
+        }
+        let _ = execute!(std::io::stdout(), CursorShape::Default.style());
+        outcome
     }
-    let _ = execute!(
-        std::io::stdout(),
-        CursorShape::Default.style(),
-        DisableBracketedPaste
-    );
-    ratatui::restore();
-    outcome
+
+    pub fn show<App: Tui>(&mut self, app: &mut App) -> anyhow::Result<()> {
+        let mut margin = margin::Margin::default();
+        self.terminal.draw(|frame| margin.draw(app, frame))?;
+        Ok(())
+    }
+}
+
+impl Drop for Session {
+    fn drop(&mut self) {
+        let _ = execute!(std::io::stdout(), DisableBracketedPaste);
+        ratatui::restore();
+    }
 }
 
 fn event_loop<App: Tui>(
@@ -200,7 +223,7 @@ impl CmdTui for crate::console::Cmd<'_> {
 }
 
 pub mod prelude {
-    pub use super::{Button, CmdTui, CursorShape, Flow, Key, Mouse, Tui};
+    pub use super::{Button, CmdTui, CursorShape, Flow, Key, Mouse, Session, Tui};
     pub use ratatui::Frame;
     pub use ratatui::layout::Rect;
     pub use ratatui::style::{Color, Modifier, Style, Stylize};

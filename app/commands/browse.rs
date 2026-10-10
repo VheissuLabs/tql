@@ -1,5 +1,5 @@
 use crate::console::prelude::*;
-use crate::terminal::CmdTui;
+use crate::terminal::Session;
 
 use crate::config_file;
 use crate::database;
@@ -54,6 +54,7 @@ fn browse(cmd: &mut Cmd) -> Result {
     };
     let mut notice = loaded.error.clone();
 
+    let mut session = Session::start()?;
     let mut chosen = None;
     loop {
         let connection = match chosen.take() {
@@ -63,9 +64,11 @@ fn browse(cmd: &mut Cmd) -> Result {
                     Picker::new(store.connections()?, notice.take().or_else(update_notice))
                         .with_store(&paths::store(), &paths::key())
                         .with_clipboard(SystemClipboard);
-                let Some(connection) = cmd.tui(&mut picker)? else {
+                let Some(connection) = session.run(&mut picker)? else {
                     return Ok(());
                 };
+                picker.status = Some(connecting_to(&connection.name));
+                session.show(&mut picker)?;
                 connection
             }
         };
@@ -91,7 +94,7 @@ fn browse(cmd: &mut Cmd) -> Result {
         let _ = StoreWriter::open(&paths::store(), &paths::key())
             .and_then(|writer| writer.touch(connection.id));
 
-        match cmd.tui(&mut browser)? {
+        match session.run(&mut browser)? {
             Exit::Quit => return Ok(()),
             Exit::Connections => {}
             Exit::Open(id) => {
@@ -99,7 +102,15 @@ fn browse(cmd: &mut Cmd) -> Result {
                     .connections()?
                     .into_iter()
                     .find(|connection| connection.id == id);
+                if let Some(next) = &chosen {
+                    browser.tell(connecting_to(&next.name));
+                    session.show(&mut browser)?;
+                }
             }
         }
     }
+}
+
+fn connecting_to(name: &str) -> String {
+    format!("connecting to {name}…")
 }

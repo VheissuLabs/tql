@@ -231,6 +231,10 @@ impl Browser {
         self
     }
 
+    pub fn tell(&mut self, text: impl Into<String>) {
+        self.say(text);
+    }
+
     pub fn status(&self) -> &str {
         self.status.as_deref().unwrap_or_default()
     }

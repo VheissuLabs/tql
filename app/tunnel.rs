@@ -23,7 +23,7 @@ const WAIT: Duration = Duration::from_secs(10);
 
 // ssh that answers on the port must still be running a moment later, so a
 // port someone else holds is not taken for the tunnel while ssh fails.
-const SETTLE: Duration = Duration::from_millis(150);
+const SETTLE: Duration = Duration::from_millis(30);
 
 static OPEN: LazyLock<Mutex<HashMap<String, Arc<Tunnel>>>> =
     LazyLock::new(|| Mutex::new(HashMap::new()));
@@ -225,7 +225,7 @@ impl Tunnel {
                 thread::sleep(SETTLE);
                 return self.running();
             }
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(10));
         }
         false
     }

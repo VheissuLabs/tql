@@ -29,6 +29,7 @@ impl MySql {
     ) -> anyhow::Result<Self> {
         let settings = Tls::of(connection)?;
         let options = OptsBuilder::new()
+            .prefer_socket(false)
             .ip_or_hostname(Some(match &tunnel {
                 Some(_) => "127.0.0.1".to_string(),
                 None => connection
