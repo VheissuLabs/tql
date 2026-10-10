@@ -63,7 +63,7 @@ impl<App: Tui> Fake<App> {
             return self;
         }
         self.render();
-        let mouse = margin::below(mouse, self.app.top_margin());
+        let mouse = margin::inside(mouse, self.app.top_margin(), self.app.left_margin());
         if let Flow::Exit(output) = self.app.on_mouse(mouse) {
             self.exit = Some(output);
         }

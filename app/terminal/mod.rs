@@ -67,6 +67,18 @@ pub trait Tui {
         0
     }
 
+    fn left_margin(&self) -> u16 {
+        0
+    }
+
+    fn smallest(&self) -> (u16, u16) {
+        (0, 0)
+    }
+
+    fn right_margin(&self) -> u16 {
+        0
+    }
+
     fn take_repaint(&mut self) -> bool {
         false
     }
@@ -196,7 +208,9 @@ fn joined(next: &Option<Input>) -> Option<Key> {
 fn dispatch<App: Tui>(app: &mut App, input: Input) -> Flow<App::Output> {
     match input {
         Input::Key(key) => app.on_key(key),
-        Input::Mouse(mouse) => app.on_mouse(margin::below(mouse, app.top_margin())),
+        Input::Mouse(mouse) => {
+            app.on_mouse(margin::inside(mouse, app.top_margin(), app.left_margin()))
+        }
         Input::Paste(text) => app.on_paste(&text),
     }
 }

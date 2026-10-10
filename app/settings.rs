@@ -14,6 +14,9 @@ pub struct Settings {
     pub hotkey_bar: bool,
     pub top_margin: u16,
     pub bottom_margin: u16,
+    pub left_margin: u16,
+    pub right_margin: u16,
+    pub pane_gap: u16,
     pub status_seconds: f64,
     pub sidebar_width: usize,
     pub sql_at_bottom: bool,
@@ -44,6 +47,9 @@ impl Default for Settings {
             hotkey_bar: true,
             top_margin: 0,
             bottom_margin: 0,
+            left_margin: 0,
+            right_margin: 0,
+            pane_gap: 0,
             status_seconds: 4.0,
             sidebar_width: 24,
             sql_at_bottom: false,
@@ -195,6 +201,8 @@ impl Settings {
             "ui.hotkey_bar" => self.hotkey_bar = flag(),
             "ui.top_margin" => self.top_margin = number().min(u16::MAX as usize) as u16,
             "ui.bottom_margin" => self.bottom_margin = number().min(u16::MAX as usize) as u16,
+            "ui.left_margin" => self.left_margin = number().min(u16::MAX as usize) as u16,
+            "ui.right_margin" => self.right_margin = number().min(u16::MAX as usize) as u16,
             "ui.status_seconds" => {
                 self.status_seconds = value
                     .as_float()

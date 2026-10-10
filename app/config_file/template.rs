@@ -83,6 +83,20 @@ pub const SETTINGS: &[Setting] = &[
     ),
     setting(
         "ui",
+        "left_margin",
+        "0",
+        "0.12.0",
+        &["Blank columns left of the frame"],
+    ),
+    setting(
+        "ui",
+        "right_margin",
+        "0",
+        "0.12.0",
+        &["Blank columns right of the frame"],
+    ),
+    setting(
+        "ui",
         "sidebar_width",
         "24",
         "0.3.0",

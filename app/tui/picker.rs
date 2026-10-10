@@ -755,6 +755,18 @@ impl Tui for Picker {
         settings::with(|settings| settings.top_margin)
     }
 
+    fn smallest(&self) -> (u16, u16) {
+        (chrome::MIN_COLUMNS, MIN_LINES)
+    }
+
+    fn left_margin(&self) -> u16 {
+        settings::with(|settings| settings.left_margin)
+    }
+
+    fn right_margin(&self) -> u16 {
+        settings::with(|settings| settings.right_margin)
+    }
+
     fn render(&mut self, frame: &mut Frame) {
         let area = frame.area();
         if area.width < chrome::MIN_COLUMNS || area.height < MIN_LINES {

@@ -245,6 +245,8 @@ mod tests {
             [
                 "sql_complete",
                 "bottom_margin",
+                "left_margin",
+                "right_margin",
                 "hotkey_bar",
                 "check",
                 "automatic"
@@ -266,7 +268,16 @@ mod tests {
     fn offers_a_setting_from_a_newer_version_once() {
         let (topped, added) = top_up("# tql configuration 0.6.2\n\n[ui]\nsidebar_width = 40\n");
 
-        assert_eq!(added, ["bottom_margin", "check", "automatic"]);
+        assert_eq!(
+            added,
+            [
+                "bottom_margin",
+                "left_margin",
+                "right_margin",
+                "check",
+                "automatic"
+            ]
+        );
         assert!(topped.starts_with(&format!("# tql configuration {VERSION}\n[ui]")));
 
         let deleted = topped.replace("automatic = true", "");
@@ -289,7 +300,16 @@ mod tests {
     fn stamps_an_older_file_until_tql_would_leave_it_alone() {
         let (topped, added) = top_up("# tql configuration 0.6.2\n\n\n[ui]\nsidebar_width = 40\n");
 
-        assert_eq!(added, ["bottom_margin", "check", "automatic"]);
+        assert_eq!(
+            added,
+            [
+                "bottom_margin",
+                "left_margin",
+                "right_margin",
+                "check",
+                "automatic"
+            ]
+        );
         assert!(topped.starts_with("# tql configuration 0.12.0\n[ui]\n"));
         assert_eq!(stamp(&topped), topped);
     }

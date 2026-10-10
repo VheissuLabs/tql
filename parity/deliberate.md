@@ -36,6 +36,9 @@ Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
   in between.
 - **`[ui] bottom_margin`**, 0 by default, sets how many blank rows sit under the frame. tql
   always leaves one. The frame comparisons run tql-rust with `bottom_margin = 1`.
+- **The frame reaches the last column**, and `[ui] left_margin` and `right_margin`, 0 by
+  default, set blank columns beside everything tql draws. tql's panes stop one column short
+  of the right edge; the frame comparisons give tql-rust the same one-column gap.
 - **A connection that fails from the connection list comes back as a notice on the list**
   rather than outside the browser with a pause.
 - **Errors give the database's own words**, without PDO's `SQLSTATE[...]` prefix.

@@ -209,6 +209,7 @@ fn scenarios(exports: &Path) -> Vec<Scenario> {
                 let mut settings = Settings::default();
                 settings.set("ui.top_margin", &toml::Value::Integer(0));
                 settings.set("ui.bottom_margin", &toml::Value::Integer(1));
+                settings.pane_gap = 1;
                 if let Some(overrides) = scenario["config"].as_object() {
                     for (key, value) in overrides {
                         let value: toml::Value = serde_json::from_value(value.clone()).unwrap();
@@ -1089,7 +1090,7 @@ fn as_php(text: &str) -> String {
         ),
         &format!("# tql configuration {PHP_TEMPLATE}\n"),
     );
-    regex::Regex::new(r"\n# Blank rows below the frame\r?\nbottom_margin = \d+\r?\n")
+    regex::Regex::new(r"\n# Blank (rows below|columns left of|columns right of) the frame\r?\n(bottom|left|right)_margin = \d+\r?\n")
         .unwrap()
         .replace_all(&unstamped, "")
         .replace("\n[ui]\n\n[", "\n[")
@@ -1102,7 +1103,10 @@ fn as_php_result(mut result: serde_json::Value) -> serde_json::Value {
         .get_mut("added")
         .and_then(|added| added.as_array_mut())
     {
-        added.retain(|key| key != "bottom_margin");
+        added.retain(|key| {
+            !["bottom_margin", "left_margin", "right_margin"]
+                .contains(&key.as_str().unwrap_or_default())
+        });
     }
     result
 }

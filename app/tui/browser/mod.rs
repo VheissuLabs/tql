@@ -375,6 +375,18 @@ impl Tui for Browser {
         settings::with(|settings| settings.top_margin)
     }
 
+    fn smallest(&self) -> (u16, u16) {
+        (chrome::MIN_COLUMNS, chrome::MIN_LINES)
+    }
+
+    fn left_margin(&self) -> u16 {
+        settings::with(|settings| settings.left_margin)
+    }
+
+    fn right_margin(&self) -> u16 {
+        settings::with(|settings| settings.right_margin)
+    }
+
     fn take_repaint(&mut self) -> bool {
         std::mem::take(&mut self.repaint)
     }
