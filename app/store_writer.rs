@@ -118,6 +118,13 @@ impl StoreWriter {
         Ok(true)
     }
 
+    pub fn rename_group(&self, from: &str, to: &str) -> anyhow::Result<usize> {
+        Ok(self.connection.execute(
+            "update connections set group_name = ?1, updated_at = ?2 where group_name = ?3",
+            rusqlite::params![to, now(), from],
+        )?)
+    }
+
     pub fn delete(&self, ids: &[i64]) -> anyhow::Result<usize> {
         if ids.is_empty() {
             return Ok(0);

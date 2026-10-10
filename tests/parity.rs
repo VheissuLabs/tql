@@ -16,6 +16,10 @@ const SQL_SERVER_INSERT: &str = "SQL Server adds the row and tql-rust says so; t
 
 const DELIBERATE: &[(&str, &str)] = &[
     (
+        "groups-edit-header-does-nothing",
+        "e on a group header renames the group; tql has no way to rename one",
+    ),
+    (
         "conn-edit-read-only-turned-off",
         "a connection that is read only turns it off with one press; tql's first press leaves it on because it holds the saved value as '1' rather than 'yes'",
     ),

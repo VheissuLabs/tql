@@ -991,7 +991,7 @@ fn starts_on_the_connection_used_last_wherever_its_group_put_it() {
 }
 
 #[test]
-fn does_not_edit_delete_or_yank_a_group_header() {
+fn does_not_delete_or_yank_a_group_header() {
     let scratch = Scratch::new("groups-header-keys");
     grouped(&scratch);
     let clipboard = app::tui::clipboard::Recorded::default();
@@ -1003,11 +1003,100 @@ fn does_not_edit_delete_or_yank_a_group_header() {
         30,
     );
 
-    fake.press("jedyY");
+    fake.press("jdyY");
 
     assert!(fake.app.form.is_none());
     assert!(fake.app.pending_deletes.is_empty());
     assert!(clipboard.copies().is_empty());
+}
+
+fn group_of(scratch: &Scratch, name: &str) -> Option<String> {
+    scratch.named(name).unwrap().group_name
+}
+
+#[test]
+fn renames_a_group_from_its_header_for_every_connection_in_it() {
+    let scratch = Scratch::new("groups-rename");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    fake.press("jjje");
+    assert!(fake.screen().contains("RENAME GROUP"));
+    fake.press("-old\r");
+
+    assert!(fake.app.renaming.is_none());
+    assert_eq!(
+        group_of(&scratch, "nd-dev").as_deref(),
+        Some("notarydash-old")
+    );
+    assert_eq!(
+        group_of(&scratch, "nd-prod").as_deref(),
+        Some("notarydash-old")
+    );
+    assert_eq!(group_of(&scratch, "blog").as_deref(), Some("Acme"));
+    assert_eq!(
+        fake.app.status.as_deref(),
+        Some("renamed notarydash to notarydash-old")
+    );
+    assert_eq!(
+        labels(&mut fake),
+        [
+            "scratch",
+            "# Acme",
+            "blog",
+            "# notarydash-old",
+            "nd-prod",
+            "nd-dev"
+        ]
+    );
+    assert_eq!(fake.app.index, 3);
+}
+
+#[test]
+fn renaming_a_group_to_one_in_use_merges_them() {
+    let scratch = Scratch::new("groups-merge");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    fake.press("je\x7f\x7f\x7f\x7fnotarydash\r");
+
+    assert_eq!(group_of(&scratch, "blog").as_deref(), Some("notarydash"));
+    assert_eq!(
+        fake.app.status.as_deref(),
+        Some("moved Acme into notarydash")
+    );
+    assert!(fake.screen().contains("▼ notarydash (3)"));
+}
+
+#[test]
+fn a_group_needs_a_name_and_escape_changes_nothing() {
+    let scratch = Scratch::new("groups-rename-empty");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    fake.press("je\x7f\x7f\x7f\x7f\r");
+    assert!(fake.app.renaming.is_some());
+    assert!(fake.screen().contains("a group needs a name"));
+
+    fake.press("\x1b");
+    assert!(fake.app.renaming.is_none());
+    assert_eq!(fake.app.status.as_deref(), Some("nothing changed"));
+    assert_eq!(group_of(&scratch, "blog").as_deref(), Some("Acme"));
+}
+
+#[test]
+fn a_folded_group_stays_folded_under_its_new_name() {
+    let scratch = Scratch::new("groups-rename-folded");
+    grouped(&scratch);
+    let mut fake = scratch.picker();
+
+    fake.press("jjj e\x7f\x7f\x7f\x7f\x7f\x7f\x7f\x7f\x7f\x7fND\r");
+
+    assert_eq!(labels(&mut fake), ["scratch", "# Acme", "blog", "# ND"]);
+    assert_eq!(
+        labels(&mut scratch.picker()),
+        ["scratch", "# Acme", "blog", "# ND"]
+    );
 }
 
 #[test]

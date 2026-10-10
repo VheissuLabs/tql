@@ -10,6 +10,7 @@ mod editor;
 mod error;
 mod filters;
 mod grid;
+mod group_rename;
 mod help;
 pub mod history;
 mod json;

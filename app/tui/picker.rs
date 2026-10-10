@@ -7,6 +7,7 @@ use super::ago::{ago, now};
 use super::chrome::{self, theme};
 use super::clipboard::{Clipboard, Reached, Recorded};
 use super::connection_form::{ConnectionForm, Places, Step};
+use super::group_rename::{self, GroupRename};
 use super::text::{pad, single_line, truncate, width, window};
 use crate::encrypter::Encrypter;
 use crate::settings;
@@ -27,6 +28,7 @@ pub struct Picker {
     pub status: Option<String>,
     pub command: Option<String>,
     pub form: Option<ConnectionForm>,
+    pub renaming: Option<GroupRename>,
     pub pending_deletes: Vec<i64>,
     pub collapsed: Vec<String>,
     start: usize,
@@ -75,6 +77,7 @@ impl Picker {
             status: None,
             command: None,
             form: None,
+            renaming: None,
             pending_deletes: Vec::new(),
             collapsed: Vec::new(),
             start: 0,
@@ -315,6 +318,11 @@ impl Picker {
     }
 
     fn edit(&mut self) {
+        if let Some(Entry::Header { group, .. }) = self.entries(false).get(self.index) {
+            self.renaming = Some(GroupRename::new(group));
+            self.status = None;
+            return;
+        }
         let Some(connection) = self.current() else {
             return;
         };
@@ -429,6 +437,59 @@ impl Picker {
             "{} {name}",
             if creating { "added" } else { "saved" }
         ));
+    }
+
+    fn on_rename_key(&mut self, key: Key) {
+        let Some(renaming) = self.renaming.as_mut() else {
+            return;
+        };
+        match renaming.on_key(key) {
+            group_rename::Step::Stay => {}
+            group_rename::Step::Cancel => {
+                self.renaming = None;
+                self.say("nothing changed");
+            }
+            group_rename::Step::Save => self.rename_group(),
+        }
+    }
+
+    fn rename_group(&mut self) {
+        let writer = self.writer();
+        let groups = self.groups();
+        let Some(renaming) = self.renaming.as_mut() else {
+            return;
+        };
+        let (from, to) = (renaming.from.clone(), renaming.name());
+        if to.is_empty() {
+            renaming.error = Some("a group needs a name".to_string());
+            return;
+        }
+        if to == from {
+            self.renaming = None;
+            self.say("nothing changed");
+            return;
+        }
+        let merging = groups.contains(&to);
+        if let Err(error) = writer.and_then(|writer| writer.rename_group(&from, &to)) {
+            renaming.error = Some(format!("{error:#}"));
+            return;
+        }
+        self.renaming = None;
+        if let Err(error) = self.reload() {
+            self.say(format!("{error:#}"));
+            return;
+        }
+        let was_collapsed = self.is_collapsed(&from);
+        self.collapsed.retain(|collapsed| *collapsed != from);
+        if was_collapsed && !self.is_collapsed(&to) && !merging {
+            self.collapsed.push(to.clone());
+        }
+        self.remember_collapsed();
+        self.index = self.header_index(&to);
+        self.say(match merging {
+            true => format!("moved {from} into {to}"),
+            false => format!("renamed {from} to {to}"),
+        });
     }
 
     fn close_form(&mut self, status: String) {
@@ -686,6 +747,10 @@ impl Tui for Picker {
             self.on_form_key(key);
             return Flow::Continue;
         }
+        if self.renaming.is_some() {
+            self.on_rename_key(key);
+            return Flow::Continue;
+        }
 
         if self.command.is_some() {
             return self.type_into_command(key);
@@ -715,6 +780,8 @@ impl Tui for Picker {
     fn on_paste(&mut self, text: &str) -> Flow<Option<Connection>> {
         if let Some(form) = self.form.as_mut() {
             form.on_paste(text);
+        } else if let Some(renaming) = self.renaming.as_mut() {
+            renaming.on_paste(text);
         } else if let Some(command) = self.command.as_mut() {
             command.push_str(&single_line(text));
         }
@@ -726,7 +793,7 @@ impl Tui for Picker {
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Option<Connection>> {
-        if self.form.is_some() || !self.wants_mouse() {
+        if self.form.is_some() || self.renaming.is_some() || !self.wants_mouse() {
             return Flow::Continue;
         }
         let count = self.entries(false).len();
@@ -867,7 +934,11 @@ impl Tui for Picker {
             edge,
         ));
         let frame_lines = lines.len() as u16;
-        let bar = if self.form.is_some() { FORM_BAR } else { BAR };
+        let bar = match (&self.form, &self.renaming) {
+            (Some(_), _) => FORM_BAR,
+            (None, Some(_)) => group_rename::BAR,
+            (None, None) => BAR,
+        };
         lines.push(Line::styled(
             truncate(bar, area.width as usize),
             theme::dim(),
@@ -880,6 +951,9 @@ impl Tui for Picker {
 
         if let Some(form) = &self.form {
             form.draw(frame.buffer_mut(), area.width, frame_lines);
+        }
+        if let Some(renaming) = &self.renaming {
+            renaming.draw(frame.buffer_mut(), area.width, frame_lines);
         }
     }
 }
