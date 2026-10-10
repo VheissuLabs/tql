@@ -116,3 +116,10 @@ Where it differs:
   what was there.
 - **The cursor in the question stays where it is when a long word is cut across lines.**
   tql drew it two places early.
+
+## SQL Server
+
+- **No driver to install.** tql-rust speaks to SQL Server itself, so Microsoft's ODBC
+  driver and OpenSSL 3 are not needed, on macOS or Linux.
+- **TLS 1.2 or newer only.** A SQL Server that has never had its TLS 1.2 update (2014 and
+  older, unpatched) does not connect. tql reached those through Microsoft's driver.

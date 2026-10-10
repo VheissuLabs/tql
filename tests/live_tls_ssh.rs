@@ -450,6 +450,7 @@ fn reaches_a_database_only_the_bastion_can_see() {
     let mut passworded = database::connect(&by_password, Some(&encrypter)).unwrap();
     assert_eq!(encrypted(&mut passworded), "true");
     drop(passworded);
+    tunnel::close_all();
 
     let refused = Connection {
         ssh_password: Some(encrypter.encrypt_string("wrong").unwrap()),

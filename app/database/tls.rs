@@ -16,6 +16,10 @@ use rustls::{
 use crate::paths;
 use crate::store::Connection;
 
+pub fn choose_ring() {
+    let _ = ring::default_provider().install_default();
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Mode {
     Unset,

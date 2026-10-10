@@ -343,6 +343,7 @@ pub fn connect(
     connection: &Connection,
     encrypter: Option<&Encrypter>,
 ) -> anyhow::Result<Box<dyn Database>> {
+    tls::choose_ring();
     let password = decrypted(&connection.password, encrypter)?;
 
     match connection.driver.as_str() {
