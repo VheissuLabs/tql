@@ -294,7 +294,10 @@ impl Browser {
             return;
         }
         let started = Instant::now();
-        let ran = self.database.run(statement);
+        let ran = match self.connection.read_only {
+            true => self.database.run_reading(statement),
+            false => self.database.run(statement),
+        };
         let elapsed = started.elapsed().as_millis();
         if writes {
             self.schema.forget();

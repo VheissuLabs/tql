@@ -87,3 +87,74 @@ fn postgres_errors_are_in_postgres_own_words() {
         "relation \"nowhere_at_all\" does not exist"
     );
 }
+
+#[test]
+fn sqlite_refuses_a_write_hidden_in_a_with_when_asked_to_only_read() {
+    let mut database = sqlite();
+    database.run("create table counted (x integer)").unwrap();
+    database.run("insert into counted values (1)").unwrap();
+
+    let refused = database
+        .run_reading("with c as (select 1) update counted set x = 2")
+        .unwrap_err();
+
+    assert_eq!(refused.to_string(), "attempt to write a readonly database");
+    assert_eq!(
+        database.run_reading("select x from counted").unwrap().rows,
+        [[Some("1".to_string())]]
+    );
+    database.run("update counted set x = 3").unwrap();
+}
+
+#[test]
+#[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
+fn postgres_refuses_a_write_hidden_in_a_with_when_asked_to_only_read() {
+    let mut database = herd("pgsql", 5432, "postgres");
+    database
+        .run("drop table if exists tql_reading_check")
+        .unwrap();
+    database
+        .run("create table tql_reading_check (x integer)")
+        .unwrap();
+    database
+        .run("insert into tql_reading_check values (1)")
+        .unwrap();
+
+    let refused = database
+        .run_reading("with gone as (delete from tql_reading_check returning *) select * from gone")
+        .unwrap_err();
+    let left = database
+        .run("select count(*) from tql_reading_check")
+        .unwrap();
+    database.run("drop table tql_reading_check").unwrap();
+
+    assert!(
+        refused.to_string().contains("read-only transaction"),
+        "{refused}"
+    );
+    assert_eq!(left.rows, [[Some("1".to_string())]]);
+}
+
+#[test]
+#[ignore = "needs Herd's MySQL on 127.0.0.1:3306"]
+fn mysql_refuses_a_write_hidden_in_a_with_when_asked_to_only_read() {
+    let mut database = herd("mysql", 3306, "mysql");
+    database
+        .run("drop database if exists tql_reading_check")
+        .unwrap();
+    database.run("create database tql_reading_check").unwrap();
+    database.use_database("tql_reading_check").unwrap();
+    database
+        .run("create table counted (x integer) engine = innodb")
+        .unwrap();
+    database.run("insert into counted values (1)").unwrap();
+
+    let refused = database
+        .run_reading("with c as (select 1) update counted set x = 2")
+        .unwrap_err();
+    let left = database.run("select x from counted").unwrap();
+    database.run("drop database tql_reading_check").unwrap();
+
+    assert!(refused.to_string().contains("READ ONLY"), "{refused}");
+    assert_eq!(left.rows, [[Some("1".to_string())]]);
+}

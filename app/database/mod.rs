@@ -145,6 +145,10 @@ pub trait Database {
         bail!("this connection cannot run statements")
     }
 
+    fn run_reading(&mut self, _statement: &str) -> anyhow::Result<Outcome> {
+        bail!("this connection cannot run statements")
+    }
+
     fn run_server_wide(&mut self, statement: &str) -> anyhow::Result<Outcome> {
         self.run(statement)
     }

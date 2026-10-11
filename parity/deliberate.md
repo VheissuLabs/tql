@@ -5,6 +5,11 @@ differs on purpose, `DELIBERATE`, `LOOKS_DELIBERATE` and `CONFIG_DELIBERATE` in 
 file say why. These differences do not show in any frame, so they are listed here.
 Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
 
+- **Read-only is enforced by the database, not by the first word of the statement.**
+  The agent commands, the MCP query tool and the SQL editor on a read-only connection
+  run in SQLite's `query_only`, a MySQL or Postgres read-only transaction, or a SQL
+  Server transaction that is rolled back, so `with c as (...) delete ...` is refused.
+  tql checked only the leading keyword and ran it.
 - **The SQL editor on a read-only connection runs only reads.** tql runs writes there
   too. `tests/sql_editor.rs` a_read_only_connection_refuses_to_write
 - **`d` on a read-only connection marks nothing.** tql lets `:w` delete the row.

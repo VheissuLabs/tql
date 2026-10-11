@@ -1324,7 +1324,10 @@ Its tools (list connections, list tables, describe a table, run a query) give
 the same answers as the commands.
 
 Either way it is **read-only**: only `select`, `show`, `explain`, `describe`,
-`pragma` and `with` are accepted, one statement at a time. Writes happen in the
+`pragma` and `with` are accepted, one statement at a time, and the database
+itself holds tql to it: SQLite runs the statement with `query_only`, MySQL and
+Postgres in a read-only transaction, and SQL Server in a transaction that is
+always rolled back. A write hidden inside a `with` is refused by the database. Writes happen in the
 interface, not through an agent. Everything an agent runs lands in the same
 history as your own statements, marked `cli` or `mcp`.
 

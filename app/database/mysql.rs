@@ -347,6 +347,15 @@ impl Database for MySql {
         })
     }
 
+    fn run_reading(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        self.connection
+            .query_drop("start transaction read only")
+            .map_err(said)?;
+        let ran = self.run(statement);
+        let _ = self.connection.query_drop("rollback");
+        ran
+    }
+
     fn quote(&self, identifier: &str) -> String {
         quote_backtick(identifier)
     }

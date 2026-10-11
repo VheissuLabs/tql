@@ -103,7 +103,7 @@ impl Database for Sqlite {
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
         let mut prepared = self.connection.prepare(statement).map_err(plain)?;
         if prepared.column_count() == 0 {
-            let affected = prepared.execute([])?;
+            let affected = prepared.execute([]).map_err(plain)?;
             return Ok(outcome_or_affected(Vec::new(), Vec::new(), affected));
         }
         let (headers, rows, kinds) = fetch(&mut prepared, [])?;
@@ -111,6 +111,13 @@ impl Database for Sqlite {
             kinds,
             ..outcome_or_affected(headers, rows, 0)
         })
+    }
+
+    fn run_reading(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        self.connection.pragma_update(None, "query_only", true)?;
+        let ran = self.run(statement);
+        let _ = self.connection.pragma_update(None, "query_only", false);
+        ran
     }
 
     fn scalars(&mut self, statement: &str) -> anyhow::Result<Scalars> {

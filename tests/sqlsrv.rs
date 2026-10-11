@@ -375,3 +375,21 @@ fn connects_unencrypted_when_ssl_is_disabled_and_refuses_an_unverified_certifica
         "{refused:#}"
     );
 }
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn a_write_hidden_in_a_with_is_rolled_back_when_asked_to_only_read() {
+    let mut scratch = Scratch::new();
+
+    let refused = scratch
+        .database
+        .run_reading("with c as (select 1 as one) update tags set label = 'gone' where id = 1")
+        .unwrap_err();
+    let left = scratch
+        .database
+        .run_reading("select label from tags where id = 1")
+        .unwrap();
+
+    assert!(refused.to_string().contains("rolled it back"), "{refused}");
+    assert_eq!(texts(&left.rows[0]), ["vip"]);
+}

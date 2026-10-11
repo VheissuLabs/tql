@@ -290,6 +290,20 @@ fn the_last_of_two_columns_with_one_name_wins() {
 }
 
 #[test]
+fn a_write_hidden_in_a_with_is_refused_by_the_database_itself() {
+    let _scratch = Scratch::shop("hidden-write");
+
+    let refused = tql(&["query", "shop", "with c as (select 1) delete from users"]);
+
+    assert_eq!(refused.code, 1, "{refused:?}");
+    assert!(refused.stderr.contains("readonly database"), "{refused:?}");
+    assert_eq!(
+        json_of(&tql(&["query", "shop", "select * from users"]))["rows"],
+        3
+    );
+}
+
+#[test]
 fn refuses_a_write_and_leaves_the_data_alone() {
     let scratch = Scratch::shop("write");
 

@@ -331,6 +331,27 @@ fn a_read_only_connection_refuses_to_write() {
 }
 
 #[test]
+fn a_read_only_connection_refuses_a_write_hidden_in_a_with() {
+    let mut fake = opened("read-only-with", |connection| connection.read_only = true);
+    fake.press("s");
+    fake.press("\x7f".repeat(80).as_str());
+
+    fake.press("with c as (select 1) delete from fruit");
+    fake.press(RUN);
+
+    assert!(
+        fake.screen().contains("readonly database"),
+        "{}",
+        fake.screen()
+    );
+    fake.press(ESCAPE);
+    fake.press("\x7f".repeat(80).as_str());
+    fake.press("select count(*) from fruit");
+    fake.press(RUN);
+    assert_eq!(fake.app.rows, [["3"]]);
+}
+
+#[test]
 fn history_records_what_the_editor_ran_and_puts_it_back_without_running_it() {
     let mut fake = sql_pane("history");
 

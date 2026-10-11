@@ -362,6 +362,13 @@ impl Database for Postgres {
         })
     }
 
+    fn run_reading(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        self.simple("start transaction read only")?;
+        let ran = self.run(statement);
+        let _ = self.simple("rollback");
+        ran
+    }
+
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {
         let filled = Self::filled(statement, values)?;
         let mut page = self.shown(&filled)?;

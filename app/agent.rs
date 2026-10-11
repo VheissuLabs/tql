@@ -97,7 +97,7 @@ impl Agent {
         let started = Instant::now();
         let ran = self
             .open(&connection)
-            .and_then(|mut database| database.run(statement));
+            .and_then(|mut database| database.run_reading(statement));
         let duration_ms = started.elapsed().as_millis();
         history::record(
             &self.store,

@@ -666,6 +666,19 @@ impl Database for SqlServer {
         Ok(outcome_or_affected(Vec::new(), Vec::new(), affected))
     }
 
+    fn run_reading(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        self.run("begin transaction")?;
+        let ran = self.run(statement);
+        let _ = self.run("if @@trancount > 0 rollback transaction");
+        let outcome = ran?;
+        if let Some(changed) = outcome.affected.filter(|changed| *changed > 0) {
+            anyhow::bail!(
+                "that statement changed {changed} rows, so tql rolled it back; only statements that read run here"
+            );
+        }
+        Ok(outcome)
+    }
+
     fn run_server_wide(&mut self, statement: &str) -> anyhow::Result<Outcome> {
         let mut master = self.reconnect(MASTER)?;
         self.runtime.block_on(async {

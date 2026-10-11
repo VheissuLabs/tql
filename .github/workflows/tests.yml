@@ -35,3 +35,63 @@ jobs:
       # servers and a tql checkout that a runner does not have.
       - name: Run the suite
         run: cargo test --locked
+
+  # The drivers against real servers: MySQL and Postgres as services, SQL Server
+  # as a service, and throwaway TLS and SSH containers started by the tests.
+  databases:
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_ROOT_HOST: '%'
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd "mysqladmin ping -h 127.0.0.1"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: root
+          POSTGRES_DB: postgres
+          POSTGRES_HOST_AUTH_METHOD: trust
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U root"
+          --health-interval 5s --health-timeout 5s --health-retries 30
+      sqlsrv:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: 'Y'
+          MSSQL_SA_PASSWORD: Tql-ci-Pass1
+        ports: ['1433:1433']
+
+    env:
+      TQL_TEST_SQLSRV: 127.0.0.1:1433
+      TQL_TEST_SQLSRV_PASSWORD: Tql-ci-Pass1
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: Swatinem/rust-cache@v2
+
+      - name: Wait for SQL Server
+        run: |
+          for attempt in $(seq 1 60); do
+            (exec 3<>/dev/tcp/127.0.0.1/1433) 2>/dev/null && exit 0
+            sleep 2
+          done
+          echo 'SQL Server did not start'; exit 1
+
+      - name: MySQL and Postgres
+        run: cargo test --locked --test kinds -- --include-ignored
+
+      - name: SQL Server
+        run: cargo test --locked --test sqlsrv -- --ignored --test-threads=1
+
+      - name: TLS and SSH, in throwaway containers
+        run: cargo test --locked --test live_tls_ssh -- --ignored --test-threads=1
