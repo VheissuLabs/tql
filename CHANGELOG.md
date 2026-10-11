@@ -4,6 +4,33 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## 0.13.0
+
+### New Features
+
+- A settings screen: `tql settings`, `:settings`, or Settings in the ctrl+k
+  palette. Every setting sits under a section that folds (UI, Theme, Updates,
+  AI, MCP, Icons), takes effect at once, and is written to `config.toml` straight
+  away, that one line, your comments and order kept.
+- Settings are edited by kind: enter flips on/off, ← → step through choices,
+  numbers are typed and held to their range, `x` restores the default and `/`
+  finds one. Changed values are drawn in your `edited` colour, the AI key is
+  never shown, and start-only settings such as `mouse` say so.
+- A ctrl+k palette on the connection list, with its commands and every
+  connection by name.
+- `tql new`, `tql sql [connection]` and `tql history [connection]` open tql on
+  the screen the command belongs to, asking for a connection when none is named.
+
+### Enhancements
+
+- One command registry behind `:`, both palettes and the shell, so a command has
+  one name everywhere, and a command typed on the wrong screen says where it
+  works.
+- The palette matches a command by its name too, so `settings` runs the command
+  ahead of a table called `settings`.
+
+---
+
 ## 0.12.2
 
 ### Enhancements
