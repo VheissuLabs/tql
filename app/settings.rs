@@ -216,8 +216,9 @@ impl Settings {
                 self.status_seconds = value
                     .as_float()
                     .or_else(|| value.as_integer().map(|seconds| seconds as f64))
+                    .filter(|seconds| !seconds.is_nan())
                     .unwrap_or(4.0)
-                    .max(0.0);
+                    .clamp(0.0, STATUS_SECONDS_MOST);
             }
             "ui.sidebar_width" => self.sidebar_width = number().max(8),
             "ui.sql_position" => self.sql_at_bottom = text() == "bottom",
@@ -291,6 +292,8 @@ impl Settings {
         (frame_height / 3).clamp(5, 10)
     }
 }
+
+const STATUS_SECONDS_MOST: f64 = 86_400.0;
 
 thread_local! {
     static CURRENT: RefCell<Settings> = RefCell::new(Settings::default());

@@ -263,6 +263,21 @@ fn asks_before_creating_a_database_typed_into_the_list_on_production() {
 }
 
 #[test]
+fn asks_on_production_whatever_case_the_tag_was_saved_in() {
+    let (mut fake, ledger) = server_with(&["jobs", "shop"], |connection| {
+        connection.tag = Some("Production".into());
+    });
+
+    fake.press("bkmstools\n");
+
+    assert!(ledger.borrow().created.is_empty());
+    assert_eq!(
+        fake.app.command.as_deref(),
+        Some("create database kmstools")
+    );
+}
+
+#[test]
 fn creates_straight_away_on_production_when_the_setting_is_off() {
     let mut chosen = app::settings::Settings::default();
     chosen.set(

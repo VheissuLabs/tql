@@ -5,3 +5,4 @@
 /demo.db
 settings.local.json
 .DS_Store
+/.claude/worktrees/

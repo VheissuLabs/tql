@@ -141,7 +141,7 @@ impl Browser {
     }
 
     fn asks_before_creating(&self) -> bool {
-        self.connection.tag.as_deref() == Some("production")
+        self.connection.is_production()
             && settings::with(|settings| settings.confirm_create_on_production)
     }
 

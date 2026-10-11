@@ -67,7 +67,7 @@ impl Browser {
                 "read_screen",
             ));
         }
-        if self.connection.tag.as_deref() == Some("production") && !production {
+        if self.connection.is_production() && !production {
             return Some((
                 format!(
                     "[{name}] is tagged production, and tql does not share a production screen. Ask the user to set read_production = true under [mcp] in config.toml and restart tql if they want it."

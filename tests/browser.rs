@@ -299,6 +299,25 @@ fn a_status_never_fades_when_status_seconds_is_zero() {
 }
 
 #[test]
+fn a_status_with_an_enormous_status_seconds_just_stays() {
+    for seconds in [1e300, f64::INFINITY] {
+        let mut settings = app::settings::Settings::default();
+        settings.set("ui.status_seconds", &toml::Value::Float(seconds));
+        app::settings::install(settings);
+        let mut fake = browser("long-fade");
+        fake.press("\x0c");
+
+        assert!(
+            !fake
+                .app
+                .fade_status(std::time::Instant::now() + std::time::Duration::from_secs(600))
+        );
+        assert_eq!(fake.app.status(), "redrawn");
+    }
+    app::settings::install(app::settings::Settings::default());
+}
+
+#[test]
 fn the_status_stops_standing_out_at_the_next_key_and_the_same_words_do_not_relight_it() {
     app::settings::install(app::settings::Settings::default());
     let mut fake = browser("fresh");

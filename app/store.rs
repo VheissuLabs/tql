@@ -45,6 +45,10 @@ impl Connection {
         tag::color_of(self.tag.as_deref())
     }
 
+    pub fn is_production(&self) -> bool {
+        tag::parse(self.tag.as_deref().unwrap_or_default()) == Some("production")
+    }
+
     pub fn uses_ssh(&self) -> bool {
         self.driver != "sqlite"
             && self

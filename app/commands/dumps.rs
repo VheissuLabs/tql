@@ -16,7 +16,6 @@ use crate::paths;
 use crate::settings;
 use crate::store::{Connection, Store};
 use crate::store_writer::StoreWriter;
-use crate::tag;
 use crate::tunnel;
 
 const RECENT: usize = 40;
@@ -149,9 +148,7 @@ pub fn may_write_to(cmd: &mut Cmd, connection: &Connection) -> Result<bool> {
         ));
         return Ok(false);
     }
-    let production =
-        tag::parse(connection.tag.as_deref().unwrap_or_default()) == Some("production");
-    if !production || cmd.flag("force") || cmd.flag("dry-run") {
+    if !connection.is_production() || cmd.flag("force") || cmd.flag("dry-run") {
         return Ok(true);
     }
     if !cmd.is_interactive() {

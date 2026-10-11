@@ -632,3 +632,28 @@ fn the_read_screen_tool_answers_with_the_screen_or_the_reason_it_cannot() {
     let screen: Value = serde_json::from_str(&said).unwrap();
     assert_eq!(screen["table"], "users");
 }
+
+#[test]
+fn a_production_screen_stays_private_whatever_case_the_tag_was_saved_in() {
+    let scratch = Scratch::shop("read-screen-production-case");
+    let live = Live::register(&scratch.live(), "shop");
+    let mut connection = Connection::sqlite("shop", scratch.shop_file().to_str().unwrap());
+    connection.tag = Some("PRODUCTION".into());
+    let database = database::connect(&connection, None).unwrap();
+    let mut fake = Fake::sized(
+        Browser::new(connection, database).unwrap().with_live(live),
+        120,
+        30,
+    );
+    sharing(false);
+    fake.settle();
+
+    let refused = read_while(&mut fake, &scratch.live()).unwrap();
+    assert!(
+        refused["refused"]
+            .as_str()
+            .unwrap_or_default()
+            .starts_with("[shop] is tagged production"),
+        "{refused}"
+    );
+}
