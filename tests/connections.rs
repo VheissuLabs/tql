@@ -186,6 +186,55 @@ fn clicking_a_connection_opens_the_one_under_the_pointer() {
 }
 
 #[test]
+fn ctrl_k_offers_the_commands_and_connections_of_this_screen() {
+    let scratch = Scratch::new("palette");
+    let mut fake = scratch.with_two();
+
+    fake.press("\x0b");
+    let screen = fake.screen();
+
+    assert!(screen.contains("COMMANDS"), "{screen}");
+    assert!(screen.contains("Add a connection"), "{screen}");
+    assert!(screen.contains("second"), "{screen}");
+    assert!(!screen.contains("Focus the rows"), "{screen}");
+
+    fake.press("sec\n");
+
+    assert_eq!(
+        fake.exit()
+            .cloned()
+            .flatten()
+            .map(|connection| connection.name),
+        Some("second".into())
+    );
+}
+
+#[test]
+fn the_palette_runs_a_command_and_esc_closes_it() {
+    let scratch = Scratch::new("palette-command");
+    let mut fake = scratch.with_two();
+
+    fake.press("\x0b\x1b");
+    assert!(fake.app.palette.is_none());
+
+    fake.press("\x0badd\n");
+    assert!(fake.screen().contains("NEW CONNECTION"));
+}
+
+#[test]
+fn a_browser_command_typed_here_says_where_it_works() {
+    let scratch = Scratch::new("wrong-screen");
+    let mut fake = scratch.with_two();
+
+    fake.press(":sql\n");
+
+    assert_eq!(
+        fake.app.status.as_deref(),
+        Some(":sql works once a connection is open")
+    );
+}
+
+#[test]
 fn still_opens_on_enter() {
     let scratch = Scratch::new("enter");
     let mut fake = scratch.with_two();

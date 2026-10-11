@@ -13,6 +13,7 @@ pub mod live;
 pub mod mcp;
 pub mod opener;
 pub mod paths;
+pub mod registry;
 pub mod settings;
 pub mod store;
 pub mod store_writer;
@@ -41,6 +42,11 @@ pub fn application() -> console::Application {
         .command(commands::tables::Tables)
         .command(commands::tableplus::TablePlus)
         .command(commands::update::Update);
+    let application = commands::browse::Launch::all()
+        .into_iter()
+        .fold(application, |application, launch| {
+            application.command(launch)
+        });
 
     if cfg!(debug_assertions) {
         return application.command(console::MakeCommand);

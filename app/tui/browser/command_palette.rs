@@ -1,5 +1,6 @@
 use super::*;
 use crate::driver::Driver;
+use crate::registry::{self, Screen};
 use crate::store::Store;
 use crate::tui::ago;
 use crate::tui::history;
@@ -14,15 +15,6 @@ const SKIPPED: [Action; 8] = [
     Action::Escape,
     Action::Command,
     Action::Palette,
-];
-
-const COMMANDS: [(&str, &str); 6] = [
-    ("w", "write the pending changes"),
-    ("export", "export this table as SQL"),
-    ("create database", "create a database on this server"),
-    ("drop database", "drop a database on this server"),
-    ("tables", "focus the table list"),
-    ("rows", "focus the rows"),
 ];
 
 fn sentence(description: &str) -> String {
@@ -57,14 +49,16 @@ impl Browser {
                     binding.description,
                 )
             });
-        let commands = COMMANDS.iter().map(|(command, description)| {
-            Item::new(
-                Kind::Command,
-                sentence(description),
-                format!(":{command}"),
-                *command,
-            )
-        });
+        let commands = registry::on(Screen::Browser)
+            .filter(|entry| entry.palette)
+            .map(|entry| {
+                Item::new(
+                    Kind::Command(entry.name),
+                    sentence(entry.description),
+                    format!(":{}", entry.word()),
+                    entry.word(),
+                )
+            });
         let tables = self
             .tables
             .iter()
@@ -174,7 +168,7 @@ impl Browser {
 
         match item.kind {
             Kind::Action(action) => return self.run(action),
-            Kind::Command => return self.run_command(&item.target),
+            Kind::Command(name) => return self.run_named(name, ""),
             Kind::Table => self.go_to_table(&item.target),
             Kind::Database => self.use_database(Some(item.target)),
             Kind::Connection => {

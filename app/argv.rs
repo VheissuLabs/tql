@@ -4,6 +4,7 @@ use std::sync::LazyLock;
 use regex::Regex;
 
 use crate::dsn;
+use crate::registry;
 
 pub const COMMANDS: [&str; 18] = [
     "browse",
@@ -33,7 +34,11 @@ pub fn rewrite(mut argv: Vec<String>) -> Vec<String> {
     let Some(first) = argv.get(1) else {
         return argv;
     };
-    if first.starts_with('-') || COMMANDS.contains(&first.as_str()) || !is_path(first) {
+    if first.starts_with('-')
+        || COMMANDS.contains(&first.as_str())
+        || registry::opening().any(|entry| entry.word() == first)
+        || !is_path(first)
+    {
         return argv;
     }
     argv.insert(1, "open".to_string());
@@ -91,7 +96,9 @@ mod tests {
 
     #[test]
     fn does_not_mistake_a_command_name_for_a_path() {
-        for command in ["browse", "open", "export", "list", "help"] {
+        for command in [
+            "browse", "open", "export", "list", "help", "sql", "history", "new",
+        ] {
             assert_eq!(rewrite(argv(&["tql", command])), argv(&["tql", command]));
         }
     }

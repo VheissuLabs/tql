@@ -19,6 +19,7 @@ use crate::updates::remembered::Remembered;
 mod command;
 mod editing;
 mod groups;
+mod palette;
 mod rows;
 mod yank;
 
@@ -27,6 +28,7 @@ const FIRST_BODY_ROW: i64 = 4;
 const BAR: &str = " ↑↓ Move    ↵ Open    space Fold    e Edit    n New    y/Y Yank db/DSN    d Delete    :w Confirm    :q Quit";
 pub const COLLAPSED: &str = "connections.collapsed_groups";
 const FORM_BAR: &str = " ↑↓ Move    ↵ Select";
+const PALETTE_BAR: &str = " ↑↓ Move    ↵ Run    esc Close";
 
 pub struct Picker {
     pub connections: Vec<Connection>,
@@ -36,6 +38,7 @@ pub struct Picker {
     pub command: Option<String>,
     pub form: Option<ConnectionForm>,
     pub renaming: Option<GroupRename>,
+    pub palette: Option<super::palette::Palette>,
     pub pending_deletes: Vec<i64>,
     pub collapsed: Vec<String>,
     start: usize,
@@ -85,6 +88,7 @@ impl Picker {
             command: None,
             form: None,
             renaming: None,
+            palette: None,
             pending_deletes: Vec::new(),
             collapsed: Vec::new(),
             start: 0,
@@ -208,6 +212,13 @@ impl Tui for Picker {
         if self.command.is_some() {
             return self.type_into_command(key);
         }
+        if self.palette.is_some() {
+            return self.type_into_palette(key);
+        }
+        if Self::opens_palette(key) {
+            self.open_palette();
+            return Flow::Continue;
+        }
 
         match key {
             Key::Char(':') => self.command = Some(String::new()),
@@ -246,7 +257,11 @@ impl Tui for Picker {
     }
 
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Option<Connection>> {
-        if self.form.is_some() || self.renaming.is_some() || !self.wants_mouse() {
+        if self.form.is_some()
+            || self.renaming.is_some()
+            || self.palette.is_some()
+            || !self.wants_mouse()
+        {
             return Flow::Continue;
         }
         let count = self.entries(false).len();
@@ -387,10 +402,11 @@ impl Tui for Picker {
             edge,
         ));
         let frame_lines = lines.len() as u16;
-        let bar = match (&self.form, &self.renaming) {
-            (Some(_), _) => FORM_BAR,
-            (None, Some(_)) => group_rename::BAR,
-            (None, None) => BAR,
+        let bar = match (&self.form, &self.renaming, &self.palette) {
+            (Some(_), _, _) => FORM_BAR,
+            (None, Some(_), _) => group_rename::BAR,
+            (None, None, Some(_)) => PALETTE_BAR,
+            (None, None, None) => BAR,
         };
         lines.push(Line::styled(
             truncate(bar, area.width as usize),
@@ -408,5 +424,6 @@ impl Tui for Picker {
         if let Some(renaming) = &self.renaming {
             renaming.draw(frame.buffer_mut(), area.width, frame_lines);
         }
+        self.draw_palette(frame.buffer_mut(), area.width, frame_lines);
     }
 }

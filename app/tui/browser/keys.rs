@@ -1,13 +1,5 @@
-use std::sync::LazyLock;
-
-use regex::Regex;
-
 use super::*;
-
-static DATABASE_COMMAND: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?is)^(create|drop)\s+database(?:\s+(.*))?$")
-        .expect("the database command pattern is valid")
-});
+use crate::registry::{self, Name, Screen};
 
 impl Browser {
     pub(super) fn toggle_tables(&mut self) {
@@ -80,28 +72,33 @@ impl Browser {
 
     pub(super) fn run_command(&mut self, command: &str) -> Flow<Exit> {
         self.command = None;
-        if let Some(captures) = DATABASE_COMMAND.captures(command) {
-            let name = captures.get(2).map_or("", |name| name.as_str()).trim();
-            if captures[1].eq_ignore_ascii_case("create") {
-                self.create_database(name);
-            } else {
-                self.drop_database(name);
+        match registry::parse(command) {
+            Some((entry, argument)) if entry.works_on(Screen::Browser) => {
+                self.run_named(entry.name, &argument)
             }
-            return Flow::Continue;
+            _ => {
+                self.say(registry::unavailable(Screen::Browser, command));
+                Flow::Continue
+            }
         }
-        match command {
-            "q" | "q!" | "quit" => return self.leave(Exit::Quit),
-            "c" | "connections" => return self.leave(Exit::Connections),
-            "tables" => self.focus = Focus::Sidebar,
-            "rows" => self.focus = Focus::Grid,
-            "r" => self.run_or_reload(),
-            "reload" => self.reload(),
-            "run" => self.run_from_editor(),
-            "sql" => self.open_query(),
-            "history" => self.open_history(),
-            "w" | "write" => self.write_pending(),
-            "export" | "export sql" => self.export(),
-            _ => self.say(format!("unknown command: :{command}")),
+    }
+
+    pub fn run_named(&mut self, name: Name, argument: &str) -> Flow<Exit> {
+        match name {
+            Name::Quit => return self.leave(Exit::Quit),
+            Name::Connections => return self.leave(Exit::Connections),
+            Name::Tables => self.focus = Focus::Sidebar,
+            Name::Rows => self.focus = Focus::Grid,
+            Name::RunOrReload => self.run_or_reload(),
+            Name::Reload => self.reload(),
+            Name::Run => self.run_from_editor(),
+            Name::Sql => self.open_query(),
+            Name::History => self.open_history(),
+            Name::Write => self.write_pending(),
+            Name::Export => self.export(),
+            Name::CreateDatabase => self.create_database(argument),
+            Name::DropDatabase => self.drop_database(argument),
+            Name::New => self.say(registry::unavailable(Screen::Browser, "new")),
         }
         Flow::Continue
     }

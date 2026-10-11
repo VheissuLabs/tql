@@ -1,3 +1,4 @@
+use crate::registry::Name;
 use std::sync::LazyLock;
 
 use crate::terminal::prelude::*;
@@ -17,7 +18,7 @@ static WORD_START: LazyLock<Regex> =
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Kind {
     Action(Action),
-    Command,
+    Command(Name),
     Table,
     Database,
     Connection,
