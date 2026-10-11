@@ -126,6 +126,14 @@ pub trait Database {
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>>;
 
+    fn key_columns(&mut self) -> anyhow::Result<HashMap<String, Vec<String>>> {
+        Ok(self
+            .primary_keys()?
+            .into_iter()
+            .map(|(table, column)| (table, vec![column]))
+            .collect())
+    }
+
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page>;
 
     fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>>;
@@ -453,13 +461,16 @@ pub(crate) fn outcome_or_affected(
     }
 }
 
-pub(crate) fn single_column_keys(pairs: Vec<(String, String)>) -> HashMap<String, String> {
+pub(crate) fn keyed(pairs: Vec<(String, String)>) -> HashMap<String, Vec<String>> {
     let mut columns: HashMap<String, Vec<String>> = HashMap::new();
     for (table, column) in pairs {
         columns.entry(table).or_default().push(column);
     }
     columns
-        .into_iter()
+}
+
+pub(crate) fn single_column_keys(keys: HashMap<String, Vec<String>>) -> HashMap<String, String> {
+    keys.into_iter()
         .filter_map(|(table, mut key)| (key.len() == 1).then(|| (table, key.remove(0))))
         .collect()
 }

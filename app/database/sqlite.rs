@@ -8,7 +8,7 @@ use rusqlite::types::ValueRef;
 use super::schema::keys_by_table;
 use super::{
     Column, Database, Filters, ForeignKey, Generation, Index, Kind, Outcome, Page, Scalar, Scalars,
-    Sort, Values, delete_statement, insert_statement, outcome_or_affected, primary_key,
+    Sort, Values, delete_statement, insert_statement, keyed, outcome_or_affected, primary_key,
     quote_double, refused, select_page, shown_delete, shown_insert, shown_update,
     single_column_keys, split_list, update_statement,
 };
@@ -139,6 +139,10 @@ impl Database for Sqlite {
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
+        Ok(single_column_keys(self.key_columns()?))
+    }
+
+    fn key_columns(&mut self) -> anyhow::Result<HashMap<String, Vec<String>>> {
         let mut statement = self.connection.prepare(
             "select m.name, p.name from sqlite_master m join pragma_table_info(m.name) p \
              where m.type = 'table' and p.pk > 0 order by m.name, p.pk",
@@ -146,7 +150,7 @@ impl Database for Sqlite {
         let pairs = statement
             .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
             .collect::<Result<_, _>>()?;
-        Ok(single_column_keys(pairs))
+        Ok(keyed(pairs))
     }
 
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {

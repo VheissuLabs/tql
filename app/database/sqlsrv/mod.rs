@@ -20,7 +20,7 @@ use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 use super::schema::keys_by_table;
 use super::{
     Column, Database, Filters, ForeignKey, Generation, Index, Outcome, Page, Scalar, Scalars, Sort,
-    Values, all_text, delete_statement, insert_statement, outcome_or_affected, refused,
+    Values, all_text, delete_statement, insert_statement, keyed, outcome_or_affected, refused,
     shown_delete, shown_insert, shown_update, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;

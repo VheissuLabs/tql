@@ -11,8 +11,9 @@ use super::schema::keys_by_table;
 use super::tls::{Mode, Tls};
 use super::{
     Column, Database, Filters, ForeignKey, Generation, Index, Kind, Outcome, Page, Scalar, Scalars,
-    Sort, Values, delete_statement, insert_statement, outcome_or_affected, refused, select_page,
-    shown_delete, shown_insert, shown_update, single_column_keys, split_list, update_statement,
+    Sort, Values, delete_statement, insert_statement, keyed, outcome_or_affected, refused,
+    select_page, shown_delete, shown_insert, shown_update, single_column_keys, split_list,
+    update_statement,
 };
 use crate::store::Connection;
 use crate::tunnel::Tunnel;
@@ -286,6 +287,10 @@ impl Database for MySql {
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
+        Ok(single_column_keys(self.key_columns()?))
+    }
+
+    fn key_columns(&mut self) -> anyhow::Result<HashMap<String, Vec<String>>> {
         let pairs = self
             .query(
                 "select table_name, column_name from information_schema.statistics \
@@ -296,7 +301,7 @@ impl Database for MySql {
             .into_iter()
             .filter_map(|row| Some((row.first()?.clone()?, row.get(1)?.clone()?)))
             .collect();
-        Ok(single_column_keys(pairs))
+        Ok(keyed(pairs))
     }
 
     fn databases(&mut self) -> anyhow::Result<Vec<String>> {

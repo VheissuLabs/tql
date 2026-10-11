@@ -48,6 +48,10 @@ impl Database for SqlServer {
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
+        Ok(single_column_keys(self.key_columns()?))
+    }
+
+    fn key_columns(&mut self) -> anyhow::Result<HashMap<String, Vec<String>>> {
         let pairs = self
             .query(
                 "select tbl.name, col.name from sys.indexes as idx \
@@ -62,7 +66,7 @@ impl Database for SqlServer {
             .into_iter()
             .filter_map(|row| Some((row.first()?.clone()?, row.get(1)?.clone()?)))
             .collect();
-        Ok(single_column_keys(pairs))
+        Ok(keyed(pairs))
     }
 
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page> {

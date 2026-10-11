@@ -290,3 +290,37 @@ fn mysql_shows_dates_and_times_the_same_with_or_without_a_filter() {
     assert_eq!(unfiltered.rows, expected);
     assert_eq!(filtered.rows, expected);
 }
+
+#[test]
+#[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
+fn postgres_lists_every_column_of_a_composite_key_in_key_order() {
+    let mut database = herd("pgsql", 5432, "postgres");
+    database.run("drop table if exists tql_pairs").unwrap();
+    database
+        .run("create table tql_pairs (a integer, b integer, primary key (b, a))")
+        .unwrap();
+
+    let keys = database.key_columns().unwrap();
+    let single = database.primary_keys().unwrap();
+    database.run("drop table tql_pairs").unwrap();
+
+    assert_eq!(keys["tql_pairs"], ["b", "a"]);
+    assert!(!single.contains_key("tql_pairs"));
+}
+
+#[test]
+#[ignore = "needs Herd's MySQL on 127.0.0.1:3306"]
+fn mysql_lists_every_column_of_a_composite_key_in_key_order() {
+    let mut database = herd("mysql", 3306, "mysql");
+    database.run("drop database if exists tql_pairs").unwrap();
+    database.run("create database tql_pairs").unwrap();
+    database.use_database("tql_pairs").unwrap();
+    database
+        .run("create table pairs (a integer, b integer, primary key (b, a))")
+        .unwrap();
+
+    let keys = database.key_columns().unwrap();
+    database.run("drop database tql_pairs").unwrap();
+
+    assert_eq!(keys["pairs"], ["b", "a"]);
+}

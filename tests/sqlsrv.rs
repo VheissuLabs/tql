@@ -209,6 +209,7 @@ fn reads_the_schema_the_way_laravel_does() {
     let keys = scratch.database.primary_keys().unwrap();
     assert_eq!(keys.get("customers").map(String::as_str), Some("id"));
     assert_eq!(keys.get("customer_tag"), None);
+    assert_eq!(scratch.database.key_columns().unwrap()["customers"], ["id"]);
 
     let foreign = scratch.database.foreign_keys().unwrap();
     let pivot = &foreign["customer_tag"];

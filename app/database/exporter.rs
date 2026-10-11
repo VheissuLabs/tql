@@ -309,10 +309,17 @@ impl<'a> Exporter<'a> {
         limit: Option<usize>,
         file: &mut impl Write,
     ) -> anyhow::Result<usize> {
-        let key = database.primary_keys().unwrap_or_default().remove(table);
-        let order = key
-            .map(|key| format!(" order by {}", database.quote(&key)))
-            .unwrap_or_default();
+        let key = database.key_columns()?.remove(table).unwrap_or_default();
+        let order = match key.is_empty() {
+            true => String::new(),
+            false => format!(
+                " order by {}",
+                key.iter()
+                    .map(|column| database.quote(column))
+                    .collect::<Vec<_>>()
+                    .join(", ")
+            ),
+        };
         let mut statements = Statements {
             driver: &self.connection.driver,
             table: database.quote(table),

@@ -280,6 +280,25 @@ fn honours_a_row_limit() {
 }
 
 #[test]
+fn pages_through_a_table_in_the_order_of_its_whole_primary_key() {
+    let fixture = Fixture::new("composite");
+    fixture.run(
+        "create table pairs (a integer, b integer, label text, primary key (a, b));
+         insert into pairs values (2, 1, 'third'), (1, 2, 'second'), (1, 1, 'first');",
+    );
+
+    let exported = Exporter::new(&fixture.connection, None)
+        .table(fixture.database().as_mut(), "pairs", None, None)
+        .unwrap();
+    let sql = fs::read_to_string(&exported.path).unwrap();
+
+    assert!(
+        sql.contains("(1, 1, 'first'),\n(1, 2, 'second'),\n(2, 1, 'third');"),
+        "{sql}"
+    );
+}
+
+#[test]
 fn splits_big_tables_into_statements_of_a_hundred_rows() {
     let fixture = Fixture::new("batches");
     fixture.run(
