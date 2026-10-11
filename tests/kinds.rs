@@ -324,3 +324,56 @@ fn mysql_lists_every_column_of_a_composite_key_in_key_order() {
 
     assert_eq!(keys["pairs"], ["b", "a"]);
 }
+
+#[test]
+#[ignore = "needs Herd's MySQL on 127.0.0.1:3306"]
+fn mysql_shows_bits_as_numbers_and_writes_them_back_as_numbers() {
+    let mut database = herd("mysql", 3306, "mysql");
+    database.run("drop database if exists tql_bits").unwrap();
+    database.run("create database tql_bits").unwrap();
+    database.use_database("tql_bits").unwrap();
+    database
+        .run("create table flags (id integer primary key, mask bit(8), flag bit(1))")
+        .unwrap();
+    database
+        .run("insert into flags values (1, b'01000001', b'1')")
+        .unwrap();
+
+    let shown = database
+        .select("select mask, flag from flags", &[])
+        .unwrap();
+    let filtered = database
+        .select(
+            "select mask, flag from flags where id = ?",
+            &["1".to_string()],
+        )
+        .unwrap();
+    database
+        .update("flags", "mask", "id", "1", Some("200"))
+        .unwrap();
+    database
+        .insert(
+            "flags",
+            &vec![
+                ("id".to_string(), Some("2".to_string())),
+                ("mask".to_string(), Some("7".to_string())),
+                ("flag".to_string(), Some("0".to_string())),
+            ],
+        )
+        .unwrap();
+    let written = database
+        .run("select id, mask + 0, flag + 0 from flags order by id")
+        .unwrap();
+    database.run("drop database tql_bits").unwrap();
+
+    let expected = [[Some("65".to_string()), Some("1".to_string())]];
+    assert_eq!(shown.rows, expected);
+    assert_eq!(filtered.rows, expected);
+    assert_eq!(
+        written.rows,
+        [
+            ["1", "200", "1"].map(|value| Some(value.to_string())),
+            ["2", "7", "0"].map(|value| Some(value.to_string())),
+        ]
+    );
+}

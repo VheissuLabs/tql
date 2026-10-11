@@ -78,6 +78,26 @@ impl MySql {
     fn bound_query(&mut self, sql: &str, bindings: Vec<String>) -> anyhow::Result<Page> {
         page_of(self.connection.exec_iter(sql, bindings).map_err(said)?)
     }
+
+    fn bit_columns(&mut self, table: &str) -> anyhow::Result<Vec<String>> {
+        Ok(self
+            .bound_query(
+                "select column_name from information_schema.columns \
+                 where table_schema = database() and table_name = ? and data_type = 'bit'",
+                vec![table.to_string()],
+            )?
+            .rows
+            .into_iter()
+            .filter_map(|mut row| row.swap_remove(0))
+            .collect())
+    }
+}
+
+fn bound_for(bits: &[String], column: &str, value: Option<&str>) -> Value {
+    match value.and_then(|value| value.trim().parse::<u64>().ok()) {
+        Some(number) if bits.iter().any(|bit| bit == column) => Value::UInt(number),
+        _ => bound(value),
+    }
 }
 
 fn kind(column_type: ColumnType) -> Kind {
@@ -87,7 +107,8 @@ fn kind(column_type: ColumnType) -> Kind {
         | ColumnType::MYSQL_TYPE_INT24
         | ColumnType::MYSQL_TYPE_LONG
         | ColumnType::MYSQL_TYPE_LONGLONG
-        | ColumnType::MYSQL_TYPE_YEAR => Kind::Integer,
+        | ColumnType::MYSQL_TYPE_YEAR
+        | ColumnType::MYSQL_TYPE_BIT => Kind::Integer,
         ColumnType::MYSQL_TYPE_FLOAT | ColumnType::MYSQL_TYPE_DOUBLE => Kind::Float,
         _ => Kind::Text,
     }
@@ -179,6 +200,10 @@ fn shown(value: Value, column_type: ColumnType, decimals: u8) -> Option<String> 
         _ => format!(".{micros:06}"),
     };
     Some(match value {
+        Value::Bytes(bytes) if column_type == ColumnType::MYSQL_TYPE_BIT => bytes
+            .iter()
+            .fold(0u64, |number, byte| number << 8 | u64::from(*byte))
+            .to_string(),
         Value::Date(year, month, day, ..)
             if matches!(
                 column_type,
@@ -342,8 +367,15 @@ impl Database for MySql {
         value: Option<&str>,
     ) -> anyhow::Result<u64> {
         let sql = update_statement(quote_backtick, question, table, column, key);
+        let bits = self.bit_columns(table)?;
         self.connection
-            .exec_drop(&sql, vec![bound(value), bound(Some(key_value))])
+            .exec_drop(
+                &sql,
+                vec![
+                    bound_for(&bits, column, value),
+                    bound_for(&bits, key, Some(key_value)),
+                ],
+            )
             .map_err(|error| {
                 refused(
                     said(error),
@@ -355,9 +387,10 @@ impl Database for MySql {
 
     fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
         let sql = insert_statement(quote_backtick, question, table, values, "() values ()");
+        let bits = self.bit_columns(table)?;
         let bindings: Vec<Value> = values
             .iter()
-            .map(|(_, value)| bound(value.as_deref()))
+            .map(|(column, value)| bound_for(&bits, column, value.as_deref()))
             .collect();
         let outcome = if bindings.is_empty() {
             self.connection.query_drop(&sql)
