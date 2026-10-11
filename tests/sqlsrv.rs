@@ -388,7 +388,7 @@ fn connects_unencrypted_when_ssl_is_disabled_and_refuses_an_unverified_certifica
 
 #[test]
 #[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
-fn a_write_hidden_in_a_with_is_rolled_back_when_asked_to_only_read() {
+fn a_write_hidden_in_a_with_is_refused_when_asked_to_only_read() {
     let mut scratch = Scratch::new();
 
     let refused = scratch
@@ -400,6 +400,37 @@ fn a_write_hidden_in_a_with_is_rolled_back_when_asked_to_only_read() {
         .run_reading("select label from tags where id = 1")
         .unwrap();
 
-    assert!(refused.to_string().contains("rolled it back"), "{refused}");
+    assert!(
+        refused
+            .to_string()
+            .contains("only statements that read run here"),
+        "{refused}"
+    );
+    assert_eq!(texts(&left.rows[0]), ["vip"]);
+}
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn refuses_a_write_that_returns_rows_when_asked_to_only_read() {
+    let mut scratch = Scratch::new();
+
+    for statement in [
+        "with c as (select 1 as one) update tags set label = 'gone' output inserted.label where id = 1",
+        "select * from (select 1 as one) a; update tags set label = 'gone'",
+        "select * into tags_copy from tags",
+    ] {
+        let refused = scratch.database.run_reading(statement).unwrap_err();
+        assert!(
+            refused
+                .to_string()
+                .contains("only statements that read run here"),
+            "{statement}: {refused}"
+        );
+    }
+    let left = scratch
+        .database
+        .run_reading("select label from tags where id = 1")
+        .unwrap();
+
     assert_eq!(texts(&left.rows[0]), ["vip"]);
 }

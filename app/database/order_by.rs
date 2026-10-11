@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use super::lexed;
 use super::{Direction, Sort};
 
 fn pattern(source: &str) -> Regex {
@@ -91,78 +92,11 @@ fn strip(statement: &str) -> String {
 }
 
 fn top_level(statement: &str) -> String {
-    scan(statement).0
+    lexed::code(statement, true).0
 }
 
 fn ends_in_comment(statement: &str) -> bool {
-    scan(statement).1
-}
-
-fn scan(statement: &str) -> (String, bool) {
-    let mut outside = String::with_capacity(statement.len());
-    let mut commented = false;
-    let mut characters = statement.chars().peekable();
-    let mut depth = 0usize;
-    let blank = |outside: &mut String, character: char| {
-        outside.extend(std::iter::repeat_n(' ', character.len_utf8()));
-    };
-    while let Some(character) = characters.next() {
-        let closing = match character {
-            '\'' => Some('\''),
-            '"' => Some('"'),
-            '`' => Some('`'),
-            '[' => Some(']'),
-            _ => None,
-        };
-        if let Some(closing) = closing {
-            blank(&mut outside, character);
-            for inside in characters.by_ref() {
-                blank(&mut outside, inside);
-                if inside == closing {
-                    break;
-                }
-            }
-            continue;
-        }
-        if character == '-' && characters.peek() == Some(&'-') {
-            blank(&mut outside, character);
-            commented = true;
-            for inside in characters.by_ref() {
-                if inside == '\n' {
-                    outside.push('\n');
-                    commented = false;
-                    break;
-                }
-                blank(&mut outside, inside);
-            }
-            continue;
-        }
-        if character == '/' && characters.peek() == Some(&'*') {
-            blank(&mut outside, character);
-            let mut previous = ' ';
-            for inside in characters.by_ref() {
-                blank(&mut outside, inside);
-                if previous == '*' && inside == '/' {
-                    break;
-                }
-                previous = inside;
-            }
-            continue;
-        }
-        match character {
-            '(' => {
-                depth += 1;
-                blank(&mut outside, character);
-            }
-            ')' => {
-                depth = depth.saturating_sub(1);
-                blank(&mut outside, character);
-            }
-            _ if depth > 0 => blank(&mut outside, character),
-            _ => outside.push(character),
-        }
-    }
-    (outside, commented)
+    lexed::code(statement, true).1
 }
 
 #[cfg(test)]

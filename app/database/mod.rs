@@ -1,6 +1,7 @@
 mod column_default;
 mod exporter;
 mod filters;
+mod lexed;
 mod mysql;
 pub mod order_by;
 mod postgres;

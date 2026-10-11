@@ -209,6 +209,11 @@ impl Database for SqlServer {
     }
 
     fn run_reading(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        if let Some(word) = crate::database::lexed::writing_word(statement) {
+            anyhow::bail!(
+                "that statement has {word} in it, so tql did not run it; only statements that read run here"
+            );
+        }
         self.run("begin transaction")?;
         let ran = self.run(statement);
         let _ = self.run("if @@trancount > 0 rollback transaction");
