@@ -77,7 +77,16 @@ impl Palette {
             .iter()
             .enumerate()
             .filter_map(|(order, item)| {
-                Some((score(&item.label.to_lowercase(), &needle)?, order, item))
+                let by_label = score(&item.label.to_lowercase(), &needle);
+                let by_name = match item.kind {
+                    Kind::Command(_) => score(&item.target.to_lowercase(), &needle),
+                    _ => None,
+                };
+                let best = match (by_label, by_name) {
+                    (Some(label), Some(name)) => Some(label.min(name)),
+                    (label, name) => label.or(name),
+                };
+                Some((best?, order, item))
             })
             .collect();
         ranked.sort_by_key(|(score, order, _)| (*score, *order));
@@ -226,6 +235,28 @@ mod tests {
         assert_eq!(score("customers", "tom"), Some(3));
         assert_eq!(score("filter rows", "frw"), Some(4));
         assert_eq!(score("filter rows", "xyz"), None);
+    }
+
+    #[test]
+    fn a_command_typed_by_its_name_comes_before_a_table_of_that_name() {
+        let mut palette = Palette::new(
+            "COMMANDS",
+            vec![
+                Item::new(
+                    Kind::Command(Name::Settings),
+                    "Change tql's settings",
+                    ":settings",
+                    "settings",
+                ),
+                Item::new(Kind::Table, "settings", "table", "settings"),
+            ],
+        );
+        for character in "settings".chars() {
+            palette.type_key(Key::Char(character));
+        }
+
+        let kinds: Vec<_> = palette.matches().iter().map(|item| item.kind).collect();
+        assert_eq!(kinds, [Kind::Command(Name::Settings), Kind::Table]);
     }
 
     #[test]

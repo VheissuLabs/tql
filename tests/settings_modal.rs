@@ -245,7 +245,7 @@ fn the_browser_opens_it_from_the_colon_line_and_the_palette() {
     let path = scratch.root.join("shop.sqlite");
     rusqlite::Connection::open(&path)
         .unwrap()
-        .execute_batch("create table things (id integer primary key)")
+        .execute_batch("create table settings (key text primary key)")
         .unwrap();
     let connection = app::store::Connection::sqlite("shop", path.to_str().unwrap());
     let database = app::database::connect(&connection, None).unwrap();
@@ -260,8 +260,6 @@ fn the_browser_opens_it_from_the_colon_line_and_the_palette() {
     fake.press("\x1b");
     assert!(fake.app.settings.is_none());
 
-    fake.press("\x0bsett");
-    assert!(fake.screen().contains("Change tql's settings"));
-    fake.press("ings\n");
+    fake.press("\x0bsettings\n");
     assert!(fake.app.settings.is_some());
 }
