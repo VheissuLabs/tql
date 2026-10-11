@@ -180,8 +180,11 @@ fn fitting(characters: &[(&'static str, char)], width: usize) -> usize {
 
 fn wrap(characters: &[(&'static str, char)], width: usize) -> Vec<usize> {
     let mut starts = vec![0];
+    if width == 0 {
+        return starts;
+    }
     let mut at = 0;
-    while width > 0 {
+    loop {
         let fits = fitting(&characters[at..], width);
         if at + fits >= characters.len() {
             break;
