@@ -1,0 +1,1885 @@
+[
+  {
+    "name": "mysql-edit-open",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-enter-opens",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "l",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-typing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "-",
+      "x"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-new-line",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "\u001b[13;2u",
+      "m",
+      "o",
+      "r",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-kept",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "-",
+      "x",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-kept-moved-off",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "-",
+      "x",
+      "\n",
+      "j"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-cancelled",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "-",
+      "x",
+      "\u001b"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-null-value",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "l",
+      "l",
+      "l",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-json",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-json-moved",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "e",
+      "\u001b[B",
+      "\u001b[B",
+      "\u001b[C"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-json-kept",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "e",
+      "\u001b[B",
+      "\u001b[F",
+      "\u001b[D",
+      "\u001b[D",
+      "X",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-json-invalid",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "e",
+      "x",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-json",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "I"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-scrolled",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "I",
+      "j",
+      "j",
+      "j"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-count-jump",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "I",
+      "5",
+      "G"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-bottom-top",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "I",
+      "G",
+      "k",
+      "g",
+      "j"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-visual",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "I",
+      "j",
+      "V",
+      "j",
+      "j"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-visual-cleared",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "I",
+      "V",
+      "j",
+      "\u001b"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-then-edit",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "I",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-closed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "I",
+      "q"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-short",
+    "size": [
+      100,
+      14
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "I"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-long-value",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-no-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-composite-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      "\t",
+      "l",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-text-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      "k",
+      "\t",
+      "l",
+      "e",
+      "!",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-the-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "e",
+      "0",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-one",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-two",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "d"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-toggle",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "k",
+      "d"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-back-on-it",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "k"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-from-sidebar",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "d"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-no-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "d"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-narrow",
+    "size": [
+      70,
+      20
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-and-edit",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "l",
+      "e",
+      "!",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-then-edit-same-row",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "!",
+      "\n",
+      "d",
+      "k"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-undo",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "d",
+      "u"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-undo-nothing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "u"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-quit-with-pending",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "q"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-colon-quit-with-pending",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      ":",
+      "q",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-pending-dropped-on-table-change",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "\t",
+      "k"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-pending-kept-through-page",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "n",
+      "p"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-pending-kept-through-sort",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "!",
+      "\n",
+      "o",
+      "o"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-pending-kept-through-reload",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "r"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-write-nothing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-write-edit",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "-",
+      "x",
+      "\n",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-write-deletes",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "d",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-write-then-reload",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "l",
+      "e",
+      "!",
+      "\n",
+      ":",
+      "w",
+      "\n",
+      "r"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-write-null",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "l",
+      "e",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\b",
+      "\n",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-write-command-line",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      ":",
+      "w"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-typing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "Z",
+      "e",
+      "d"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-field-kept",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "Z",
+      "e",
+      "d",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-tab",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "Z",
+      "e",
+      "d",
+      "\t"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-null",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "j",
+      "\u000e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-reset",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "Z",
+      "\n",
+      "k",
+      ""
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-key-refused",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "g",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-kept",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "Z",
+      "e",
+      "d",
+      "\n",
+      "\u0013"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-blank",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\u0013"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-two",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "A",
+      "\n",
+      "\u0013",
+      "N",
+      "\n",
+      "B",
+      "\n",
+      "\u0013"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-cell-edit",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\u0013",
+      "l",
+      "l",
+      "e",
+      "a",
+      "@",
+      "b",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-cell-on-sidebar",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\u0013",
+      "l",
+      "e",
+      "Q",
+      "\n",
+      "\t"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-written",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "Z",
+      "e",
+      "d",
+      "\n",
+      "\u0013",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-dropped",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\u0013",
+      "u"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-escape-discard-asks",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "Z",
+      "\n",
+      "\u001b"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-escape-twice",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "Z",
+      "\n",
+      "\u001b",
+      "\u001b"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-escape-clean",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\u001b"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-text-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      "k",
+      "\t",
+      "N"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-no-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "N",
+      "\n",
+      "n",
+      "o",
+      "w",
+      "\n",
+      "\u0013"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-no-key-written",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "N",
+      "j",
+      "\n",
+      "h",
+      "i",
+      "\n",
+      "\u0013",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-orders",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "\t",
+      "N"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-expanded",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "a",
+      "\u001b[13;2u",
+      "b"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-new-row-small",
+    "size": [
+      60,
+      14
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "j",
+      "j",
+      "j"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "E"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-on-profile",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "E"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-json-field",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "E",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-long-value",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "E"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-long-value-editing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "E",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-edited",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "E",
+      "\n",
+      "!",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-saved",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "E",
+      "\n",
+      "!",
+      "\n",
+      "\u0013"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-nothing-changed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "E",
+      "\u0013"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-saved-written",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "E",
+      "\n",
+      "!",
+      "\n",
+      "\u0013",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-after-cell-edit",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "!",
+      "\n",
+      "E"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-on-added-row",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "N",
+      "\n",
+      "Z",
+      "\n",
+      "\u0013",
+      "l",
+      "E"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-no-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\t",
+      "E"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-composite-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      "\t",
+      "E"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-text-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      "k",
+      "\t",
+      "E"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-record-form-g-G",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "E",
+      "G"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-row-style-inverse",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.row_style": "inverse"
+    },
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "d",
+      "k"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-sql-pane",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true
+    },
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "!",
+      "\n",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-double-click-edits",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "\u001b[<0;45;5M",
+      "\u001b[<0;45;5m",
+      "\u001b[<0;45;5M",
+      "\u001b[<0;45;5m"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-filtered",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "0",
+      "5",
+      "\u0013",
+      "l",
+      "e",
+      "!",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-filtered-written",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "f",
+      "0",
+      "0",
+      "5",
+      "\u0013",
+      "l",
+      "e",
+      "!",
+      "\n",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-then-filter",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "d",
+      "N",
+      "\u0013",
+      "l",
+      "f",
+      "0",
+      "0",
+      "5",
+      "\u0013"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-then-query",
+    "size": [
+      120,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "!",
+      "\n",
+      "s",
+      "\u0012"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-then-query-view",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "!",
+      "\n",
+      "s",
+      "\u0012",
+      "\u001b",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-then-query-back",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "e",
+      "!",
+      "\n",
+      "s",
+      "\u0012",
+      "\u001b",
+      "\u001b"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-mark-then-follow-link",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\t",
+      "d",
+      "k",
+      "l",
+      "l",
+      "L"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-after-link",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\t",
+      "d",
+      "k",
+      "l",
+      "l",
+      "L",
+      "l",
+      "e",
+      "!",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-after-link-back",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\t",
+      "d",
+      "k",
+      "l",
+      "l",
+      "L",
+      "l",
+      "e",
+      "!",
+      "\n",
+      "\u000f"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-edit-after-link-written",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "\t",
+      "l",
+      "l",
+      "L",
+      "l",
+      "e",
+      "!",
+      "\n",
+      ":",
+      "w",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-inspect-then-edit",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "i",
+      "j",
+      "e"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-inspect-then-edit-kept",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "i",
+      "j",
+      "e",
+      "!",
+      "\n"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-yank",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "I",
+      "j",
+      "V",
+      "j",
+      "y"
+    ],
+    "connection": "herd"
+  },
+  {
+    "name": "mysql-view-yank-closed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j",
+      "j",
+      "l",
+      "l",
+      "l",
+      "l",
+      "I",
+      "j",
+      "V",
+      "j",
+      "y",
+      "q"
+    ],
+    "connection": "herd"
+  }
+]

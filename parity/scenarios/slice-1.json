@@ -1,0 +1,1122 @@
+[
+  {
+    "name": "open",
+    "size": [
+      100,
+      30
+    ],
+    "keys": []
+  },
+  {
+    "name": "sidebar-down",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j"
+    ]
+  },
+  {
+    "name": "enter-grid",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "tab-grid",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t"
+    ]
+  },
+  {
+    "name": "cursor-moves",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "l"
+    ]
+  },
+  {
+    "name": "next-page",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "n"
+    ]
+  },
+  {
+    "name": "last-page",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "n",
+      "n"
+    ]
+  },
+  {
+    "name": "sort-asc",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "o"
+    ]
+  },
+  {
+    "name": "sort-desc",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "o",
+      "o"
+    ]
+  },
+  {
+    "name": "sort-back-to-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "o",
+      "o",
+      "o"
+    ]
+  },
+  {
+    "name": "no-key-table",
+    "size": [
+      100,
+      30
+    ],
+    "keys": []
+  },
+  {
+    "name": "composite-key",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "empty-table",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "\n"
+    ]
+  },
+  {
+    "name": "text-key-table",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "filter-typing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "/",
+      "o",
+      "r",
+      "d"
+    ]
+  },
+  {
+    "name": "filter-kept",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "/",
+      "o",
+      "r",
+      "d",
+      "\n"
+    ]
+  },
+  {
+    "name": "filter-nothing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "/",
+      "z",
+      "z",
+      "z"
+    ]
+  },
+  {
+    "name": "filter-cleared",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "/",
+      "o",
+      "r",
+      "d",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "hide-tables",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\\"
+    ]
+  },
+  {
+    "name": "show-tables-alt1",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\\",
+      "\u001b1"
+    ]
+  },
+  {
+    "name": "help",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "?"
+    ]
+  },
+  {
+    "name": "help-closed",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "?",
+      "\u001b"
+    ]
+  },
+  {
+    "name": "command-typing",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      ":",
+      "w",
+      "a"
+    ]
+  },
+  {
+    "name": "command-unknown",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      ":",
+      "w",
+      "a",
+      "t",
+      "\n"
+    ]
+  },
+  {
+    "name": "reload",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "r"
+    ]
+  },
+  {
+    "name": "too-small",
+    "size": [
+      50,
+      30
+    ],
+    "keys": []
+  },
+  {
+    "name": "narrow-scroll",
+    "size": [
+      70,
+      20
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "l",
+      "l"
+    ]
+  },
+  {
+    "name": "wide-columns",
+    "size": [
+      160,
+      40
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "l",
+      "l",
+      "l"
+    ]
+  },
+  {
+    "name": "standard-80x24",
+    "size": [
+      80,
+      24
+    ],
+    "keys": [
+      "j",
+      "\t"
+    ]
+  },
+  {
+    "name": "unicode-row",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "j",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "picker-open",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": []
+  },
+  {
+    "name": "picker-down",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "picker-past-the-end",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "picker-up-past-the-top",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "k",
+      "\u001b[A"
+    ]
+  },
+  {
+    "name": "picker-command",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      ":",
+      "w",
+      "a"
+    ]
+  },
+  {
+    "name": "picker-unknown-command",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      ":",
+      "w",
+      "a",
+      "t",
+      "\n"
+    ]
+  },
+  {
+    "name": "picker-write-nothing",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      ":",
+      "w",
+      "\n"
+    ]
+  },
+  {
+    "name": "picker-narrow",
+    "screen": "picker",
+    "size": [
+      70,
+      20
+    ],
+    "keys": [
+      "j"
+    ]
+  },
+  {
+    "name": "picker-wide",
+    "screen": "picker",
+    "size": [
+      180,
+      30
+    ],
+    "keys": []
+  },
+  {
+    "name": "picker-too-small",
+    "screen": "picker",
+    "size": [
+      50,
+      30
+    ],
+    "keys": []
+  },
+  {
+    "name": "mine-open",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom",
+      "ui.modal_ring": false,
+      "theme.selection": "cyan",
+      "theme.cursor": "cyan"
+    },
+    "keys": []
+  },
+  {
+    "name": "mine-grid",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom",
+      "ui.modal_ring": false,
+      "theme.selection": "cyan",
+      "theme.cursor": "cyan"
+    },
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "o"
+    ]
+  },
+  {
+    "name": "mine-next-page",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom",
+      "ui.modal_ring": false,
+      "theme.selection": "cyan",
+      "theme.cursor": "cyan"
+    },
+    "keys": [
+      "j",
+      "\t",
+      "n"
+    ]
+  },
+  {
+    "name": "mine-help",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom",
+      "ui.modal_ring": false,
+      "theme.selection": "cyan",
+      "theme.cursor": "cyan"
+    },
+    "keys": [
+      "?"
+    ]
+  },
+  {
+    "name": "mine-hidden-tables",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom",
+      "ui.modal_ring": false,
+      "theme.selection": "cyan",
+      "theme.cursor": "cyan"
+    },
+    "keys": [
+      "j",
+      "\\"
+    ]
+  },
+  {
+    "name": "sql-top",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true
+    },
+    "keys": [
+      "j"
+    ]
+  },
+  {
+    "name": "sql-tall",
+    "size": [
+      100,
+      40
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_height": 12
+    },
+    "keys": [
+      "j"
+    ]
+  },
+  {
+    "name": "row-style-inverse",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.row_style": "inverse"
+    },
+    "keys": [
+      "j",
+      "\t",
+      "j"
+    ]
+  },
+  {
+    "name": "no-hotkey-bar",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.hotkey_bar": false
+    },
+    "keys": [
+      "j"
+    ]
+  },
+  {
+    "name": "wide-sidebar",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sidebar_width": 32
+    },
+    "keys": []
+  },
+  {
+    "name": "mysql-open",
+    "connection": "herd",
+    "size": [
+      100,
+      30
+    ],
+    "keys": []
+  },
+  {
+    "name": "mysql-customers",
+    "connection": "herd",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "l",
+      "o"
+    ]
+  },
+  {
+    "name": "mysql-next-page",
+    "connection": "herd",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "\t",
+      "n"
+    ]
+  },
+  {
+    "name": "mysql-composite-key",
+    "connection": "herd",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "mysql-text-key",
+    "connection": "herd",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "mysql-sql-pane",
+    "connection": "herd",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom",
+      "ui.modal_ring": false
+    },
+    "keys": [
+      "j"
+    ]
+  },
+  {
+    "name": "mysql-switch",
+    "connection": "herd",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "b"
+    ]
+  },
+  {
+    "name": "mysql-switch-no-ring",
+    "connection": "herd",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.sql_always": true,
+      "ui.sql_position": "bottom",
+      "ui.modal_ring": false
+    },
+    "keys": [
+      "b"
+    ]
+  },
+  {
+    "name": "mysql-undecided",
+    "connection": "herd-any",
+    "size": [
+      100,
+      30
+    ],
+    "keys": []
+  },
+  {
+    "name": "mysql-undecided-filter",
+    "connection": "herd-any",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "t",
+      "q",
+      "l",
+      "_"
+    ]
+  },
+  {
+    "name": "mysql-undecided-create",
+    "connection": "herd-any",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "z",
+      "z",
+      "z"
+    ]
+  },
+  {
+    "name": "mysql-chosen",
+    "connection": "herd-any",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "t",
+      "q",
+      "l",
+      "_",
+      "r",
+      "u",
+      "s",
+      "t",
+      "\n"
+    ]
+  },
+  {
+    "name": "mouse-pick-table",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;5;3M",
+      "\u001b[<0;5;3m"
+    ]
+  },
+  {
+    "name": "mouse-click-cell",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;5;3M",
+      "\u001b[<0;5;3m",
+      "\u001b[<0;45;6M",
+      "\u001b[<0;45;6m"
+    ]
+  },
+  {
+    "name": "mouse-click-gutter",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;5;3M",
+      "\u001b[<0;5;3m",
+      "\u001b[<0;29;7M",
+      "\u001b[<0;29;7m"
+    ]
+  },
+  {
+    "name": "mouse-click-below-rows",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "j",
+      "j",
+      "j",
+      "\u001b[<0;45;20M",
+      "\u001b[<0;45;20m"
+    ]
+  },
+  {
+    "name": "mouse-wheel-grid",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;5;3M",
+      "\u001b[<0;5;3m",
+      "\u001b[<0;45;6M",
+      "\u001b[<0;45;6m",
+      "\u001b[<65;60;10M",
+      "\u001b[<65;60;10M",
+      "\u001b[<65;60;10M",
+      "\u001b[<64;60;10M"
+    ]
+  },
+  {
+    "name": "mouse-wheel-sidebar",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<65;5;5M",
+      "\u001b[<65;5;5M",
+      "\u001b[<65;5;5M"
+    ]
+  },
+  {
+    "name": "mouse-sort-header",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;5;3M",
+      "\u001b[<0;5;3m",
+      "\u001b[<0;45;2M",
+      "\u001b[<0;45;2m"
+    ]
+  },
+  {
+    "name": "mouse-sort-header-twice",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;5;3M",
+      "\u001b[<0;5;3m",
+      "\u001b[<0;45;2M",
+      "\u001b[<0;45;2m",
+      "\u001b[<0;45;2M",
+      "\u001b[<0;45;2m"
+    ]
+  },
+  {
+    "name": "mouse-drag-column",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;5;3M",
+      "\u001b[<0;5;3m",
+      "\u001b[<0;52;2M",
+      "\u001b[<32;56;2M",
+      "\u001b[<32;60;2M",
+      "\u001b[<0;60;2m"
+    ]
+  },
+  {
+    "name": "mouse-drag-sidebar",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;26;10M",
+      "\u001b[<32;30;10M",
+      "\u001b[<32;34;10M",
+      "\u001b[<0;34;10m"
+    ]
+  },
+  {
+    "name": "mouse-focus-grid",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;5;3M",
+      "\u001b[<0;5;3m",
+      "\u001b[<0;80;20M",
+      "\u001b[<0;80;20m"
+    ]
+  },
+  {
+    "name": "mouse-hidden-tables",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<0;5;3M",
+      "\u001b[<0;5;3m",
+      "\\",
+      "\u001b[<0;30;6M",
+      "\u001b[<0;30;6m"
+    ]
+  },
+  {
+    "name": "picker-mouse-wheel",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "keys": [
+      "\u001b[<65;10;6M",
+      "\u001b[<65;10;6M",
+      "\u001b[<64;10;6M"
+    ]
+  },
+  {
+    "name": "top-margin",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": []
+  },
+  {
+    "name": "top-margin-one",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 1
+    },
+    "keys": []
+  },
+  {
+    "name": "top-margin-sql",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "s"
+    ]
+  },
+  {
+    "name": "top-margin-small",
+    "size": [
+      80,
+      24
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\t",
+      "j",
+      "j"
+    ]
+  },
+  {
+    "name": "top-margin-mouse-pick-table",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<0;5;5M",
+      "\u001b[<0;5;5m"
+    ]
+  },
+  {
+    "name": "top-margin-mouse-click-cell",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<0;5;5M",
+      "\u001b[<0;5;5m",
+      "\u001b[<0;45;8M",
+      "\u001b[<0;45;8m"
+    ]
+  },
+  {
+    "name": "top-margin-mouse-sort-header",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<0;5;5M",
+      "\u001b[<0;5;5m",
+      "\u001b[<0;45;4M",
+      "\u001b[<0;45;4m"
+    ]
+  },
+  {
+    "name": "top-margin-click-in-margin",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<0;5;1M",
+      "\u001b[<0;5;1m"
+    ]
+  },
+  {
+    "name": "top-margin-picker",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": []
+  },
+  {
+    "name": "top-margin-picker-wheel",
+    "screen": "picker",
+    "size": [
+      100,
+      30
+    ],
+    "config": {
+      "ui.top_margin": 2
+    },
+    "keys": [
+      "\u001b[<65;10;8M",
+      "\u001b[<65;10;8M",
+      "\u001b[<64;10;8M"
+    ]
+  }
+]

@@ -1,0 +1,13 @@
+CREATE TABLE "migrations" ("id" integer primary key autoincrement not null, "migration" varchar not null, "batch" integer not null);
+CREATE TABLE "connections" ("id" integer primary key autoincrement not null, "name" varchar not null, "driver" varchar not null, "host" varchar, "port" integer, "database" varchar, "username" varchar, "password" text, "read_only" tinyint(1) not null default '0', "last_used_at" datetime, "created_at" datetime, "updated_at" datetime, "ssh_host" varchar, "ssh_port" integer, "ssh_user" varchar, "ssh_key" varchar, "ssh_password" varchar, "ssl_mode" varchar, "ssl_key" varchar, "ssl_cert" varchar, "ssl_ca" varchar, "colour" varchar, "tag" varchar, "group_name" varchar);
+CREATE UNIQUE INDEX "connections_name_unique" on "connections" ("name");
+CREATE TABLE "query_executions" ("id" integer primary key autoincrement not null, "connection_id" integer not null, "statement" text not null, "source" varchar not null, "succeeded" tinyint(1) not null default '1', "error" text, "row_count" integer, "duration_ms" integer, "created_at" datetime, "updated_at" datetime, foreign key("connection_id") references "connections"("id") on delete cascade);
+CREATE TABLE "settings" ("key" varchar not null, "value" text, "created_at" datetime, "updated_at" datetime, primary key ("key"));
+insert into "migrations" ("migration", "batch") values ('2026_09_22_051510_create_connections_table', 1);
+insert into "migrations" ("migration", "batch") values ('2026_09_22_051511_create_query_executions_table', 1);
+insert into "migrations" ("migration", "batch") values ('2026_09_22_210000_add_ssh_to_connections_table', 1);
+insert into "migrations" ("migration", "batch") values ('2026_09_22_220000_add_ssl_and_labels_to_connections_table', 1);
+insert into "migrations" ("migration", "batch") values ('2026_09_22_230000_rename_colour_to_color', 1);
+insert into "migrations" ("migration", "batch") values ('2026_09_22_235900_drop_color_from_connections', 1);
+insert into "migrations" ("migration", "batch") values ('2026_09_23_000000_create_settings_table', 1);
+insert into "migrations" ("migration", "batch") values ('2026_10_07_000000_add_group_to_connections_table', 1);

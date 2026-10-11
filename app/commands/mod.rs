@@ -1,0 +1,16 @@
+pub mod answers;
+pub mod browse;
+pub mod config;
+pub mod connections;
+pub mod describe;
+pub mod dump;
+pub mod dumps;
+pub mod export;
+pub mod load;
+pub mod mcp;
+pub mod open;
+pub mod query;
+pub mod sync;
+pub mod tableplus;
+pub mod tables;
+pub mod update;

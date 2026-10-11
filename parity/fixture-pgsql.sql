@@ -1,0 +1,12 @@
+create table customers (id int primary key, name varchar(100), email varchar(100), notes text, profile text);
+create table orders (id int primary key, customer_id int, total decimal(8, 2), placed_at timestamp);
+create table products (sku varchar(10) primary key, title varchar(100), price decimal(8, 2));
+create table audit_log (happened_at date, message varchar(100));
+create table empty_things (id int primary key, label varchar(100));
+create table regions (code varchar(5), region varchar(10), label varchar(50), primary key (code, region));
+create view big_spenders as select customer_id, sum(total) as spent from orders group by customer_id;
+create table shipments (id int primary key, order_id int references orders(id), customer_id int references customers(id), carrier varchar(20) not null default 'post', shipped_at timestamp);
+create table tags (id int primary key, name varchar(30) not null unique);
+create table taggings (customer_id int references customers(id), tag_id int references tags(id), created_at date);
+create table tickets (id serial primary key, customer_id int not null references customers(id), subject varchar(200), status varchar(10) default 'open');
+create table wallets (id int primary key, customer_id int unique references customers(id), balance decimal(8, 2), frozen boolean not null default false);

@@ -1,10 +1,7 @@
-/vendor
+/target
 /.idea
 /.vscode
-/.vagrant
-.phpunit.result.cache
-/database/database.sqlite
-/tests/.scratch
-/demo.db
 /test-databases
-/builds
+/demo.db
+settings.local.json
+.DS_Store

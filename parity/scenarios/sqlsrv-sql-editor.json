@@ -1,0 +1,5 @@
+[
+  {"name": "sqlsrv-sql-run", "connection": "mssql", "size": [100, 30], "config": {"ui.sql_editor": "simple"}, "keys": ["s", "\u0005", ";", " ", "s", "e", "l", "e", "c", "t", " ", "n", "a", "m", "e", ",", " ", "e", "m", "a", "i", "l", " ", "f", "r", "o", "m", " ", "c", "u", "s", "t", "o", "m", "e", "r", "s", " ", "w", "h", "e", "r", "e", " ", "i", "d", " ", "<", " ", "5", "\u0012"]},
+  {"name": "sqlsrv-sql-sort-results", "connection": "mssql", "size": [100, 30], "config": {"ui.sql_editor": "simple"}, "keys": ["s", "\u0005", ";", " ", "s", "e", "l", "e", "c", "t", " ", "i", "d", ",", " ", "t", "o", "t", "a", "l", " ", "f", "r", "o", "m", " ", "o", "r", "d", "e", "r", "s", "\u0012", "\u001b", "l", "o"]},
+  {"name": "sqlsrv-sql-error", "connection": "mssql", "size": [100, 30], "config": {"ui.sql_editor": "simple"}, "keys": ["s", "\u0005", ";", " ", "s", "e", "l", "e", "c", "t", " ", "n", "o", "p", "e", " ", "f", "r", "o", "m", " ", "o", "r", "d", "e", "r", "s", "\u0012"]}
+]
