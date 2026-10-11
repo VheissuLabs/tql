@@ -83,9 +83,15 @@ impl Browser {
                     key,
                 );
                 let started = Instant::now();
-                let written =
-                    self.database
-                        .update(table, column, key, &key_value, value.as_deref());
+                let written = self
+                    .database
+                    .update(table, column, key, &key_value, value.as_deref())
+                    .and_then(|reached| match reached {
+                        0 => Err(anyhow::anyhow!(
+                            "No row has {key} = {key_value} any more, so nothing was written."
+                        )),
+                        _ => Ok(()),
+                    });
                 self.remember_write(&statement, started, &written, 1);
                 written.map_err(|error| {
                     failed(
@@ -108,7 +114,15 @@ impl Browser {
                 deletes.len(),
             );
             let started = Instant::now();
-            let written = self.database.delete(table, key, &deletes);
+            let written = self
+                .database
+                .delete(table, key, &deletes)
+                .and_then(|reached| match reached {
+                    0 => Err(anyhow::anyhow!(
+                        "None of those rows are there any more, so nothing was deleted."
+                    )),
+                    _ => Ok(()),
+                });
             self.remember_write(&statement, started, &written, deletes.len());
             written.map_err(|error| {
                 failed(

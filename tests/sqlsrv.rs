@@ -226,10 +226,20 @@ fn reads_the_schema_the_way_laravel_does() {
 fn changes_adds_and_deletes_rows() {
     let mut scratch = Scratch::new();
 
-    scratch
-        .database
-        .update("customers", "name", "id", "2", Some("Bobby"))
-        .unwrap();
+    assert_eq!(
+        scratch
+            .database
+            .update("customers", "name", "id", "2", Some("Bobby"))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        scratch
+            .database
+            .update("customers", "name", "id", "999", Some("Bobby"))
+            .unwrap(),
+        0
+    );
     scratch
         .database
         .update("customers", "joined", "id", "2", None)

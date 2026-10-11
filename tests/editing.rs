@@ -147,6 +147,44 @@ fn edits_a_cell_and_writes_it_only_on_colon_w() {
 }
 
 #[test]
+fn an_edit_to_a_row_deleted_elsewhere_is_not_reported_as_written() {
+    let (path, mut fake) = widgets("edit-gone");
+
+    fake.press("jle-edited\x04");
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute("delete from widgets where name = 'beta'", [])
+        .unwrap();
+    fake.press(":w\n");
+
+    assert_ne!(fake.app.status(), "wrote 1 row updated");
+    assert!(
+        fake.screen().contains("nothing was written"),
+        "{}",
+        fake.screen()
+    );
+    assert!(fake.app.edits.pending());
+}
+
+#[test]
+fn deleting_rows_that_are_already_gone_is_not_reported_as_done() {
+    let (path, mut fake) = widgets("delete-gone");
+
+    fake.press("jd");
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute("delete from widgets where name = 'beta'", [])
+        .unwrap();
+    fake.press(":w\n");
+
+    assert!(
+        fake.screen().contains("nothing was deleted"),
+        "{}",
+        fake.screen()
+    );
+}
+
+#[test]
 fn leaves_the_database_alone_when_an_edit_is_cancelled() {
     let (path, mut fake) = widgets("edit-cancel");
 

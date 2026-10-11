@@ -182,9 +182,8 @@ impl SqlServer {
         statement: &str,
         values: &[Option<&str>],
         shown: &str,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<u64> {
         self.execute(statement, values)
-            .map(|_| ())
             .map_err(|error| refused(error, shown))
     }
 }

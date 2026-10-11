@@ -291,9 +291,10 @@ impl Database for Sqlite {
         key: &str,
         key_value: &str,
         value: Option<&str>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<u64> {
         let sql = update_statement(quote_double, numbered, table, column, key);
-        self.connection
+        let reached = self
+            .connection
             .execute(&sql, rusqlite::params![value, key_value])
             .map_err(|error| {
                 refused(
@@ -301,7 +302,7 @@ impl Database for Sqlite {
                     &shown_update(quote_double, table, column, key, value, key_value),
                 )
             })?;
-        Ok(())
+        Ok(reached as u64)
     }
 
     fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
@@ -320,12 +321,13 @@ impl Database for Sqlite {
         Ok(())
     }
 
-    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
+    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
         let sql = delete_statement(quote_double, numbered, table, key, key_values.len());
-        self.connection
+        let reached = self
+            .connection
             .execute(&sql, rusqlite::params_from_iter(key_values))
             .map_err(|error| refused(error, &shown_delete(quote_double, table, key, key_values)))?;
-        Ok(())
+        Ok(reached as u64)
     }
 }
 

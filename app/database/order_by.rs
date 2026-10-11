@@ -13,7 +13,6 @@ static UNION: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?i)\bunion\b"));
 static ORDER_BY: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?i)\border\s+by\b"));
 static LIMIT: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?i)\s(limit|offset)\s"));
 static OFFSET_ROWS: LazyLock<Regex> = LazyLock::new(|| pattern(r"(?i)\soffset\s+\d+\s+rows?\b"));
-static SPACES: LazyLock<Regex> = LazyLock::new(|| pattern(r"\s{2,}"));
 static ORDERED: LazyLock<Regex> = LazyLock::new(|| {
     pattern(r#"(?i)\border\s+by\s+[`"\[]?([A-Za-z0-9_]+)[`"\]]?(?:\s+(asc|desc))?"#)
 });
@@ -23,33 +22,36 @@ pub fn apply(
     sort: Option<&Sort>,
     quote: impl Fn(&str) -> String,
 ) -> Option<String> {
-    let statement = statement.trim().trim_end_matches(';');
+    let statement = statement.trim().trim_end_matches(';').trim_end();
     if !rewritable(statement) {
         return None;
     }
 
     let statement = strip(statement);
+    let outside = top_level(&statement);
     let clause = match sort {
         Some(sort) => format!(
             "order by {} {}",
             quote(&sort.column),
             sort.direction.keyword()
         ),
-        None if OFFSET_ROWS.is_match(&statement) => "order by (select null)".to_string(),
+        None if OFFSET_ROWS.is_match(&outside) => "order by (select null)".to_string(),
         None => return Some(statement),
     };
-    Some(match LIMIT.find(&statement) {
+    Some(match LIMIT.find(&outside) {
         Some(limit) => format!(
             "{} {clause} {}",
-            statement[..limit.start()].trim_end(),
+            statement[..limit.start()].trim_end_matches([' ', '\t']),
             statement[limit.start()..].trim_start()
         ),
+        None if ends_in_comment(&statement) => format!("{statement}\n{clause}"),
         None => format!("{statement} {clause}"),
     })
 }
 
 pub fn of(statement: &str) -> Option<Sort> {
-    let captures = ORDERED.captures(statement)?;
+    let start = ORDER_BY.find(&top_level(statement))?.start();
+    let captures = ORDERED.captures_at(statement, start)?;
     let descending = captures
         .get(2)
         .is_some_and(|direction| direction.as_str().eq_ignore_ascii_case("desc"));
@@ -64,24 +66,103 @@ pub fn of(statement: &str) -> Option<Sort> {
 }
 
 fn rewritable(statement: &str) -> bool {
-    SELECT.is_match(statement)
-        && !UNION.is_match(statement)
-        && !statement.contains(';')
-        && ORDER_BY.find_iter(statement).count() <= 1
+    let outside = top_level(statement);
+    SELECT.is_match(&outside)
+        && !UNION.is_match(&outside)
+        && !outside.contains(';')
+        && ORDER_BY.find_iter(&outside).count() <= 1
 }
 
 fn strip(statement: &str) -> String {
-    let stripped = match ORDER_BY.find(statement) {
-        Some(order) => {
-            let rest = LIMIT
-                .find_at(statement, order.end())
-                .map(|limit| limit.start())
-                .unwrap_or(statement.len());
-            format!("{}{}", &statement[..order.start()], &statement[rest..])
-        }
-        None => statement.to_string(),
+    let outside = top_level(statement);
+    let Some(order) = ORDER_BY.find(&outside) else {
+        return statement.to_string();
     };
-    SPACES.replace_all(&stripped, " ").trim().to_string()
+    let rest = LIMIT
+        .find_at(&outside, order.end())
+        .map(|limit| limit.start())
+        .unwrap_or(statement.len());
+    let before = statement[..order.start()].trim_end_matches([' ', '\t']);
+    let after = statement[rest..].trim_start();
+    match after.is_empty() {
+        true => before.to_string(),
+        false => format!("{before} {after}"),
+    }
+}
+
+fn top_level(statement: &str) -> String {
+    scan(statement).0
+}
+
+fn ends_in_comment(statement: &str) -> bool {
+    scan(statement).1
+}
+
+fn scan(statement: &str) -> (String, bool) {
+    let mut outside = String::with_capacity(statement.len());
+    let mut commented = false;
+    let mut characters = statement.chars().peekable();
+    let mut depth = 0usize;
+    let blank = |outside: &mut String, character: char| {
+        outside.extend(std::iter::repeat_n(' ', character.len_utf8()));
+    };
+    while let Some(character) = characters.next() {
+        let closing = match character {
+            '\'' => Some('\''),
+            '"' => Some('"'),
+            '`' => Some('`'),
+            '[' => Some(']'),
+            _ => None,
+        };
+        if let Some(closing) = closing {
+            blank(&mut outside, character);
+            for inside in characters.by_ref() {
+                blank(&mut outside, inside);
+                if inside == closing {
+                    break;
+                }
+            }
+            continue;
+        }
+        if character == '-' && characters.peek() == Some(&'-') {
+            blank(&mut outside, character);
+            commented = true;
+            for inside in characters.by_ref() {
+                if inside == '\n' {
+                    outside.push('\n');
+                    commented = false;
+                    break;
+                }
+                blank(&mut outside, inside);
+            }
+            continue;
+        }
+        if character == '/' && characters.peek() == Some(&'*') {
+            blank(&mut outside, character);
+            let mut previous = ' ';
+            for inside in characters.by_ref() {
+                blank(&mut outside, inside);
+                if previous == '*' && inside == '/' {
+                    break;
+                }
+                previous = inside;
+            }
+            continue;
+        }
+        match character {
+            '(' => {
+                depth += 1;
+                blank(&mut outside, character);
+            }
+            ')' => {
+                depth = depth.saturating_sub(1);
+                blank(&mut outside, character);
+            }
+            _ if depth > 0 => blank(&mut outside, character),
+            _ => outside.push(character),
+        }
+    }
+    (outside, commented)
 }
 
 #[cfg(test)]
@@ -132,6 +213,60 @@ mod tests {
             )
             .as_deref(),
             Some("select * from events where name = 'a' order by \"id\" asc")
+        );
+    }
+
+    #[test]
+    fn leaves_words_inside_strings_subqueries_and_comments_alone() {
+        let by_id = sorted("id", Direction::Asc);
+        assert_eq!(
+            apply(
+                "select * from notes where body = 'no limit here'",
+                Some(&by_id),
+                quoted
+            )
+            .as_deref(),
+            Some("select * from notes where body = 'no limit here' order by \"id\" asc")
+        );
+        assert_eq!(
+            apply(
+                "select * from t where id in (select id from u order by id limit 5)",
+                Some(&sorted("name", Direction::Asc)),
+                quoted
+            )
+            .as_deref(),
+            Some(
+                "select * from t where id in (select id from u order by id limit 5) order by \"name\" asc"
+            )
+        );
+        assert_eq!(
+            apply(
+                "select * from t where a = 'x  y' -- order by a\n limit 3",
+                Some(&by_id),
+                quoted
+            )
+            .as_deref(),
+            Some("select * from t where a = 'x  y' -- order by a\n order by \"id\" asc limit 3")
+        );
+        assert_eq!(
+            apply("select * from t -- newest first", Some(&by_id), quoted).as_deref(),
+            Some("select * from t -- newest first\norder by \"id\" asc")
+        );
+        assert_eq!(
+            apply("select 'a;b', \"union\" from t", Some(&by_id), quoted).as_deref(),
+            Some("select 'a;b', \"union\" from t order by \"id\" asc")
+        );
+    }
+
+    #[test]
+    fn reads_the_sort_only_from_the_statement_itself() {
+        assert_eq!(
+            of("select * from t where id in (select id from u order by id desc)"),
+            None
+        );
+        assert_eq!(
+            of("select * from t order by \"name\" desc"),
+            Some(sorted("name", Direction::Desc))
         );
     }
 

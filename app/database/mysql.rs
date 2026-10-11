@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use anyhow::Context;
+use mysql::consts::CapabilityFlags;
 use mysql::consts::ColumnType;
 use mysql::prelude::{Protocol, Queryable};
 use mysql::{Conn, DriverError, OptsBuilder, QueryResult, Value};
@@ -30,6 +31,7 @@ impl MySql {
         let settings = Tls::of(connection)?;
         let options = OptsBuilder::new()
             .prefer_socket(false)
+            .additional_capabilities(CapabilityFlags::CLIENT_FOUND_ROWS)
             .ip_or_hostname(Some(match &tunnel {
                 Some(_) => "127.0.0.1".to_string(),
                 None => connection
@@ -292,7 +294,7 @@ impl Database for MySql {
         key: &str,
         key_value: &str,
         value: Option<&str>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<u64> {
         let sql = update_statement(quote_backtick, question, table, column, key);
         self.connection
             .exec_drop(&sql, vec![bound(value), bound(Some(key_value))])
@@ -301,7 +303,8 @@ impl Database for MySql {
                     said(error),
                     &shown_update(quote_backtick, table, column, key, value, key_value),
                 )
-            })
+            })?;
+        Ok(self.connection.affected_rows())
     }
 
     fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
@@ -323,7 +326,7 @@ impl Database for MySql {
         })
     }
 
-    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
+    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
         let sql = delete_statement(quote_backtick, question, table, key, key_values.len());
         let bindings: Vec<Value> = key_values
             .iter()
@@ -334,7 +337,8 @@ impl Database for MySql {
                 said(error),
                 &shown_delete(quote_backtick, table, key, key_values),
             )
-        })
+        })?;
+        Ok(self.connection.affected_rows())
     }
 
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {

@@ -197,9 +197,9 @@ fn literal(value: Option<&str>) -> String {
 }
 
 impl Postgres {
-    fn write(&mut self, sql: String, shown: String) -> anyhow::Result<()> {
+    fn write(&mut self, sql: String, shown: String) -> anyhow::Result<u64> {
         self.client
-            .batch_execute(&sql)
+            .execute(&sql, &[])
             .map_err(|error| refused(error, &shown))
     }
 }
@@ -303,7 +303,7 @@ impl Database for Postgres {
         key: &str,
         key_value: &str,
         value: Option<&str>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<u64> {
         let values = [value, Some(key_value)];
         let sql = update_statement(
             quote_double,
@@ -330,9 +330,10 @@ impl Database for Postgres {
             sql,
             shown_insert(quote_double, table, values, "default values"),
         )
+        .map(|_| ())
     }
 
-    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
+    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
         let sql = delete_statement(
             quote_double,
             |position| literal(Some(&key_values[position - 1])),

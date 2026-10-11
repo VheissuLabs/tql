@@ -159,3 +159,81 @@ fn mysql_refuses_a_write_hidden_in_a_with_when_asked_to_only_read() {
     assert!(refused.to_string().contains("READ ONLY"), "{refused}");
     assert_eq!(left.rows, [[Some("1".to_string())]]);
 }
+
+fn counts_the_rows_each_write_reached(database: &mut dyn Database, table: &str) {
+    assert_eq!(
+        database
+            .update(table, "name", "id", "1", Some("after"))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        database
+            .update(table, "name", "id", "1", Some("after"))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        database
+            .update(table, "name", "id", "999", Some("after"))
+            .unwrap(),
+        0
+    );
+    assert_eq!(
+        database
+            .delete(table, "id", &["1".to_string(), "999".to_string()])
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        database.delete(table, "id", &["999".to_string()]).unwrap(),
+        0
+    );
+}
+
+#[test]
+fn sqlite_counts_the_rows_each_write_reached() {
+    let mut database = sqlite("reached");
+    database
+        .run("create table reached (id integer primary key, name text)")
+        .unwrap();
+    database
+        .run("insert into reached values (1, 'before')")
+        .unwrap();
+
+    counts_the_rows_each_write_reached(database.as_mut(), "reached");
+}
+
+#[test]
+#[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
+fn postgres_counts_the_rows_each_write_reached() {
+    let mut database = herd("pgsql", 5432, "postgres");
+    database.run("drop table if exists tql_reached").unwrap();
+    database
+        .run("create table tql_reached (id integer primary key, name text)")
+        .unwrap();
+    database
+        .run("insert into tql_reached values (1, 'before')")
+        .unwrap();
+
+    counts_the_rows_each_write_reached(database.as_mut(), "tql_reached");
+    database.run("drop table tql_reached").unwrap();
+}
+
+#[test]
+#[ignore = "needs Herd's MySQL on 127.0.0.1:3306"]
+fn mysql_counts_the_rows_each_write_reached_even_when_the_value_is_unchanged() {
+    let mut database = herd("mysql", 3306, "mysql");
+    database.run("drop database if exists tql_reached").unwrap();
+    database.run("create database tql_reached").unwrap();
+    database.use_database("tql_reached").unwrap();
+    database
+        .run("create table reached (id integer primary key, name text)")
+        .unwrap();
+    database
+        .run("insert into reached values (1, 'before')")
+        .unwrap();
+
+    counts_the_rows_each_write_reached(database.as_mut(), "reached");
+    database.run("drop database tql_reached").unwrap();
+}

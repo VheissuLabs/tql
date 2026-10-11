@@ -265,7 +265,7 @@ impl Database for SqlServer {
         key: &str,
         key_value: &str,
         value: Option<&str>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<u64> {
         let statement = update_statement(quote_bracket, question, table, column, key);
         let shown = shown_update(quote_bracket, table, column, key, value, key_value);
         self.write(&statement, &[value, Some(key_value)], &shown)
@@ -275,10 +275,10 @@ impl Database for SqlServer {
         let statement = insert_statement(quote_bracket, question, table, values, "default values");
         let bound: Vec<Option<&str>> = values.iter().map(|(_, value)| value.as_deref()).collect();
         let shown = shown_insert(quote_bracket, table, values, "default values");
-        self.write(&statement, &bound, &shown)
+        self.write(&statement, &bound, &shown).map(|_| ())
     }
 
-    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<()> {
+    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
         let statement = delete_statement(quote_bracket, question, table, key, key_values.len());
         let bound: Vec<Option<&str>> = key_values
             .iter()

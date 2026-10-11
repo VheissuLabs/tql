@@ -188,7 +188,7 @@ pub trait Database {
         _key: &str,
         _key_value: &str,
         _value: Option<&str>,
-    ) -> anyhow::Result<()> {
+    ) -> anyhow::Result<u64> {
         bail!("this database cannot change rows")
     }
 
@@ -196,7 +196,7 @@ pub trait Database {
         bail!("this database cannot add rows")
     }
 
-    fn delete(&mut self, _table: &str, _key: &str, _key_values: &[String]) -> anyhow::Result<()> {
+    fn delete(&mut self, _table: &str, _key: &str, _key_values: &[String]) -> anyhow::Result<u64> {
         bail!("this database cannot delete rows")
     }
 }
