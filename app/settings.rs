@@ -201,6 +201,12 @@ impl Settings {
                 .unwrap_or_default()
         };
         let text = || value.as_str().unwrap_or_default().to_string();
+        let offset = || {
+            value
+                .as_integer()
+                .unwrap_or_default()
+                .clamp(-MOUSE_OFFSET_MOST, MOUSE_OFFSET_MOST)
+        };
 
         match key {
             "ui.modal_ring" => self.modal_ring = flag(),
@@ -229,10 +235,8 @@ impl Settings {
             "ui.row_style" => self.row_style = text(),
             "ui.mouse" => self.mouse = flag(),
             "ui.double_click_ms" => self.double_click_ms = number() as u64,
-            "ui.mouse_row_offset" => self.mouse_row_offset = value.as_integer().unwrap_or_default(),
-            "ui.mouse_column_offset" => {
-                self.mouse_column_offset = value.as_integer().unwrap_or_default()
-            }
+            "ui.mouse_row_offset" => self.mouse_row_offset = offset(),
+            "ui.mouse_column_offset" => self.mouse_column_offset = offset(),
             "ui.time_zone" => self.time_zone = text(),
             "ui.inspect_related" => self.inspect_related = number(),
             "ui.export_path" => self.export_path = text(),
@@ -294,6 +298,7 @@ impl Settings {
 }
 
 const STATUS_SECONDS_MOST: f64 = 86_400.0;
+const MOUSE_OFFSET_MOST: i64 = 1_000;
 
 thread_local! {
     static CURRENT: RefCell<Settings> = RefCell::new(Settings::default());
@@ -310,6 +315,19 @@ pub fn with<Answer>(read: impl FnOnce(&Settings) -> Answer) -> Answer {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn keeps_mouse_offsets_to_a_sensible_size() {
+        let table: Table = toml::from_str(
+            "[ui]\nmouse_row_offset = -9223372036854775808\nmouse_column_offset = 5\n",
+        )
+        .unwrap();
+
+        let settings = Settings::from_table(&table);
+
+        assert_eq!(settings.mouse_row_offset, -1_000);
+        assert_eq!(settings.mouse_column_offset, 5);
+    }
 
     #[test]
     fn reads_tqls_settings_and_ignores_unknown_colors() {

@@ -130,6 +130,7 @@ pub fn command(connection: &Connection, port: u16, home: &Path) -> Vec<String> {
     }
 
     let host = connection.ssh_host.clone().unwrap_or_default();
+    command.push("--".to_string());
     command.push(
         match connection
             .ssh_user
@@ -371,6 +372,7 @@ mod tests {
                 "ServerAliveInterval=30",
                 "-L",
                 "54321:db.internal:3306",
+                "--",
                 "karl@bastion.example.com",
             ]
         );
@@ -616,5 +618,19 @@ mod tests {
             .stderr(Stdio::null())
             .status()
             .is_ok_and(|status| status.success())
+    }
+
+    #[test]
+    fn a_host_that_looks_like_an_option_is_still_the_destination() {
+        let connection = Connection {
+            ssh_host: Some("-oProxyCommand=touch /tmp/x".to_string()),
+            ssh_user: None,
+            ..tunnelled()
+        };
+        let command = command(&connection, 1234, &home());
+        assert_eq!(
+            command[command.len() - 2..],
+            ["--", "-oProxyCommand=touch /tmp/x"]
+        );
     }
 }

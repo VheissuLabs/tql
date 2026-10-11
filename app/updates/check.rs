@@ -27,7 +27,7 @@ pub fn due(enabled: bool, remembered: &Remembered, now: i64) -> bool {
         .read(CHECKED)
         .and_then(|checked| checked.trim().parse().ok())
         .unwrap_or_default();
-    now - checked >= EVERY_SECONDS
+    now.saturating_sub(checked) >= EVERY_SECONDS
 }
 
 pub fn run(
@@ -100,4 +100,23 @@ pub fn now() -> i64 {
         .duration_since(UNIX_EPOCH)
         .map(|elapsed| elapsed.as_secs() as i64)
         .unwrap_or_default()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_nonsense_last_check_means_it_is_time_to_check() {
+        let directory = std::env::temp_dir().join(format!("tql-due-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&directory);
+        crate::store_writer::StoreWriter::prepare(&directory.join("tql.sqlite")).unwrap();
+        let remembered = Remembered::new(&directory.join("tql.sqlite"));
+        remembered.write(CHECKED, &i64::MIN.to_string());
+
+        let due = due(true, &remembered, now());
+        std::fs::remove_dir_all(&directory).unwrap();
+
+        assert!(due);
+    }
 }

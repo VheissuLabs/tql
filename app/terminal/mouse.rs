@@ -77,9 +77,10 @@ impl Input {
                 rest = &rest[length..];
                 continue;
             }
+            let first = rest.chars().next().map_or(1, char::len_utf8);
             let next = ["\x1b[<", PASTE_START]
                 .iter()
-                .filter_map(|marker| rest[1..].find(marker).map(|at| at + 1))
+                .filter_map(|marker| rest[first..].find(marker).map(|at| at + first))
                 .min()
                 .unwrap_or(rest.len());
             inputs.extend(Key::parse(&rest[..next]).into_iter().map(Input::Key));
@@ -109,6 +110,14 @@ fn sgr(bytes: &str) -> Option<(Mouse, usize)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_keys_that_start_with_a_multibyte_character() {
+        assert_eq!(
+            Input::parse("é\x1b[200~x\x1b[201~"),
+            [Input::Key(Key::Char('é')), Input::Paste("x".to_string())]
+        );
+    }
 
     #[test]
     fn a_bracketed_paste_arrives_whole() {

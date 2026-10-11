@@ -109,10 +109,17 @@ fn authority_parts(authority: &str) -> Option<Authority<'_>> {
         },
         None => (None, None),
     };
-    let (host, port) = match address.rsplit_once(':') {
-        Some((host, port)) if !port.is_empty() => (host, Some(port.parse::<u16>().ok()?)),
-        Some((host, _)) => (host, None),
-        None => (address, None),
+    let (host, port) = match address
+        .strip_prefix('[')
+        .and_then(|rest| rest.split_once(']'))
+    {
+        Some((host, "")) => (host, None),
+        Some((host, after)) => (host, Some(after.strip_prefix(':')?.parse::<u16>().ok()?)),
+        None => match address.rsplit_once(':') {
+            Some((host, port)) if !port.is_empty() => (host, Some(port.parse::<u16>().ok()?)),
+            Some((host, _)) => (host, None),
+            None => (address, None),
+        },
     };
     Some((user, pass, host, port))
 }
@@ -194,6 +201,7 @@ fn decode(text: &str, plus_is_space: bool) -> String {
         let escaped = (byte == b'%')
             .then(|| text.get(position + 1..position + 3))
             .flatten()
+            .filter(|hex| hex.bytes().all(|byte| byte.is_ascii_hexdigit()))
             .and_then(|hex| u8::from_str_radix(hex, 16).ok());
         match (escaped, byte) {
             (Some(value), _) => {
@@ -367,5 +375,21 @@ mod tests {
         assert!(looks_like_one("mysql://host/db"));
         assert!(!looks_like_one("./test.sqlite"));
         assert!(!looks_like_one("/var/db/app.db"));
+    }
+
+    #[test]
+    fn decodes_only_a_percent_followed_by_two_hex_digits() {
+        let parsed = parse("mysql://a%+4b@h/db").unwrap();
+        assert_eq!(parsed.username.as_deref(), Some("a%+4b"));
+    }
+
+    #[test]
+    fn reads_a_bracketed_ipv6_host_with_or_without_a_port() {
+        let parsed = parse("mysql://u@[::1]/db").unwrap();
+        assert_eq!(parsed.host.as_deref(), Some("::1"));
+        assert_eq!(parsed.port, Some(3306));
+        let parsed = parse("mysql://u@[::1]:3307/db").unwrap();
+        assert_eq!(parsed.host.as_deref(), Some("::1"));
+        assert_eq!(parsed.port, Some(3307));
     }
 }

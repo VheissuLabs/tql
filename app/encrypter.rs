@@ -142,7 +142,7 @@ fn encode_hex(bytes: &[u8]) -> String {
 }
 
 fn decode_hex(hex: &str) -> anyhow::Result<Vec<u8>> {
-    if !hex.len().is_multiple_of(2) {
+    if !hex.is_ascii() || !hex.len().is_multiple_of(2) {
         bail!("the MAC is not valid hex");
     }
     (0..hex.len())
@@ -248,5 +248,14 @@ mod tests {
     #[test]
     fn rejects_keys_of_the_wrong_length() {
         assert!(Encrypter::new("base64:c2hvcnQ=").is_err());
+    }
+
+    #[test]
+    fn a_mac_that_is_not_ascii_is_refused_rather_than_sliced() {
+        use base64::Engine;
+        let encrypter = Encrypter::new(TEST_KEY).unwrap();
+        let payload = base64::engine::general_purpose::STANDARD
+            .encode(r#"{"iv":"AAAA","value":"AAAA","mac":"aéa"}"#);
+        assert!(encrypter.decrypt_string(&payload).is_err());
     }
 }

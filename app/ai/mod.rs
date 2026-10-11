@@ -183,14 +183,13 @@ fn fenced(text: &str) -> Option<&str> {
 }
 
 fn embedded(text: &str) -> Option<Value> {
-    let start = text.find('{')?;
-    let end = text.rfind('}')?;
-    if end < start {
-        return None;
-    }
-    serde_json::from_str(&text[start..=end])
-        .ok()
-        .and_then(with_query)
+    text.match_indices('{').find_map(|(start, _)| {
+        serde_json::Deserializer::from_str(&text[start..])
+            .into_iter::<Value>()
+            .next()?
+            .ok()
+            .and_then(with_query)
+    })
 }
 
 pub fn annotate(answer: &Answer) -> String {
@@ -340,5 +339,11 @@ mod tests {
         );
         assert_eq!(decode("no json here", ""), None);
         assert_eq!(decode(r#"{"explanation": "no query"}"#, ""), None);
+    }
+
+    #[test]
+    fn finds_the_answer_after_braces_in_the_reasoning() {
+        let reasoning = r#"The user wants {orders}. {"query": "select 1", "explanation": "one"}"#;
+        assert_eq!(decode("", reasoning).unwrap().query, "select 1");
     }
 }

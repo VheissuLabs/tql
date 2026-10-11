@@ -235,7 +235,23 @@ fn paged(items: Vec<Value>, params: &Value) -> Result<(Vec<Value>, Option<String
         .unwrap_or(PER_PAGE);
     let total = items.len();
     let page: Vec<Value> = items.into_iter().skip(offset).take(per_page).collect();
-    let next = (offset + per_page < total)
-        .then(|| STANDARD.encode(json!({ "offset": offset + per_page }).to_string()));
+    let following = offset.saturating_add(per_page);
+    let next =
+        (following < total).then(|| STANDARD.encode(json!({ "offset": following }).to_string()));
     Ok((page, next))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn a_cursor_past_the_end_gives_an_empty_last_page() {
+        let cursor = STANDARD.encode(json!({ "offset": u64::MAX }).to_string());
+        let Ok((page, next)) = paged(vec![json!(1), json!(2)], &json!({ "cursor": cursor })) else {
+            panic!("the cursor was refused");
+        };
+        assert!(page.is_empty());
+        assert_eq!(next, None);
+    }
 }
