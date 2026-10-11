@@ -405,8 +405,8 @@ impl Tui for Browser {
         }
         let (row_offset, column_offset) =
             settings::with(|settings| (settings.mouse_row_offset, settings.mouse_column_offset));
-        let column = (mouse.column as i64 - column_offset).max(0) as u16;
-        let row = (mouse.row as i64 - row_offset).max(0) as u16;
+        let column = (i64::from(mouse.column) - column_offset).clamp(0, i64::from(u16::MAX)) as u16;
+        let row = (i64::from(mouse.row) - row_offset).clamp(0, i64::from(u16::MAX)) as u16;
 
         if self.problem.is_some()
             || self.palette.is_some()

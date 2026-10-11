@@ -213,18 +213,48 @@ the tables it brings over. Tables it does not bring over are left alone.
 }
 
 fn same_place(source: &Connection, target: &Connection) -> bool {
+    let engine = |connection: &Connection| match connection.driver.as_str() {
+        "mariadb" => "mysql".to_string(),
+        driver => driver.to_string(),
+    };
     let place = |connection: &Connection| match connection.driver.as_str() {
-        "sqlite" => vec![paths::expand(
-            connection.database.as_deref().unwrap_or_default(),
-        )],
-        _ => vec![
-            connection.host.clone().unwrap_or_default(),
-            connection.port.unwrap_or_default().to_string(),
-            connection.ssh_host.clone().unwrap_or_default(),
+        "sqlite" => {
+            let path = paths::expand(connection.database.as_deref().unwrap_or_default());
+            vec![
+                fs::canonicalize(&path)
+                    .map(|path| path.display().to_string())
+                    .unwrap_or(path),
+            ]
+        }
+        driver => vec![
+            match connection
+                .host
+                .as_deref()
+                .unwrap_or_default()
+                .trim()
+                .to_lowercase()
+                .as_str()
+            {
+                "" | "localhost" | "127.0.0.1" | "::1" => "127.0.0.1".to_string(),
+                host => host.to_string(),
+            },
+            connection
+                .port
+                .unwrap_or(match driver {
+                    "pgsql" => 5432,
+                    "sqlsrv" => 1433,
+                    _ => 3306,
+                })
+                .to_string(),
+            connection
+                .ssh_host
+                .clone()
+                .unwrap_or_default()
+                .to_lowercase(),
             dump::active_database(connection),
         ],
     };
-    source.driver == target.driver && place(source) == place(target)
+    engine(source) == engine(target) && place(source) == place(target)
 }
 
 fn label(connection: &Connection) -> String {
@@ -251,4 +281,39 @@ fn directory(cmd: &Cmd, saved: &Saved, source: &Connection) -> anyhow::Result<Pa
         dump::slug(&subject, "sync"),
         dumps::stamp()
     )))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn server(driver: &str, host: Option<&str>, port: Option<u16>) -> Connection {
+        Connection {
+            driver: driver.to_string(),
+            host: host.map(String::from),
+            port,
+            database: Some("app".to_string()),
+            ..Connection::sqlite("server", "")
+        }
+    }
+
+    #[test]
+    fn knows_the_same_server_however_it_is_written() {
+        assert!(same_place(
+            &server("mysql", Some("localhost"), None),
+            &server("mariadb", Some("127.0.0.1"), Some(3306)),
+        ));
+        assert!(same_place(
+            &server("pgsql", None, Some(5432)),
+            &server("pgsql", Some("LOCALHOST"), None),
+        ));
+        assert!(!same_place(
+            &server("mysql", Some("localhost"), Some(3307)),
+            &server("mysql", Some("localhost"), None),
+        ));
+        assert!(!same_place(
+            &server("mysql", Some("db.example.test"), None),
+            &server("mysql", Some("localhost"), None),
+        ));
+    }
 }

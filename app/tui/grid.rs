@@ -297,7 +297,7 @@ impl Grid<'_> {
 
     fn scroll(&self, all: &[usize], available: usize) -> usize {
         if self.locked {
-            return self.column_offset;
+            return self.column_offset.min(all.len().saturating_sub(1));
         }
         let mut offset = self.column_offset.min(self.column_index);
         while offset < self.column_index {
