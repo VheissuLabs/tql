@@ -69,7 +69,7 @@ jobs:
 
       - name: Check the Linux binary needs nothing
         if: runner.os == 'Linux'
-        run: file ${{ matrix.asset }} | tee /dev/stderr | grep -q 'statically linked'
+        run: file ${{ matrix.asset }} | tee /dev/stderr | grep -qE 'statically linked|static-pie linked'
 
       - uses: actions/upload-artifact@v4
         with:
