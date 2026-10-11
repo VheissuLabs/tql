@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anyhow::{anyhow, bail};
 use serde_json::{Value, json};
 
 use super::{Question, Wire, schema};
@@ -165,7 +166,7 @@ pub fn request(question: &Question) -> Request {
     }
 }
 
-pub fn send(question: &Question) -> Result<Replied, String> {
+pub fn send(question: &Question) -> anyhow::Result<Replied> {
     let request = request(question);
     let provider = &question.provider;
     let agent = ureq::Agent::config_builder()
@@ -180,7 +181,7 @@ pub fn send(question: &Question) -> Result<Replied, String> {
     for (name, value) in &request.headers {
         pending = pending.header(*name, value);
     }
-    let unreachable = || format!("Could not connect to AI provider [{}].", provider.name);
+    let unreachable = || anyhow!("Could not connect to AI provider [{}].", provider.name);
     let response = pending
         .send(request.body.to_string())
         .map_err(|_| unreachable())?;
@@ -192,7 +193,7 @@ pub fn send(question: &Question) -> Result<Replied, String> {
     replied(provider, status, &body)
 }
 
-pub fn replied(provider: &super::Provider, status: u16, body: &str) -> Result<Replied, String> {
+pub fn replied(provider: &super::Provider, status: u16, body: &str) -> anyhow::Result<Replied> {
     let name = &provider.name;
     let data: Value = serde_json::from_str(body).unwrap_or(Value::Null);
     if status >= 400 {
@@ -205,7 +206,7 @@ pub fn replied(provider: &super::Provider, status: u16, body: &str) -> Result<Re
             .as_str()
             .unwrap_or_default()
             .to_lowercase();
-        return Err(match status {
+        bail!(match status {
             429 => format!("Application rate limited by AI provider [{name}]."),
             402 => format!("AI provider [{name}] has insufficient credits or quota."),
             status if overloaded.contains(&status) => {
@@ -222,7 +223,7 @@ pub fn replied(provider: &super::Provider, status: u16, body: &str) -> Result<Re
         });
     }
     if let Some(error) = refused(provider, &data) {
-        return Err(error);
+        bail!(error);
     }
     Ok(match provider.wire {
         Wire::Anthropic => Replied {

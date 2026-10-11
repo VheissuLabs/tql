@@ -3,6 +3,7 @@ use std::io::{self, BufRead, IsTerminal, Write};
 use std::path::PathBuf;
 use std::process::ExitCode;
 
+use anyhow::{Context, bail};
 use clap::{Arg, ArgAction};
 
 use crate::console::command::Exit;
@@ -156,7 +157,7 @@ impl Application {
         let signatures = match self.signatures() {
             Ok(signatures) => signatures,
             Err(message) => {
-                let _ = writeln!(err, "{message}");
+                let _ = writeln!(err, "{message:#}");
                 return 1;
             }
         };
@@ -288,18 +289,18 @@ impl Application {
         1
     }
 
-    fn signatures(&self) -> Result<Vec<Signature>, String> {
+    fn signatures(&self) -> anyhow::Result<Vec<Signature>> {
         let mut signatures: Vec<Signature> = Vec::new();
 
         for command in &self.commands {
-            let signature = Signature::parse(command.signature())
-                .map_err(|error| format!("Invalid command signature: {error}"))?;
+            let signature =
+                Signature::parse(command.signature()).context("Invalid command signature")?;
 
             if signatures
                 .iter()
                 .any(|existing| existing.name == signature.name)
             {
-                return Err(format!("Command `{}` is registered twice", signature.name));
+                bail!("Command `{}` is registered twice", signature.name);
             }
 
             let reserved_option = signature.options.iter().find(|option| {
@@ -309,10 +310,11 @@ impl Application {
                         .is_some_and(|shortcut| RESERVED_SHORTCUTS.contains(&shortcut))
             });
             if let Some(option) = reserved_option {
-                return Err(format!(
+                bail!(
                     "Command `{}` uses the reserved option `{}`",
-                    signature.name, option.name
-                ));
+                    signature.name,
+                    option.name
+                );
             }
 
             signatures.push(signature);

@@ -2,9 +2,9 @@ use std::path::Path;
 
 pub use plist::Value;
 
-pub fn read(path: &Path) -> Result<Value, String> {
+pub fn read(path: &Path) -> anyhow::Result<Value> {
     Value::from_file(path)
-        .map_err(|_| format!("{} is not a property list tql can read.", path.display()))
+        .map_err(|_| anyhow::anyhow!("{} is not a property list tql can read.", path.display()))
 }
 
 pub fn text(value: Option<&Value>) -> String {

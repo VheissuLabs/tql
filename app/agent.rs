@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::Instant;
 
+use anyhow::{Context, anyhow, bail};
 use serde_json::{Map, Value, json};
 
 use crate::database::{self, Column, Database, Kind, Outcome};
@@ -12,8 +13,6 @@ use crate::tui::history::{self, Execution};
 pub const LIMIT: usize = 200;
 
 pub const READ_ONLY: &str = "Only read-only statements are allowed here: select, show, explain, describe, pragma or with, one at a time. Change data in the tql interface.";
-
-pub type Answer = Result<Value, String>;
 
 pub struct Agent {
     store: PathBuf,
@@ -32,7 +31,7 @@ impl Agent {
         &self.store
     }
 
-    pub fn connections(&self) -> Answer {
+    pub fn connections(&self) -> anyhow::Result<Value> {
         let listed: Vec<Value> = self
             .saved()?
             .into_iter()
@@ -49,24 +48,27 @@ impl Agent {
         Ok(Value::Array(listed))
     }
 
-    pub fn tables(&self, name: Option<&str>, on: Option<&str>) -> Answer {
+    pub fn tables(&self, name: Option<&str>, on: Option<&str>) -> anyhow::Result<Value> {
         let connection = self.connection(name, on)?;
         let tables = self
             .open(&connection)
             .and_then(|mut database| database.tables())
-            .map_err(|error| format!("Could not read the schema: {error:#}"))?;
+            .context("Could not read the schema")?;
         Ok(json!({ "connection": connection.name, "tables": tables }))
     }
 
-    pub fn describe(&self, name: Option<&str>, table: &str, on: Option<&str>) -> Answer {
+    pub fn describe(
+        &self,
+        name: Option<&str>,
+        table: &str,
+        on: Option<&str>,
+    ) -> anyhow::Result<Value> {
         let connection = self.connection(name, on)?;
-        let failed = |error: anyhow::Error| format!("Could not describe [{table}]: {error:#}");
-        let mut database = self.open(&connection).map_err(failed)?;
-        let columns = database.columns(table).map_err(failed)?;
+        let failed = || format!("Could not describe [{table}]");
+        let mut database = self.open(&connection).with_context(failed)?;
+        let columns = database.columns(table).with_context(failed)?;
         if columns.is_empty() {
-            return Err(format!(
-                "Table [{table}] has no columns, or does not exist."
-            ));
+            bail!("Table [{table}] has no columns, or does not exist.");
         }
         let primary_key = database
             .indexes(table)
@@ -87,11 +89,11 @@ impl Agent {
         source: &str,
         on: Option<&str>,
         limit: usize,
-    ) -> Answer {
+    ) -> anyhow::Result<Value> {
         let connection = self.connection(name, on)?;
         let statement = statement.trim();
         if !database::is_read_only(statement) {
-            return Err(READ_ONLY.to_string());
+            bail!(READ_ONLY);
         }
 
         let started = Instant::now();
@@ -114,7 +116,7 @@ impl Agent {
                 duration_ms,
             },
         );
-        let outcome = ran.map_err(|error| format!("{error:#}"))?;
+        let outcome = ran?;
 
         let shown = limit.max(1);
         let total = outcome.rows.len();
@@ -127,16 +129,14 @@ impl Agent {
         }))
     }
 
-    pub fn saved(&self) -> Result<Vec<Connection>, String> {
-        StoreWriter::prepare(&self.store).map_err(|error| format!("{error:#}"))?;
-        let mut connections = Store::open(&self.store)
-            .and_then(|store| store.connections())
-            .map_err(|error| format!("{error:#}"))?;
+    pub fn saved(&self) -> anyhow::Result<Vec<Connection>> {
+        StoreWriter::prepare(&self.store)?;
+        let mut connections = Store::open(&self.store).and_then(|store| store.connections())?;
         connections.sort_by(|left, right| left.name.cmp(&right.name));
         Ok(connections)
     }
 
-    fn connection(&self, name: Option<&str>, on: Option<&str>) -> Result<Connection, String> {
+    fn connection(&self, name: Option<&str>, on: Option<&str>) -> anyhow::Result<Connection> {
         let saved = self.saved()?;
         let found = name.and_then(|name| saved.iter().find(|connection| connection.name == name));
         let Some(connection) = found else {
@@ -144,7 +144,7 @@ impl Agent {
                 .iter()
                 .map(|connection| connection.name.as_str())
                 .collect();
-            return Err(format!(
+            return Err(anyhow!(
                 "There is no tql connection named [{}]. Known connections: {}",
                 name.unwrap_or_default(),
                 known.join(", ")

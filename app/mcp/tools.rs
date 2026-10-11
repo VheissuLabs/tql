@@ -126,7 +126,7 @@ impl Tool {
         })
     }
 
-    pub fn call(&self, agent: &Agent, arguments: &Value) -> Result<String, String> {
+    pub fn call(&self, agent: &Agent, arguments: &Value) -> anyhow::Result<String> {
         let text = |name: &str| arguments[name].as_str();
         let pretty = |answer: Value| agent::pretty(&answer);
         match self {
@@ -158,7 +158,7 @@ impl Tool {
                 let screen =
                     live::read_screen(&live::directory(), text("connection").unwrap_or_default())?;
                 match screen["refused"].as_str() {
-                    Some(refusal) => Err(refusal.to_string()),
+                    Some(refusal) => Err(anyhow::anyhow!(refusal.to_string())),
                     None => Ok(pretty(screen)),
                 }
             }

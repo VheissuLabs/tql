@@ -4,6 +4,8 @@ pub mod plist;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 
+use anyhow::{anyhow, bail};
+
 use self::plist::Value;
 use crate::paths;
 use crate::store_writer::{Field, Fields, StoreWriter};
@@ -40,16 +42,16 @@ pub fn find() -> Option<PathBuf> {
         .find(|directory| directory.join("Connections.plist").is_file())
 }
 
-pub fn plan(directory: &Path, writer: &StoreWriter) -> Result<Vec<Entry>, String> {
+pub fn plan(directory: &Path, writer: &StoreWriter) -> anyhow::Result<Vec<Entry>> {
     let listed = directory.join("Connections.plist");
     if !listed.is_file() {
-        return Err(format!(
+        bail!(
             "{} has no Connections.plist; point --from at the TablePlus Data folder.",
             directory.display()
-        ));
+        );
     }
     let not_a_list = || {
-        format!(
+        anyhow!(
             "{}/Connections.plist does not list any connections.",
             directory.display()
         )
@@ -64,9 +66,7 @@ pub fn plan(directory: &Path, writer: &StoreWriter) -> Result<Vec<Entry>, String
     entries
         .iter()
         .map(|entry| match entry {
-            Value::Dictionary(entry) => {
-                planned(entry, &groups, writer).map_err(|error| format!("{error:#}"))
-            }
+            Value::Dictionary(entry) => planned(entry, &groups, writer),
             _ => Err(not_a_list()),
         })
         .collect()
@@ -76,7 +76,7 @@ pub fn import(
     plan: Vec<Entry>,
     with_passwords: bool,
     writer: &StoreWriter,
-) -> Result<Vec<Entry>, String> {
+) -> anyhow::Result<Vec<Entry>> {
     plan.into_iter()
         .map(|mut entry| {
             if entry.skip.is_some() {
@@ -87,13 +87,9 @@ pub fn import(
                 fields.extend(passwords(&entry));
             }
             entry.password = Some(password_state(&entry, &fields, with_passwords).to_string());
-            let name = writer
-                .free_name(&entry.name)
-                .map_err(|error| format!("{error:#}"))?;
+            let name = writer.free_name(&entry.name)?;
             fields.push(("name", Field::Text(name.clone())));
-            writer
-                .create(&fields)
-                .map_err(|error| format!("{error:#}"))?;
+            writer.create(&fields)?;
             entry.name = name;
             Ok(entry)
         })
@@ -275,7 +271,7 @@ fn key_path(name: &str) -> Option<String> {
     Path::new(&paths::expand(&path)).is_file().then_some(path)
 }
 
-fn groups(directory: &Path) -> Result<HashMap<String, String>, String> {
+fn groups(directory: &Path) -> anyhow::Result<HashMap<String, String>> {
     let path = directory.join("ConnectionGroups.plist");
     if !path.is_file() {
         return Ok(HashMap::new());

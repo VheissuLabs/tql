@@ -153,7 +153,7 @@ impl Server {
         };
         let (text, failed) = match tool.call(&self.agent, &params["arguments"]) {
             Ok(text) => (text, false),
-            Err(text) => (text, true),
+            Err(error) => (format!("{error:#}"), true),
         };
         Ok(self.complete(
             json!({ "content": [{ "type": "text", "text": text }], "isError": failed }),

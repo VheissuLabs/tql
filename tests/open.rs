@@ -78,7 +78,7 @@ fn refuses_a_file_that_is_not_a_database() {
     fs::write(&text, "just some text").unwrap();
 
     assert_eq!(
-        opener::target(&text.display().to_string()),
+        opener::target(&text.display().to_string()).map_err(|error| error.to_string()),
         Err("notes.txt is not a SQLite database.".to_string())
     );
 }
@@ -86,7 +86,7 @@ fn refuses_a_file_that_is_not_a_database() {
 #[test]
 fn refuses_a_file_that_is_not_there() {
     assert_eq!(
-        opener::target("/tmp/definitely-not-here.sqlite"),
+        opener::target("/tmp/definitely-not-here.sqlite").map_err(|error| error.to_string()),
         Err("No such file: /tmp/definitely-not-here.sqlite".to_string())
     );
 }
@@ -94,7 +94,7 @@ fn refuses_a_file_that_is_not_there() {
 #[test]
 fn refuses_a_scheme_it_does_not_understand() {
     assert_eq!(
-        opener::target("redis://localhost"),
+        opener::target("redis://localhost").map_err(|error| error.to_string()),
         Err("That connection string is not one I understand.".to_string())
     );
 }

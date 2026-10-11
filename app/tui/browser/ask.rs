@@ -12,7 +12,7 @@ const WAITING: &str = "asking…    esc cancels";
 
 enum Waiting {
     Preparing(String),
-    Answering(Receiver<Result<Answer, String>>),
+    Answering(Receiver<anyhow::Result<Answer>>),
 }
 
 pub struct Question {
@@ -104,7 +104,9 @@ impl Browser {
                     false
                 }
                 Err(TryRecvError::Disconnected) => {
-                    self.answered(Err("the model did not answer with a query".to_string()));
+                    self.answered(Err(anyhow::anyhow!(
+                        "the model did not answer with a query"
+                    )));
                     true
                 }
             },
@@ -142,12 +144,12 @@ impl Browser {
         }
     }
 
-    fn answered(&mut self, answer: Result<Answer, String>) {
+    fn answered(&mut self, answer: anyhow::Result<Answer>) {
         let answer = match answer {
             Ok(answer) => answer,
             Err(message) => {
                 return self.say(
-                    single_line(&message)
+                    single_line(&format!("{message:#}"))
                         .split_whitespace()
                         .collect::<Vec<_>>()
                         .join(" "),

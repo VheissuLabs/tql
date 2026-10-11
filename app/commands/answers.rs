@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use crate::agent::{self, Agent, Answer};
+use crate::agent::{self, Agent};
 use crate::console::prelude::*;
 use crate::paths;
 
@@ -8,10 +8,14 @@ pub fn agent() -> Agent {
     Agent::new(paths::store(), paths::key())
 }
 
-pub fn answer(cmd: &mut Cmd, produced: Answer, draw: impl FnOnce(&mut Cmd, &Value)) -> Result {
+pub fn answer(
+    cmd: &mut Cmd,
+    produced: anyhow::Result<Value>,
+    draw: impl FnOnce(&mut Cmd, &Value),
+) -> Result {
     let answer = match produced {
         Ok(answer) => answer,
-        Err(refusal) => return refuse(cmd, refusal),
+        Err(refusal) => return refuse(cmd, format!("{refusal:#}")),
     };
     match wants_json(cmd) {
         true => cmd.line(agent::pretty(&answer)),

@@ -42,7 +42,7 @@ fn open(cmd: &mut Cmd) -> Result {
     let target = match opener::target(cmd.argument("path").unwrap_or_default()) {
         Ok(target) => target,
         Err(refusal) => {
-            cmd.error(refusal);
+            cmd.error(format!("{refusal:#}"));
             return exit(1);
         }
     };

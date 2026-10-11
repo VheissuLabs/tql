@@ -2,7 +2,7 @@ use std::fs::{self, File};
 use std::io::Read;
 use std::path::Path;
 
-use anyhow::Context;
+use anyhow::{Context, anyhow, bail};
 
 use crate::dsn::{self, Dsn};
 use crate::encrypter::Encrypter;
@@ -26,22 +26,22 @@ pub fn refuse_tag(tag: Option<&str>) -> Option<String> {
     ))
 }
 
-pub fn target(path: &str) -> Result<Dsn, String> {
+pub fn target(path: &str) -> anyhow::Result<Dsn> {
     if dsn::looks_like_one(path) {
         return dsn::parse(path)
-            .ok_or("That connection string is not one I understand.".to_string());
+            .ok_or_else(|| anyhow!("That connection string is not one I understand."));
     }
 
     let file = Path::new(path);
     if !file.is_file() {
-        return Err(format!("No such file: {path}"));
+        bail!("No such file: {path}");
     }
     let name = file
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default();
     if !looks_like_sqlite(file) {
-        return Err(format!("{name} is not a SQLite database."));
+        bail!("{name} is not a SQLite database.");
     }
     Ok(Dsn {
         name,

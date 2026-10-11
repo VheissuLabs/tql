@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::{Duration, Instant, SystemTime};
 
+use anyhow::{Context, anyhow, bail};
 use serde_json::{Value, json};
 
 use crate::paths;
@@ -128,7 +129,7 @@ fn open_ones(directory: &Path) -> Vec<Open> {
         .collect()
 }
 
-fn chosen(directory: &Path, connection: &str) -> Result<Open, String> {
+fn chosen(directory: &Path, connection: &str) -> anyhow::Result<Open> {
     let mut open = open_ones(directory);
     let mut elsewhere: Vec<String> = open.iter().map(|open| open.connection.clone()).collect();
     open.retain(|open| open.connection == connection);
@@ -137,7 +138,7 @@ fn chosen(directory: &Path, connection: &str) -> Result<Open, String> {
     }
     elsewhere.sort();
     elsewhere.dedup();
-    Err(match elsewhere.is_empty() {
+    Err(anyhow!(match elsewhere.is_empty() {
         true => {
             format!("tql is not open. Ask the user to open [{connection}] in tql, then try again.")
         }
@@ -145,42 +146,38 @@ fn chosen(directory: &Path, connection: &str) -> Result<Open, String> {
             "No tql is open on [{connection}]. tql is open on: {}",
             elsewhere.join(", ")
         ),
-    })
+    }))
 }
 
-pub fn read_screen(directory: &Path, connection: &str) -> Result<Value, String> {
+pub fn read_screen(directory: &Path, connection: &str) -> anyhow::Result<Value> {
     let chosen = chosen(directory, connection)?;
     let request = chosen.mailbox.with_extension("ask");
     let reply = chosen.mailbox.with_extension("screen");
     let _ = fs::remove_file(&reply);
-    fs::write(&request, "")
-        .map_err(|error| format!("Could not ask tql for its screen: {error}"))?;
+    fs::write(&request, "").context("Could not ask tql for its screen")?;
 
     let started = Instant::now();
     while started.elapsed() < WAIT_FOR_PICKUP {
         if let Ok(answer) = fs::read_to_string(&reply) {
             let _ = fs::remove_file(&reply);
-            return serde_json::from_str(&answer)
-                .map_err(|error| format!("tql answered with something unreadable: {error}"));
+            return serde_json::from_str(&answer).context("tql answered with something unreadable");
         }
         std::thread::sleep(LOOK_EVERY);
     }
     let _ = fs::remove_file(&request);
-    Err(format!(
-        "tql on [{connection}] did not answer; it may be busy. Try again in a moment."
-    ))
+    bail!("tql on [{connection}] did not answer; it may be busy. Try again in a moment.")
 }
 
-pub fn deliver(directory: &Path, connection: &str, sql: &str) -> Result<String, String> {
+pub fn deliver(directory: &Path, connection: &str, sql: &str) -> anyhow::Result<String> {
     if sql.trim().is_empty() {
-        return Err("Give the SQL to put in the editor.".to_string());
+        bail!("Give the SQL to put in the editor.");
     }
     let chosen = chosen(directory, connection)?;
 
     let unread = chosen.mailbox.with_extension("sql.new");
     fs::write(&unread, sql)
         .and_then(|()| fs::rename(&unread, &chosen.mailbox))
-        .map_err(|error| format!("Could not hand the SQL to tql: {error}"))?;
+        .context("Could not hand the SQL to tql")?;
 
     let started = Instant::now();
     while started.elapsed() < WAIT_FOR_PICKUP {

@@ -183,6 +183,7 @@ fn wait(fake: &mut Fake<Browser>) {
 
 fn prepared(settings: &Settings, pairs: &[(&str, &str)]) -> Result<ai::Question, String> {
     ai::prepare(&settings.ai, &environment(pairs), "sqlite", "SCHEMA", "Q?")
+        .map_err(|error| format!("{error:#}"))
 }
 
 #[test]
@@ -585,7 +586,7 @@ fn every_provider_is_asked_the_way_tql_asked_it() {
             );
         }
         assert_eq!(
-            answer.err().as_deref(),
+            answer.err().map(|error| format!("{error:#}")).as_deref(),
             Some(
                 "the model could not be reached: HTTP request returned status code 500:\n{\"nope\":1}\n"
             ),
@@ -700,7 +701,7 @@ fn says_what_went_wrong_in_the_providers_words() {
         let question = prepared(&local(&server), &[]).unwrap();
 
         assert_eq!(
-            ai::ask(&question).err().unwrap(),
+            format!("{:#}", ai::ask(&question).err().unwrap()),
             format!("the model could not be reached: {said}")
         );
     }
@@ -715,7 +716,7 @@ fn says_so_when_the_endpoint_is_not_there() {
     let question = prepared(&settings, &[]).unwrap();
 
     assert_eq!(
-        ai::ask(&question).err().unwrap(),
+        format!("{:#}", ai::ask(&question).err().unwrap()),
         "the model could not be reached: Could not connect to AI provider [tql-local]."
     );
 }
@@ -726,7 +727,7 @@ fn says_so_when_the_model_answers_with_no_query() {
     let question = prepared(&local(&server), &[]).unwrap();
 
     assert_eq!(
-        ai::ask(&question).err().unwrap(),
+        format!("{:#}", ai::ask(&question).err().unwrap()),
         "the model did not answer with a query"
     );
 }

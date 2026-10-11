@@ -1,3 +1,4 @@
+use anyhow::{Context, anyhow};
 use serde_json::{Value, json};
 
 use crate::database::Column;
@@ -34,8 +35,8 @@ pub fn prepare(
     driver: &str,
     schema: &str,
     question: &str,
-) -> Result<Question, String> {
-    let provider = chosen(settings, environment).ok_or_else(|| missing(settings))?;
+) -> anyhow::Result<Question> {
+    let provider = chosen(settings, environment).ok_or_else(|| anyhow!(missing(settings)))?;
     Ok(Question {
         model: model(settings, &provider.name),
         provider,
@@ -45,11 +46,10 @@ pub fn prepare(
     })
 }
 
-pub fn ask(question: &Question) -> Result<Answer, String> {
-    let replied =
-        send(question).map_err(|error| format!("the model could not be reached: {error}"))?;
+pub fn ask(question: &Question) -> anyhow::Result<Answer> {
+    let replied = send(question).context("the model could not be reached")?;
     decode(&replied.text, &replied.reasoning)
-        .ok_or_else(|| "the model did not answer with a query".to_string())
+        .ok_or_else(|| anyhow!("the model did not answer with a query"))
 }
 
 pub fn missing(settings: &Ai) -> String {

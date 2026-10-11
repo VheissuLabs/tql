@@ -58,7 +58,6 @@ is safe.
         let with_passwords = !cmd.flag("without-passwords");
         let results = StoreWriter::prepare(&paths::store())
             .and_then(|()| StoreWriter::open(&paths::store(), &paths::key()))
-            .map_err(|error| format!("{error:#}"))
             .and_then(|writer| {
                 let plan = tableplus::plan(&directory, &writer)?;
                 match dry_run {
@@ -68,7 +67,7 @@ is safe.
             });
         let results = match results {
             Ok(results) => results,
-            Err(refusal) => return refuse(cmd, &refusal),
+            Err(refusal) => return refuse(cmd, &format!("{refusal:#}")),
         };
 
         match answers::wants_json(cmd) {

@@ -443,17 +443,17 @@ fn says_which_connections_are_open_when_the_named_one_is_not() {
     let scratch = Scratch::shop("write-sql-elsewhere");
 
     assert_eq!(
-        live::deliver(&scratch.live(), "shop", "select 1"),
+        live::deliver(&scratch.live(), "shop", "select 1").map_err(|error| format!("{error:#}")),
         Err("tql is not open. Ask the user to open [shop] in tql, then try again.".to_string())
     );
 
     let _open = Live::register(&scratch.live(), "warehouse");
     assert_eq!(
-        live::deliver(&scratch.live(), "shop", "select 1"),
+        live::deliver(&scratch.live(), "shop", "select 1").map_err(|error| format!("{error:#}")),
         Err("No tql is open on [shop]. tql is open on: warehouse".to_string())
     );
     assert_eq!(
-        live::deliver(&scratch.live(), "warehouse", "  "),
+        live::deliver(&scratch.live(), "warehouse", "  ").map_err(|error| format!("{error:#}")),
         Err("Give the SQL to put in the editor.".to_string())
     );
 }
@@ -515,7 +515,10 @@ fn read_while(fake: &mut Fake<Browser>, directory: &Path) -> Result<Value, Strin
         fake.settle();
         thread::sleep(Duration::from_millis(10));
     }
-    reading.join().unwrap()
+    reading
+        .join()
+        .unwrap()
+        .map_err(|error| format!("{error:#}"))
 }
 
 #[test]
