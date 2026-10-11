@@ -157,20 +157,14 @@ fn centred(frame_width: u16, box_width: u16) -> u16 {
 
 fn typing(text: &str, cursor: usize, room: usize) -> Vec<Span<'static>> {
     let characters: Vec<char> = text.chars().collect();
-    let start = (cursor + 1).saturating_sub(room);
-    let mut visible: Vec<char> = characters.iter().skip(start).take(room).copied().collect();
-    if start > 0
-        && let Some(first) = visible.first_mut()
-    {
-        *first = '…';
-    }
-    let at = cursor - start;
-    let before: String = visible.iter().take(at).collect();
-    let under = visible.get(at).map_or(" ".to_string(), char::to_string);
-    let after: String = visible.iter().skip(at + 1).collect();
+    let typed = crate::tui::text::typed(&characters, cursor, room);
+    let before = match typed.scrolled {
+        true => format!("…{}", typed.before.chars().skip(1).collect::<String>()),
+        false => typed.before,
+    };
     vec![
         Span::raw(before),
-        Span::styled(under, Style::new().add_modifier(Modifier::REVERSED)),
-        Span::raw(after),
+        Span::styled(typed.under, Style::new().add_modifier(Modifier::REVERSED)),
+        Span::raw(typed.after),
     ]
 }

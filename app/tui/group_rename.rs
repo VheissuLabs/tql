@@ -55,18 +55,8 @@ impl GroupRename {
         let box_width = frame_width.saturating_sub(4).clamp(20, 50);
         let room = box_width.saturating_sub(6) as usize;
         let characters: Vec<char> = self.editor.buffer().chars().collect();
-        let cursor = self.editor.cursor().min(characters.len());
-        let start = cursor.saturating_sub(room.saturating_sub(1));
-        let before: String = characters[start..cursor].iter().collect();
-        let under: String = characters
-            .get(cursor)
-            .map(|character| character.to_string())
-            .unwrap_or_else(|| " ".to_string());
-        let after: String = characters
-            .iter()
-            .skip(cursor + 1)
-            .take(room.saturating_sub(before.chars().count() + 1))
-            .collect();
+        let typed = super::text::typed(&characters, self.editor.cursor(), room);
+        let (before, under, after) = (typed.before, typed.under, typed.after);
 
         let mut content = vec![
             Line::from(vec![

@@ -1,9 +1,11 @@
+use unicode_width::UnicodeWidthChar;
+
 use crate::terminal::prelude::*;
 
 use super::chrome::{Island, theme};
 use super::editor::QueryEditor;
 use super::json;
-use super::text::{pad, window};
+use super::text::{pad, width, window};
 
 pub const WIDTH: usize = 76;
 
@@ -18,11 +20,7 @@ pub struct ValueView<'a> {
 impl ValueView<'_> {
     pub fn natural_width(&self) -> usize {
         let lines = self.buffer.lines();
-        let longest = lines
-            .iter()
-            .map(|line| line.chars().count())
-            .max()
-            .unwrap_or(0);
+        let longest = lines.iter().map(|line| width(line)).max().unwrap_or(0);
         WIDTH.max(longest + gutter(lines.len()) + 7)
     }
 
@@ -101,13 +99,19 @@ impl ValueView<'_> {
                 };
                 text.chars().map(move |character| (character, style))
             })
-            .take(room)
+            .scan(0, |used, (character, style)| {
+                *used += character.width().unwrap_or(0);
+                (*used <= room).then_some((character, style))
+            })
             .collect();
 
-        let length = characters.len();
+        let used: usize = characters
+            .iter()
+            .map(|(character, _)| character.width().unwrap_or(0))
+            .sum();
         match (cursor, cursor.and_then(|cursor| characters.get_mut(cursor))) {
             (_, Some((_, style))) => *style = theme::cursor(),
-            (Some(_), None) if length < room => characters.push((' ', theme::cursor())),
+            (Some(_), None) if used < room => characters.push((' ', theme::cursor())),
             _ => {}
         }
 

@@ -37,6 +37,39 @@ pub fn window(cursor: usize, total: usize, room: usize) -> usize {
     cursor.saturating_sub(room / 2).min(total - room)
 }
 
+pub struct Typed {
+    pub before: String,
+    pub under: String,
+    pub after: String,
+    pub used: usize,
+    pub scrolled: bool,
+}
+
+pub fn typed(characters: &[char], cursor: usize, room: usize) -> Typed {
+    let cursor = cursor.min(characters.len());
+    let shown = |character: &char| character.width().unwrap_or(0);
+    let mut used = characters.get(cursor).map_or(1, shown);
+    let mut start = cursor;
+    while start > 0 && used + shown(&characters[start - 1]) <= room {
+        start -= 1;
+        used += shown(&characters[start]);
+    }
+    let mut end = (cursor + 1).min(characters.len());
+    while end < characters.len() && used + shown(&characters[end]) <= room {
+        used += shown(&characters[end]);
+        end += 1;
+    }
+    Typed {
+        before: characters[start..cursor].iter().collect(),
+        under: characters
+            .get(cursor)
+            .map_or(" ".to_string(), char::to_string),
+        after: characters[(cursor + 1).min(end)..end].iter().collect(),
+        used,
+        scrolled: start > 0,
+    }
+}
+
 pub fn cell(value: Option<&str>) -> String {
     let Some(value) = value else {
         return "NULL".to_string();

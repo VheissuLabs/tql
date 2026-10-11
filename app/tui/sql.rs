@@ -3,6 +3,7 @@ use std::sync::LazyLock;
 
 use crate::terminal::prelude::*;
 use regex::Regex;
+use unicode_width::UnicodeWidthChar;
 
 use super::chrome::theme;
 use super::editor::QueryEditor;
@@ -159,15 +160,38 @@ fn characters(line: &str) -> Painted {
         .collect()
 }
 
+fn columns(characters: &[(&'static str, char)]) -> usize {
+    characters
+        .iter()
+        .map(|(_, character)| character.width().unwrap_or(0))
+        .sum()
+}
+
+fn fitting(characters: &[(&'static str, char)], width: usize) -> usize {
+    let mut used = 0;
+    characters
+        .iter()
+        .take_while(|(_, character)| {
+            used += character.width().unwrap_or(0);
+            used <= width
+        })
+        .count()
+}
+
 fn wrap(characters: &[(&'static str, char)], width: usize) -> Vec<usize> {
     let mut starts = vec![0];
     let mut at = 0;
-    while width > 0 && characters.len() - at > width {
-        let space = characters[at..at + width]
+    while width > 0 {
+        let fits = fitting(&characters[at..], width);
+        if at + fits >= characters.len() {
+            break;
+        }
+        let fits = fits.max(1);
+        let space = characters[at..at + fits]
             .iter()
             .rposition(|(_, character)| *character == ' ');
         at += match space {
-            None | Some(0) => width,
+            None | Some(0) => fits,
             Some(space) => space + 1,
         };
         starts.push(at);
@@ -179,6 +203,7 @@ fn wrap(characters: &[(&'static str, char)], width: usize) -> Vec<usize> {
 pub struct Pane {
     pub lines: Vec<Line<'static>>,
     pub rows: Vec<(usize, usize)>,
+    pub widths: Vec<Vec<usize>>,
     pub first_line: usize,
     pub cursor: (usize, usize),
 }
@@ -189,8 +214,19 @@ impl Pane {
         let Some(last) = self.rows.len().checked_sub(1) else {
             return (self.first_line, column);
         };
-        let (line, from) = self.rows[(local_row.max(0) as usize).min(last)];
-        (line, from + column)
+        let row = (local_row.max(0) as usize).min(last);
+        let (line, from) = self.rows[row];
+        let widths = self.widths.get(row).map(Vec::as_slice).unwrap_or_default();
+        let mut used = 0;
+        let reached = widths
+            .iter()
+            .take_while(|width| {
+                used += **width;
+                used <= column
+            })
+            .count();
+        let beyond = column.saturating_sub(widths.iter().sum());
+        (line, from + reached + beyond)
     }
 }
 
@@ -230,6 +266,7 @@ pub fn pane(
                 .map(|line| paint(&characters(line), inner_width, None, None))
                 .collect(),
             rows: Vec::new(),
+            widths: Vec::new(),
             first_line: 0,
             cursor: (0, 0),
         };
@@ -262,11 +299,25 @@ pub fn pane(
                 paint(&row.characters, inner_width, cursor, selected)
             })
             .collect(),
-        rows: shown.map(|(_, row)| (row.line, row.from)).collect(),
+        rows: shown.clone().map(|(_, row)| (row.line, row.from)).collect(),
+        widths: shown
+            .map(|(_, row)| {
+                row.characters
+                    .iter()
+                    .map(|(_, character)| character.width().unwrap_or(0))
+                    .collect()
+            })
+            .collect(),
         first_line: rows.get(start).map(|row| row.line).unwrap_or_default(),
         cursor: (
             cursor_row - start,
-            cursor_column - rows.get(cursor_row).map(|row| row.from).unwrap_or_default(),
+            rows.get(cursor_row)
+                .map(|row| {
+                    let before = cursor_column.saturating_sub(row.from);
+                    columns(&row.characters[..before.min(row.characters.len())])
+                        + before.saturating_sub(row.characters.len())
+                })
+                .unwrap_or_default(),
         ),
     }
 }
@@ -282,7 +333,7 @@ fn layout(editor: &QueryEditor, inner_width: usize) -> (Vec<Row>, usize) {
         let last_start = starts.last().copied().unwrap_or_default();
         if number == cursor_line
             && cursor_column == characters.len()
-            && characters.len() - last_start >= inner_width
+            && columns(&characters[last_start..]) >= inner_width
         {
             starts.push(characters.len());
         }
@@ -338,7 +389,7 @@ fn paint(
     if !run.is_empty() {
         spans.push(Span::styled(run, style));
     }
-    if cursor.is_some_and(|cursor| cursor >= characters.len()) && characters.len() < width {
+    if cursor.is_some_and(|cursor| cursor >= characters.len()) && columns(characters) < width {
         spans.push(Span::styled(" ", theme::cursor()));
     }
     if cursor.is_none() && characters.is_empty() && is_selected(0) {
@@ -443,6 +494,20 @@ mod tests {
         assert_eq!(rows.len(), 4);
         assert_eq!(rows[0], "[s]elect id, name, ");
         assert_eq!(rows[1], "email from ");
+    }
+
+    #[test]
+    fn wide_characters_take_two_columns_when_wrapping_placing_the_cursor_and_clicking() {
+        let mut editor = QueryEditor::new(false);
+        editor.set("日本語のテキスト");
+        editor.move_to_line_column(0, 3);
+        let laid_out = pane(&editor, None, true, &Marks::default(), (10, 5));
+
+        assert_eq!(laid_out.rows, [(0, 0), (0, 5)]);
+        assert_eq!(laid_out.cursor, (0, 6));
+        assert_eq!(laid_out.position_at(0, 4), (0, 2));
+        assert_eq!(laid_out.position_at(0, 5), (0, 2));
+        assert_eq!(laid_out.position_at(1, 2), (0, 6));
     }
 
     #[test]

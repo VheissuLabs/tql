@@ -75,24 +75,16 @@ impl LineEditor {
     }
 
     fn windowed(&self, room: usize) -> Vec<Span<'static>> {
-        let start = (self.cursor + 1).saturating_sub(room);
-        let shown: Vec<char> = self
-            .characters
-            .iter()
-            .skip(start)
-            .take(room)
-            .copied()
-            .collect();
-        let at = self.cursor - start;
-        let before: String = shown.iter().take(at).collect();
-        let under = shown.get(at).map_or(" ".to_string(), char::to_string);
-        let after: String = shown.iter().skip(at + 1).collect();
-        let used = shown.len().max(at + 1);
+        let typed = super::text::typed(&self.characters, self.cursor, room);
         vec![
-            Span::styled(before, theme::dim()),
-            Span::styled(under, theme::cursor()),
+            Span::styled(typed.before, theme::dim()),
+            Span::styled(typed.under, theme::cursor()),
             Span::styled(
-                format!("{after}{}", " ".repeat(room.saturating_sub(used))),
+                format!(
+                    "{}{}",
+                    typed.after,
+                    " ".repeat(room.saturating_sub(typed.used))
+                ),
                 theme::dim(),
             ),
         ]

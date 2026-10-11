@@ -5,7 +5,7 @@ use super::chrome::theme;
 use super::editor::QueryEditor;
 use super::json;
 use super::now;
-use super::text::{pad, truncate, window};
+use super::text::{pad, truncate, width, window};
 use crate::database::{Column, ColumnDefault, Named, Values};
 use crate::settings;
 
@@ -188,9 +188,7 @@ impl RecordForm {
     }
 
     pub fn room(&self, field: &Field) -> usize {
-        self.width
-            .saturating_sub(4 + label(field).chars().count())
-            .max(8)
+        self.width.saturating_sub(4 + width(&label(field))).max(8)
     }
 
     pub fn start(&mut self) {
@@ -205,8 +203,7 @@ impl RecordForm {
 
         let text = self.value(&field.name).unwrap_or_default().to_string();
         self.json = json::looks_like_json(Some(&text));
-        self.expanded =
-            self.json || text.contains('\n') || text.chars().count() >= self.room(&field);
+        self.expanded = self.json || text.contains('\n') || width(&text) >= self.room(&field);
         let mut editor = QueryEditor::holding(&if self.json { json::pretty(&text) } else { text });
         if self.json {
             editor.move_to_start();
@@ -332,9 +329,9 @@ impl RecordForm {
                 let shown = if value.contains('\n') {
                     0
                 } else {
-                    value.chars().count()
+                    width(value)
                 };
-                label(field).chars().count() + shown.max(field.hint.chars().count()) + 1
+                width(&label(field)) + shown.max(width(&field.hint)) + 1
             })
             .max()
             .unwrap_or(0);
@@ -460,26 +457,23 @@ fn label(field: &Field) -> String {
 
 fn clamp(value: &str, room: usize) -> String {
     let line = value.replace('\n', " ");
-    if line.chars().count() <= room && !value.contains('\n') {
+    if width(&line) <= room && !value.contains('\n') {
         return line;
     }
-    let kept: String = line.chars().take(room.saturating_sub(3).max(1)).collect();
-    format!("{kept}… ↗")
+    let kept = truncate(&line, room.saturating_sub(2).max(2));
+    match kept.ends_with('…') {
+        true => format!("{kept} ↗"),
+        false => format!("{kept}… ↗"),
+    }
 }
 
 fn typing(editor: &QueryEditor, room: usize) -> Vec<Span<'static>> {
     let text: Vec<char> = editor.buffer().chars().collect();
-    let cursor = editor.cursor();
-    let start = (cursor + 1).saturating_sub(room);
-    let visible: Vec<char> = text.iter().skip(start).take(room).copied().collect();
-    let at = cursor - start;
-    let before: String = visible.iter().take(at).collect();
-    let under = visible.get(at).map(char::to_string).unwrap_or(" ".into());
-    let after: String = visible.iter().skip(at + 1).collect();
+    let typed = super::text::typed(&text, editor.cursor(), room);
     vec![
-        Span::raw(before),
-        Span::styled(under, theme::cursor()),
-        Span::raw(after),
+        Span::raw(typed.before),
+        Span::styled(typed.under, theme::cursor()),
+        Span::raw(typed.after),
     ]
 }
 
