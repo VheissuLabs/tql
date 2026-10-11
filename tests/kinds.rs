@@ -1,8 +1,9 @@
 use app::database::{self, Database, Kind};
 use app::store::Connection;
 
-fn sqlite() -> Box<dyn Database> {
-    let path = std::env::temp_dir().join(format!("tql-kinds-{}.sqlite", std::process::id()));
+fn sqlite(label: &str) -> Box<dyn Database> {
+    let path =
+        std::env::temp_dir().join(format!("tql-kinds-{}-{label}.sqlite", std::process::id()));
     let _ = std::fs::remove_file(&path);
     rusqlite::Connection::open(&path).unwrap();
     database::connect(&Connection::sqlite("kinds", path.to_str().unwrap()), None).unwrap()
@@ -23,7 +24,7 @@ fn herd(driver: &str, port: u16, database: &str) -> Box<dyn Database> {
 
 #[test]
 fn sqlite_says_what_each_value_is_stored_as() {
-    let outcome = sqlite().run("select 7, 1.5, '8', null").unwrap();
+    let outcome = sqlite("kinds").run("select 7, 1.5, '8', null").unwrap();
 
     assert_eq!(
         outcome.kinds,
@@ -90,7 +91,7 @@ fn postgres_errors_are_in_postgres_own_words() {
 
 #[test]
 fn sqlite_refuses_a_write_hidden_in_a_with_when_asked_to_only_read() {
-    let mut database = sqlite();
+    let mut database = sqlite("hidden-write");
     database.run("create table counted (x integer)").unwrap();
     database.run("insert into counted values (1)").unwrap();
 
