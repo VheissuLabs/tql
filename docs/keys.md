@@ -312,9 +312,12 @@ databases, links, files or tags.
 | `esc` | close it |
 
 The database list does two things more, unless the connection is read-only. Type
-a name that is not there and the last row offers `+ create` it. `ctrl+d` on a
-database puts `:drop database` and its name on the command line, so nothing is
-dropped until `↵` there.
+a name that is not there and the last row offers `+ create` it. On a connection
+tagged `production`, taking it puts `:create database` and the name on the
+command line instead, so nothing is created until `↵` there
+(`confirm_create_on_production` in [the config](configuration.md#ui) turns that
+off). `ctrl+d` on a database puts `:drop database` and its name on the command
+line, so nothing is dropped until `↵` there.
 
 ## The connection list
 
@@ -325,7 +328,7 @@ dropped until `↵` there.
 | `space` | fold or unfold the group |
 | `h` / `l` | fold the group you are in, or unfold the one under the cursor |
 | `n` | a new connection |
-| `e` | edit this one |
+| `e` | edit this one, or rename the group on its header |
 | `y` | yank the database name, or the path for SQLite |
 | `Y` | yank the connection string, password and all |
 | `d` / `u` | mark for deletion, or clear the marks |
@@ -333,7 +336,11 @@ dropped until `↵` there.
 | `q` / `esc` | quit |
 
 Give a connection a **Group** in its form and it sits under that group's
-header, which folds shut; tql remembers which ones you folded.
+header, which folds shut; tql remembers which ones you folded. The number in
+brackets on a header is how many connections the group holds.
+
+`e` on a header renames the group for every connection in it: `↵` renames,
+`esc` cancels. A name another group already has merges the two.
 
 ### Inside a connection form
 

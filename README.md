@@ -3,8 +3,8 @@
 ![tql browsing a database: filtering a column, sorting, inspecting a row and its related records, and writing a join in the SQL editor](docs/demo.gif)
 
 tql (pronounced *TEE-kwuhl*, like sequel) is a database client for the terminal,
-for MySQL, MariaDB, PostgreSQL and SQLite, and the hosted databases that speak
-their protocol. It is built with Laravel Zero, Laravel Prompts and Laravel MCP.
+for MySQL, MariaDB, PostgreSQL, SQL Server and SQLite, and the hosted databases
+that speak their protocol. It is written in Rust and ships as one file.
 
 ## Why
 
@@ -21,9 +21,10 @@ tends not to do:
   Filter a column and the `where` appears, with its value bound, never glued in.
   You learn the language by using the tool.
 - **It is the same engine for you and for an agent.** The `tql query`
-  commands, the MCP server and the interface all call one `QueryRunner`, so
-  what your agent can see is what you can see. The agent's side only reads, and every statement either of you runs
-  lands in one shared history.
+  commands, the MCP server and the interface all go through the same code, so
+  what your agent can see is what you can see. The agent's side only reads, and
+  every statement either of you runs lands in one shared history. An agent can
+  also put a statement in your SQL editor for you to read and run.
 - **It makes production look like production.** A connection carries a tag and
   the tag carries a color, so the screen tells you where you are before you
   press `d`. Read-only connections refuse every write. Edits and deletions are
@@ -39,7 +40,7 @@ as happily as a Postgres server behind an SSH tunnel.
 | **MySQL** and **MariaDB** | built in |
 | **PostgreSQL** | built in |
 | **SQLite** | built in, any `.sqlite`, `.sqlite3` or `.db` file |
-| **SQL Server** | built into the macOS binary, with Microsoft's ODBC driver installed once ([below](#sql-server-on-macos)); on Linux, from `tql.phar` on a PHP with `pdo_sqlsrv` |
+| **SQL Server** | built in, nothing else to install ([below](#sql-server)) |
 
 A hosted database that speaks the MySQL or PostgreSQL protocol connects the same
 way, with a connection string or the connection form, over [TLS](#tls) and, if
@@ -55,34 +56,23 @@ rest speak the same protocol and should behave the same; if one does not (some r
 little differently), [open an issue](https://github.com/VheissuLabs/tql/issues)
 and say which.
 
-### SQL Server on macOS
+### SQL Server
 
-SQL Server goes through Microsoft's ODBC driver, which tql cannot bundle.
-Install it, and OpenSSL 3 beside it, once:
-
-```bash
-brew tap microsoft/mssql-release
-brew trust microsoft/mssql-release      # newer Homebrew asks for this first
-HOMEBREW_ACCEPT_EULA=Y brew install msodbcsql18 openssl@3
-```
-
-The `HOMEBREW_ACCEPT_EULA=Y` accepts Microsoft's licence for the driver.
-Microsoft's driver only works with OpenSSL 1.0 to 3, and Homebrew now defaults
-to OpenSSL 4, so tql points the driver at OpenSSL 3 by itself when it is there.
+SQL Server is built in, like the others: there is no ODBC driver or OpenSSL to
+install, on macOS or Linux. It needs a server that speaks TLS 1.2 or newer,
+which is every SQL Server from 2016 on and the older ones that have had their
+TLS 1.2 update.
 
 A connection is encrypted by default without checking the server's certificate,
 which is what a local or self-signed SQL Server needs; `ssl_mode` `verify-ca` or
 `verify-full` checks it, and `disable` turns encryption off.
 
-The Linux binary is fully static, and a static binary cannot load Microsoft's
-driver, so on Linux SQL Server needs `tql.phar` on a PHP with `pdo_sqlsrv`.
-
 ## Installing
 
-One file, no runtime to install. **tql does not need PHP on your machine**.
-The binary carries its own, statically linked, with the three database drivers
-built in. On first run it creates `~/.config/tql/` and migrates its own store,
-so there is nothing to set up.
+One file, no runtime to install. The binary has all four database drivers
+built in, and on Linux it is statically linked, so it runs on any distribution.
+On first run it creates `~/.config/tql/` and migrates its own store, so there is
+nothing to set up.
 
 Use your package manager if it is listed here: nothing runs but the package
 itself, and it upgrades and removes tql like anything else. Installed any other
@@ -96,8 +86,8 @@ brew upgrade tql                          # later, for a new release
 ```
 
 Apple Silicon Macs, and Linux on x86_64 and ARM. It installs the same standalone
-binary, so Homebrew does not pull in PHP either. Homebrew checks the binary
-against the checksum in the formula before it installs it.
+binary, with no dependencies. Homebrew checks the binary against the checksum in
+the formula before it installs it.
 
 ### Debian and Ubuntu, with apt
 
@@ -187,23 +177,21 @@ sh install.sh
 How the Homebrew formula and the packages are published is in
 [docs/packaging.md](docs/packaging.md).
 
-### With PHP, if you would rather
+### Coming from tql 0.11 or earlier
 
-`tql.phar` is on every release as well, for a machine that already has PHP 8.4
-and would rather have an 8MB file than a 35MB one:
+tql was written in PHP up to 0.11. 0.12 is the same tql rewritten in Rust, and
+it moves over without you doing anything:
 
-```bash
-php tql.phar
-```
-
-Building it yourself:
-
-```bash
-php -d phar.readonly=0 tql app:build tql --build-version=dev
-./builds/tql --version
-```
-
-Tagging `v*` builds and publishes everything above from GitHub Actions.
+- **Your connections, settings and history stay.** It reads the same
+  `~/.config/tql/`, passwords included, and adds any new settings to
+  `config.toml` with a notice.
+- **`tql update` or the automatic update brings it in**, if you installed with
+  the install script or by hand. Homebrew, `.deb`, `.rpm` and `PKGBUILD` users
+  upgrade the usual way.
+- **`tql.phar` is gone.** If you ran the phar, install one of the binaries
+  above instead; none of them needs PHP.
+- **SQL Server works on Linux now**, and on macOS without Microsoft's ODBC
+  driver.
 
 ## The commands
 
@@ -261,10 +249,9 @@ to save), so `tql export` on its own is a four-question wizard, and
 `tql export prod orders --sql=./orders.sql` is a script. See
 [Exporting](#exporting).
 
-`tql list` shows those and nothing else in a released binary. The framework's
-own commands are hidden, since tql runs its migrations for itself and a
-`migrate:fresh` typed at the wrong moment would drop your saved connections. A
-source checkout also shows the development ones, `app:build` and `test`.
+`tql list` shows those. tql runs its store's migrations for itself, so there is
+no command for them. A debug build from a source checkout also shows
+`make:command`, which writes the skeleton of a new command.
 
 ## Configuring
 
@@ -274,7 +261,7 @@ above each one, so the file is its own documentation. When a later version adds
 a setting it is appended to your file on the next run (your values and your own
 comments are left alone) and the status line tells you which ones arrived.
 
-Defaults live in `config/tql.php` and the file is merged over them, so a setting
+Defaults are built into tql and the file is merged over them, so a setting
 you never touch follows the application rather than freezing at the value it had
 the day you installed it. A file that cannot be parsed does not stop tql: it
 starts on the defaults and says so in the status line.
@@ -296,8 +283,12 @@ about each one.
 | `sql_editor` | `"simple"` | how the SQL editor takes keys: `"simple"` or `"vim"`, see [the SQL editor](docs/keys.md#the-sql-editor) |
 | `sql_complete` | `true` | offer tables, columns and keywords as you type in the SQL editor; `tab` takes one |
 | `row_style` | `"marker"` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
-| `top_margin` | `1` | blank rows above the frame |
+| `top_margin` | `0` | blank rows above the frame |
+| `bottom_margin` | `0` | blank rows below the frame |
+| `left_margin` | `0` | blank columns left of the frame |
+| `right_margin` | `0` | blank columns right of the frame |
 | `sidebar_width` | `24` | width of the tables pane |
+| `time_zone` | `"UTC"` | the zone `ctrl+t` and `now()` write in, such as `America/Toronto` |
 | `modal_ring` | `true` | ring a modal with a border as well as the box itself |
 | `inspect_related` | `10` | related rows to load into the row inspector, 0 turns it off |
 | `export_path` | `""` | where exports go, empty uses the last folder you saved one in |
@@ -307,6 +298,11 @@ about each one.
 | `status_seconds` | `4` | how long a status message stays before it fades; `0` keeps it |
 | `mouse_row_offset` | `0` | subtract this from reported mouse rows |
 | `mouse_column_offset` | `0` | subtract this from reported mouse columns |
+| `confirm_create_on_production` | `true` | creating a database from the database list on a connection tagged `production` asks first |
+
+The margins frame tql inside its window. A terminal or multiplexer that pads
+one side more than the other can be evened out with `left_margin` or
+`right_margin`. A click in a margin lands on nothing.
 
 `mouse_row_offset = 1` is the one to reach for inside a multiplexer whose tab
 bar sits above the pane: without it every click lands a row out.
@@ -325,6 +321,7 @@ your terminal is already themed with.
 | `cursor` | `"default"` | the block you are on |
 | `selection` | `"default"` | highlighted but not where you are |
 | `edited` | `"yellow"` | a row you have changed, before `:w` |
+| `added` | `"green"` | a row you have added, before `:w` |
 | `deleted` | `"red"` | a row marked for deletion, before `:w` |
 | `modal_border` | `"gray"` | modal borders, and the ring around them |
 | `modal_focus_border` | `"cyan"` | the same when focused |
@@ -386,7 +383,7 @@ rows. See [Asking for SQL](#asking-for-sql).
 
 | Key | Default | Meaning |
 | --- | --- | --- |
-| `provider` | `"auto"` | `auto` uses whichever API key is in your environment |
+| `provider` | `"auto"` | `auto` uses `url` if it is set, otherwise the first provider you have an API key for |
 | `model` | `""` | empty picks a sensible default for the provider |
 | `timeout` | `60` | seconds to wait for an answer |
 | `url` | `""` | an OpenAI-compatible endpoint instead, such as LM Studio |
@@ -568,13 +565,17 @@ tag is that production looks the same in your terminal and in someone else's
 screenshot.
 
 **Read only** refuses every write on that connection: no edits, no marks, no
-`:w`.
+`:w`, and the SQL editor runs only statements that read.
 
 ## Groups
 
 A connection can also carry a **group**, set in its form. The connection list
-shows each group under a header, after the connections without one, and
-`space` folds it shut. Folded groups stay folded the next time.
+shows each group under a header, after the connections without one, with the
+number of connections in it, and `space` folds it shut. Folded groups stay
+folded the next time.
+
+Press `e` on a group's header to rename it, for every connection in it. A name
+another group already has merges the two.
 
 ## Several databases on one server
 
@@ -584,6 +585,11 @@ pane titles itself with the database you are in.
 
 Leave the **Database** field empty on a server connection and tql asks on
 connect, opening the list as soon as it is in.
+
+Type a name the list does not have and its last row offers to create it. On a
+connection tagged `production`, `↵` puts `create database <name>` on the
+command line for a second `↵` instead of creating it straight away;
+`confirm_create_on_production = false` in [`[ui]`](#ui) turns that off.
 
 The switch lasts for the session only. It is never written back to the saved
 connection, so the connection still opens on its own database next time. It
@@ -619,9 +625,11 @@ your agent, your keys and your `~/.ssh/config` all apply, including `Host`
 aliases and jump hosts. A connection you can already make by typing `ssh prod`
 works by putting `prod` in the SSH host field.
 
-The tunnel is opened once per destination and reused. tql waits for the
-forwarded port to accept a connection before running anything, so the first
-query cannot race the tunnel coming up, and if ssh fails it says what ssh said.
+The tunnel is opened once per destination and reused, and stays open until tql
+exits. tql waits for the forwarded port to accept a connection before running
+anything, so the first query cannot race the tunnel coming up, and if ssh fails
+it says what ssh said. While it connects, the connection list stays on screen
+and says so.
 
 ## A database to try it on
 
@@ -699,6 +707,7 @@ encryption key), both `0600`.
 | `y` / `Y` | yank this value, or the whole row as an object |
 | `d` / `u` | mark the row for deletion, or clear every mark |
 | `L` | follow a link, `esc` comes back |
+| `a` | ask in English for SQL; see [Asking for SQL](#asking-for-sql) |
 | `b` | switch database on this server |
 | `s` | open the SQL editor |
 | `:` | command line: `:q`, `:tables`, `:rows`, `:reload`, `:sql` |
@@ -774,9 +783,8 @@ and `← →` step through the options without opening it. On the value, `↵` t
 `+` and `-` add and remove conditions, `o` switches the whole bar between `and`
 and `or`, `ctrl+s` applies and `esc` clears.
 
-The list behaves like Laravel Prompts' `search`, but it is drawn inside the
-frame: Prompts' own `select` and `search` block the loop and render a frame of
-their own, so using one would mean leaving the TUI and flashing the screen.
+The list is drawn inside the frame, so picking from it never leaves the
+interface.
 
 Operators: is, is not, contains, starts with, ends with, is greater than, is at
 least, is less than, is at most, is empty, is not empty, is one of (a
@@ -847,7 +855,8 @@ so asking about a production table does not send its contents anywhere. The
 table you are looking at is sent first so it survives the size limit.
 
 Press `a` and a modal opens with a text area. `↵` asks, `⇧↵` starts a new line,
-`esc` cancels. `ctrl+s` sends it too.
+`esc` cancels. `ctrl+s` sends it too. tql keeps drawing while the model thinks,
+and `esc` while it is asking throws the answer away when it comes.
 
 Terminals send the same byte for enter and shift+enter, so shift+enter only
 arrives as its own key when the terminal is told to send one. In Ghostty:
@@ -860,16 +869,37 @@ Alt+enter works without any configuration, if you would rather not set that.
 
 ## Which model answers
 
-Whatever you have a key for. `provider = "auto"` picks the first provider the
-AI SDK finds a key for, so setting `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is
-all it takes:
+Whatever you have a key for. With `provider = "auto"`, tql uses `url` if you
+set one, and otherwise the first provider it finds a key for in your
+environment, so setting `ANTHROPIC_API_KEY` or `OPENAI_API_KEY` is all it
+takes:
 
 ```toml
 [ai]
-provider = "auto"   # or anthropic, openai, gemini, groq, mistral, deepseek, xai, openrouter, ollama
+provider = "auto"   # or anthropic, openai, azure, gemini, groq, mistral, deepseek, xai, openrouter, ollama
 model = ""          # empty uses a sensible default for that provider
 timeout = 60
 ```
+
+| Provider | Key | Default model |
+| --- | --- | --- |
+| `anthropic` | `ANTHROPIC_API_KEY` | `claude-sonnet-5` |
+| `openai` | `OPENAI_API_KEY` | `gpt-5` |
+| `azure` | `AZURE_OPENAI_API_KEY`, with `AZURE_OPENAI_URL` | `gpt-4o` |
+| `gemini` | `GEMINI_API_KEY` | `gemini-2.5-pro` |
+| `groq` | `GROQ_API_KEY` | `llama-3.3-70b-versatile` |
+| `mistral` | `MISTRAL_API_KEY` | `mistral-large-latest` |
+| `deepseek` | `DEEPSEEK_API_KEY` | `deepseek-chat` |
+| `xai` | `XAI_API_KEY` | `grok-4` |
+| `openrouter` | `OPENROUTER_API_KEY` | `anthropic/claude-sonnet-5` |
+| `ollama` | none, once `OLLAMA_URL` is set | `llama3.2` |
+
+`auto` tries them in alphabetical order and takes the first that is set up, so
+with several keys in your environment, name the one you want in `provider`. A
+named provider with no key falls back to `url`. Each provider's address can be
+moved with its own variable, such as `ANTHROPIC_URL` or `OPENAI_URL`, for a
+proxy or a gateway. `TQL_AI_PROVIDER`, `TQL_AI_MODEL`, `TQL_AI_TIMEOUT`,
+`TQL_AI_URL` and `TQL_AI_KEY` in the environment win over `config.toml`.
 
 ### A local model, with LM Studio
 
@@ -897,9 +927,9 @@ Anything with an OpenAI-compatible API works. LM Studio, start to finish:
 
 5. Press `a` in tql and ask for something.
 
-`provider` is ignored once `url` is set. A url points somewhere deliberate, so
-it wins over any key in your environment. Nothing leaves your machine in that
-setup, and only table and column names were ever being sent anyway.
+With `provider = "auto"`, a `url` wins over any key in your environment, since
+it points somewhere deliberate. Nothing leaves your machine in that setup, and
+only table and column names were ever being sent anyway.
 
 Ollama is the same shape, on its own port:
 
@@ -916,12 +946,9 @@ LM Studio may want a token. It says so in the Developer tab, and it goes in
 A reasoning model such as qwen3 answers in its thinking rather than in the
 message body, and tql reads the answer out of it either way.
 
-If `a` says nothing is configured, tql could not find a url or a key. If it
-fails at the network, the server is not running or the port is wrong, and the
-`curl` above is the quickest way to tell which.
-
-With nothing configured at all, `a` says what to set rather than failing at the
-network.
+If `a` says there is no model to ask, tql could not find a url or a key, and it
+says what to set. If it fails at the network, the server is not running or the
+port is wrong, and the `curl` above is the quickest way to tell which.
 
 ## Enter runs things
 
@@ -1096,8 +1123,8 @@ The first screen lists your saved connections.
 Adding and editing happen in a modal over the list, never by dropping out to a
 prompt sequence. `↑↓` picks a field, `↵` edits it with a real cursor (arrows,
 home, end, backspace, delete, paste), `ctrl+s` saves and `esc` cancels. Nothing
-is written until you save. The driver is cycled with `← →` and only offers
-drivers your PHP build actually has.
+is written until you save. The driver is cycled with `← →`, through all
+four.
 
 ## Adding a row
 
@@ -1194,8 +1221,7 @@ the statement it refused on its own line and what to do next under it.
 ```
 ┌─ COULD NOT ADD THE ROW ──────────────────────────────────────┐
 │                                                              │
-│  SQLSTATE[23000]: Integrity constraint violation: 19 UNIQUE  │
-│  constraint failed: people.email                             │
+│  UNIQUE constraint failed: people.email                      │
 │                                                              │
 │  insert into "people" ("name", "email") values (…)           │
 │                                                              │
@@ -1205,8 +1231,8 @@ the statement it refused on its own line and what to do next under it.
 └──────────────────────────────────────────────────────────────┘
 ```
 
-The connection name tql invented and the file it opened are taken out. That is
-tql talking to itself, not the database talking to you. `j`/`k` scroll a long
+The error is in the database's own words, with nothing of tql's wrapped around
+it. `j`/`k` scroll a long
 one, `y` copies it, any other key closes it. **Your pending changes are still
 pending**: nothing is dropped because a write failed.
 
@@ -1291,30 +1317,39 @@ Either way it is **read-only**: only `select`, `show`, `explain`, `describe`,
 interface, not through an agent. Everything an agent runs lands in the same
 history as your own statements, marked `cli` or `mcp`.
 
+The MCP server has one more tool, **`write-sql-tool`**, for the statements an
+agent should not run itself. It puts SQL in the SQL editor of the tql you have
+open on the connection it names, in place of what was there, and tql switches
+to the editor and says the SQL came from your agent. Nothing runs: you read it,
+change it if you like, and run it yourself. One undo brings back what was in
+the editor. With more than one tql open on that connection, the one you used
+last gets it; with none open, the agent is told to ask you to open it.
+
 ## Developing
 
 ```bash
-composer install
-php tql
-./vendor/bin/pest
+cargo run                # tql itself
+cargo test               # the suite
+cargo build --release    # target/release/tql
 ```
 
-The interface is composed of **islands**: bordered boxes that own a rectangle,
-draw their own content and answer hit tests for it. `Screen` places them and
-composes the frame row by row. Adding a pane means adding an island.
+tql is written in Rust with [ratatui](https://ratatui.rs) for drawing. The
+interface is composed of **islands**: bordered boxes that own a rectangle, draw
+their own content and answer hit tests for it. Adding a pane means adding an
+island.
 
 [docs/developing.md](docs/developing.md) has the rest: where everything lives,
 how a frame is drawn, the drawing rules that are easy to break, how to add a
-key, a modal, a command, an MCP tool or a setting, how the interface is tested
-without a terminal, and the notes on Laravel Zero, Prompts and MCP that this
-project ran into.
+key, a modal, a command, an MCP tool or a setting, and how the interface is
+tested without a terminal.
 
 [docs/configuration.md](docs/configuration.md) is every setting, and
 [docs/keys.md](docs/keys.md) is every key.
 [docs/packaging.md](docs/packaging.md) covers the binary, the `.deb` and the
 `.rpm`, the Homebrew tap and the AUR package.
 
-Connection passwords and SSH passwords are encrypted with Laravel's encrypter
-using a key at `~/.config/tql/key`, `0600`. Filter values are always bound,
+Connection passwords and SSH passwords are encrypted with AES-256-CBC using a
+key at `~/.config/tql/key`, `0600`, in the same format tql has always written,
+so a store from any earlier version opens. Filter values are always bound,
 never interpolated. The SQL pane shows them filled in for reading, and that
 string is never what runs.

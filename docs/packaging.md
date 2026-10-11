@@ -1,18 +1,9 @@
 # Packaging tql
 
-tql is a PHP application that ships as a binary with **no PHP required on the
-target machine**. That is static-php-cli's `micro`: a statically linked PHP
-interpreter with a self-extracting stub, which takes an appended phar and runs
-it. A release binary is literally:
-
-```bash
-cat micro.sfx tql.phar > tql
-```
-
-The interpreter is built once per platform from a fixed extension list (the
-three PDO drivers, openssl, curl, mbstring and the pieces Laravel expects) and
-cached between releases, since it only changes when that list or the PHP version
-does.
+tql is one Rust binary that needs nothing else on the machine. The Linux
+binaries are static musl builds, so the same file runs on any distribution, and
+the macOS binary links only what every Mac has. Each is built natively on its
+own GitHub runner.
 
 Everything below is driven by pushing a `v*` tag, which `bin/release` does.
 `.github/workflows/release.yml` builds, checks and publishes. It also takes a
@@ -32,7 +23,6 @@ caught before someone runs into it.
 | --- | --- |
 | `tql-linux-x86_64`, `tql-linux-aarch64` | standalone, needs nothing |
 | `tql-macos-aarch64` | the same, for Apple Silicon Macs |
-| `tql.phar` | 8MB, for a machine that has PHP 8.4 already |
 | `.deb`, `.rpm` | the matching binary, one per architecture, no dependencies |
 | Homebrew | `packaging/homebrew/tql.rb`, pushed to the tap on release |
 | AUR | `packaging/aur/PKGBUILD`, pushed to `tql-bin` on release |
@@ -40,21 +30,18 @@ caught before someone runs into it.
 `VERSION` and the `SHA_*` placeholders in the formula and the PKGBUILD are
 filled in by the workflow from the tag and the published checksums.
 
-To build a standalone binary locally:
+To build a release binary locally:
 
 ```bash
-curl -fsSL -o spc https://dl.static-php.dev/static-php-cli/spc-bin/nightly/spc-macos-aarch64
-chmod +x spc
-./spc doctor --auto-fix
-./spc download --with-php=8.4 --for-extensions="$EXTENSIONS" --prefer-pre-built
-./spc build "$EXTENSIONS" --build-micro
-
-php -d phar.readonly=0 tql app:build tql --build-version=0.0.0
-cat buildroot/bin/micro.sfx builds/tql > tql-local && chmod +x tql-local
+cargo build --release                                     # for this machine
+rustup target add x86_64-unknown-linux-musl              # a static Linux one, from Linux
+cargo build --release --target x86_64-unknown-linux-musl  # needs musl-tools
 ```
 
-`$EXTENSIONS` is in the workflow, in one place, because the binary and the
-packages must agree about it.
+The release profile in `Cargo.toml` turns on link-time optimisation and strips
+the binary. The workflow checks every binary prints `Tql v<version>` for
+`--version`, lists `mcp:start`, and on Linux is statically linked, before
+anything is published.
 
 ## Homebrew
 

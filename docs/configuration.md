@@ -9,7 +9,7 @@ your file. When a later version adds a setting it is
 written into the place it belongs on the next run (your values and your own
 comments are left alone) and the status line names what arrived.
 
-Defaults live in `config/tql.php` and your file is merged over them, so a
+Defaults are built into tql and your file is merged over them, so a
 setting you never touch follows the application instead of freezing at the value
 it had the day you installed it. A file that cannot be parsed does not stop tql:
 it starts on the defaults and says so in the status line.
@@ -47,7 +47,10 @@ tql notices and tells you which ones.
 | `sql_editor` | `"simple"` | how it takes keys: `"simple"` types and `↵` adds a line, `"vim"` is vim, from normal mode; `ctrl+r` runs the statement in simple, `:r` in vim |
 | `sql_complete` | `true` | offer tables, columns and keywords as you type in the SQL editor; `tab` takes one, `esc` closes the list |
 | `row_style` | `"marker"` | how the current row is shown: `"marker"`, `"dim-others"`, `"bold"`, `"inverse"`, `"underline"` |
-| `top_margin` | `1` | blank rows above the frame |
+| `top_margin` | `0` | blank rows above the frame |
+| `bottom_margin` | `0` | blank rows below the frame |
+| `left_margin` | `0` | blank columns left of the frame |
+| `right_margin` | `0` | blank columns right of the frame |
 | `sidebar_width` | `24` | width of the table list |
 | `time_zone` | `"UTC"` | the zone `ctrl+t` and `now()` write in |
 | `modal_ring` | `true` | ring a modal with a border as well as the box itself |
@@ -59,15 +62,22 @@ tql notices and tells you which ones.
 | `status_seconds` | `4` | how long a status message stays before it fades; `0` keeps it until the next one |
 | `mouse_row_offset` | `0` | subtract this from reported mouse rows |
 | `mouse_column_offset` | `0` | subtract this from reported mouse columns |
+| `confirm_create_on_production` | `true` | creating a database from the database list on a connection tagged `production` puts `create database` on the command line for a second `↵` instead of running it |
 
 ```toml
 [ui]
 sql_position = "bottom"
 sql_always = true
 sql_height = 8
-top_margin = 0
+top_margin = 1
 mouse_row_offset = 1
 ```
+
+The four margins frame tql inside its window: blank rows above and below, blank
+columns to either side, everything tql draws inside them. A terminal or
+multiplexer that pads one side more than the other can be evened out with
+`left_margin` or `right_margin`. A click in a margin lands on nothing. A window
+too small for tql shows its real size, margins or not.
 
 `mouse_row_offset = 1` is the one to reach for inside a multiplexer whose tab
 bar sits above the pane: without it every click lands a row out. The same for
@@ -161,20 +171,28 @@ rows.
 
 | Key | Default | What it does |
 | --- | --- | --- |
-| `provider` | `"auto"` | `auto` takes the first provider you have a key for |
+| `provider` | `"auto"` | `auto` uses `url` if it is set, otherwise the first provider you have a key for |
 | `model` | `""` | empty picks a sensible default for that provider |
 | `timeout` | `60` | seconds to wait for an answer |
 | `url` | `""` | an OpenAI-compatible endpoint to use instead |
 | `key` | `""` | bearer token for that endpoint, if it wants one |
 
-`provider` takes `anthropic`, `openai`, `gemini`, `groq`, `mistral`,
+`provider` takes `anthropic`, `openai`, `azure`, `gemini`, `groq`, `mistral`,
 `deepseek`, `xai`, `openrouter` or `ollama`, and each reads its own environment
-variable: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and so on. With `auto`,
-whichever key you already have exported is the one that answers.
+variable: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and so on. Azure also needs
+`AZURE_OPENAI_URL`, and Ollama counts once `OLLAMA_URL` is set. With `auto`,
+tql takes the first of them, alphabetically, that is set up; with several keys
+exported, name the one you want. A named provider with no key falls back to
+`url`. The default model for each is in
+[Which model answers](../README.md#which-model-answers).
 
-A `url` beats all of that: it points somewhere deliberate, so it wins over any
-key in the environment. That is how you use a local model, see
+With `auto`, a `url` beats all of that: it points somewhere deliberate, so it
+wins over any key in the environment. That is how you use a local model, see
 [A local model, with LM Studio](../README.md#a-local-model-with-lm-studio).
+
+`TQL_AI_PROVIDER`, `TQL_AI_MODEL`, `TQL_AI_TIMEOUT`, `TQL_AI_URL` and
+`TQL_AI_KEY` in the environment win over this section, for one run or one
+shell.
 
 ```toml
 [ai]
