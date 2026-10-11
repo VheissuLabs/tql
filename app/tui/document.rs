@@ -90,6 +90,10 @@ impl RowDocument {
     }
 
     pub fn lines(&self) -> Vec<Line> {
+        self.lines_within(self.width)
+    }
+
+    fn lines_within(&self, width: Option<usize>) -> Vec<Line> {
         let mut lines = vec![Line::heading(
             format!("RECORD  ({})", self.row.len()),
             Fold::Record,
@@ -139,13 +143,13 @@ impl RowDocument {
             });
 
             if !self.is_folded(&fold) {
-                lines.extend(self.body(relation));
+                lines.extend(self.body(relation, width));
             }
         }
         lines
     }
 
-    fn body(&self, relation: &Relation) -> Vec<Line> {
+    fn body(&self, relation: &Relation, width: Option<usize>) -> Vec<Line> {
         let Some(rows) = &relation.rows else {
             return vec![body_line("loading…", None, None)];
         };
@@ -164,14 +168,14 @@ impl RowDocument {
                 .collect();
         }
 
-        self.collection(rows, &relation.hide)
+        self.collection(rows, &relation.hide, width)
             .iter()
             .enumerate()
             .map(|(position, text)| body_line(text, Some(&relation.table), position.checked_sub(1)))
             .collect()
     }
 
-    fn collection(&self, rows: &[Row], hide: &[String]) -> Vec<String> {
+    fn collection(&self, rows: &[Row], hide: &[String], width: Option<usize>) -> Vec<String> {
         let columns: Vec<&String> = rows
             .first()
             .map(|row| {
@@ -199,7 +203,7 @@ impl RowDocument {
                     .fold(length(column), usize::max)
             })
             .collect();
-        let cap = self.cap(&natural);
+        let cap = cap(&natural, width);
         let widths: Vec<usize> = natural.iter().map(|width| (*width).min(cap)).collect();
 
         let line = |cells: Vec<String>| -> String {
@@ -221,29 +225,6 @@ impl RowDocument {
                 .map(|row| line(columns.iter().map(|column| value_of(row, column)).collect())),
         )
         .collect()
-    }
-
-    fn cap(&self, natural: &[usize]) -> usize {
-        let Some(width) = self.width else {
-            return usize::MAX;
-        };
-        let gaps = natural.len().saturating_sub(1) * 2;
-        let room = width.saturating_sub(gaps).max(CELL_FLOOR);
-        if natural.iter().sum::<usize>() <= room {
-            return usize::MAX;
-        }
-
-        let widest = natural.iter().copied().max().unwrap_or(CELL_FLOOR);
-        (CELL_FLOOR..=widest)
-            .rev()
-            .find(|attempt| {
-                natural
-                    .iter()
-                    .map(|width| (*width).min(*attempt))
-                    .sum::<usize>()
-                    <= room
-            })
-            .unwrap_or(CELL_FLOOR)
     }
 
     fn field(&self, column: &str, value: &str, top_level: bool) -> String {
@@ -329,13 +310,36 @@ impl RowDocument {
     }
 
     pub fn natural_width(&self) -> usize {
-        self.lines()
+        self.lines_within(None)
             .iter()
             .map(|line| length(&line.text))
             .max()
             .unwrap_or(0)
             + 4
     }
+}
+
+fn cap(natural: &[usize], width: Option<usize>) -> usize {
+    let Some(width) = width else {
+        return usize::MAX;
+    };
+    let gaps = natural.len().saturating_sub(1) * 2;
+    let room = width.saturating_sub(gaps).max(CELL_FLOOR);
+    if natural.iter().sum::<usize>() <= room {
+        return usize::MAX;
+    }
+
+    let widest = natural.iter().copied().max().unwrap_or(CELL_FLOOR);
+    (CELL_FLOOR..=widest)
+        .rev()
+        .find(|attempt| {
+            natural
+                .iter()
+                .map(|width| (*width).min(*attempt))
+                .sum::<usize>()
+                <= room
+        })
+        .unwrap_or(CELL_FLOOR)
 }
 
 fn body_line(text: &str, table: Option<&str>, row: Option<usize>) -> Line {
@@ -408,6 +412,26 @@ mod tests {
             hide: vec!["artist_id".to_string()],
             kind: "has many".to_string(),
         }
+    }
+
+    #[test]
+    fn its_natural_width_does_not_depend_on_the_width_it_was_last_fitted_to() {
+        let wide = row(&[
+            ("id", "56"),
+            (
+                "title",
+                "Highway to Hell, the remastered anniversary edition",
+            ),
+            ("label", "Atlantic Records"),
+            ("released", "1979-07-27 00:00:00"),
+        ]);
+        let mut document = artist(vec![albums(Some(vec![wide]), None)]);
+        document.folded.clear();
+        let natural = document.natural_width();
+
+        document.fit_to(40);
+
+        assert_eq!(document.natural_width(), natural);
     }
 
     fn artist(related: Vec<Relation>) -> RowDocument {
