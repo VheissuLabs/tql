@@ -154,6 +154,38 @@ fn edits_the_one_the_cursor_moved_to() {
 }
 
 #[test]
+fn clicking_a_connection_opens_the_one_under_the_pointer() {
+    let scratch = Scratch::new("click-open");
+    for (name, path) in [
+        ("first", "/tmp/a.sqlite"),
+        ("second", "/tmp/b.sqlite"),
+        ("third", "/tmp/c.sqlite"),
+    ] {
+        scratch.add(&sqlite(name, path));
+    }
+    let mut settings = app::settings::Settings::default();
+    settings.set("ui.mouse_row_offset", &toml::Value::Integer(0));
+    app::settings::install(settings);
+    let mut fake = scratch.picker();
+    let screen = fake.screen();
+    let row = screen
+        .lines()
+        .position(|line| line.contains("second"))
+        .unwrap();
+
+    fake.click(20, row as u16 + 1);
+
+    assert_eq!(
+        fake.exit()
+            .cloned()
+            .flatten()
+            .map(|connection| connection.name),
+        Some("second".into()),
+        "{screen}"
+    );
+}
+
+#[test]
 fn still_opens_on_enter() {
     let scratch = Scratch::new("enter");
     let mut fake = scratch.with_two();
