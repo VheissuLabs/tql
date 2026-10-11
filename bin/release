@@ -40,14 +40,18 @@ previous=$(git describe --tags --abbrev=0)
 message=$(mktemp)
 trap 'rm -f "$message"' EXIT
 
-{
-  echo "$tag"
-  echo
-  git log --reverse --format='%s' "$previous..HEAD" \
-    | grep -E '^(feat|fix)(\([^)]*\))?: ' \
-    | sed -E 's/^(feat|fix)(\([^)]*\))?: /- /' \
-    || true
-} > "$message"
+if [[ -f "release-notes/$tag.md" ]]; then
+  cp "release-notes/$tag.md" "$message"
+else
+  {
+    echo "$tag"
+    echo
+    git log --reverse --format='%s' "$previous..HEAD" \
+      | grep -E '^(feat|fix)(\([^)]*\))?: ' \
+      | sed -E 's/^(feat|fix)(\([^)]*\))?: /- /' \
+      || true
+  } > "$message"
+fi
 
 if [[ -t 0 && -t 1 ]]; then
   git tag --annotate "$tag" --file "$message" --edit

@@ -259,9 +259,20 @@ jobs:
           sha256sum -- * > SHA256SUMS
           cat SHA256SUMS
 
+      - name: Notes written for this release, if there are any
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [ -f "release-notes/$TAG.md" ]; then
+            tail -n +3 "release-notes/$TAG.md" > "$RUNNER_TEMP/notes.md"
+          else
+            : > "$RUNNER_TEMP/notes.md"
+          fi
+
       - uses: softprops/action-gh-release@v2
         with:
           files: release/*
+          body_path: ${{ runner.temp }}/notes.md
           generate_release_notes: true
           draft: false
 
