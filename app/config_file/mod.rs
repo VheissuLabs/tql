@@ -194,7 +194,7 @@ mod tests {
         assert_eq!(
             prepare(&path).notice.as_deref(),
             Some(
-                "5 new settings added to config.toml: bottom_margin, left_margin, right_margin, check, automatic"
+                "6 new settings added to config.toml: bottom_margin, left_margin, right_margin, confirm_create_on_production, check, automatic"
             )
         );
     }

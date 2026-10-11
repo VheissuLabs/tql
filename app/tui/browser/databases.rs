@@ -50,7 +50,12 @@ impl Browser {
             Key::Down | Key::Ctrl('n') => choice.move_by(true),
             Key::Enter if choice.creating() => {
                 let name = choice.new_option().unwrap_or_default();
-                self.create_database(&name);
+                if self.asks_before_creating() {
+                    self.databases = None;
+                    self.command = Some(format!("create database {}", database_name(&name)));
+                } else {
+                    self.create_database(&name);
+                }
             }
             Key::Ctrl('d') if !choice.creating() => {
                 let chosen = choice.selected();
@@ -133,6 +138,11 @@ impl Browser {
                 false
             }
         }
+    }
+
+    fn asks_before_creating(&self) -> bool {
+        self.connection.tag.as_deref() == Some("production")
+            && settings::with(|settings| settings.confirm_create_on_production)
     }
 
     pub(super) fn create_database(&mut self, typed: &str) {

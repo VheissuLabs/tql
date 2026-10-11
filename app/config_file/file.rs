@@ -248,6 +248,7 @@ mod tests {
                 "left_margin",
                 "right_margin",
                 "hotkey_bar",
+                "confirm_create_on_production",
                 "check",
                 "automatic"
             ]
@@ -274,6 +275,7 @@ mod tests {
                 "bottom_margin",
                 "left_margin",
                 "right_margin",
+                "confirm_create_on_production",
                 "check",
                 "automatic"
             ]
@@ -306,6 +308,7 @@ mod tests {
                 "bottom_margin",
                 "left_margin",
                 "right_margin",
+                "confirm_create_on_production",
                 "check",
                 "automatic"
             ]

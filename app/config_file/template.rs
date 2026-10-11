@@ -173,6 +173,13 @@ pub const SETTINGS: &[Setting] = &[
         &["Subtract from reported mouse columns"],
     ),
     setting(
+        "ui",
+        "confirm_create_on_production",
+        "true",
+        "0.12.0",
+        &["Ask before creating a database on a connection tagged production"],
+    ),
+    setting(
         "theme",
         "border",
         "\"dim\"",

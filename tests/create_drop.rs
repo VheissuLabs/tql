@@ -241,6 +241,45 @@ fn offers_to_create_the_database_typed_into_the_list() {
 }
 
 #[test]
+fn asks_before_creating_a_database_typed_into_the_list_on_production() {
+    let (mut fake, ledger) = server_with(&["jobs", "shop"], |connection| {
+        connection.tag = Some("production".into());
+    });
+
+    fake.press("bkmstools\n");
+
+    assert!(ledger.borrow().created.is_empty());
+    assert_eq!(
+        fake.app.command.as_deref(),
+        Some("create database kmstools")
+    );
+
+    fake.press("\x1b");
+    assert!(ledger.borrow().created.is_empty());
+
+    fake.press("bkmstools\n\n");
+    assert_eq!(ledger.borrow().created, ["`kmstools`"]);
+    assert_eq!(fake.app.active_database.as_deref(), Some("kmstools"));
+}
+
+#[test]
+fn creates_straight_away_on_production_when_the_setting_is_off() {
+    let mut chosen = app::settings::Settings::default();
+    chosen.set(
+        "ui.confirm_create_on_production",
+        &toml::Value::Boolean(false),
+    );
+    app::settings::install(chosen);
+    let (mut fake, ledger) = server_with(&["jobs", "shop"], |connection| {
+        connection.tag = Some("production".into());
+    });
+
+    fake.press("bkmstools\n");
+
+    assert_eq!(ledger.borrow().created, ["`kmstools`"]);
+}
+
+#[test]
 fn picks_a_matching_database_before_offering_to_create_one() {
     let (mut fake, ledger) = server(&["jobs", "shop"]);
     fake.press("b");

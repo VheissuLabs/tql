@@ -39,6 +39,9 @@ Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
 - **The frame reaches the last column**, and `[ui] left_margin` and `right_margin`, 0 by
   default, set blank columns beside everything tql draws. tql's panes stop one column short
   of the right edge; the frame comparisons give tql-rust the same one-column gap.
+- **Creating a database from the database list asks first on a connection tagged
+  production**: Enter leaves `create database {name}` on the command line for a second
+  Enter. `[ui] confirm_create_on_production = false` turns it off. tql creates it at once.
 - **`e` on a group header renames the group** for every connection in it; a name already
   in use merges the two. tql has no way to rename a group.
 - **A connection that fails from the connection list comes back as a notice on the list**
