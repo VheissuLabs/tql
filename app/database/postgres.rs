@@ -76,15 +76,19 @@ impl Postgres {
         let mut headers = Vec::new();
         let mut rows = Vec::new();
         let mut affected = 0;
+        let mut results = 0;
         for message in self.client.simple_query(statement).map_err(own_words)? {
             match message {
                 SimpleQueryMessage::RowDescription(columns) => {
-                    headers = columns
-                        .iter()
-                        .map(|column| column.name().to_string())
-                        .collect();
+                    results += 1;
+                    if results == 1 {
+                        headers = columns
+                            .iter()
+                            .map(|column| column.name().to_string())
+                            .collect();
+                    }
                 }
-                SimpleQueryMessage::Row(row) => {
+                SimpleQueryMessage::Row(row) if results <= 1 => {
                     rows.push(
                         (0..row.len())
                             .map(|index| row.get(index).map(String::from))

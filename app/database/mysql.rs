@@ -113,9 +113,20 @@ fn page_of<P: Protocol>(mut result: QueryResult<'_, '_, '_, P>) -> anyhow::Resul
             .iter()
             .map(|column| kind(column.column_type()))
             .collect();
+        let shapes: Vec<(ColumnType, u8)> = columns
+            .as_ref()
+            .iter()
+            .map(|column| (column.column_type(), column.decimals()))
+            .collect();
         for row in set {
-            page.rows
-                .push(row.map_err(said)?.unwrap().into_iter().map(text).collect());
+            page.rows.push(
+                row.map_err(said)?
+                    .unwrap()
+                    .into_iter()
+                    .zip(&shapes)
+                    .map(|(value, (column_type, decimals))| shown(value, *column_type, *decimals))
+                    .collect(),
+            );
             page.kinds.push(kinds.clone());
         }
     }
@@ -157,6 +168,36 @@ fn scalar(value: Value, column_type: ColumnType, character_set: u16) -> Scalar {
         Ok(text) => Scalar::Bytes(text.into_bytes()),
         Err(error) => Scalar::Bytes(error.into_bytes()),
     }
+}
+
+fn shown(value: Value, column_type: ColumnType, decimals: u8) -> Option<String> {
+    let fraction = |micros: u32| match decimals {
+        0 => String::new(),
+        1..=6 => format!(".{micros:06}")[..1 + usize::from(decimals)].to_string(),
+        _ if micros == 0 => String::new(),
+        _ => format!(".{micros:06}"),
+    };
+    Some(match value {
+        Value::Date(year, month, day, ..)
+            if matches!(
+                column_type,
+                ColumnType::MYSQL_TYPE_DATE | ColumnType::MYSQL_TYPE_NEWDATE
+            ) =>
+        {
+            format!("{year:04}-{month:02}-{day:02}")
+        }
+        Value::Date(year, month, day, hour, minute, second, micros) => format!(
+            "{year:04}-{month:02}-{day:02} {hour:02}:{minute:02}:{second:02}{}",
+            fraction(micros)
+        ),
+        Value::Time(negative, days, hours, minutes, seconds, micros) => format!(
+            "{}{:02}:{minutes:02}:{seconds:02}{}",
+            if negative { "-" } else { "" },
+            days * 24 + u32::from(hours),
+            fraction(micros)
+        ),
+        other => return text(other),
+    })
 }
 
 fn text(value: Value) -> Option<String> {

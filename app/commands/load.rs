@@ -210,7 +210,7 @@ fn replay(cmd: &mut Cmd, saved: &Saved, file: &Path, connection: &Connection) ->
     let mut statements = 0;
 
     let replayed = database.run(begin).and_then(|_| {
-        for statement in StatementReader::new(connection.driver == "mysql").read(file)? {
+        for statement in StatementReader::for_driver(&connection.driver).read(file)? {
             database.run(&statement?)?;
             statements += 1;
         }

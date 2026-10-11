@@ -30,6 +30,10 @@ impl StatementReader {
         StatementReader { backslash_escapes }
     }
 
+    pub fn for_driver(driver: &str) -> Self {
+        StatementReader::new(matches!(driver, "mysql" | "mariadb"))
+    }
+
     pub fn read(&self, path: &Path) -> anyhow::Result<Statements<BufReader<File>>> {
         let file = File::open(path).map_err(|_| anyhow!("Could not read [{}].", path.display()))?;
         Ok(self.statements(BufReader::new(file)))
@@ -166,6 +170,18 @@ mod tests {
             StatementReader::new(false).split("insert into t values ('it''s; fine');select 1"),
             ["insert into t values ('it''s; fine')", "select 1"]
         );
+    }
+
+    #[test]
+    fn reads_backslash_escapes_for_mysql_and_mariadb_alike() {
+        let sql = "insert into t values ('it\\'s; fine');select 2";
+        for driver in ["mysql", "mariadb"] {
+            assert_eq!(
+                StatementReader::for_driver(driver).split(sql),
+                ["insert into t values ('it\\'s; fine')", "select 2"],
+                "{driver}"
+            );
+        }
     }
 
     #[test]

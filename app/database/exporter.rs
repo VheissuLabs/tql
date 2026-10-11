@@ -43,7 +43,7 @@ impl Scalar {
         if number.is_nan() {
             return Scalar::Null;
         }
-        Scalar::Number(number.to_string())
+        Scalar::Number(real_text(number))
     }
 
     pub fn literal(&self, driver: &str) -> String {
@@ -423,6 +423,14 @@ fn now() -> Zoned {
     Zoned::now().with_time_zone(TimeZone::UTC)
 }
 
+pub fn real_text(number: f64) -> String {
+    let text = number.to_string();
+    match number.is_finite() && !text.contains(['.', 'e', 'E']) {
+        true => format!("{text}.0"),
+        false => text,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -441,9 +449,18 @@ mod tests {
     #[test]
     fn writes_numbers_nulls_and_bytes_as_literals() {
         assert_eq!(Scalar::Null.literal("sqlite"), "null");
-        assert_eq!(Scalar::real(1000.0).literal("sqlite"), "1000");
+        assert_eq!(Scalar::real(1000.0).literal("sqlite"), "1000.0");
         assert_eq!(Scalar::real(0.15).literal("sqlite"), "0.15");
         assert_eq!(Scalar::real(f64::INFINITY).literal("sqlite"), "9e999");
+        assert_eq!(Scalar::real(2.0).literal("sqlite"), "2.0");
+        assert_eq!(Scalar::real(-0.5).literal("sqlite"), "-0.5");
+        assert_eq!(
+            Scalar::real(1e300)
+                .literal("sqlite")
+                .parse::<f64>()
+                .unwrap(),
+            1e300
+        );
         assert_eq!(Scalar::Bytes(vec![0, 255]).literal("sqlite"), "X'00ff'");
         assert_eq!(Scalar::Bytes(vec![0, 255]).literal("pgsql"), "'\\x00ff'");
     }

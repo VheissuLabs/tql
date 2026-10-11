@@ -237,3 +237,56 @@ fn mysql_counts_the_rows_each_write_reached_even_when_the_value_is_unchanged() {
     counts_the_rows_each_write_reached(database.as_mut(), "reached");
     database.run("drop database tql_reached").unwrap();
 }
+
+#[test]
+#[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
+fn postgres_shows_the_first_result_when_several_statements_return_rows() {
+    let mut database = herd("pgsql", 5432, "postgres");
+
+    let outcome = database
+        .run("select 1 as a, 2 as b; select 3 as c")
+        .unwrap();
+
+    assert_eq!(outcome.headers, ["a", "b"]);
+    assert_eq!(
+        outcome.rows,
+        [[Some("1".to_string()), Some("2".to_string())]]
+    );
+}
+
+#[test]
+#[ignore = "needs Herd's MySQL on 127.0.0.1:3306"]
+fn mysql_shows_dates_and_times_the_same_with_or_without_a_filter() {
+    let mut database = herd("mysql", 3306, "mysql");
+    database.run("drop database if exists tql_moments").unwrap();
+    database.run("create database tql_moments").unwrap();
+    database.use_database("tql_moments").unwrap();
+    database
+        .run(
+            "create table moments (id integer primary key, day date, clock time(3), stamp datetime(6), plain datetime)",
+        )
+        .unwrap();
+    database
+        .run("insert into moments values (1, '2024-03-05', '12:34:56.789', '2024-03-05 01:02:03.000450', '2024-03-05 01:02:03')")
+        .unwrap();
+
+    let unfiltered = database
+        .select("select day, clock, stamp, plain from moments", &[])
+        .unwrap();
+    let filtered = database
+        .select(
+            "select day, clock, stamp, plain from moments where id = ?",
+            &["1".to_string()],
+        )
+        .unwrap();
+    database.run("drop database tql_moments").unwrap();
+
+    let expected = [[
+        Some("2024-03-05".to_string()),
+        Some("12:34:56.789".to_string()),
+        Some("2024-03-05 01:02:03.000450".to_string()),
+        Some("2024-03-05 01:02:03".to_string()),
+    ]];
+    assert_eq!(unfiltered.rows, expected);
+    assert_eq!(filtered.rows, expected);
+}

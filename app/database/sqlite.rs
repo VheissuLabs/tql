@@ -400,7 +400,7 @@ fn text(value: ValueRef) -> Option<String> {
     Some(match value {
         ValueRef::Null => return None,
         ValueRef::Integer(number) => number.to_string(),
-        ValueRef::Real(number) => number.to_string(),
+        ValueRef::Real(number) => super::exporter::real_text(number),
         ValueRef::Text(bytes) => String::from_utf8_lossy(bytes).into_owned(),
         ValueRef::Blob(bytes) => format!("<{} bytes>", bytes.len()),
     })
