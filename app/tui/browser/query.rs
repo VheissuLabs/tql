@@ -432,7 +432,10 @@ impl Browser {
         let Some(pane) = &self.hits.editor_pane else {
             return;
         };
-        let (line, column) = pane.position_at(local_row, local_column);
+        let (line, column) = pane.position_at(
+            local_row,
+            local_column - super::render::EDITOR_PADDING as isize,
+        );
         self.query.editor.move_to_line_column(line, column);
     }
 }

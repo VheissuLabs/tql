@@ -1,5 +1,7 @@
 use super::*;
 
+pub(super) const EDITOR_PADDING: u16 = 1;
+
 impl Browser {
     pub(super) fn offers(&self) -> Vec<(String, &'static str)> {
         let key = |action, which| keymap::key(action, which);
@@ -527,13 +529,26 @@ impl Browser {
                 paints_cursor: !at_terminal_cursor,
                 selection: self.vim_selection(),
             },
-            (editor.inner_width(), editor.inner_height()),
+            (
+                editor.inner_width().saturating_sub(EDITOR_PADDING as usize),
+                editor.inner_height(),
+            ),
         );
-        editor.content = std::mem::take(&mut pane.lines);
+        editor.content = std::mem::take(&mut pane.lines)
+            .into_iter()
+            .map(|line| {
+                let mut spans = vec![Span::raw(" ".repeat(EDITOR_PADDING as usize))];
+                spans.extend(line.spans);
+                Line::from(spans).style(line.style)
+            })
+            .collect();
         editor.draw(frame.buffer_mut());
         if at_terminal_cursor {
             let (row, column) = pane.cursor;
-            frame.set_cursor_position((editor.x + 1 + column as u16, editor.y + 1 + row as u16));
+            frame.set_cursor_position((
+                editor.x + 1 + EDITOR_PADDING + column as u16,
+                editor.y + 1 + row as u16,
+            ));
         }
         self.hits.editor = Some(Area::of(&editor));
 
@@ -553,9 +568,11 @@ impl Browser {
                 cursor_row.saturating_sub(box_height).max(1)
             };
             let typed = completion.end - completion.start;
-            let x = (editor.x as isize + 1 + column as isize - typed as isize - 2)
-                .min(frame.area().width as isize - box_width as isize)
-                .max(1) as u16;
+            let x = (editor.x as isize + 1 + EDITOR_PADDING as isize + column as isize
+                - typed as isize
+                - 2)
+            .min(frame.area().width as isize - box_width as isize)
+            .max(1) as u16;
             let mut island = Island::placed(x, y, box_width, box_height);
             island.modal = true;
             island.focused = true;
