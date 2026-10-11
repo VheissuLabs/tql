@@ -1,4 +1,5 @@
 use super::*;
+use crate::driver::Driver;
 use crate::store::Store;
 use crate::tui::ago;
 use crate::tui::history;
@@ -78,7 +79,7 @@ impl Browser {
     }
 
     fn other_databases(&mut self) -> Vec<Item> {
-        if self.connection.driver == "sqlite" {
+        if self.connection.driver == Driver::Sqlite {
             return Vec::new();
         }
         let active = self.active_database.clone().unwrap_or_default();

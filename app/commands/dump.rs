@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use crate::commands::dumps::{self, Saved};
 use crate::console::prelude::*;
+use crate::driver::Driver;
 use crate::dump::{self, DumpOptions};
 use crate::store::Connection;
 
@@ -45,7 +46,7 @@ parallel and from a consistent snapshot. SQLite needs no tool.
         if !dumps::settle_database(cmd, &mut connection) {
             return exit(1);
         }
-        let Some(engine) = dumps::engine_for(cmd, &connection.driver) else {
+        let Some(engine) = dumps::engine_for(cmd, connection.driver) else {
             return exit(1);
         };
         if !dumps::tool_is_installed(cmd, engine.dumper(), engine) {
@@ -156,8 +157,8 @@ fn directory(cmd: &Cmd, saved: &Saved, connection: &Connection) -> anyhow::Resul
     if let Some(chosen) = dumps::folder(cmd, "to") {
         return Ok(chosen);
     }
-    let subject = match connection.driver.as_str() {
-        "sqlite" => Path::new(connection.database.as_deref().unwrap_or_default())
+    let subject = match connection.driver {
+        Driver::Sqlite => Path::new(connection.database.as_deref().unwrap_or_default())
             .file_stem()
             .map(|stem| stem.to_string_lossy().into_owned())
             .unwrap_or_default(),

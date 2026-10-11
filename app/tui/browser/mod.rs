@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use crate::driver::Driver;
 use crate::live::Live;
 use crate::terminal::prelude::*;
 
@@ -137,7 +138,7 @@ impl Browser {
             .database
             .clone()
             .filter(|database| !database.trim().is_empty());
-        let undecided = connection.driver != "sqlite" && active_database.is_none();
+        let undecided = connection.driver != Driver::Sqlite && active_database.is_none();
         let (tables, keys) = if undecided {
             (Vec::new(), HashMap::new())
         } else {

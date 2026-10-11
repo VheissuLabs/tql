@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use crate::driver::Driver;
 use crate::tui::now;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,7 +36,7 @@ static CAST: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r#"::[\w\s"\[\]]+$"#).expect("the cast pattern compiles"));
 
 impl ColumnDefault {
-    pub fn read(default: Option<&str>, driver: &str) -> ColumnDefault {
+    pub fn read(default: Option<&str>, driver: Driver) -> ColumnDefault {
         let Some(default) = default else {
             return ColumnDefault::None;
         };
@@ -52,7 +53,7 @@ impl ColumnDefault {
         if let Some(captures) = QUOTED.captures(&literal) {
             return ColumnDefault::Value(captures[1].replace("''", "'"));
         }
-        if driver == "sqlite"
+        if driver == Driver::Sqlite
             && let Some(captures) = DOUBLE_QUOTED.captures(&literal)
         {
             return ColumnDefault::Value(captures[1].replace("\"\"", "\""));
@@ -62,7 +63,7 @@ impl ColumnDefault {
         {
             return ColumnDefault::Value(literal);
         }
-        if driver == "mysql" && !text.contains('(') {
+        if driver == Driver::Mysql && !text.contains('(') {
             return ColumnDefault::Value(default.to_string());
         }
         ColumnDefault::Expression(text)
@@ -110,12 +111,15 @@ mod tests {
     use super::*;
 
     fn read(default: &str, driver: &str) -> ColumnDefault {
-        ColumnDefault::read(Some(default), driver)
+        ColumnDefault::read(Some(default), Driver::parse(driver).unwrap())
     }
 
     #[test]
     fn nothing_and_null_are_no_default() {
-        assert_eq!(ColumnDefault::read(None, "sqlite"), ColumnDefault::None);
+        assert_eq!(
+            ColumnDefault::read(None, Driver::Sqlite),
+            ColumnDefault::None
+        );
         assert_eq!(read("NULL", "sqlite"), ColumnDefault::None);
         assert_eq!(
             read("NULL::character varying", "pgsql"),

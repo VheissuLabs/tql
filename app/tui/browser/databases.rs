@@ -1,4 +1,5 @@
 use super::*;
+use crate::driver::Driver;
 use crate::tui::history::{self, Execution};
 
 const SYSTEM_DATABASES: [&str; 8] = [
@@ -22,7 +23,7 @@ fn database_name(typed: &str) -> String {
 
 impl Browser {
     pub(super) fn open_databases(&mut self) {
-        if self.connection.driver == "sqlite" {
+        if self.connection.driver == Driver::Sqlite {
             self.say("a sqlite connection is one file");
             return;
         }
@@ -118,7 +119,7 @@ impl Browser {
     }
 
     fn cannot_change_databases(&self) -> Option<&'static str> {
-        if self.connection.driver == "sqlite" {
+        if self.connection.driver == Driver::Sqlite {
             return Some("a sqlite connection is one file");
         }
         if self.connection.read_only {

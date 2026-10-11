@@ -1,3 +1,4 @@
+use crate::driver::Driver;
 use crate::terminal::Key;
 use crate::terminal::prelude::*;
 
@@ -71,7 +72,7 @@ impl RecordForm {
     pub fn adding(
         table: &str,
         columns: &[Column],
-        driver: &str,
+        driver: Driver,
         generated: &[String],
         given: &Values,
     ) -> Self {
@@ -107,7 +108,7 @@ impl RecordForm {
     pub fn pending(
         table: &str,
         columns: &[Column],
-        driver: &str,
+        driver: Driver,
         generated: &[String],
         values: &Values,
         at: usize,
@@ -506,7 +507,7 @@ mod tests {
         RecordForm::adding(
             "films",
             &films(),
-            "sqlite",
+            Driver::Sqlite,
             &["id".to_string()],
             &Values::new(),
         )
@@ -540,7 +541,7 @@ mod tests {
     #[test]
     fn a_given_key_is_filled_and_skipped() {
         let given = vec![("id".to_string(), Some("7".to_string()))];
-        let form = RecordForm::adding("films", &films(), "sqlite", &[], &given);
+        let form = RecordForm::adding("films", &films(), Driver::Sqlite, &[], &given);
 
         assert_eq!(form.value("id"), Some("7"));
         assert_eq!(form.current().name, "title");

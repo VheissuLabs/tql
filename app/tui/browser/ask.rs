@@ -126,7 +126,7 @@ impl Browser {
             ai::prepare(
                 &settings.ai,
                 self.ai_environment.as_ref(),
-                &self.connection.driver,
+                self.connection.driver.name(),
                 &summary,
                 asked,
             )

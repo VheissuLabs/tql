@@ -5,6 +5,7 @@ use std::time::Instant;
 
 use crate::commands::dumps::{self, Saved};
 use crate::console::prelude::*;
+use crate::driver::Driver;
 use crate::dump::{self, DumpOptions, Engine, LoadOptions};
 use crate::paths;
 use crate::store::Connection;
@@ -50,7 +51,7 @@ the tables it brings over. Tables it does not bring over are left alone.
             return exit(1);
         }
 
-        if target.driver != "sqlite" {
+        if target.driver != Driver::Sqlite {
             let own = target
                 .database
                 .clone()
@@ -63,16 +64,16 @@ the tables it brings over. Tables it does not bring over are left alone.
                 .or_else(|| source.database.clone());
         }
 
-        let Some(engine) = dumps::engine_for(cmd, &source.driver) else {
+        let Some(engine) = dumps::engine_for(cmd, source.driver) else {
             return exit(1);
         };
-        if Engine::for_driver(&target.driver) != Some(engine) {
+        if Engine::for_driver(target.driver) != Some(engine) {
             cmd.error(format!(
                 "{} is {} and {} is {}; tql does not move between engines yet.",
                 source.name,
-                dump::label(&source.driver),
+                source.driver.label(),
                 target.name,
-                dump::label(&target.driver)
+                target.driver.label()
             ));
             return exit(1);
         }
@@ -89,8 +90,8 @@ the tables it brings over. Tables it does not bring over are left alone.
             return exit(1);
         }
 
-        let reachable = match target.driver.as_str() {
-            "sqlite" => vec![source.clone()],
+        let reachable = match target.driver {
+            Driver::Sqlite => vec![source.clone()],
             _ => vec![source.clone(), dumps::server_of(&target)],
         };
         for connection in reachable {
@@ -213,12 +214,8 @@ the tables it brings over. Tables it does not bring over are left alone.
 }
 
 fn same_place(source: &Connection, target: &Connection) -> bool {
-    let engine = |connection: &Connection| match connection.driver.as_str() {
-        "mariadb" => "mysql".to_string(),
-        driver => driver.to_string(),
-    };
-    let place = |connection: &Connection| match connection.driver.as_str() {
-        "sqlite" => {
+    let place = |connection: &Connection| match connection.driver {
+        Driver::Sqlite => {
             let path = paths::expand(connection.database.as_deref().unwrap_or_default());
             vec![
                 fs::canonicalize(&path)
@@ -241,8 +238,8 @@ fn same_place(source: &Connection, target: &Connection) -> bool {
             connection
                 .port
                 .unwrap_or(match driver {
-                    "pgsql" => 5432,
-                    "sqlsrv" => 1433,
+                    Driver::Pgsql => 5432,
+                    Driver::Sqlsrv => 1433,
                     _ => 3306,
                 })
                 .to_string(),
@@ -254,12 +251,12 @@ fn same_place(source: &Connection, target: &Connection) -> bool {
             dump::active_database(connection),
         ],
     };
-    engine(source) == engine(target) && place(source) == place(target)
+    source.driver == target.driver && place(source) == place(target)
 }
 
 fn label(connection: &Connection) -> String {
-    match connection.driver.as_str() {
-        "sqlite" => connection.name.clone(),
+    match connection.driver {
+        Driver::Sqlite => connection.name.clone(),
         _ => format!(
             "{} · {}",
             connection.name,
@@ -289,7 +286,7 @@ mod tests {
 
     fn server(driver: &str, host: Option<&str>, port: Option<u16>) -> Connection {
         Connection {
-            driver: driver.to_string(),
+            driver: Driver::parse(driver).unwrap(),
             host: host.map(String::from),
             port,
             database: Some("app".to_string()),

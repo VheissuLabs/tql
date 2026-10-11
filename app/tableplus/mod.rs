@@ -7,6 +7,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{anyhow, bail};
 
 use self::plist::Value;
+use crate::driver::Driver;
 use crate::paths;
 use crate::store_writer::{Field, Fields, StoreWriter};
 
@@ -109,7 +110,9 @@ fn planned(
         name: non_empty(plist::text(field("ConnectionName")))
             .unwrap_or_else(|| "TablePlus connection".to_string()),
         id: plist::text(field("ID")),
-        driver: driver.unwrap_or(&table_plus_driver).to_string(),
+        driver: driver.map_or(table_plus_driver.clone(), |driver| {
+            driver.name().to_string()
+        }),
         group: groups.get(&plist::text(field("GroupID"))).cloned(),
         tag: tag_for(&plist::text(field("Enviroment")).to_lowercase()).map(String::from),
         over_ssh: plist::truthy(field("isOverSSH")),
@@ -137,14 +140,14 @@ fn planned(
 
 fn attributes(
     entry: &::plist::Dictionary,
-    driver: &'static str,
+    driver: Driver,
     table_plus_driver: &str,
     planned: &Entry,
 ) -> Fields {
     let field = |key: &str| entry.get(key);
     let optional = |value: Option<String>| value.map_or(Field::Null, Field::Text);
 
-    if driver == "sqlite" {
+    if driver == Driver::Sqlite {
         return kept(
             vec![
                 ("driver", Field::Text("sqlite".to_string())),
@@ -173,7 +176,7 @@ fn attributes(
         )
     };
     let port = match plist::int(field("DatabasePort")) {
-        0 => default_port(driver),
+        0 => i64::from(driver.default_port().unwrap_or_default()),
         port => port,
     };
     let ssl_mode = tls_modes(table_plus_driver)
@@ -181,7 +184,7 @@ fn attributes(
         .map(|mode| mode.to_string());
 
     let mut attributes = vec![
-        ("driver", Field::Text(driver.to_string())),
+        ("driver", Field::Text(driver.name().to_string())),
         (
             "host",
             Field::Text(
@@ -298,7 +301,7 @@ fn passwords(entry: &Entry) -> Fields {
     }
     let mut passwords = Vec::new();
     if entry.database_password_mode == STORED_IN_KEYCHAIN
-        && entry.driver != "sqlite"
+        && entry.driver != Driver::Sqlite.name()
         && let Some(password) = keychain::password(&format!("{}_database", entry.id))
     {
         passwords.push(("password", Field::Secret(password)));
@@ -314,7 +317,7 @@ fn passwords(entry: &Entry) -> Fields {
 }
 
 fn password_state(entry: &Entry, fields: &Fields, with_passwords: bool) -> &'static str {
-    if entry.driver == "sqlite" {
+    if entry.driver == Driver::Sqlite.name() {
         return "not needed";
     }
     if entry.database_password_mode != STORED_IN_KEYCHAIN {
@@ -329,12 +332,12 @@ fn password_state(entry: &Entry, fields: &Fields, with_passwords: bool) -> &'sta
     }
 }
 
-fn driver_for(table_plus_driver: &str) -> Option<&'static str> {
+fn driver_for(table_plus_driver: &str) -> Option<Driver> {
     match table_plus_driver {
-        "MySQL" | "MariaDB" => Some("mysql"),
-        "PostgreSQL" => Some("pgsql"),
-        "SQLite" => Some("sqlite"),
-        "SQLServer" => Some("sqlsrv"),
+        "MySQL" | "MariaDB" => Some(Driver::Mysql),
+        "PostgreSQL" => Some(Driver::Pgsql),
+        "SQLite" => Some(Driver::Sqlite),
+        "SQLServer" => Some(Driver::Sqlsrv),
         _ => None,
     }
 }
@@ -346,14 +349,6 @@ fn tag_for(environment: &str) -> Option<&'static str> {
         "development" | "testing" => Some("dev"),
         "local" => Some("local"),
         _ => None,
-    }
-}
-
-fn default_port(driver: &str) -> i64 {
-    match driver {
-        "mysql" => 3306,
-        "pgsql" => 5432,
-        _ => 1433,
     }
 }
 

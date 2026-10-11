@@ -23,7 +23,7 @@ impl Browser {
             RecordForm::pending(
                 &table,
                 &columns,
-                &self.connection.driver,
+                self.connection.driver,
                 &generated,
                 &self.edits.inserts[self.row_index],
                 self.row_index,

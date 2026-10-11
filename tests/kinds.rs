@@ -1,4 +1,5 @@
 use app::database::{self, Database, Kind};
+use app::driver::Driver;
 use app::store::Connection;
 
 fn sqlite(label: &str) -> Box<dyn Database> {
@@ -12,7 +13,7 @@ fn sqlite(label: &str) -> Box<dyn Database> {
 fn herd(driver: &str, port: u16, database: &str) -> Box<dyn Database> {
     let connection = Connection {
         name: "herd".into(),
-        driver: driver.into(),
+        driver: Driver::parse(driver).unwrap(),
         host: Some("127.0.0.1".into()),
         port: Some(port),
         database: Some(database.into()),

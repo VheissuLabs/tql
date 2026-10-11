@@ -47,8 +47,8 @@ impl Browser {
     pub(super) fn write_all(&mut self, table: &str, key: &str) -> Result<(), Failure> {
         let failed = |title, error, note| Failure { title, error, note };
 
-        let defaults_only = match self.connection.driver.as_str() {
-            "mysql" | "mariadb" => "() values ()",
+        let defaults_only = match self.connection.driver {
+            Driver::Mysql => "() values ()",
             _ => "default values",
         };
 

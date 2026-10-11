@@ -5,6 +5,7 @@ use std::sync::Arc;
 use std::thread;
 
 use app::database::tls::Tls;
+use app::driver::Driver;
 use app::store::Connection;
 use rcgen::{BasicConstraints, CertificateParams, IsCa, Issuer, KeyPair};
 use rustls::pki_types::pem::PemObject;
@@ -143,7 +144,7 @@ fn settings(mode: &str, files: &[(&str, &str)]) -> Tls {
     };
     Tls::from_home(
         &Connection {
-            driver: "pgsql".to_string(),
+            driver: Driver::Pgsql,
             ssl_mode: Some(mode.to_string()),
             ssl_ca: file("ca"),
             ssl_cert: file("cert"),

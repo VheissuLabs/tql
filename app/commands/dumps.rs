@@ -10,6 +10,7 @@ use crate::config_file;
 use crate::console::prelude::*;
 use crate::console::progress::Progress;
 use crate::database::{self, Exporter};
+use crate::driver::Driver;
 use crate::dump::{self, Engine, Job, Update, secrets};
 use crate::encrypter::Encrypter;
 use crate::paths;
@@ -87,11 +88,11 @@ impl Saved {
 
 pub fn settle_database(cmd: &mut Cmd, connection: &mut Connection) -> bool {
     if let Some(database) = cmd.option("database")
-        && connection.driver != "sqlite"
+        && connection.driver.is_server()
     {
         connection.database = Some(database.to_string());
     }
-    if connection.driver == "sqlite" || !dump::active_database(connection).trim().is_empty() {
+    if !connection.driver.is_server() || !dump::active_database(connection).trim().is_empty() {
         return true;
     }
     cmd.error(format!(
@@ -102,12 +103,12 @@ pub fn settle_database(cmd: &mut Cmd, connection: &mut Connection) -> bool {
     false
 }
 
-pub fn engine_for(cmd: &mut Cmd, driver: &str) -> Option<Engine> {
+pub fn engine_for(cmd: &mut Cmd, driver: Driver) -> Option<Engine> {
     let engine = Engine::for_driver(driver);
     if engine.is_none() {
         cmd.error(format!(
             "{} is not supported yet; tql dumps and loads MySQL, Postgres and SQLite.",
-            dump::label(driver)
+            driver.label()
         ));
     }
     engine
@@ -122,7 +123,7 @@ pub fn tool_is_installed(cmd: &mut Cmd, tool: Option<&str>, engine: Engine) -> b
     }
     cmd.error(format!(
         "{tool} is not installed, and tql uses it for {}.",
-        dump::label(engine.name())
+        engine.label()
     ));
     cmd.marked(&format!("  <fg=green>{}</>", engine.install()));
     false
@@ -201,7 +202,7 @@ pub fn room_for(
 
 pub fn server_of(connection: &Connection) -> Connection {
     let mut server = connection.clone();
-    if server.driver == "mysql" {
+    if server.driver == Driver::Mysql {
         server.database = None;
     }
     server

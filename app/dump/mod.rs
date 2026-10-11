@@ -12,6 +12,7 @@ use regex::Regex;
 use serde_json::{Map, Value, json};
 
 use crate::database;
+use crate::driver::Driver;
 use crate::encrypter::Encrypter;
 use crate::paths;
 use crate::store::Connection;
@@ -138,8 +139,25 @@ pub enum Engine {
 const ENGINES: [Engine; 3] = [Engine::MySql, Engine::Postgres, Engine::Sqlite];
 
 impl Engine {
-    pub fn for_driver(driver: &str) -> Option<Engine> {
-        ENGINES.into_iter().find(|engine| engine.name() == driver)
+    pub fn for_driver(driver: Driver) -> Option<Engine> {
+        match driver {
+            Driver::Mysql => Some(Engine::MySql),
+            Driver::Pgsql => Some(Engine::Postgres),
+            Driver::Sqlite => Some(Engine::Sqlite),
+            Driver::Sqlsrv => None,
+        }
+    }
+
+    pub fn named(name: &str) -> Option<Engine> {
+        ENGINES.into_iter().find(|engine| engine.name() == name)
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Engine::MySql => Driver::Mysql.label(),
+            Engine::Postgres => Driver::Pgsql.label(),
+            Engine::Sqlite => Driver::Sqlite.label(),
+        }
     }
 
     pub fn recognise(directory: &Path) -> Option<Engine> {
@@ -148,7 +166,7 @@ impl Engine {
             .and_then(|manifest| manifest.get("engine"))
             .and_then(Value::as_str)
         {
-            return Engine::for_driver(named);
+            return Engine::named(named);
         }
         ENGINES
             .into_iter()
@@ -249,17 +267,6 @@ impl Engine {
     }
 }
 
-pub fn label(driver: &str) -> String {
-    match driver {
-        "mysql" => "MySQL",
-        "pgsql" => "Postgres",
-        "sqlite" => "SQLite",
-        "sqlsrv" => "SQL Server",
-        other => other,
-    }
-    .to_string()
-}
-
 pub fn active_database(connection: &Connection) -> String {
     connection.database.clone().unwrap_or_default()
 }
@@ -311,8 +318,8 @@ pub fn write_manifest(
     options: &DumpOptions,
     version: &str,
 ) -> anyhow::Result<()> {
-    let database = match connection.driver.as_str() {
-        "sqlite" => Value::String(
+    let database = match connection.driver {
+        Driver::Sqlite => Value::String(
             Path::new(connection.database.as_deref().unwrap_or_default())
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())

@@ -109,7 +109,7 @@ impl Browser {
         };
         json!({
             "connection": self.connection.name,
-            "driver": self.connection.driver,
+            "driver": self.connection.driver.name(),
             "tag": self.connection.tag,
             "database": self.active_database.clone().or_else(|| self.connection.database.clone()),
             "showing": if self.query.results { "query results" } else { "table" },

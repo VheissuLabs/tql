@@ -2,6 +2,7 @@ use std::os::unix::fs::PermissionsExt;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 
+use app::driver::Driver;
 use app::dump::{DumpOptions, Engine, Job, LoadOptions};
 use app::encrypter::Encrypter;
 use app::store::Connection;
@@ -20,7 +21,7 @@ fn encrypter() -> Encrypter {
 fn server(encrypter: &Encrypter, driver: &str) -> Connection {
     Connection {
         name: format!("{driver}-server"),
-        driver: driver.into(),
+        driver: Driver::parse(driver).unwrap(),
         host: Some("db.example.test".into()),
         port: Some(if driver == "mysql" { 3306 } else { 5432 }),
         database: Some("notarydash".into()),

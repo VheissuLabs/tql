@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+use app::driver::Driver;
 use app::dsn;
 use app::encrypter::Encrypter;
 use app::opener::{self, Opened};
@@ -104,7 +105,7 @@ fn takes_a_sql_server_connection_string() {
     for scheme in ["sqlsrv", "mssql"] {
         let parsed = opener::target(&format!("{scheme}://sa:pw@db.example.com/shop")).unwrap();
 
-        assert_eq!(parsed.driver, "sqlsrv");
+        assert_eq!(parsed.driver, Driver::Sqlsrv);
         assert_eq!(parsed.host.as_deref(), Some("db.example.com"));
         assert_eq!(parsed.port, Some(1433));
         assert_eq!(parsed.database.as_deref(), Some("shop"));

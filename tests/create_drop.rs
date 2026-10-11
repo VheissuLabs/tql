@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use anyhow::bail;
 use app::database::{Column, Database, Filters, ForeignKey, Index, Outcome, Page, Sort};
+use app::driver::Driver;
 use app::store::Connection;
 use app::terminal::Fake;
 use app::tui::Browser;
@@ -111,7 +112,7 @@ fn server_with(
 ) -> (Fake<Browser>, Rc<RefCell<Ledger>>) {
     let mut connection = Connection {
         name: "server".into(),
-        driver: "mysql".into(),
+        driver: Driver::Mysql,
         database: Some("shop".into()),
         ..Connection::default()
     };
@@ -455,7 +456,7 @@ fn records_creates_and_drops_in_the_history_as_tui() {
     let connection = Connection {
         id: 4,
         name: "server".into(),
-        driver: "mysql".into(),
+        driver: Driver::Mysql,
         database: Some("shop".into()),
         ..Connection::default()
     };

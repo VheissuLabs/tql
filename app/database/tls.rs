@@ -13,6 +13,7 @@ use rustls::{
     CertificateError, ClientConfig, DigitallySignedStruct, RootCertStore, SignatureScheme,
 };
 
+use crate::driver::Driver;
 use crate::paths;
 use crate::store::Connection;
 
@@ -59,8 +60,8 @@ impl Tls {
     }
 
     pub fn from_home(connection: &Connection, home: &Path) -> anyhow::Result<Tls> {
-        let mode = match connection.driver.as_str() {
-            "sqlite" => Mode::Unset,
+        let mode = match connection.driver {
+            Driver::Sqlite => Mode::Unset,
             _ => Mode::named(connection.ssl_mode.as_deref().unwrap_or_default().trim())?,
         };
         if matches!(mode, Mode::Unset | Mode::Disable) {
@@ -86,7 +87,7 @@ impl Tls {
         };
         let mut ca = file(&connection.ssl_ca);
         let mut identity = identity;
-        if connection.driver == "pgsql" {
+        if connection.driver == Driver::Pgsql {
             let libpq = home.join(".postgresql");
             let existing = |name: &str| Some(libpq.join(name)).filter(|path| path.is_file());
             ca = ca.or_else(|| existing("root.crt"));
@@ -304,7 +305,7 @@ mod tests {
             std::fs::write(folder.join(file), "").unwrap();
         }
         let postgres = Connection {
-            driver: "pgsql".to_string(),
+            driver: Driver::Pgsql,
             ..server("require")
         };
 
@@ -324,7 +325,7 @@ mod tests {
     fn server(mode: &str) -> Connection {
         Connection {
             name: "cloud".to_string(),
-            driver: "mysql".to_string(),
+            driver: Driver::Mysql,
             host: Some("db.example.com".to_string()),
             ssl_mode: Some(mode.to_string()),
             ..Connection::default()
@@ -381,7 +382,7 @@ mod tests {
     #[test]
     fn never_uses_tls_on_a_sqlite_file() {
         let file = Connection {
-            driver: "sqlite".to_string(),
+            driver: Driver::Sqlite,
             ..with_files("verify-full")
         };
 
@@ -473,7 +474,7 @@ mod tests {
         ] {
             assert_eq!(
                 tls(&Connection {
-                    driver: "pgsql".to_string(),
+                    driver: Driver::Pgsql,
                     ..server(mode)
                 })
                 .postgres_mode(),

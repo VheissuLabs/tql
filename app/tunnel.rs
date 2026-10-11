@@ -11,7 +11,6 @@ use std::sync::{Arc, LazyLock, Mutex};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use crate::dsn;
 use crate::paths;
 use crate::store::Connection;
 
@@ -97,7 +96,8 @@ pub fn command(connection: &Connection, port: u16, home: &Path) -> Vec<String> {
             .unwrap_or("127.0.0.1"),
         connection
             .port
-            .unwrap_or_else(|| dsn::default_port(&connection.driver))
+            .or(connection.driver.default_port())
+            .unwrap_or_default()
     );
     let mut command: Vec<String> = [
         "ssh",
@@ -312,11 +312,12 @@ impl Drop for Askpass {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::driver::Driver;
 
     fn tunnelled() -> Connection {
         Connection {
             name: "prod".to_string(),
-            driver: "mysql".to_string(),
+            driver: Driver::Mysql,
             host: Some("db.internal".to_string()),
             port: Some(3306),
             database: Some("shop".to_string()),
@@ -415,7 +416,7 @@ mod tests {
     #[test]
     fn forwards_to_the_drivers_own_port_and_localhost_when_they_are_not_set() {
         let connection = Connection {
-            driver: "pgsql".to_string(),
+            driver: Driver::Pgsql,
             host: None,
             port: None,
             ..tunnelled()

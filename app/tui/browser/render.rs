@@ -1,4 +1,5 @@
 use super::*;
+use crate::driver::Driver;
 
 pub(super) const EDITOR_PADDING: u16 = 1;
 
@@ -80,7 +81,7 @@ impl Browser {
                 more,
             ];
         }
-        let database_offer = if self.connection.driver == "sqlite" {
+        let database_offer = if self.connection.driver == Driver::Sqlite {
             String::new()
         } else {
             key(Action::Databases, 0)
@@ -254,8 +255,8 @@ impl Browser {
         let mut island = Island::placed(1, 1, tables_width as u16 + 2, frame_height);
         island.focused = self.focus == Focus::Sidebar && self.mode != Mode::Query;
 
-        let name = match self.connection.driver.as_str() {
-            "sqlite" => Path::new(self.connection.database.as_deref().unwrap_or_default())
+        let name = match self.connection.driver {
+            Driver::Sqlite => Path::new(self.connection.database.as_deref().unwrap_or_default())
                 .file_name()
                 .map(|name| name.to_string_lossy().into_owned())
                 .unwrap_or_default(),

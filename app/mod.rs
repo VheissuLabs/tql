@@ -5,6 +5,7 @@ pub mod commands;
 pub mod config_file;
 pub mod console;
 pub mod database;
+pub mod driver;
 pub mod dsn;
 pub mod dump;
 pub mod encrypter;

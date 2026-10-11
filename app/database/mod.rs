@@ -19,6 +19,7 @@ use regex::Regex;
 pub use column_default::ColumnDefault;
 pub use exporter::{Exported, Exporter, Scalar, Scalars};
 
+use crate::driver::Driver;
 use crate::encrypter::Encrypter;
 use crate::store::Connection;
 use crate::tunnel;
@@ -359,10 +360,8 @@ pub fn connect(
     tls::choose_ring();
     let password = decrypted(&connection.password, encrypter)?;
 
-    match connection.driver.as_str() {
-        "sqlite" => return Ok(Box::new(sqlite::Sqlite::open(connection)?)),
-        "pgsql" | "mysql" | "mariadb" | "sqlsrv" => {}
-        other => bail!("the {other} driver is not ported yet"),
+    if connection.driver == Driver::Sqlite {
+        return Ok(Box::new(sqlite::Sqlite::open(connection)?));
     }
 
     let tunnel = match connection.uses_ssh() {
@@ -373,14 +372,16 @@ pub fn connect(
         false => None,
     };
 
-    match connection.driver.as_str() {
-        "pgsql" => Ok(Box::new(postgres::Postgres::open(
+    match connection.driver {
+        Driver::Pgsql => Ok(Box::new(postgres::Postgres::open(
             connection, password, tunnel,
         )?)),
-        "sqlsrv" => Ok(Box::new(sqlsrv::SqlServer::through(
+        Driver::Sqlsrv => Ok(Box::new(sqlsrv::SqlServer::through(
             connection, password, tunnel,
         )?)),
-        _ => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
+        Driver::Mysql | Driver::Sqlite => {
+            Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?))
+        }
     }
 }
 

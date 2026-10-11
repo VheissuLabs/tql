@@ -11,6 +11,7 @@ use jiff::tz::TimeZone;
 use regex::Regex;
 
 use super::Database;
+use crate::driver::Driver;
 use crate::paths;
 use crate::settings;
 use crate::store::Connection;
@@ -46,15 +47,17 @@ impl Scalar {
         Scalar::Number(real_text(number))
     }
 
-    pub fn literal(&self, driver: &str) -> String {
+    pub fn literal(&self, driver: Driver) -> String {
         match self {
             Scalar::Null => "null".to_string(),
             Scalar::Number(number) => number.clone(),
-            Scalar::Text(text) if matches!(driver, "mysql" | "mariadb") => mysql_quoted(text),
-            Scalar::Text(text) if driver == "sqlsrv" => format!("N'{}'", text.replace('\'', "''")),
+            Scalar::Text(text) if driver == Driver::Mysql => mysql_quoted(text),
+            Scalar::Text(text) if driver == Driver::Sqlsrv => {
+                format!("N'{}'", text.replace('\'', "''"))
+            }
             Scalar::Text(text) => format!("'{}'", text.replace('\'', "''")),
-            Scalar::Bytes(bytes) if driver == "pgsql" => format!("'\\x{}'", hex(bytes)),
-            Scalar::Bytes(bytes) if driver == "sqlsrv" => format!("0x{}", hex(bytes)),
+            Scalar::Bytes(bytes) if driver == Driver::Pgsql => format!("'\\x{}'", hex(bytes)),
+            Scalar::Bytes(bytes) if driver == Driver::Sqlsrv => format!("0x{}", hex(bytes)),
             Scalar::Bytes(bytes) => format!("X'{}'", hex(bytes)),
         }
     }
@@ -124,14 +127,14 @@ impl Exported {
     }
 }
 
-struct Statements<'a> {
-    driver: &'a str,
+struct Statements {
+    driver: Driver,
     table: String,
     columns: String,
     buffer: Vec<String>,
 }
 
-impl Statements<'_> {
+impl Statements {
     fn push(&mut self, row: &[Scalar], file: &mut impl Write) -> anyhow::Result<()> {
         let values: Vec<String> = row.iter().map(|value| value.literal(self.driver)).collect();
         self.buffer.push(format!("({})", values.join(", ")));
@@ -195,7 +198,7 @@ impl<'a> Exporter<'a> {
 
     pub fn filename(&self, table: Option<&str>) -> anyhow::Result<PathBuf> {
         let database = self.connection.database.clone().unwrap_or_default();
-        let subject = if self.connection.driver == "sqlite" {
+        let subject = if self.connection.driver == Driver::Sqlite {
             Path::new(&database)
                 .file_stem()
                 .map(|stem| stem.to_string_lossy().into_owned())
@@ -285,7 +288,7 @@ impl<'a> Exporter<'a> {
         file.write_all(self.header(label).as_bytes())?;
 
         let mut statements = Statements {
-            driver: &self.connection.driver,
+            driver: self.connection.driver,
             table: database.quote(label),
             columns: quoted_columns(database, headers),
             buffer: Vec::new(),
@@ -321,7 +324,7 @@ impl<'a> Exporter<'a> {
             ),
         };
         let mut statements = Statements {
-            driver: &self.connection.driver,
+            driver: self.connection.driver,
             table: database.quote(table),
             columns: String::new(),
             buffer: Vec::new(),
@@ -445,31 +448,37 @@ mod tests {
     #[test]
     fn quotes_text_the_way_each_driver_reads_it_back() {
         let text = Scalar::Text("it's a \\ \"line\"\nbreak".to_string());
-        assert_eq!(text.literal("sqlite"), "'it''s a \\ \"line\"\nbreak'");
-        assert_eq!(text.literal("pgsql"), "'it''s a \\ \"line\"\nbreak'");
+        assert_eq!(text.literal(Driver::Sqlite), "'it''s a \\ \"line\"\nbreak'");
+        assert_eq!(text.literal(Driver::Pgsql), "'it''s a \\ \"line\"\nbreak'");
         assert_eq!(
-            text.literal("mysql"),
+            text.literal(Driver::Mysql),
             "'it\\'s a \\\\ \\\"line\\\"\\nbreak'"
         );
     }
 
     #[test]
     fn writes_numbers_nulls_and_bytes_as_literals() {
-        assert_eq!(Scalar::Null.literal("sqlite"), "null");
-        assert_eq!(Scalar::real(1000.0).literal("sqlite"), "1000.0");
-        assert_eq!(Scalar::real(0.15).literal("sqlite"), "0.15");
-        assert_eq!(Scalar::real(f64::INFINITY).literal("sqlite"), "9e999");
-        assert_eq!(Scalar::real(2.0).literal("sqlite"), "2.0");
-        assert_eq!(Scalar::real(-0.5).literal("sqlite"), "-0.5");
+        assert_eq!(Scalar::Null.literal(Driver::Sqlite), "null");
+        assert_eq!(Scalar::real(1000.0).literal(Driver::Sqlite), "1000.0");
+        assert_eq!(Scalar::real(0.15).literal(Driver::Sqlite), "0.15");
+        assert_eq!(Scalar::real(f64::INFINITY).literal(Driver::Sqlite), "9e999");
+        assert_eq!(Scalar::real(2.0).literal(Driver::Sqlite), "2.0");
+        assert_eq!(Scalar::real(-0.5).literal(Driver::Sqlite), "-0.5");
         assert_eq!(
             Scalar::real(1e300)
-                .literal("sqlite")
+                .literal(Driver::Sqlite)
                 .parse::<f64>()
                 .unwrap(),
             1e300
         );
-        assert_eq!(Scalar::Bytes(vec![0, 255]).literal("sqlite"), "X'00ff'");
-        assert_eq!(Scalar::Bytes(vec![0, 255]).literal("pgsql"), "'\\x00ff'");
+        assert_eq!(
+            Scalar::Bytes(vec![0, 255]).literal(Driver::Sqlite),
+            "X'00ff'"
+        );
+        assert_eq!(
+            Scalar::Bytes(vec![0, 255]).literal(Driver::Pgsql),
+            "'\\x00ff'"
+        );
     }
 
     #[test]

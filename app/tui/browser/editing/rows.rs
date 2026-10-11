@@ -1,4 +1,5 @@
 use super::*;
+use crate::driver::Driver;
 
 impl Browser {
     pub(in crate::tui::browser) fn mark_delete(&mut self) {
@@ -67,7 +68,7 @@ impl Browser {
             return false;
         };
         column.auto_increment
-            || self.connection.driver == "sqlite"
+            || self.connection.driver == Driver::Sqlite
                 && self.key_column().as_deref() == Some(name)
                 && column.type_name.eq_ignore_ascii_case("integer")
     }
@@ -131,7 +132,7 @@ impl Browser {
         self.edits.form = Some(RecordForm::adding(
             &table,
             &columns,
-            &self.connection.driver,
+            self.connection.driver,
             &generated,
             &given,
         ));

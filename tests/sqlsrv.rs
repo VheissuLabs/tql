@@ -1,6 +1,7 @@
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use app::database::{self, Database, Direction, Filter, Filters, Joiner, Pivot, Relations, Sort};
+use app::driver::Driver;
 use app::encrypter::Encrypter;
 use app::store::Connection;
 
@@ -13,7 +14,7 @@ fn server(database: &str, ssl_mode: Option<&str>) -> Box<dyn Database> {
     let password = std::env::var("TQL_TEST_SQLSRV_PASSWORD").unwrap();
     let connection = Connection {
         name: "mssql".into(),
-        driver: "sqlsrv".into(),
+        driver: Driver::Sqlsrv,
         host: Some(host.into()),
         port: Some(port.parse().unwrap()),
         database: Some(database.into()),
@@ -324,7 +325,7 @@ fn runs_statements_and_counts_what_they_changed() {
     assert_eq!(
         scalars.rows[0]
             .iter()
-            .map(|value| value.literal("sqlsrv"))
+            .map(|value| value.literal(Driver::Sqlsrv))
             .collect::<Vec<_>>(),
         ["1", "N'Ada'", "0.50", "0x01ab"]
     );
@@ -373,7 +374,7 @@ fn connects_unencrypted_when_ssl_is_disabled_and_refuses_an_unverified_certifica
     let (host, port) = place.rsplit_once(':').unwrap();
     let verified = Connection {
         name: "mssql".into(),
-        driver: "sqlsrv".into(),
+        driver: Driver::Sqlsrv,
         host: Some(host.into()),
         port: Some(port.parse().unwrap()),
         username: Some("sa".into()),

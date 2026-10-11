@@ -4,13 +4,14 @@ use anyhow::{Context, bail};
 use rusqlite::OpenFlags;
 use rusqlite::types::ValueRef;
 
+use crate::driver::Driver;
 use crate::{dsn, paths, tag};
 
 #[derive(Debug, Clone, Default, PartialEq)]
 pub struct Connection {
     pub id: i64,
     pub name: String,
-    pub driver: String,
+    pub driver: Driver,
     pub host: Option<String>,
     pub port: Option<u16>,
     pub database: Option<String>,
@@ -35,7 +36,7 @@ impl Connection {
     pub fn sqlite(name: &str, path: &str) -> Self {
         Connection {
             name: name.to_string(),
-            driver: "sqlite".to_string(),
+            driver: Driver::Sqlite,
             database: Some(path.to_string()),
             ..Connection::default()
         }
@@ -50,7 +51,7 @@ impl Connection {
     }
 
     pub fn uses_ssh(&self) -> bool {
-        self.driver != "sqlite"
+        self.driver != Driver::Sqlite
             && self
                 .ssh_host
                 .as_deref()
@@ -59,7 +60,7 @@ impl Connection {
 
     pub fn connection_string(&self, password: Option<&str>) -> String {
         let database = self.database.clone().unwrap_or_default();
-        if self.driver == "sqlite" {
+        if self.driver == Driver::Sqlite {
             return format!("sqlite://{database}");
         }
         let credentials = match (self.username.as_deref(), password) {
@@ -83,7 +84,7 @@ impl Connection {
     }
 
     pub fn describe_from(&self, home: &Path) -> String {
-        if self.driver == "sqlite" {
+        if self.driver == Driver::Sqlite {
             return format!(
                 "sqlite:{}",
                 paths::shorten_from(self.database.as_deref().unwrap_or_default(), home)
@@ -170,12 +171,15 @@ impl Store {
                 }
             };
 
-            Ok(Connection {
+            let Some(driver) = text("driver").as_deref().and_then(Driver::parse) else {
+                return Ok(None);
+            };
+            Ok(Some(Connection {
                 id: text("id")
                     .and_then(|id| id.parse().ok())
                     .unwrap_or_default(),
                 name: text("name").unwrap_or_default(),
-                driver: text("driver").unwrap_or_default(),
+                driver,
                 host: text("host"),
                 port: text("port").and_then(|port| port.parse().ok()),
                 database: text("database"),
@@ -196,16 +200,42 @@ impl Store {
                 ssl_cert: text("ssl_cert"),
                 ssl_key: text("ssl_key"),
                 last_used_at: text("last_used_at"),
-            })
+            }))
         })?;
 
-        Ok(connections.collect::<Result<_, _>>()?)
+        Ok(connections
+            .collect::<Result<Vec<_>, _>>()?
+            .into_iter()
+            .flatten()
+            .collect())
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn reads_a_mariadb_connection_as_mysql_and_skips_a_driver_it_does_not_know() {
+        let path =
+            std::env::temp_dir().join(format!("tql-store-drivers-{}.sqlite", std::process::id()));
+        let _ = std::fs::remove_file(&path);
+        rusqlite::Connection::open(&path)
+            .unwrap()
+            .execute_batch(
+                "create table connections (id integer primary key, name text, driver text, last_used_at text);
+                 insert into connections values (1, 'maria', 'mariadb', null);
+                 insert into connections values (2, 'oracle', 'oci', null);",
+            )
+            .unwrap();
+
+        let connections = Store::open(&path).unwrap().connections().unwrap();
+        std::fs::remove_file(&path).unwrap();
+
+        assert_eq!(connections.len(), 1);
+        assert_eq!(connections[0].name, "maria");
+        assert_eq!(connections[0].driver, Driver::Mysql);
+    }
 
     #[test]
     fn reads_connections_most_recently_used_first() {
@@ -240,7 +270,7 @@ mod tests {
     fn tunnelled() -> Connection {
         Connection {
             name: "prod".to_string(),
-            driver: "mysql".to_string(),
+            driver: Driver::Mysql,
             host: Some("db.internal".to_string()),
             port: Some(3306),
             database: Some("shop".to_string()),

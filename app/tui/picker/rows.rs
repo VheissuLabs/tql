@@ -1,4 +1,5 @@
 use super::*;
+use crate::driver::Driver;
 
 impl Picker {
     pub(super) fn rows(&self, unfolded: bool) -> Vec<Row> {
@@ -22,7 +23,7 @@ impl Picker {
                             name: String::new(),
                             tag: String::new(),
                             tag_color: None,
-                            driver: String::new(),
+                            driver: None,
                             place: String::new(),
                             used: String::new(),
                             marked: false,
@@ -47,7 +48,7 @@ impl Picker {
                         tag
                     },
                     tag_color: connection.tag_color().and_then(theme::named),
-                    driver: connection.driver.clone(),
+                    driver: Some(connection.driver),
                     place: connection.describe_from(&self.places.home),
                     used: ago(connection.last_used_at.as_deref(), now),
                     marked: self.is_marked(connection.id),
@@ -146,7 +147,9 @@ impl Picker {
             return Self::header_line(header, selected, widths);
         }
         let grid = theme::border(true, false);
-        let icon = settings::with(|settings| settings.icon(&row.driver));
+        let icon = settings::with(|settings| {
+            settings.icon(row.driver.map(Driver::name).unwrap_or_default())
+        });
         let marker = match selected && settings::with(|settings| settings.row_style == "marker") {
             true => "▸",
             false => " ",
@@ -173,7 +176,7 @@ impl Picker {
             return Line::styled(pad(&text, room), style);
         }
 
-        let shade = row.tag_color.unwrap_or_else(|| driver_color(&row.driver));
+        let shade = row.tag_color.unwrap_or_else(|| driver_color(row.driver));
         let tag_style = row
             .tag_color
             .map(|color| Style::new().fg(color))
@@ -211,12 +214,12 @@ pub(super) fn header_text(header: &Header) -> String {
     format!(" ▼ {} ({})", header.group, header.count)
 }
 
-pub(super) fn driver_color(driver: &str) -> Color {
+pub(super) fn driver_color(driver: Option<Driver>) -> Color {
     match driver {
-        "mysql" | "mariadb" => Color::Yellow,
-        "pgsql" => Color::Blue,
-        "sqlite" => Color::Green,
-        "sqlsrv" => Color::Magenta,
-        _ => Color::DarkGray,
+        Some(Driver::Mysql) => Color::Yellow,
+        Some(Driver::Pgsql) => Color::Blue,
+        Some(Driver::Sqlite) => Color::Green,
+        Some(Driver::Sqlsrv) => Color::Magenta,
+        None => Color::DarkGray,
     }
 }

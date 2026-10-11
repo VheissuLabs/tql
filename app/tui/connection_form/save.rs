@@ -5,7 +5,7 @@ impl ConnectionForm {
         if self.value("name").trim().is_empty() {
             return Ok(Some("A name is required.".to_string()));
         }
-        let sqlite = self.driver() == "sqlite";
+        let sqlite = self.driver() == Driver::Sqlite;
         if sqlite && self.value("database").trim().is_empty() {
             return Ok(Some("A path to the .sqlite file is required.".to_string()));
         }
@@ -32,7 +32,7 @@ impl ConnectionForm {
 
     fn fields_to_save(&self) -> Fields {
         let over_ssh = self.over_ssh();
-        let mut fields: Fields = vec![("driver", Field::Text(self.driver().to_string()))];
+        let mut fields: Fields = vec![("driver", Field::Text(self.driver().name().to_string()))];
         for key in self.keys() {
             if key == "driver" || key == "over_ssh" {
                 continue;

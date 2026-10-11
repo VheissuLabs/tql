@@ -2,6 +2,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use app::database::{self, Database, Exporter};
+use app::driver::Driver;
 use app::settings::{self, Settings};
 use app::store::Connection;
 use app::terminal::Fake;
@@ -194,7 +195,7 @@ fn names_exports_after_the_database_in_use_on_a_server() {
     exporting_into(&exports);
     let mut connection = Connection {
         name: "MySql Dev".into(),
-        driver: "mysql".into(),
+        driver: Driver::Mysql,
         database: Some("karlm_v2".into()),
         ..Connection::default()
     };

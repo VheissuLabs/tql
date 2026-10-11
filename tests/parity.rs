@@ -3,6 +3,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use app::database::{self, Exporter};
+use app::driver::Driver;
 use app::settings::{self, Settings};
 use app::store::Store;
 use app::terminal::Fake;
@@ -360,7 +361,7 @@ fn sql_server(database: &str) -> Box<dyn database::Database> {
     let password = std::env::var("TQL_PARITY_SQLSRV_PASSWORD").unwrap_or_default();
     let connection = app::store::Connection {
         name: SQL_SERVER.into(),
-        driver: "sqlsrv".into(),
+        driver: Driver::Sqlsrv,
         host: Some(host.into()),
         port: Some(port.parse().unwrap()),
         database: Some(database.into()),

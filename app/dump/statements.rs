@@ -1,3 +1,4 @@
+use crate::driver::Driver;
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;
@@ -30,8 +31,8 @@ impl StatementReader {
         StatementReader { backslash_escapes }
     }
 
-    pub fn for_driver(driver: &str) -> Self {
-        StatementReader::new(matches!(driver, "mysql" | "mariadb"))
+    pub fn for_driver(driver: Driver) -> Self {
+        StatementReader::new(driver == Driver::Mysql)
     }
 
     pub fn read(&self, path: &Path) -> anyhow::Result<Statements<BufReader<File>>> {
@@ -175,7 +176,8 @@ mod tests {
     #[test]
     fn reads_backslash_escapes_for_mysql_and_mariadb_alike() {
         let sql = "insert into t values ('it\\'s; fine');select 2";
-        for driver in ["mysql", "mariadb"] {
+        for name in ["mysql", "mariadb"] {
+            let driver = Driver::parse(name).unwrap();
             assert_eq!(
                 StatementReader::for_driver(driver).split(sql),
                 ["insert into t values ('it\\'s; fine')", "select 2"],

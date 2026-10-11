@@ -1,3 +1,4 @@
+use app::driver::Driver;
 use app::store::Connection;
 use app::terminal::Fake;
 use app::tui::Picker;
@@ -9,7 +10,7 @@ fn connections() -> Vec<Connection> {
             ..Connection::sqlite("shop", "/tmp/shop.sqlite")
         },
         Connection {
-            driver: "mysql".into(),
+            driver: Driver::Mysql,
             host: Some("db.test".into()),
             port: Some(3306),
             database: Some("blog".into()),

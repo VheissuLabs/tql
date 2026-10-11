@@ -1,6 +1,7 @@
 use std::fs;
 use std::path::PathBuf;
 
+use app::driver::Driver;
 use app::encrypter::Encrypter;
 use app::store::{Connection, Store};
 use app::store_writer::{Field, StoreWriter};
@@ -364,7 +365,7 @@ fn cycles_the_driver_instead_of_typing_it() {
     fake.press("\n");
 
     let form = fake.app.form.as_ref().unwrap();
-    assert_eq!(form.driver(), "mysql");
+    assert_eq!(form.driver(), Driver::Mysql);
     assert!(!form.editing_field());
     assert_eq!(
         form_keys(&fake),
@@ -393,7 +394,7 @@ fn fills_in_the_default_host_and_port_for_a_server_driver() {
     fake.press("nll");
 
     let form = fake.app.form.as_ref().unwrap();
-    assert_eq!(form.driver(), "pgsql");
+    assert_eq!(form.driver(), Driver::Pgsql);
     assert_eq!(form.value("host"), "127.0.0.1");
     assert_eq!(form.value("port"), "5432");
 }
@@ -409,7 +410,7 @@ fn keeps_a_port_you_typed_when_the_driver_changes() {
     fake.press("kkk").press("l");
 
     let form = fake.app.form.as_ref().unwrap();
-    assert_eq!(form.driver(), "pgsql");
+    assert_eq!(form.driver(), Driver::Pgsql);
     assert_eq!(form.value("port"), "3307");
 }
 
@@ -422,7 +423,7 @@ fn saves_a_new_connection_and_selects_it() {
         .press(SAVE);
 
     let created = scratch.named("brand new").unwrap();
-    assert_eq!(created.driver, "sqlite");
+    assert_eq!(created.driver, Driver::Sqlite);
     assert!(fake.app.form.is_none());
     assert_eq!(fake.app.status.as_deref(), Some("added brand new"));
     assert_eq!(fake.app.connections[fake.app.index].name, "brand new");

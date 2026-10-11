@@ -38,7 +38,7 @@ impl Agent {
             .map(|connection| {
                 json!({
                     "name": connection.name,
-                    "driver": connection.driver,
+                    "driver": connection.driver.name(),
                     "target": connection.describe(),
                     "read_only": connection.read_only,
                     "last_used_at": connection.last_used_at.as_deref().map(iso8601),

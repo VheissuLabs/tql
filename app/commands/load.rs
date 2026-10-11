@@ -6,6 +6,7 @@ use serde_json::Value;
 use crate::commands::dumps::{self, Saved};
 use crate::console::prelude::*;
 use crate::database;
+use crate::driver::Driver;
 use crate::dump::{self, Engine, LoadOptions, StatementReader};
 use crate::store::Connection;
 
@@ -87,22 +88,22 @@ fn restore(cmd: &mut Cmd, saved: &Saved, directory: &Path, connection: &Connecti
         ));
         return exit(1);
     };
-    let Some(engine) = dumps::engine_for(cmd, &connection.driver) else {
+    let Some(engine) = dumps::engine_for(cmd, connection.driver) else {
         return exit(1);
     };
     if engine != source {
         cmd.error(format!(
             "That dump is from {} and {} is {}; tql does not move between engines yet.",
-            dump::label(source.name()),
+            source.label(),
             connection.name,
-            dump::label(engine.name())
+            engine.label()
         ));
         return exit(1);
     }
     if !dumps::tool_is_installed(cmd, engine.loader(), engine) {
         return exit(1);
     }
-    if connection.driver != "sqlite"
+    if connection.driver != Driver::Sqlite
         && let Some(failure) = saved.test(&dumps::server_of(connection))
     {
         cmd.error(failure);
@@ -199,8 +200,8 @@ fn replay(cmd: &mut Cmd, saved: &Saved, file: &Path, connection: &Connection) ->
     }
 
     let started = Instant::now();
-    let (begin, commit, rollback) = match connection.driver.as_str() {
-        "sqlsrv" => (
+    let (begin, commit, rollback) = match connection.driver {
+        Driver::Sqlsrv => (
             "begin transaction",
             "commit transaction",
             "rollback transaction",
@@ -210,7 +211,7 @@ fn replay(cmd: &mut Cmd, saved: &Saved, file: &Path, connection: &Connection) ->
     let mut statements = 0;
 
     let replayed = database.run(begin).and_then(|_| {
-        for statement in StatementReader::for_driver(&connection.driver).read(file)? {
+        for statement in StatementReader::for_driver(connection.driver).read(file)? {
             database.run(&statement?)?;
             statements += 1;
         }

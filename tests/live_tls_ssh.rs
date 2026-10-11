@@ -8,6 +8,7 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use app::database::{self, Database};
+use app::driver::Driver;
 use app::encrypter::Encrypter;
 use app::store::Connection;
 use app::tunnel;
@@ -148,7 +149,7 @@ fn eventually(connection: &Connection, encrypter: Option<&Encrypter>) -> Box<dyn
 fn mysql(port: u16, mode: &str) -> Connection {
     Connection {
         name: "mysql".to_string(),
-        driver: "mysql".to_string(),
+        driver: Driver::Mysql,
         host: Some("127.0.0.1".to_string()),
         port: Some(port),
         username: Some("root".to_string()),
@@ -263,7 +264,7 @@ fn postgres_server(lab: &mut Lab, names: &[&str], extra: &[&str]) -> String {
 fn postgres(host: &str, port: u16, mode: &str) -> Connection {
     Connection {
         name: "postgres".to_string(),
-        driver: "pgsql".to_string(),
+        driver: Driver::Pgsql,
         host: Some(host.to_string()),
         port: Some(port),
         username: Some("postgres".to_string()),

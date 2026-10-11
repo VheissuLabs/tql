@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use app::database::{Column, Database, Filters, ForeignKey, Index, Page, Sort};
+use app::driver::Driver;
 use app::store::Connection;
 use app::terminal::Fake;
 use app::tui::Browser;
@@ -80,7 +81,7 @@ impl Database for Server {
 fn server(database: Option<&str>) -> Fake<Browser> {
     let connection = Connection {
         name: "Cloud - quill".into(),
-        driver: "mysql".into(),
+        driver: Driver::Mysql,
         database: database.map(String::from),
         tag: Some("production".into()),
         ..Connection::default()

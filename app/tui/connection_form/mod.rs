@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 
+use crate::driver::Driver;
 use crate::terminal::prelude::*;
 use ratatui::buffer::Buffer;
 
@@ -20,7 +21,12 @@ mod input;
 mod render;
 mod save;
 
-pub const DRIVERS: [&str; 4] = ["sqlite", "mysql", "pgsql", "sqlsrv"];
+pub const DRIVERS: [&str; 4] = [
+    Driver::Sqlite.name(),
+    Driver::Mysql.name(),
+    Driver::Pgsql.name(),
+    Driver::Sqlsrv.name(),
+];
 pub const SSL_MODES: [&str; 6] = [
     "",
     "disable",
@@ -84,7 +90,8 @@ impl ConnectionForm {
     pub fn creating(places: Places) -> Self {
         let mut form = ConnectionForm::blank(places);
         form.creating = true;
-        form.values.insert("driver", "sqlite".to_string());
+        form.values
+            .insert("driver", Driver::Sqlite.name().to_string());
         form
     }
 
@@ -126,12 +133,8 @@ impl ConnectionForm {
                 _ => form.unreadable.push(key),
             }
         }
-        let driver = if connection.driver.is_empty() {
-            "sqlite".to_string()
-        } else {
-            connection.driver.clone()
-        };
-        form.values.insert("driver", driver);
+        form.values
+            .insert("driver", connection.driver.name().to_string());
         form.values
             .insert("read_only", yes_or_no(connection.read_only));
         form.values
@@ -177,11 +180,8 @@ impl ConnectionForm {
         self.values.insert(key, value);
     }
 
-    pub fn driver(&self) -> &str {
-        match self.value("driver") {
-            "" => "sqlite",
-            driver => driver,
-        }
+    pub fn driver(&self) -> Driver {
+        Driver::parse(self.value("driver")).unwrap_or_default()
     }
 
     pub fn over_ssh(&self) -> bool {
@@ -198,7 +198,7 @@ impl ConnectionForm {
             fields.push(("driver", "Driver"));
         }
         fields.push(("name", "Name"));
-        if self.driver() == "sqlite" {
+        if self.driver() == Driver::Sqlite {
             fields.push(("database", "Path"));
         } else {
             fields.extend([
@@ -270,7 +270,7 @@ impl ConnectionForm {
 
     pub fn cycle_driver(&mut self, forward: bool) {
         let was = default_port(self.driver()).to_string();
-        let next = stepped(&DRIVERS, self.driver(), forward);
+        let next = stepped(&DRIVERS, self.driver().name(), forward);
         self.set("driver", next.to_string());
         if self.value("port") == was {
             self.set("port", String::new());
@@ -280,7 +280,7 @@ impl ConnectionForm {
     }
 
     fn apply_driver_defaults(&mut self) {
-        if self.driver() == "sqlite" {
+        if self.driver() == Driver::Sqlite {
             return;
         }
         if self.value("host").is_empty() {
@@ -323,7 +323,7 @@ impl ConnectionForm {
             "ssl_mode" if value.is_empty() => "driver default".to_string(),
             "tag" if value.is_empty() => tag::NONE.to_string(),
             "group_name" if value.is_empty() => NO_GROUP.to_string(),
-            "database" if value.is_empty() && self.driver() != "sqlite" => {
+            "database" if value.is_empty() && self.driver().is_server() => {
                 "ask on connect".to_string()
             }
             "over_ssh" => yes_or_no(self.over_ssh()),
@@ -362,8 +362,8 @@ fn stepped<'a>(choices: &[&'a str], current: &str, forward: bool) -> &'a str {
     choices[next]
 }
 
-fn default_port(driver: &str) -> u16 {
-    crate::dsn::default_port(driver)
+fn default_port(driver: Driver) -> u16 {
+    driver.default_port().unwrap_or_default()
 }
 
 fn yes_or_no(flag: bool) -> String {

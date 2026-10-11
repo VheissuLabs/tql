@@ -4,6 +4,7 @@ use std::path::Path;
 
 use anyhow::{Context, anyhow, bail};
 
+use crate::driver::Driver;
 use crate::dsn::{self, Dsn};
 use crate::encrypter::Encrypter;
 use crate::store::{Connection, Store};
@@ -45,7 +46,7 @@ pub fn target(path: &str) -> anyhow::Result<Dsn> {
     }
     Ok(Dsn {
         name,
-        driver: "sqlite".to_string(),
+        driver: Driver::Sqlite,
         database: Some(
             fs::canonicalize(file)
                 .unwrap_or_else(|_| file.to_path_buf())
@@ -131,10 +132,10 @@ pub fn connection_for(
     let text = |value: Option<String>| value.map_or(Field::Null, Field::Text);
     let mut fields = vec![
         ("name", Field::Text(writer.free_name(&name)?)),
-        ("driver", Field::Text(target.driver.clone())),
+        ("driver", Field::Text(target.driver.name().to_string())),
         ("database", text(target.database.clone())),
     ];
-    if target.driver != "sqlite" {
+    if target.driver != Driver::Sqlite {
         fields.extend([
             ("host", text(target.host.clone())),
             (
@@ -184,7 +185,7 @@ pub fn connection_for(
 fn identity(target: &Dsn) -> Vec<(&'static str, Field)> {
     let text = |value: &Option<String>| value.clone().map_or(Field::Null, Field::Text);
     vec![
-        ("driver", Field::Text(target.driver.clone())),
+        ("driver", Field::Text(target.driver.name().to_string())),
         ("host", text(&target.host)),
         (
             "port",

@@ -1,5 +1,6 @@
 use super::*;
 use crate::database::{Exported, Exporter};
+use crate::driver::Driver;
 
 impl Browser {
     pub(super) fn export(&mut self) {
@@ -16,7 +17,7 @@ impl Browser {
 
     fn exported(&mut self) -> anyhow::Result<Exported> {
         let connection = Connection {
-            database: if self.connection.driver == "sqlite" {
+            database: if self.connection.driver == Driver::Sqlite {
                 self.connection.database.clone()
             } else {
                 self.active_database.clone()

@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 
 use crate::console::prelude::*;
+use crate::driver::Driver;
 
 use crate::config_file;
 use crate::database::{self, Database, Exporter};
@@ -203,7 +204,7 @@ fn chosen_connection(
 fn named_database(cmd: &mut Cmd, connection: &mut Connection) -> Option<bool> {
     let named = cmd.option("database").map(String::from);
 
-    if connection.driver == "sqlite" {
+    if connection.driver == Driver::Sqlite {
         if named.is_some() {
             cmd.error("A sqlite connection is one file; --database means nothing to it.");
             return None;

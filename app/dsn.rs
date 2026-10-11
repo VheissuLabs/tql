@@ -2,13 +2,15 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use crate::driver::Driver;
+
 static SCHEME: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)^[a-z][a-z0-9+.-]*://").unwrap());
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Dsn {
     pub name: String,
-    pub driver: String,
+    pub driver: Driver,
     pub host: Option<String>,
     pub port: Option<u16>,
     pub database: Option<String>,
@@ -36,7 +38,7 @@ pub fn parse(dsn: &str) -> Option<Dsn> {
     }
     let driver = driver_for(&scheme.to_lowercase())?;
 
-    if driver == "sqlite" {
+    if driver == Driver::Sqlite {
         return Some(sqlite(rest));
     }
 
@@ -59,9 +61,9 @@ pub fn parse(dsn: &str) -> Option<Dsn> {
 
     Some(Dsn {
         name,
-        driver: driver.to_string(),
+        driver,
         host: Some(host.unwrap_or_else(|| "127.0.0.1".to_string())),
-        port: Some(port.unwrap_or_else(|| default_port(driver))),
+        port: port.or(driver.default_port()),
         database: (!database.is_empty()).then(|| decode(database, false)),
         username: user.map(|user| decode(user, false)),
         password: pass.map(|pass| decode(pass, false)),
@@ -81,7 +83,7 @@ fn over_ssh(scheme: &str, rest: &str) -> Option<Dsn> {
     }
 
     let mut target = parse(&format!("{scheme}://{database}"))?;
-    if target.driver == "sqlite" {
+    if target.driver == Driver::Sqlite {
         return None;
     }
     let (_, query) = database.split_once('?').unwrap_or((database, ""));
@@ -143,21 +145,11 @@ fn tag_for(environment: &str) -> Option<String> {
     Some(tag.to_string())
 }
 
-fn driver_for(scheme: &str) -> Option<&'static str> {
+fn driver_for(scheme: &str) -> Option<Driver> {
     match scheme {
-        "mysql" | "mariadb" => Some("mysql"),
-        "pgsql" | "postgres" | "postgresql" => Some("pgsql"),
-        "sqlsrv" | "mssql" => Some("sqlsrv"),
-        "sqlite" => Some("sqlite"),
-        _ => None,
-    }
-}
-
-pub fn default_port(driver: &str) -> u16 {
-    match driver {
-        "pgsql" => 5432,
-        "sqlsrv" => 1433,
-        _ => 3306,
+        "postgres" | "postgresql" => Some(Driver::Pgsql),
+        "mssql" => Some(Driver::Sqlsrv),
+        other => Driver::parse(other),
     }
 }
 
@@ -167,7 +159,7 @@ fn sqlite(rest: &str) -> Dsn {
     let base = path.rsplit('/').next().unwrap_or_default().to_string();
     Dsn {
         name: query_value(query, "name").unwrap_or(base),
-        driver: "sqlite".to_string(),
+        driver: Driver::Sqlite,
         database: Some(path),
         ..Dsn::default()
     }
@@ -227,7 +219,7 @@ mod tests {
             parse("mysql://alice:s3cret@db.example.com:3307/shop"),
             Some(Dsn {
                 name: "shop on db.example.com".into(),
-                driver: "mysql".into(),
+                driver: Driver::Mysql,
                 host: Some("db.example.com".into()),
                 port: Some(3307),
                 database: Some("shop".into()),
@@ -246,7 +238,7 @@ mod tests {
             ),
             Some(Dsn {
                 name: "Prod".into(),
-                driver: "mysql".into(),
+                driver: Driver::Mysql,
                 host: Some("127.0.0.1".into()),
                 port: Some(3306),
                 database: None,
@@ -266,7 +258,7 @@ mod tests {
         let parsed = parse("pgsql+ssh://me:ssh%20pw@jump:2222/app:pw@10.0.0.5:5433/shop").unwrap();
 
         assert_eq!(parsed.name, "shop on jump");
-        assert_eq!(parsed.driver, "pgsql");
+        assert_eq!(parsed.driver, Driver::Pgsql);
         assert_eq!(
             (parsed.host.as_deref(), parsed.port),
             (Some("10.0.0.5"), Some(5433))
@@ -316,7 +308,7 @@ mod tests {
         ] {
             let parsed = parse(&format!("{scheme}://user:pw@host/db")).unwrap();
 
-            assert_eq!(parsed.driver, driver);
+            assert_eq!(parsed.driver.name(), driver);
             assert_eq!(parsed.port, Some(port));
         }
     }
@@ -352,7 +344,7 @@ mod tests {
             parse("sqlite:///tmp/app.sqlite"),
             Some(Dsn {
                 name: "app.sqlite".into(),
-                driver: "sqlite".into(),
+                driver: Driver::Sqlite,
                 database: Some("/tmp/app.sqlite".into()),
                 ..Dsn::default()
             })

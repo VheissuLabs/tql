@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
+use crate::driver::Driver;
 use crate::terminal::prelude::*;
 
 use super::ago::{ago, now};
@@ -68,7 +69,7 @@ struct Row {
     name: String,
     tag: String,
     tag_color: Option<Color>,
-    driver: String,
+    driver: Option<Driver>,
     place: String,
     used: String,
     marked: bool,
