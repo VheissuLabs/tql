@@ -3,9 +3,9 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh | sh
 #
-# The binary carries its own PHP, so there is nothing else to install. Honours
-# TQL_VERSION (a tag such as v0.3.0, default: the latest release) and
-# TQL_BIN_DIR (where to put it).
+# The binary needs nothing else on the machine. Honours TQL_VERSION (a tag
+# such as v0.3.0, default: the latest release) and TQL_BIN_DIR (where to put
+# it).
 
 set -eu
 

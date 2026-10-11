@@ -2,43 +2,36 @@ name: tests
 
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
 
 jobs:
   tests:
-    runs-on: ubuntu-latest
-
     strategy:
       fail-fast: false
       matrix:
-        php: ['8.4', '8.5']
+        runner: [ubuntu-latest, macos-15]
 
-    name: PHP ${{ matrix.php }}
+    runs-on: ${{ matrix.runner }}
+
+    name: ${{ matrix.runner }}
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          php-version: ${{ matrix.php }}
-          # The suite drives sqlite, postgres and mysql grammars; only sqlite
-          # needs a live connection.
-          extensions: pdo, pdo_sqlite, pdo_mysql, pdo_pgsql, mbstring
-          coverage: none
+          components: rustfmt, clippy
 
-      - name: Cache Composer
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache
-          key: composer-${{ matrix.php }}-${{ hashFiles('composer.lock') }}
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress
+      - uses: Swatinem/rust-cache@v2
 
       - name: Check formatting
-        run: ./vendor/bin/pint --test
+        run: cargo fmt --check
 
+      - name: Lint
+        run: cargo clippy --locked --all-targets -- -D warnings
+
+      # The live database, SSH and PHP parity tests are ignored here; they need
+      # servers and a tql checkout that a runner does not have.
       - name: Run the suite
-        run: ./vendor/bin/pest
+        run: cargo test --locked

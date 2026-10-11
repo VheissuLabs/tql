@@ -4,62 +4,14 @@ on:
   push:
     tags: ['v*']
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to build, for a dry run'
-        required: false
 
 permissions:
   contents: write
 
-env:
-  # Everything tql touches: three database drivers, encryption, http for the
-  # ask, and the pieces Laravel expects to be there.
-  EXTENSIONS: bcmath,ctype,curl,dom,fileinfo,filter,iconv,mbstring,mbregex,mysqlnd,openssl,pcntl,pdo,pdo_mysql,pdo_pgsql,pdo_sqlite,phar,posix,session,simplexml,sockets,sqlite3,tokenizer,xml,xmlreader,xmlwriter,zlib
-  PHP_VERSION: '8.4'
-
 jobs:
-  phar:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.4'
-          extensions: pdo, pdo_sqlite, pdo_mysql, pdo_pgsql, mbstring
-          # box writes the phar, which the default ini forbids.
-          ini-values: phar.readonly=0
-          coverage: none
-
-      - name: Install dependencies
-        run: composer install --prefer-dist --no-interaction --no-progress --no-dev
-
-      - name: Read the version from the tag
-        id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
-
-      - name: Build
-        run: php tql app:build tql --build-version=${{ steps.version.outputs.version }} --no-interaction
-
-      - name: Check it runs
-        run: |
-          chmod +x builds/tql
-          ./builds/tql --version
-          ./builds/tql list | grep -q 'mcp:start'
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: phar
-          path: builds/tql
-
-  # A phar needs PHP on the machine. These do not: static-php-cli's micro is a
-  # PHP interpreter with no dependencies, and a binary is that with the phar
-  # appended to it.
-  standalone:
-    needs: phar
+  # One native build per platform. Linux binaries are static musl builds, so
+  # the deb, the rpm and a bare download all need nothing else on the machine.
+  build:
     runs-on: ${{ matrix.runner }}
 
     strategy:
@@ -67,66 +19,57 @@ jobs:
       matrix:
         include:
           - runner: ubuntu-latest
-            spc: spc-linux-x86_64
+            target: x86_64-unknown-linux-musl
             asset: tql-linux-x86_64
           - runner: ubuntu-24.04-arm
-            spc: spc-linux-aarch64
+            target: aarch64-unknown-linux-musl
             asset: tql-linux-aarch64
           - runner: macos-15
-            spc: spc-macos-aarch64
+            target: aarch64-apple-darwin
             asset: tql-macos-aarch64
-            extra_extensions: ',sqlsrv,pdo_sqlsrv'
 
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/download-artifact@v4
+      - uses: dtolnay/rust-toolchain@stable
         with:
-          name: phar
-          path: builds
+          targets: ${{ matrix.target }}
 
-      - name: Get the builder
-        run: |
-          curl -fsSL -o spc "https://dl.static-php.dev/static-php-cli/spc-bin/nightly/${{ matrix.spc }}"
-          chmod +x spc
-          ./spc --version
-
-      # The interpreter only changes when the extension list or the PHP version
-      # does, so it is worth keeping between releases.
-      - name: Name the interpreter for what goes into it
-        id: interpreter
-        run: echo "key=micro-${{ matrix.asset }}-${{ matrix.runner }}-php${PHP_VERSION}-$(printf '%s' "$EXTENSIONS${{ matrix.extra_extensions }}" | shasum -a 256 | cut -c1-16)" >> "$GITHUB_OUTPUT"
-
-      - name: Cache the interpreter
-        id: cache
-        uses: actions/cache@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: buildroot/bin/micro.sfx
-          key: ${{ steps.interpreter.outputs.key }}
+          key: ${{ matrix.target }}
 
-      - name: Build the interpreter
-        if: steps.cache.outputs.cache-hit != 'true'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          ./spc doctor --auto-fix
-          extensions="$EXTENSIONS${{ matrix.extra_extensions }}"
-          ./spc download --with-php=${{ env.PHP_VERSION }} --for-extensions="$extensions" --prefer-pre-built
-          ./spc build "$extensions" --build-micro
+      - name: Get the musl toolchain
+        if: runner.os == 'Linux'
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq musl-tools
 
-      - name: Make the binary
-        run: |
-          cat buildroot/bin/micro.sfx builds/tql > ${{ matrix.asset }}
-          chmod +x ${{ matrix.asset }}
+      - name: Read the version this builds
+        id: version
+        run: echo "version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')" >> "$GITHUB_OUTPUT"
 
-      - name: Check it runs, with no PHP in sight
+      # The updater installs a download only when it says it is the version it
+      # was published as, so a tag must match Cargo.toml.
+      - name: Check the tag matches Cargo.toml
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
-          ./${{ matrix.asset }} --version
+          test "${GITHUB_REF_NAME#v}" = "${{ steps.version.outputs.version }}" || {
+            echo "tag $GITHUB_REF_NAME does not match Cargo.toml ${{ steps.version.outputs.version }}"
+            exit 1
+          }
+
+      - name: Build
+        run: |
+          cargo build --release --locked --target ${{ matrix.target }}
+          cp target/${{ matrix.target }}/release/tql ${{ matrix.asset }}
+
+      - name: Check it runs, and says what it is
+        run: |
+          ./${{ matrix.asset }} --version | tee /dev/stderr | grep -qx "Tql v${{ steps.version.outputs.version }}"
           ./${{ matrix.asset }} list | grep -q 'mcp:start'
 
-          for extension in $(printf '%s' "${{ matrix.extra_extensions }}" | tr ',' ' '); do
-            strings ./${{ matrix.asset }} | grep -q "$extension" || { echo "$extension is missing from the binary"; exit 1; }
-          done
+      - name: Check the Linux binary needs nothing
+        if: runner.os == 'Linux'
+        run: file ${{ matrix.asset }} | tee /dev/stderr | grep -q 'statically linked'
 
       - uses: actions/upload-artifact@v4
         with:
@@ -134,7 +77,7 @@ jobs:
           path: ${{ matrix.asset }}
 
   packages:
-    needs: standalone
+    needs: build
     runs-on: ubuntu-latest
 
     steps:
@@ -146,9 +89,9 @@ jobs:
           path: binaries
           merge-multiple: true
 
-      - name: Read the version from the tag
+      - name: Read the version this builds
         id: version
-        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+        run: echo "version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')" >> "$GITHUB_OUTPUT"
 
       - name: Build the deb and the rpm, one per architecture
         run: |
@@ -289,7 +232,7 @@ jobs:
           git push
 
   publish:
-    needs: [phar, standalone, packages]
+    needs: [build, packages]
     if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
 
@@ -300,9 +243,6 @@ jobs:
         with:
           path: release
           merge-multiple: true
-
-      - name: Name the phar for what it is
-        run: mv release/tql release/tql.phar
 
       - name: A PKGBUILD for this release, so Arch can makepkg it without the AUR
         env:

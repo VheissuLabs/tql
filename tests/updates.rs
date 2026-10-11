@@ -341,6 +341,11 @@ fn says_to_use_sudo_when_it_cannot_write_beside_the_binary() {
     let target = installed_at("read-only");
     let folder = target.parent().unwrap().to_path_buf();
     fs::set_permissions(&folder, fs::Permissions::from_mode(0o555)).unwrap();
+    if fs::write(folder.join("probe"), "").is_ok() {
+        fs::set_permissions(&folder, fs::Permissions::from_mode(0o755)).unwrap();
+        eprintln!("skipped: this user can write into a read-only folder");
+        return;
+    }
 
     let failure = checked_release("0.8.0", &fake_binary("0.8.0"))
         .updater()

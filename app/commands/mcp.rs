@@ -13,10 +13,6 @@ impl Command for McpStart {
         "Start the MCP server that gives an agent tql's connections"
     }
 
-    fn hidden(&self) -> bool {
-        true
-    }
-
     fn execute(&self, cmd: &mut Cmd) -> Result {
         let handle = cmd.argument("handle").unwrap_or_default().to_string();
         if handle != "tql" {

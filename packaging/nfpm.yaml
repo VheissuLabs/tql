@@ -25,4 +25,4 @@ contents:
     file_info:
       mode: 0755
 
-# No dependencies at all: the binary carries its own PHP.
+# No dependencies at all: the binary is self-contained.

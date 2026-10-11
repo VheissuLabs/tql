@@ -23,7 +23,18 @@ git fetch --quiet --tags origin main
 [[ $(git rev-parse HEAD) == $(git rev-parse origin/main) ]] || die "main is not the same as origin/main; push or pull first"
 ! git rev-parse --quiet --verify "refs/tags/$tag" > /dev/null || die "$tag already exists"
 
-vendor/bin/pest --compact
+current=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')
+
+if [[ $current != "$version" ]]; then
+  perl -0pi -e "s/^version = \".*?\"/version = \"$version\"/m" Cargo.toml
+fi
+
+cargo test --quiet
+
+if [[ -n $(git status --porcelain) ]]; then
+  git commit --quiet --all --message "release: $tag"
+  git push --quiet origin main
+fi
 
 previous=$(git describe --tags --abbrev=0)
 message=$(mktemp)

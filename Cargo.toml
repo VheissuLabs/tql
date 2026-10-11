@@ -50,6 +50,11 @@ all = { level = "deny", priority = -1 }
 
 [workspace]
 
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+
 [profile.dev]
 opt-level = 1
 

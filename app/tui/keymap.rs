@@ -679,6 +679,10 @@ mod tests {
         assert_eq!(keys(&[Action::NextPane, Action::PreviousPane]), "tab ⇧tab");
         assert_eq!(keys(&[Action::Narrow, Action::Widen]), ", . / < >");
         assert_eq!(keys(&[Action::YankValue, Action::YankRow]), "y Y");
-        assert_eq!(keys(&[Action::History]), "H / ⌥h");
+        let alt_h = match cfg!(target_os = "macos") {
+            true => "H / ⌥h",
+            false => "H / alt+h",
+        };
+        assert_eq!(keys(&[Action::History]), alt_h);
     }
 }

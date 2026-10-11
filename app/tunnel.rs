@@ -463,13 +463,19 @@ mod tests {
             fs::metadata(&secret).unwrap().permissions().mode() & 0o777,
             0o600
         );
-        assert_eq!(
-            std::process::Command::new(askpass.script())
-                .output()
-                .unwrap()
-                .stdout,
-            b"hunter2"
-        );
+        let ran = (0..50)
+            .find_map(
+                |_| match std::process::Command::new(askpass.script()).output() {
+                    Err(error) if error.kind() == io::ErrorKind::ExecutableFileBusy => {
+                        std::thread::sleep(Duration::from_millis(10));
+                        None
+                    }
+                    other => Some(other),
+                },
+            )
+            .unwrap()
+            .unwrap();
+        assert_eq!(ran.stdout, b"hunter2");
 
         drop(askpass);
 

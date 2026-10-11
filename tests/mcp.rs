@@ -337,7 +337,7 @@ fn only_the_tql_server_starts() {
         "There is no MCP server named [foo]. tql has one, named [tql].\n"
     );
     assert!(
-        !app::application()
+        app::application()
             .run_with(["list"], "")
             .stdout
             .contains("mcp:start")
