@@ -246,6 +246,13 @@ impl Modal {
         self.draw_focused(buffer, island, height, true);
     }
 
+    pub fn origin(&self, height: u16) -> (u16, u16) {
+        (
+            ((self.frame_width.saturating_sub(self.box_width)) / 2 + 1).max(1),
+            self.top + self.frame_height.saturating_sub(height) / 2,
+        )
+    }
+
     pub fn draw_focused(
         &self,
         buffer: &mut Buffer,

@@ -266,6 +266,13 @@ impl Tui for Picker {
         crate::settings::with(|settings| settings.mouse)
     }
 
+    fn cursor_shape(&self) -> CursorShape {
+        match self.settings.as_ref().and_then(|modal| modal.editing()) {
+            Some(_) => CursorShape::Bar,
+            None => CursorShape::Default,
+        }
+    }
+
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Option<Connection>> {
         if self.form.is_some()
             || self.renaming.is_some()
@@ -437,8 +444,10 @@ impl Tui for Picker {
             renaming.draw(frame.buffer_mut(), area.width, frame_lines);
         }
         self.draw_palette(frame.buffer_mut(), area.width, frame_lines);
-        if let Some(modal) = &self.settings {
-            modal.draw(frame.buffer_mut(), area.width, frame_lines);
+        if let Some(modal) = &self.settings
+            && let Some(cursor) = modal.draw(frame.buffer_mut(), area.width, frame_lines)
+        {
+            frame.set_cursor_position(cursor);
         }
     }
 }

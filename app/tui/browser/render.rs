@@ -479,8 +479,10 @@ impl Browser {
             Modal::new(area.width, 1, frame_height, width).draw(frame.buffer_mut(), island, height);
         }
 
-        if let Some(modal) = &self.settings {
-            modal.draw(frame.buffer_mut(), area.width, frame_height);
+        if let Some(modal) = &self.settings
+            && let Some(cursor) = modal.draw(frame.buffer_mut(), area.width, frame_height)
+        {
+            frame.set_cursor_position(cursor);
         }
 
         if let Some(message) = &self.problem {

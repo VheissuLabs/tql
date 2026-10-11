@@ -369,7 +369,12 @@ impl Tui for Browser {
     }
 
     fn cursor_shape(&self) -> CursorShape {
-        if self.inserts_at_terminal_cursor() {
+        if self.inserts_at_terminal_cursor()
+            || self
+                .settings
+                .as_ref()
+                .is_some_and(|modal| modal.editing().is_some())
+        {
             CursorShape::Bar
         } else {
             CursorShape::Default

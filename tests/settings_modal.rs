@@ -284,3 +284,57 @@ fn the_browser_opens_it_from_the_colon_line_and_the_palette() {
     fake.press("\x0bsettings\n");
     assert!(fake.app.settings.is_some());
 }
+
+#[test]
+fn editing_puts_the_terminal_cursor_after_the_value_on_a_row_that_stays_highlighted() {
+    use app::terminal::Key;
+    use app::tui::settings_modal::SettingsModal;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::style::Modifier;
+
+    let scratch = Scratch::new("cursor").with_config(MINE);
+    settings::install(config_file::load(&scratch.config()).settings);
+    let mut modal = SettingsModal::open(&scratch.config());
+    for key in "/sql_height".chars().map(Key::Char) {
+        modal.on_key(key);
+    }
+    modal.on_key(Key::Enter);
+    modal.on_key(Key::Enter);
+
+    let drawn = |modal: &SettingsModal| {
+        let mut buffer = Buffer::empty(Rect::new(0, 0, 120, 40));
+        let cursor = modal
+            .draw(&mut buffer, 120, 40)
+            .expect("a cursor while editing");
+        let row: String = (0..120)
+            .map(|x| buffer[(x, cursor.1)].symbol().to_string())
+            .collect();
+        (buffer, cursor, row)
+    };
+
+    let (buffer, (x, y), row) = drawn(&modal);
+    assert!(row.contains("sql_height"), "{row}");
+    assert_eq!(buffer[(x - 1, y)].symbol(), "0");
+    assert!(
+        buffer[(x - 1, y)]
+            .style()
+            .add_modifier
+            .contains(Modifier::UNDERLINED)
+    );
+    assert_eq!(
+        buffer[(x, y)].style(),
+        buffer[(x + 3, y)].style(),
+        "one highlight across the row"
+    );
+
+    modal.on_key(Key::Char('1'));
+    modal.on_key(Key::Char('2'));
+    let (buffer, (x, y), _) = drawn(&modal);
+    assert_eq!(buffer[(x - 2, y)].symbol(), "1");
+    assert_eq!(buffer[(x - 1, y)].symbol(), "2");
+
+    modal.on_key(Key::Escape);
+    let mut buffer = Buffer::empty(Rect::new(0, 0, 120, 40));
+    assert_eq!(modal.draw(&mut buffer, 120, 40), None);
+}

@@ -60,7 +60,12 @@ fn wrapped(text: &str, room: usize) -> Vec<String> {
 }
 
 impl SettingsModal {
-    pub fn draw(&self, buffer: &mut Buffer, frame_width: u16, frame_lines: u16) {
+    pub fn draw(
+        &self,
+        buffer: &mut Buffer,
+        frame_width: u16,
+        frame_lines: u16,
+    ) -> Option<(u16, u16)> {
         let box_width = frame_width.saturating_sub(4).min(WIDTH);
         let height = frame_lines.saturating_sub(2).max(8);
         let inner_width = box_width.saturating_sub(4) as usize;
@@ -133,7 +138,21 @@ impl SettingsModal {
                 .collect(),
             ..Island::default()
         };
-        Modal::new(frame_width, 1, frame_lines, box_width).draw(buffer, island, height);
+        let modal = Modal::new(frame_width, 1, frame_lines, box_width);
+        modal.draw(buffer, island, height);
+
+        let editor = self.editing()?;
+        let row = usize::from(self.filter().is_some()) + self.index.checked_sub(first)?;
+        let before = match editor.replacing() {
+            true => width(&editor.text()),
+            false => {
+                let characters: Vec<char> = editor.text().chars().collect();
+                let value_room = inner_width.saturating_sub(NAME_WIDTH + 2);
+                width(&typed(&characters, editor.cursor(), value_room).before)
+            }
+        };
+        let (x, y) = modal.origin(height);
+        Some((x + (1 + 2 + NAME_WIDTH + before) as u16, y + row as u16))
     }
 
     fn row_line(&self, row: Row, selected: bool, room: usize) -> Line<'static> {
@@ -157,15 +176,16 @@ impl SettingsModal {
                     Some(editor) if editor.replacing() => {
                         spans.push(Span::styled(
                             truncate(&editor.text(), value_room),
-                            theme::cursor(),
+                            Style::new().add_modifier(Modifier::UNDERLINED),
                         ));
                     }
                     Some(editor) => {
                         let characters: Vec<char> = editor.text().chars().collect();
                         let typed = typed(&characters, editor.cursor(), value_room);
-                        spans.push(Span::raw(typed.before));
-                        spans.push(Span::styled(typed.under, theme::cursor()));
-                        spans.push(Span::raw(typed.after));
+                        spans.push(Span::raw(format!(
+                            "{}{}{}",
+                            typed.before, typed.under, typed.after
+                        )));
                     }
                     None => {
                         let value = shown(setting, &self.value(setting));
