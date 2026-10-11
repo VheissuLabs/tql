@@ -170,6 +170,9 @@ impl Application {
         };
 
         let mut argv: Vec<OsString> = argv.into_iter().collect();
+        if argv.len() == 2 && argv[1] == "-v" {
+            argv[1] = "--version".into();
+        }
         let only_global_flags = argv
             .iter()
             .skip(1)

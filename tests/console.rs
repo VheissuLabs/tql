@@ -317,3 +317,14 @@ fn completion_prints_a_script_for_the_shell_without_being_listed() {
 
     assert!(!app().run_with(["list"], "").stdout.contains("completion"));
 }
+
+#[test]
+fn v_on_its_own_says_the_version_like_capital_v_and_version() {
+    let said = format!("Tql v{}\n", env!("CARGO_PKG_VERSION"));
+
+    for flag in ["-v", "-V", "--version"] {
+        let result = app::application().run_with([flag], "");
+        assert_eq!(result.code, 0, "{flag}");
+        assert_eq!(result.stdout, said, "{flag}");
+    }
+}

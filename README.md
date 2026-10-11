@@ -215,6 +215,7 @@ interface is the wrong shape for.
 | `tql query <connection> "select …"` | run a read-only query; `-` reads it from stdin |
 | `tql mcp:start tql` | run the MCP server on stdio, for an agent |
 | `tql update` | update to the latest release now; see [`[updates]`](#updates) |
+| `tql -v` | the version you have; `-V` and `--version` say the same |
 
 ```bash
 tql open ~/Code/app/database/database.sqlite

@@ -69,6 +69,9 @@ Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
 
 ## The command line
 
+- **`tql -v` on its own says the version**, as `-V` and `--version` do. tql took it as
+  "verbose" and opened the connection list. After a command, as in `tql dump prod -v`,
+  it is still verbose.
 - **`tql list` and `--help` are laid out by clap**, not Symfony: the same commands, options
   and descriptions, in clap's usual order and wording for its own flags.
 - **A `~/.config/dotsql` folder from before tql was named tql is left alone.** tql moved it
