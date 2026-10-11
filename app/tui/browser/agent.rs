@@ -5,7 +5,7 @@ use crate::agent;
 
 pub const FROM_AGENT: &str = "SQL from your agent · nothing has run";
 
-pub const READ_BY_AGENT: &str = "your agent read the screen";
+pub const READ_BY_AGENT: &str = "your agent looked at your screen";
 
 impl Browser {
     pub(super) fn used(&mut self) {
@@ -38,8 +38,10 @@ impl Browser {
             return false;
         }
         let answer = match self.refusal() {
-            Some(refusal) => {
-                self.say(format!("your agent asked to read the screen · {refusal}"));
+            Some((refusal, setting)) => {
+                self.say(format!(
+                    "your agent asked to see your screen · {setting} is off in [mcp]"
+                ));
                 json!({ "refused": refusal })
             }
             None => {
@@ -53,18 +55,24 @@ impl Browser {
         true
     }
 
-    fn refusal(&self) -> Option<String> {
+    fn refusal(&self) -> Option<(String, &'static str)> {
         let (shared, production) =
             settings::with(|settings| (settings.mcp_read_screen, settings.mcp_read_production));
         let name = &self.connection.name;
         if !shared {
-            return Some(format!(
-                "tql on [{name}] does not share its screen. Ask the user to set read_screen = true under [mcp] in config.toml and restart tql."
+            return Some((
+                format!(
+                    "tql on [{name}] does not share its screen. Ask the user to set read_screen = true under [mcp] in config.toml and restart tql."
+                ),
+                "read_screen",
             ));
         }
         if self.connection.tag.as_deref() == Some("production") && !production {
-            return Some(format!(
-                "[{name}] is tagged production, and tql does not share a production screen. Ask the user to set read_production = true under [mcp] in config.toml and restart tql if they want it."
+            return Some((
+                format!(
+                    "[{name}] is tagged production, and tql does not share a production screen. Ask the user to set read_production = true under [mcp] in config.toml and restart tql if they want it."
+                ),
+                "read_production",
             ));
         }
         None

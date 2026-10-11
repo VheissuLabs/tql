@@ -533,7 +533,7 @@ fn the_screen_is_not_shared_until_the_user_allows_it() {
     assert!(answer.get("rows").is_none());
     assert!(
         fake.screen()
-            .contains("your agent asked to read the screen")
+            .contains("your agent asked to see your screen · read_screen is off in [mcp]")
     );
 }
 
@@ -564,7 +564,7 @@ fn an_allowed_agent_sees_the_table_the_cursor_and_the_rows() {
             .contains("from \"users\"")
     );
     assert_eq!(screen["unwritten"]["deletes"], 0);
-    assert!(fake.screen().contains("your agent read the screen"));
+    assert!(fake.screen().contains("your agent looked at your screen"));
 }
 
 #[test]

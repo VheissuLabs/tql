@@ -1349,8 +1349,9 @@ read_screen = true        # let an agent read your screen
 read_production = false   # and a connection tagged production too
 ```
 
-tql says *your agent read the screen* on its status line each time it does,
-and with sharing off the agent is told what you would have to change.
+tql says *your agent looked at your screen* on its status line each time it does,
+and with sharing off it says your agent asked, while the agent is told what
+you would have to change.
 
 ## Developing
 
