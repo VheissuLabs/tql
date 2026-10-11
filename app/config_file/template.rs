@@ -1,5 +1,6 @@
 pub const VERSION: &str = "0.12.0";
 
+#[derive(Debug, PartialEq, Eq)]
 pub struct Setting {
     pub section: &'static str,
     pub key: &'static str,

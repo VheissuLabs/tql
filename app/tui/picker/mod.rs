@@ -39,6 +39,7 @@ pub struct Picker {
     pub form: Option<ConnectionForm>,
     pub renaming: Option<GroupRename>,
     pub palette: Option<super::palette::Palette>,
+    pub settings: Option<super::settings_modal::SettingsModal>,
     pub pending_deletes: Vec<i64>,
     pub collapsed: Vec<String>,
     start: usize,
@@ -89,6 +90,7 @@ impl Picker {
             form: None,
             renaming: None,
             palette: None,
+            settings: None,
             pending_deletes: Vec::new(),
             collapsed: Vec::new(),
             start: 0,
@@ -208,6 +210,12 @@ impl Tui for Picker {
             self.on_rename_key(key);
             return Flow::Continue;
         }
+        if let Some(modal) = self.settings.as_mut() {
+            if !modal.on_key(key) {
+                self.settings = None;
+            }
+            return Flow::Continue;
+        }
 
         if self.command.is_some() {
             return self.type_into_command(key);
@@ -242,7 +250,9 @@ impl Tui for Picker {
     }
 
     fn on_paste(&mut self, text: &str) -> Flow<Option<Connection>> {
-        if let Some(form) = self.form.as_mut() {
+        if let Some(modal) = self.settings.as_mut() {
+            modal.on_paste(text);
+        } else if let Some(form) = self.form.as_mut() {
             form.on_paste(text);
         } else if let Some(renaming) = self.renaming.as_mut() {
             renaming.on_paste(text);
@@ -260,6 +270,7 @@ impl Tui for Picker {
         if self.form.is_some()
             || self.renaming.is_some()
             || self.palette.is_some()
+            || self.settings.is_some()
             || !self.wants_mouse()
         {
             return Flow::Continue;
@@ -403,6 +414,7 @@ impl Tui for Picker {
         ));
         let frame_lines = lines.len() as u16;
         let bar = match (&self.form, &self.renaming, &self.palette) {
+            _ if self.settings.is_some() => super::settings_modal::BAR,
             (Some(_), _, _) => FORM_BAR,
             (None, Some(_), _) => group_rename::BAR,
             (None, None, Some(_)) => PALETTE_BAR,
@@ -425,5 +437,8 @@ impl Tui for Picker {
             renaming.draw(frame.buffer_mut(), area.width, frame_lines);
         }
         self.draw_palette(frame.buffer_mut(), area.width, frame_lines);
+        if let Some(modal) = &self.settings {
+            modal.draw(frame.buffer_mut(), area.width, frame_lines);
+        }
     }
 }

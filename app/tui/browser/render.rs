@@ -11,6 +11,9 @@ impl Browser {
         if self.problem.is_some() {
             return vec![("y".into(), "Copy"), ("esc".into(), "Close")];
         }
+        if self.settings.is_some() {
+            return crate::tui::settings_modal::offers();
+        }
         if let Some(palette) = &self.palette {
             let chosen = if palette.title == "HISTORY" {
                 "Use"
@@ -474,6 +477,10 @@ impl Browser {
                 ..Island::default()
             };
             Modal::new(area.width, 1, frame_height, width).draw(frame.buffer_mut(), island, height);
+        }
+
+        if let Some(modal) = &self.settings {
+            modal.draw(frame.buffer_mut(), area.width, frame_height);
         }
 
         if let Some(message) = &self.problem {

@@ -4,7 +4,7 @@ use serde_json::{Value, json};
 use crate::database::Column;
 use crate::settings::Ai;
 
-mod providers;
+pub mod providers;
 mod wire;
 
 pub use providers::{LOCAL, MODELS, Provider, Wire, chosen, endpoint, key_variable, model};

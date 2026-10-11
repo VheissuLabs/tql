@@ -145,6 +145,52 @@ fn insert(contents: &str, setting: &Setting) -> String {
     lines.join("\n")
 }
 
+pub fn set(contents: &str, setting: &Setting, literal: &str) -> String {
+    let mut lines: Vec<String> = contents.split('\n').map(str::to_string).collect();
+    let assignment = assigns(setting.key);
+    let header = format!("[{}]", setting.section);
+    let first_header = lines
+        .iter()
+        .position(|line| line.trim_start().starts_with('['))
+        .unwrap_or(lines.len());
+    let in_section = lines
+        .iter()
+        .position(|line| line.trim() == header)
+        .and_then(|header_at| {
+            lines
+                .iter()
+                .enumerate()
+                .skip(header_at + 1)
+                .take_while(|(_, line)| !line.trim_start().starts_with('['))
+                .find(|(_, line)| assignment.is_match(line))
+                .map(|(index, _)| index)
+        });
+    let at_the_top = || {
+        lines[..first_header]
+            .iter()
+            .position(|line| assignment.is_match(line))
+    };
+    match in_section.or_else(at_the_top) {
+        Some(at) => {
+            let indent: String = lines[at]
+                .chars()
+                .take_while(|character| character.is_whitespace())
+                .collect();
+            lines[at] = format!("{indent}{} = {literal}", setting.key);
+            lines.join("\n")
+        }
+        None => set(&insert(contents, setting), setting, literal),
+    }
+}
+
+pub fn write(path: &Path, setting: &Setting, literal: &str) -> std::io::Result<()> {
+    if !path.exists() {
+        ensure(path)?;
+    }
+    let contents = fs::read_to_string(path)?;
+    fs::write(path, set(&contents, setting, literal))
+}
+
 fn after_previous(lines: &[String], setting: &Setting, header_at: usize) -> Option<usize> {
     SETTINGS
         .iter()
@@ -365,6 +411,61 @@ mod tests {
             decoded("something_else = 1\n[ui]\nmouse_row_offset = 3\n")
         );
         assert!(moved.is_empty());
+    }
+
+    fn named(key: &str) -> &'static Setting {
+        SETTINGS.iter().find(|setting| setting.key == key).unwrap()
+    }
+
+    #[test]
+    fn sets_a_value_in_place_and_keeps_every_comment_and_the_order() {
+        let contents = "# mine\n[ui]\n# how much room\n  sidebar_width = 24 \nsql_height = 0\n\n[theme]\nborder = \"dim\"\n";
+
+        let changed = set(contents, named("sidebar_width"), "40");
+
+        assert_eq!(
+            changed,
+            "# mine\n[ui]\n# how much room\n  sidebar_width = 40\nsql_height = 0\n\n[theme]\nborder = \"dim\"\n"
+        );
+    }
+
+    #[test]
+    fn sets_the_value_where_it_sits_above_the_sections() {
+        let contents = "mouse_row_offset = 1\n\n[ui]\nsidebar_width = 24\n";
+
+        assert_eq!(
+            set(contents, named("mouse_row_offset"), "0"),
+            "mouse_row_offset = 0\n\n[ui]\nsidebar_width = 24\n"
+        );
+    }
+
+    #[test]
+    fn prefers_the_sectioned_value_and_never_touches_a_same_named_key_elsewhere() {
+        let contents = "[ui]\nmouse_row_offset = 2\n\n[keys]\nmouse_row_offset = \"x\"\n";
+
+        assert_eq!(
+            set(contents, named("mouse_row_offset"), "0"),
+            "[ui]\nmouse_row_offset = 0\n\n[keys]\nmouse_row_offset = \"x\"\n"
+        );
+    }
+
+    #[test]
+    fn adds_a_missing_setting_to_its_section_with_its_comment() {
+        let changed = set("[ui]\nsidebar_width = 24\n", named("sql_height"), "12");
+
+        assert!(changed.contains("sql_height = 12"), "{changed}");
+        assert!(changed.contains("# Rows it takes"), "{changed}");
+        let table: Table = toml::from_str(&changed).unwrap();
+        assert_eq!(table["ui"]["sql_height"].as_integer(), Some(12));
+        assert_eq!(table["ui"]["sidebar_width"].as_integer(), Some(24));
+    }
+
+    #[test]
+    fn adds_a_missing_section_too() {
+        let changed = set("[ui]\nsidebar_width = 24\n", named("read_screen"), "true");
+
+        let table: Table = toml::from_str(&changed).unwrap();
+        assert_eq!(table["mcp"]["read_screen"].as_bool(), Some(true));
     }
 
     #[test]

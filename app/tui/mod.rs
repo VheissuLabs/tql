@@ -21,6 +21,7 @@ mod palette;
 mod picker;
 mod record_form;
 mod schema;
+pub mod settings_modal;
 mod sql;
 mod statements;
 mod structure;

@@ -14,6 +14,7 @@ pub enum Name {
     Export,
     CreateDatabase,
     DropDatabase,
+    Settings,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -80,6 +81,15 @@ const fn entry(
 }
 
 pub const ENTRIES: &[Entry] = &[
+    Entry {
+        shell: Shell::Opens,
+        ..entry(
+            Name::Settings,
+            &["settings"],
+            "change tql's settings",
+            EVERYWHERE,
+        )
+    },
     Entry {
         palette: false,
         ..entry(Name::Quit, &["q", "q!", "quit"], "quit tql", EVERYWHERE)

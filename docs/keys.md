@@ -95,6 +95,12 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 | `:export` | write this table to a `.sql` file |
 | `:create database <name>` | create a database on this server and switch to it |
 | `:drop database <name>` | drop a database on this server; drop the one in use and the database list opens |
+| `:settings` | change your settings |
+
+A command that belongs to the other screen says so: `:sql` on the connection
+list says it works once a connection is open. Every command here that needs the
+screen also runs from the shell and opens tql on it: `tql settings`,
+`tql sql shop`, `tql history shop`, `tql new`.
 
 ## Viewing a value
 
@@ -333,6 +339,9 @@ line, so nothing is dropped until `↵` there.
 | `Y` | yank the connection string, password and all |
 | `d` / `u` | mark for deletion, or clear the marks |
 | `:w` | write the marked deletions |
+| `:new` | a new connection |
+| `:settings` | change your settings |
+| `ctrl+k` | the command palette: these commands and every connection, by name |
 | `q` / `esc` | quit |
 
 Give a connection a **Group** in its form and it sits under that group's
@@ -358,6 +367,21 @@ The line under the hotkeys says what just happened. It **lights up when it
 changes** and settles back to dim on your next key press, in the color of what
 it is about: red while rows are marked for deletion, yellow while edits are
 pending, otherwise the focus color.
+
+## Settings
+
+`:settings`, `tql settings` or Settings in the palette.
+
+| Key | Action |
+| --- | --- |
+| `↑ ↓` / `j k` | move |
+| `↵` / `space` | fold a section, flip a setting that is on or off, step a choice, or type a value |
+| `← →` / `h l` | step through a setting's choices, or fold and unfold a section |
+| `x` | put the setting back to its default |
+| `/` | find a setting by name; `esc` clears it |
+| `esc` / `q` | close |
+
+A value you have changed from the default is drawn in the `edited` colour.
 
 ## Rebinding
 

@@ -208,6 +208,10 @@ interface is the wrong shape for.
 | `tql dump <connection> [tables…]` | dump a database, schema and data, with mydumper or pg_dump |
 | `tql load <dump-or-sql> <connection>` | load a dump, or replay an export; `tql import` is the same |
 | `tql sync <from> <to>` | make one database a copy of another, a dump and a load in one step |
+| `tql settings` | change your settings on a screen, saved as you go |
+| `tql new` | open tql on a new connection form |
+| `tql sql [connection]` | open tql in the SQL editor; without a connection, tql asks |
+| `tql history [connection]` | open tql on the query history |
 | `tql config` | where the config file is; `--tidy` puts it back in order |
 | `tql connections` | list the saved connections |
 | `tql tables <connection>` | list a connection's tables |
@@ -255,6 +259,13 @@ no command for them. A debug build from a source checkout also shows
 `make:command`, which writes the skeleton of a new command.
 
 ## Configuring
+
+`tql settings`, or `:settings` and ctrl+k inside tql, opens every setting on one
+screen, grouped under sections that fold. Change one and it takes effect at
+once and is written to `~/.config/tql/config.toml` straight away, that line and
+nothing else, your comments kept. `/` finds a setting by name and `x` puts one
+back to its default. The few that tql reads only as it starts, such as `mouse`,
+say so.
 
 There is nothing to configure to start. On first run tql writes
 `~/.config/tql/config.toml` with every setting at its default and a comment

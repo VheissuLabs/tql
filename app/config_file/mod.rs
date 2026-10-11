@@ -6,6 +6,7 @@ use toml::Table;
 use crate::settings::Settings;
 
 pub mod file;
+pub mod kinds;
 pub mod template;
 pub mod tidy;
 

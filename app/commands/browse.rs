@@ -65,6 +65,10 @@ impl Command for Launch {
 
     fn execute(&self, cmd: &mut Cmd) -> Result {
         debug_assert_eq!(self.entry.shell, Shell::Opens);
+        if self.entry.name == registry::Name::Settings && !cmd.has_terminal() {
+            cmd.line(paths::config_file().display().to_string());
+            return Ok(());
+        }
         let connection = match self.entry.needs {
             Needs::Connection => cmd.argument("connection").map(String::from),
             Needs::Nothing => None,

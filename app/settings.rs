@@ -4,7 +4,7 @@ use toml::{Table, Value};
 
 use crate::tui::Keymap;
 
-const COLORS: [&str; 11] = [
+pub const COLORS: [&str; 11] = [
     "dim", "default", "black", "red", "green", "yellow", "blue", "magenta", "cyan", "white", "gray",
 ];
 

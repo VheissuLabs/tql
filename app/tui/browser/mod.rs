@@ -110,6 +110,7 @@ pub struct Browser {
     pub problem_offset: usize,
     pub query: Query,
     pub palette: Option<Palette>,
+    pub settings: Option<crate::tui::settings_modal::SettingsModal>,
     store: Option<PathBuf>,
     pub active_database: Option<String>,
     pub databases: Option<Choice>,
@@ -185,6 +186,7 @@ impl Browser {
             problem_offset: 0,
             query: Query::default(),
             palette: None,
+            settings: None,
             store: None,
             active_database,
             databases: None,
@@ -311,6 +313,12 @@ impl Tui for Browser {
             self.type_into_edits(key);
             return Flow::Continue;
         }
+        if let Some(modal) = self.settings.as_mut() {
+            if !modal.on_key(key) {
+                self.settings = None;
+            }
+            return Flow::Continue;
+        }
         if self.palette.is_some() {
             return self.type_into_palette(key);
         }
@@ -394,6 +402,10 @@ impl Tui for Browser {
 
     fn on_paste(&mut self, text: &str) -> Flow<Exit> {
         self.used();
+        if let Some(modal) = self.settings.as_mut() {
+            modal.on_paste(text);
+            return Flow::Continue;
+        }
         self.paste(text);
         Flow::Continue
     }
@@ -401,7 +413,7 @@ impl Tui for Browser {
     fn on_mouse(&mut self, mouse: Mouse) -> Flow<Exit> {
         self.status_fresh = false;
         self.used();
-        if !self.wants_mouse() || self.edits.form().is_some() {
+        if !self.wants_mouse() || self.edits.form().is_some() || self.settings.is_some() {
             return Flow::Continue;
         }
         let (row_offset, column_offset) =

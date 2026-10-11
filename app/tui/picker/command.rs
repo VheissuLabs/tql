@@ -36,6 +36,11 @@ impl Picker {
             Name::Quit => return self.quit(),
             Name::Write => self.write_pending(),
             Name::New => self.create(),
+            Name::Settings => {
+                self.settings = Some(crate::tui::settings_modal::SettingsModal::open(
+                    &crate::paths::config_file(),
+                ))
+            }
             other => {
                 let word = registry::entry_for(other).word();
                 self.say(registry::unavailable(Screen::Connections, word));
