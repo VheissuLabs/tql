@@ -12,6 +12,8 @@ const COLORS: [&str; 11] = [
 pub struct Settings {
     pub modal_ring: bool,
     pub confirm_create_on_production: bool,
+    pub mcp_read_screen: bool,
+    pub mcp_read_production: bool,
     pub hotkey_bar: bool,
     pub top_margin: u16,
     pub bottom_margin: u16,
@@ -46,6 +48,8 @@ impl Default for Settings {
         Settings {
             modal_ring: true,
             confirm_create_on_production: true,
+            mcp_read_screen: false,
+            mcp_read_production: false,
             hotkey_bar: true,
             top_margin: 0,
             bottom_margin: 0,
@@ -201,6 +205,8 @@ impl Settings {
         match key {
             "ui.modal_ring" => self.modal_ring = flag(),
             "ui.confirm_create_on_production" => self.confirm_create_on_production = flag(),
+            "mcp.read_screen" => self.mcp_read_screen = flag(),
+            "mcp.read_production" => self.mcp_read_production = flag(),
             "ui.hotkey_bar" => self.hotkey_bar = flag(),
             "ui.top_margin" => self.top_margin = number().min(u16::MAX as usize) as u16,
             "ui.bottom_margin" => self.bottom_margin = number().min(u16::MAX as usize) as u16,

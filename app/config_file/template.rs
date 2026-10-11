@@ -308,6 +308,20 @@ pub const SETTINGS: &[Setting] = &[
         "0.3.0",
         &["Bearer token for that endpoint, if it wants one"],
     ),
+    setting(
+        "mcp",
+        "read_screen",
+        "false",
+        "0.12.0",
+        &["Let an agent read what you see in the tql you have open"],
+    ),
+    setting(
+        "mcp",
+        "read_production",
+        "false",
+        "0.12.0",
+        &["Let it read a connection tagged production too"],
+    ),
     setting("icons", "mysql", "\"\u{e704}\"", "0.3.0", &[]),
     setting("icons", "pgsql", "\"\u{e76e}\"", "0.3.0", &[]),
     setting("icons", "sqlite", "\"\u{e7c4}\"", "0.3.0", &[]),
@@ -333,6 +347,10 @@ const NOTES: &[(&str, &str)] = &[
     (
         "ai",
         "What answers when you press a. Only table and column names are sent, never rows.",
+    ),
+    (
+        "mcp",
+        "What an agent sees through tql mcp:start. It can always query; this is your screen.",
     ),
     (
         "icons",
@@ -397,7 +415,7 @@ mod tests {
 
         assert_eq!(table["ui"]["sql_position"].as_str(), Some("top"));
         assert_eq!(table["icons"]["default"].as_str(), Some("\u{f1c0}"));
-        assert_eq!(sections(), ["ui", "theme", "updates", "ai", "icons"]);
+        assert_eq!(sections(), ["ui", "theme", "updates", "ai", "mcp", "icons"]);
     }
 
     #[test]

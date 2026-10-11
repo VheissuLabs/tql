@@ -441,6 +441,9 @@ impl Tui for Browser {
         if self.take_from_agent() {
             return true;
         }
+        if self.answer_agent() {
+            return true;
+        }
         if self.load_related() {
             return true;
         }

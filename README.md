@@ -389,6 +389,16 @@ rows. See [Asking for SQL](#asking-for-sql).
 | `url` | `""` | an OpenAI-compatible endpoint instead, such as LM Studio |
 | `key` | `""` | bearer token for that endpoint, if it wants one |
 
+### `[mcp]`
+
+What an agent sees through `tql mcp:start`. It can always query the
+connections; this is about your screen. See [For agents](#for-agents).
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `read_screen` | `false` | let an agent read what you see in the tql you have open |
+| `read_production` | `false` | let it read a connection tagged `production` too |
+
 Tags are deliberately not configurable: `production` is red in your terminal and
 in the next person's screenshot. See [Tags and read only](#tags-and-read-only).
 
@@ -1324,6 +1334,23 @@ to the editor and says the SQL came from your agent. Nothing runs: you read it,
 change it if you like, and run it yourself. One undo brings back what was in
 the editor. With more than one tql open on that connection, the one you used
 last gets it; with none open, the agent is told to ask you to open it.
+
+**`read-screen-tool`** is the other direction: the agent sees what you see in
+the tql you have open, so *this row* and *these results* mean something to it.
+It gets the table or query results on screen, the statement behind them, what
+is in the SQL editor, the sort, the row and column under your cursor, the page
+of rows loaded, how many changes are unwritten and the status line. That is row
+data, so it is off until you turn it on, and a production connection needs its
+own say-so:
+
+```toml
+[mcp]
+read_screen = true        # let an agent read your screen
+read_production = false   # and a connection tagged production too
+```
+
+tql says *your agent read the screen* on its status line each time it does,
+and with sharing off the agent is told what you would have to change.
 
 ## Developing
 

@@ -145,7 +145,8 @@ fn lists_the_tools_by_the_names_tql_has_always_used() {
             "list-tables-tool",
             "describe-table-tool",
             "run-query-tool",
-            "write-sql-tool"
+            "write-sql-tool",
+            "read-screen-tool"
         ]
     );
     assert_eq!(reply["result"]["ttlMs"], 0);
@@ -497,4 +498,134 @@ fn in_vim_the_agents_sql_lands_in_normal_mode_and_u_brings_back_what_was_there()
     assert!(fake.app.query.editor.cursor() < "select 5".len());
     fake.press("u");
     assert_eq!(fake.app.query.editor.buffer(), before);
+}
+
+fn sharing(production: bool) {
+    let mut chosen = Settings::default();
+    chosen.set("mcp.read_screen", &toml::Value::Boolean(true));
+    chosen.set("mcp.read_production", &toml::Value::Boolean(production));
+    settings::install(chosen);
+}
+
+fn read_while(fake: &mut Fake<Browser>, directory: &Path) -> Result<Value, String> {
+    let directory = directory.to_path_buf();
+    let reading = thread::spawn(move || live::read_screen(&directory, "shop"));
+    let started = Instant::now();
+    while !reading.is_finished() && started.elapsed() < Duration::from_secs(5) {
+        fake.settle();
+        thread::sleep(Duration::from_millis(10));
+    }
+    reading.join().unwrap()
+}
+
+#[test]
+fn the_screen_is_not_shared_until_the_user_allows_it() {
+    let scratch = Scratch::shop("read-screen-off");
+    let mut fake = browser(&scratch, Live::register(&scratch.live(), "shop"));
+    fake.settle();
+
+    let answer = read_while(&mut fake, &scratch.live()).unwrap();
+
+    assert_eq!(
+        answer["refused"],
+        "tql on [shop] does not share its screen. Ask the user to set read_screen = true under [mcp] in config.toml and restart tql."
+    );
+    assert!(answer.get("rows").is_none());
+    assert!(
+        fake.screen()
+            .contains("your agent asked to read the screen")
+    );
+}
+
+#[test]
+fn an_allowed_agent_sees_the_table_the_cursor_and_the_rows() {
+    let scratch = Scratch::shop("read-screen-on");
+    let mut fake = browser(&scratch, Live::register(&scratch.live(), "shop"));
+    sharing(false);
+    fake.settle().press("\tj");
+
+    let screen = read_while(&mut fake, &scratch.live()).unwrap();
+
+    assert_eq!(screen["connection"], "shop");
+    assert_eq!(screen["table"], "users");
+    assert_eq!(screen["showing"], "table");
+    assert_eq!(screen["focus"], "rows");
+    assert_eq!(screen["cursor"]["row"], 2);
+    assert_eq!(
+        screen["cursor"]["record"],
+        json!({ "id": 2, "name": "Bob" })
+    );
+    assert_eq!(screen["rows"]["columns"], json!(["id", "name"]));
+    assert_eq!(screen["rows"]["records"].as_array().unwrap().len(), 2);
+    assert!(
+        screen["statement"]
+            .as_str()
+            .unwrap()
+            .contains("from \"users\"")
+    );
+    assert_eq!(screen["unwritten"]["deletes"], 0);
+    assert!(fake.screen().contains("your agent read the screen"));
+}
+
+#[test]
+fn a_production_screen_needs_its_own_permission() {
+    let scratch = Scratch::shop("read-screen-production");
+    let live = Live::register(&scratch.live(), "shop");
+    let mut connection = Connection::sqlite("shop", scratch.shop_file().to_str().unwrap());
+    connection.tag = Some("production".into());
+    let database = database::connect(&connection, None).unwrap();
+    let mut fake = Fake::sized(
+        Browser::new(connection, database).unwrap().with_live(live),
+        120,
+        30,
+    );
+    sharing(false);
+    fake.settle();
+
+    let refused = read_while(&mut fake, &scratch.live()).unwrap();
+    assert!(
+        refused["refused"]
+            .as_str()
+            .unwrap()
+            .starts_with("[shop] is tagged production"),
+        "{refused}"
+    );
+
+    sharing(true);
+    let shared = read_while(&mut fake, &scratch.live()).unwrap();
+    assert_eq!(shared["tag"], "production");
+    assert!(shared.get("refused").is_none());
+}
+
+#[test]
+fn the_read_screen_tool_answers_with_the_screen_or_the_reason_it_cannot() {
+    let scratch = Scratch::shop("read-screen-tool");
+    let server = scratch.server();
+    let config = paths::config_directory();
+
+    let (said, failed) = call(&server, "read-screen-tool", json!({ "connection": "shop" }));
+    assert!(failed);
+    assert_eq!(
+        said,
+        "tql is not open. Ask the user to open [shop] in tql, then try again."
+    );
+
+    let mut fake = browser(&scratch, Live::register(&live::directory(), "shop"));
+    sharing(false);
+    fake.settle();
+    let asking = thread::spawn(move || {
+        paths::use_config_directory(config);
+        let server = Server::new(Agent::new(paths::store(), paths::key()), "v9.8.7");
+        call(&server, "read-screen-tool", json!({ "connection": "shop" }))
+    });
+    let started = Instant::now();
+    while !asking.is_finished() && started.elapsed() < Duration::from_secs(5) {
+        fake.settle();
+        thread::sleep(Duration::from_millis(10));
+    }
+    let (said, failed) = asking.join().unwrap();
+
+    assert!(!failed, "{said}");
+    let screen: Value = serde_json::from_str(&said).unwrap();
+    assert_eq!(screen["table"], "users");
 }

@@ -1086,7 +1086,18 @@ fn config_cases() -> Vec<serde_json::Value> {
 
 const PHP_TEMPLATE: &str = "0.7.1";
 
+fn without_mcp(text: &str) -> String {
+    let Some(start) = text.find("\n[mcp]\n") else {
+        return text.to_string();
+    };
+    let end = text[start + 1..]
+        .find("\n[")
+        .map_or(text.len(), |next| start + 1 + next);
+    format!("{}{}", &text[..start], &text[end..])
+}
+
 fn as_php(text: &str) -> String {
+    let text = &without_mcp(text);
     let unstamped = text.replace(
         &format!(
             "# tql configuration {}\n",
@@ -1113,6 +1124,8 @@ fn as_php_result(mut result: serde_json::Value) -> serde_json::Value {
                 "left_margin",
                 "right_margin",
                 "confirm_create_on_production",
+                "read_screen",
+                "read_production",
             ]
             .contains(&key.as_str().unwrap_or_default())
         });

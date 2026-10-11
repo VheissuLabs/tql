@@ -200,6 +200,25 @@ url = "http://localhost:1234/v1"
 model = "qwen2.5-coder-7b-instruct"
 ```
 
+## `[mcp]`
+
+What an agent sees through `tql mcp:start`. It can always list, describe and
+query your connections, read-only; this section is about your screen.
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `read_screen` | `false` | let an agent read what you see in the tql you have open |
+| `read_production` | `false` | let it read a connection tagged `production` too |
+
+With `read_screen` on, the MCP server's `read-screen-tool` answers with the
+table or query results on screen, the statement behind them, the SQL editor,
+the sort, the row and column under the cursor, the page of rows loaded,
+unwritten changes and the status line. That is row data, which nothing else in
+tql hands an agent without it asking for it with a query, so it is off until
+you say, and a production connection needs `read_production` as well. tql says
+on its status line each time an agent reads it. Restart tql after changing
+either.
+
 ## `[keys]`
 
 What key asks for what, by action name:

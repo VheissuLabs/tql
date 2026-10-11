@@ -58,6 +58,10 @@ Each is a place where tql has a bug or a sharp edge that tql-rust leaves out.
   nothing for false. The JSON is the same in both: `true` and `false`.
 - **`mcp:start` with a name other than `tql`** says tql's one server is named `tql`, not
   to register it with Laravel's `Mcp::local()`.
+- **There is a sixth tool, `read-screen-tool`**, off unless the user sets `[mcp]
+  read_screen = true` (and `read_production = true` for a production connection).
+  It answers with what the user sees in the tql open on the connection it names, and
+  that tql says on its status line that the agent read it.
 - **There is a fifth tool, `write-sql-tool`.** It puts SQL in the SQL editor of the tql
   the user has open on the connection it names, in place of what is there; one undo
   brings back what was. Nothing runs. When several tqls are open on that connection, the

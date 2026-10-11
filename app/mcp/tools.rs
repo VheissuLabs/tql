@@ -10,15 +10,17 @@ pub enum Tool {
     DescribeTable,
     RunQuery,
     WriteSql,
+    ReadScreen,
 }
 
 impl Tool {
-    pub const ALL: [Tool; 5] = [
+    pub const ALL: [Tool; 6] = [
         Tool::ListConnections,
         Tool::ListTables,
         Tool::DescribeTable,
         Tool::RunQuery,
         Tool::WriteSql,
+        Tool::ReadScreen,
     ];
 
     pub fn named(name: &str) -> Option<Tool> {
@@ -32,6 +34,7 @@ impl Tool {
             Tool::DescribeTable => "describe-table-tool",
             Tool::RunQuery => "run-query-tool",
             Tool::WriteSql => "write-sql-tool",
+            Tool::ReadScreen => "read-screen-tool",
         }
     }
 
@@ -42,6 +45,7 @@ impl Tool {
             Tool::DescribeTable => "Describe Table Tool",
             Tool::RunQuery => "Run Query Tool",
             Tool::WriteSql => "Write SQL Tool",
+            Tool::ReadScreen => "Read Screen Tool",
         }
     }
 
@@ -59,6 +63,9 @@ impl Tool {
             }
             Tool::WriteSql => {
                 "Put SQL in the SQL editor of the tql the user has open on a connection, in place of what is there, so the user can read it, change it and run it. Nothing runs. Use it for statements that change data, which the run query tool refuses, or for a query the user wants to see."
+            }
+            Tool::ReadScreen => {
+                "Read what the user sees in the tql they have open on a connection: the table or query results on screen, the statement behind them, the SQL editor, the sort, the row and column under the cursor, the page of rows loaded, unwritten changes and the status line. Use it to see what the user means by this row or these results. The user has to allow it in their config."
             }
         }
     }
@@ -98,6 +105,13 @@ impl Tool {
                 },
                 "type": "object",
                 "required": ["connection", "sql"],
+            }),
+            Tool::ReadScreen => json!({
+                "properties": {
+                    "connection": connection("The tql connection name of the tql the user has open."),
+                },
+                "type": "object",
+                "required": ["connection"],
             }),
         }
     }
@@ -140,6 +154,14 @@ impl Tool {
                 text("connection").unwrap_or_default(),
                 text("sql").unwrap_or_default(),
             ),
+            Tool::ReadScreen => {
+                let screen =
+                    live::read_screen(&live::directory(), text("connection").unwrap_or_default())?;
+                match screen["refused"].as_str() {
+                    Some(refusal) => Err(refusal.to_string()),
+                    None => Ok(pretty(screen)),
+                }
+            }
         }
     }
 }

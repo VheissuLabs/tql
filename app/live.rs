@@ -21,6 +21,8 @@ pub struct Live {
     held: File,
     registration: PathBuf,
     mailbox: PathBuf,
+    request: PathBuf,
+    reply: PathBuf,
     freshened: Instant,
 }
 
@@ -42,6 +44,8 @@ impl Live {
             held,
             registration,
             mailbox: directory.join(format!("{stem}.sql")),
+            request: directory.join(format!("{stem}.ask")),
+            reply: directory.join(format!("{stem}.screen")),
             freshened: Instant::now(),
         })
     }
@@ -61,11 +65,27 @@ impl Live {
         let _ = fs::remove_file(&self.mailbox);
         Some(sql)
     }
+
+    pub fn asked(&self) -> bool {
+        self.request.exists()
+    }
+
+    pub fn answer(&self, screen: &Value) {
+        let unread = self.reply.with_extension("screen.new");
+        let written =
+            fs::write(&unread, screen.to_string()).and_then(|()| fs::rename(&unread, &self.reply));
+        if written.is_err() {
+            let _ = fs::remove_file(&unread);
+        }
+        let _ = fs::remove_file(&self.request);
+    }
 }
 
 impl Drop for Live {
     fn drop(&mut self) {
         let _ = fs::remove_file(&self.mailbox);
+        let _ = fs::remove_file(&self.request);
+        let _ = fs::remove_file(&self.reply);
         let _ = fs::remove_file(&self.registration);
         let _ = self.held.unlock();
     }
@@ -91,7 +111,9 @@ fn open_ones(directory: &Path) -> Vec<Open> {
         .filter_map(|registration| {
             let file = File::open(&registration).ok()?;
             if file.try_lock().is_ok() {
-                let _ = fs::remove_file(registration.with_extension("sql"));
+                for leftover in ["sql", "ask", "screen"] {
+                    let _ = fs::remove_file(registration.with_extension(leftover));
+                }
                 let _ = fs::remove_file(&registration);
                 return None;
             }
@@ -106,29 +128,54 @@ fn open_ones(directory: &Path) -> Vec<Open> {
         .collect()
 }
 
+fn chosen(directory: &Path, connection: &str) -> Result<Open, String> {
+    let mut open = open_ones(directory);
+    let mut elsewhere: Vec<String> = open.iter().map(|open| open.connection.clone()).collect();
+    open.retain(|open| open.connection == connection);
+    if let Some(chosen) = open.into_iter().max_by_key(|open| open.used) {
+        return Ok(chosen);
+    }
+    elsewhere.sort();
+    elsewhere.dedup();
+    Err(match elsewhere.is_empty() {
+        true => {
+            format!("tql is not open. Ask the user to open [{connection}] in tql, then try again.")
+        }
+        false => format!(
+            "No tql is open on [{connection}]. tql is open on: {}",
+            elsewhere.join(", ")
+        ),
+    })
+}
+
+pub fn read_screen(directory: &Path, connection: &str) -> Result<Value, String> {
+    let chosen = chosen(directory, connection)?;
+    let request = chosen.mailbox.with_extension("ask");
+    let reply = chosen.mailbox.with_extension("screen");
+    let _ = fs::remove_file(&reply);
+    fs::write(&request, "")
+        .map_err(|error| format!("Could not ask tql for its screen: {error}"))?;
+
+    let started = Instant::now();
+    while started.elapsed() < WAIT_FOR_PICKUP {
+        if let Ok(answer) = fs::read_to_string(&reply) {
+            let _ = fs::remove_file(&reply);
+            return serde_json::from_str(&answer)
+                .map_err(|error| format!("tql answered with something unreadable: {error}"));
+        }
+        std::thread::sleep(LOOK_EVERY);
+    }
+    let _ = fs::remove_file(&request);
+    Err(format!(
+        "tql on [{connection}] did not answer; it may be busy. Try again in a moment."
+    ))
+}
+
 pub fn deliver(directory: &Path, connection: &str, sql: &str) -> Result<String, String> {
     if sql.trim().is_empty() {
         return Err("Give the SQL to put in the editor.".to_string());
     }
-    let open = open_ones(directory);
-    let Some(chosen) = open
-        .iter()
-        .filter(|open| open.connection == connection)
-        .max_by_key(|open| open.used)
-    else {
-        let mut elsewhere: Vec<&str> = open.iter().map(|open| open.connection.as_str()).collect();
-        elsewhere.sort();
-        elsewhere.dedup();
-        return Err(match elsewhere.is_empty() {
-            true => format!(
-                "tql is not open. Ask the user to open [{connection}] in tql, then try again."
-            ),
-            false => format!(
-                "No tql is open on [{connection}]. tql is open on: {}",
-                elsewhere.join(", ")
-            ),
-        });
-    };
+    let chosen = chosen(directory, connection)?;
 
     let unread = chosen.mailbox.with_extension("sql.new");
     fs::write(&unread, sql)

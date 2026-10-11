@@ -15,7 +15,7 @@ const CAPABILITIES_KEY: &str = "io.modelcontextprotocol/clientCapabilities";
 const PER_PAGE: usize = 15;
 const MOST_PER_PAGE: usize = 50;
 
-pub const INSTRUCTIONS: &str = "tql exposes the same database connections the user browses in the tql terminal interface. Start by listing connections, then list or describe tables before querying. Queries are read-only; writes must happen in the tql interface, and the write SQL tool puts a statement in the SQL editor of the tql the user has open, for them to read and run.";
+pub const INSTRUCTIONS: &str = "tql exposes the same database connections the user browses in the tql terminal interface. Start by listing connections, then list or describe tables before querying. Queries are read-only; writes must happen in the tql interface, and the write SQL tool puts a statement in the SQL editor of the tql the user has open, for them to read and run. The read screen tool shows what the user is looking at there, when they allow it.";
 
 pub struct Server {
     agent: Agent,

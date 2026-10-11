@@ -250,7 +250,9 @@ mod tests {
                 "hotkey_bar",
                 "confirm_create_on_production",
                 "check",
-                "automatic"
+                "automatic",
+                "read_screen",
+                "read_production"
             ]
         );
         assert!(topped.starts_with(
@@ -277,7 +279,9 @@ mod tests {
                 "right_margin",
                 "confirm_create_on_production",
                 "check",
-                "automatic"
+                "automatic",
+                "read_screen",
+                "read_production"
             ]
         );
         assert!(topped.starts_with(&format!("# tql configuration {VERSION}\n[ui]")));
@@ -310,7 +314,9 @@ mod tests {
                 "right_margin",
                 "confirm_create_on_production",
                 "check",
-                "automatic"
+                "automatic",
+                "read_screen",
+                "read_production"
             ]
         );
         assert!(topped.starts_with("# tql configuration 0.12.0\n[ui]\n"));
