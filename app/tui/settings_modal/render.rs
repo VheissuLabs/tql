@@ -154,6 +154,12 @@ impl SettingsModal {
                 let value_room = room.saturating_sub(NAME_WIDTH + 2);
                 let mut spans = vec![Span::raw(format!("  {name}"))];
                 match self.editing().filter(|_| selected) {
+                    Some(editor) if editor.replacing() => {
+                        spans.push(Span::styled(
+                            truncate(&editor.text(), value_room),
+                            theme::cursor(),
+                        ));
+                    }
                     Some(editor) => {
                         let characters: Vec<char> = editor.text().chars().collect();
                         let typed = typed(&characters, editor.cursor(), value_room);

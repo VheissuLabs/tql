@@ -124,6 +124,27 @@ fn types_a_number_and_refuses_one_out_of_range() {
 }
 
 #[test]
+fn starts_editing_with_the_value_selected_so_typing_replaces_it() {
+    let scratch = Scratch::new("replace").with_config(MINE);
+    let mut fake = scratch.opened();
+
+    fake.press("/time_zone\n\nAmerica/Toronto\n");
+    assert!(scratch.text().contains("time_zone = \"America/Toronto\""));
+
+    fake.press("\n\x1b[D/Montreal\n");
+    assert!(
+        scratch
+            .text()
+            .contains("time_zone = \"/MontrealAmerica/Toronto\""),
+        "{}",
+        scratch.text()
+    );
+
+    fake.press("\n").press(BACKSPACE).press("\n");
+    assert!(scratch.text().contains("time_zone = \"\""));
+}
+
+#[test]
 fn keeps_the_comments_and_order_of_the_file() {
     let scratch = Scratch::new("comments").with_config(MINE);
     let mut fake = scratch.opened();

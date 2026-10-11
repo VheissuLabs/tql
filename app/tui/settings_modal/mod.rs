@@ -247,7 +247,7 @@ impl SettingsModal {
                     Value::String(text) => text,
                     other => other.to_string(),
                 };
-                self.editing = Some(LineEditor::holding(&shown));
+                self.editing = Some(LineEditor::selecting(&shown));
             }
             None => {}
         }

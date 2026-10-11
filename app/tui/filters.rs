@@ -32,6 +32,7 @@ impl Cell {
 pub struct LineEditor {
     characters: Vec<char>,
     cursor: usize,
+    replacing: bool,
 }
 
 impl LineEditor {
@@ -40,7 +41,19 @@ impl LineEditor {
         LineEditor {
             cursor: characters.len(),
             characters,
+            replacing: false,
         }
+    }
+
+    pub fn selecting(text: &str) -> Self {
+        LineEditor {
+            replacing: !text.is_empty(),
+            ..LineEditor::holding(text)
+        }
+    }
+
+    pub fn replacing(&self) -> bool {
+        self.replacing
     }
 
     pub fn text(&self) -> String {
@@ -52,6 +65,23 @@ impl LineEditor {
     }
 
     pub fn handle(&mut self, key: Key) {
+        if std::mem::take(&mut self.replacing) {
+            match key {
+                Key::Char(_) | Key::Backspace | Key::Ctrl('h') | Key::Delete => {
+                    self.characters.clear();
+                    self.cursor = 0;
+                }
+                Key::Left | Key::Ctrl('b') | Key::Home | Key::Ctrl('a') => {
+                    self.cursor = 0;
+                    return;
+                }
+                Key::Right | Key::Ctrl('f') | Key::End | Key::Ctrl('e') => return,
+                _ => {}
+            }
+            if !matches!(key, Key::Char(_)) {
+                return;
+            }
+        }
         match key {
             Key::Backspace | Key::Ctrl('h') if self.cursor > 0 => {
                 self.cursor -= 1;
