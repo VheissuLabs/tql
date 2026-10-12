@@ -96,6 +96,7 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 | `:create database <name>` | create a database on this server and switch to it |
 | `:drop database <name>` | drop a database on this server; drop the one in use and the database list opens |
 | `:settings` | change your settings |
+| `:v` `:version` | show which version of tql this is |
 
 A command that belongs to the other screen says so: `:sql` on the connection
 list says it works once a connection is open. Every command here that needs the
@@ -341,6 +342,7 @@ line, so nothing is dropped until `↵` there.
 | `:w` | write the marked deletions |
 | `:new` | a new connection |
 | `:settings` | change your settings |
+| `:v` | show which version of tql this is |
 | `ctrl+k` | the command palette: these commands and every connection, by name |
 | `q` / `esc` | quit |
 

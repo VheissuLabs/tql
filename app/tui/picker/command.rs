@@ -36,6 +36,7 @@ impl Picker {
             Name::Quit => return self.quit(),
             Name::Write => self.write_pending(),
             Name::New => self.create(),
+            Name::Version => self.say(registry::version()),
             Name::Settings => {
                 self.settings = Some(crate::tui::settings_modal::SettingsModal::open(
                     &crate::paths::config_file(),

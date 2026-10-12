@@ -249,3 +249,23 @@ fn hiding_the_sql_editor_holds_even_when_it_is_always_shown() {
     assert!(sql_pane_shown(&mut fake), "{}", fake.screen());
     assert_eq!(fake.app.mode, app::tui::Mode::Query);
 }
+
+#[test]
+fn colon_v_says_which_version_of_tql_this_is() {
+    let version = format!("tql v{}", env!("CARGO_PKG_VERSION"));
+    let mut fake = browser("version", &[]);
+
+    fake.press(":v\n");
+    assert_eq!(fake.app.status(), version);
+
+    fake.press(":version\n");
+    assert_eq!(fake.app.status(), version);
+
+    let mut picker = Fake::sized(app::tui::Picker::new(Vec::new(), None), 120, 30);
+    picker.press(":v\n");
+    assert!(picker.screen().contains(&version), "{}", picker.screen());
+
+    let mut picker = Fake::sized(app::tui::Picker::new(Vec::new(), None), 120, 30);
+    picker.press("\x0bversion\n");
+    assert!(picker.screen().contains(&version), "{}", picker.screen());
+}

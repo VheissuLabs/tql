@@ -118,6 +118,7 @@ impl Browser {
             Name::CreateDatabase => self.create_database(argument),
             Name::DropDatabase => self.drop_database(argument),
             Name::New => self.say(registry::unavailable(Screen::Browser, "new")),
+            Name::Version => self.say(registry::version()),
             Name::Settings => {
                 self.settings = Some(crate::tui::settings_modal::SettingsModal::open(
                     &crate::paths::config_file(),

@@ -131,6 +131,7 @@ fn sections() -> Vec<(&'static str, Vec<Entry>)> {
                 (":reload", "reload"),
                 (":w", "write the changes"),
                 (":c", "connections"),
+                (":v", "tql's version"),
                 (":q", "quit"),
             ]),
         ),

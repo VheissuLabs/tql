@@ -15,6 +15,7 @@ pub enum Name {
     CreateDatabase,
     DropDatabase,
     Settings,
+    Version,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -90,6 +91,12 @@ pub const ENTRIES: &[Entry] = &[
             EVERYWHERE,
         )
     },
+    entry(
+        Name::Version,
+        &["version", "v"],
+        "show which version of tql this is",
+        EVERYWHERE,
+    ),
     Entry {
         palette: false,
         ..entry(Name::Quit, &["q", "q!", "quit"], "quit tql", EVERYWHERE)
@@ -187,6 +194,10 @@ pub const ENTRIES: &[Entry] = &[
         )
     },
 ];
+
+pub fn version() -> String {
+    format!("tql v{}", crate::updates::current_version())
+}
 
 pub fn entry_for(name: Name) -> &'static Entry {
     ENTRIES
