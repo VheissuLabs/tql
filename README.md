@@ -114,7 +114,7 @@ with `:w`. The SQL editor runs whatever the connection allows.
 
 ## Installing
 
-One file, no runtime to install. The binary has all four database drivers
+One file, no runtime to install. The binary has every database driver
 built in, and on Linux it is statically linked, so it runs on any distribution.
 On first run it creates `~/.config/tql/` and migrates its own store, so there is
 nothing to set up.
@@ -1203,7 +1203,7 @@ Adding and editing happen in a modal over the list, never by dropping out to a
 prompt sequence. `↑↓` picks a field, `↵` edits it with a real cursor (arrows,
 home, end, backspace, delete, paste), `ctrl+s` saves and `esc` cancels. Nothing
 is written until you save. The driver is cycled with `← →`, through all
-four.
+eight.
 
 ## Adding a row
 
