@@ -381,18 +381,18 @@ fn mysql_shows_bits_as_numbers_and_writes_them_back_as_numbers() {
     );
 }
 
-fn two_schemas(database: &mut dyn Database) {
+fn two_schemas(database: &mut dyn Database, schema: &str, users: &str) {
     database
-        .run(
-            "drop schema if exists ev cascade; drop table if exists schema_users cascade; \
-             create table schema_users (id int primary key, name text); \
-             insert into schema_users values (1, 'Ada'); \
-             create schema ev; \
-             create table ev.schema_users (id int primary key, name text); \
-             insert into ev.schema_users values (1, 'Grace'); \
-             create table ev.evaluation (id int primary key, user_id int references public.schema_users (id), score int); \
-             insert into ev.evaluation values (7, 1, 90)",
-        )
+        .run(&format!(
+            "drop schema if exists {schema} cascade; drop table if exists {users} cascade; \
+             create table {users} (id int primary key, name text); \
+             insert into {users} values (1, 'Ada'); \
+             create schema {schema}; \
+             create table {schema}.{users} (id int primary key, name text); \
+             insert into {schema}.{users} values (1, 'Grace'); \
+             create table {schema}.evaluation (id int primary key, user_id int references public.{users} (id), score int); \
+             insert into {schema}.evaluation values (7, 1, 90)"
+        ))
         .unwrap();
 }
 
@@ -400,7 +400,7 @@ fn two_schemas(database: &mut dyn Database) {
 #[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
 fn postgres_lists_every_schema_and_keeps_two_tables_of_one_name_apart() {
     let mut database = herd("pgsql", 5432, "postgres");
-    two_schemas(database.as_mut());
+    two_schemas(database.as_mut(), "ev", "schema_users");
 
     let tables = database.tables().unwrap();
     assert!(tables.contains(&Table::bare("schema_users")), "{tables:?}");
@@ -453,15 +453,15 @@ fn postgres_lists_every_schema_and_keeps_two_tables_of_one_name_apart() {
 #[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
 fn postgres_names_tables_from_the_users_own_default_schema() {
     let mut database = herd("pgsql", 5432, "postgres");
-    two_schemas(database.as_mut());
-    database.run("set search_path to ev, public").unwrap();
+    two_schemas(database.as_mut(), "ev_path", "path_users");
+    database.run("set search_path to ev_path, public").unwrap();
 
     let tables = database.tables().unwrap();
-    assert_eq!(database.default_schema().as_deref(), Some("ev"));
+    assert_eq!(database.default_schema().as_deref(), Some("ev_path"));
     assert!(tables.contains(&Table::bare("evaluation")), "{tables:?}");
-    assert!(tables.contains(&Table::in_schema("public", "schema_users")));
+    assert!(tables.contains(&Table::in_schema("public", "path_users")));
 
     database
-        .run("set search_path to public; drop schema ev cascade; drop table schema_users")
+        .run("set search_path to public; drop schema ev_path cascade; drop table path_users")
         .unwrap();
 }
