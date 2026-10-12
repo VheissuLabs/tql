@@ -36,6 +36,7 @@ pub struct Picker {
     pub notice: Option<String>,
     pub status: Option<String>,
     pub command: Option<String>,
+    updating: Option<crate::tui::updating::Updating>,
     pub form: Option<ConnectionForm>,
     pub renaming: Option<GroupRename>,
     pub palette: Option<super::palette::Palette>,
@@ -87,6 +88,7 @@ impl Picker {
             notice,
             status: None,
             command: None,
+            updating: None,
             form: None,
             renaming: None,
             palette: None,
@@ -301,7 +303,7 @@ impl Tui for Picker {
     }
 
     fn idle(&mut self) -> bool {
-        self.fade_status(Instant::now())
+        self.hear_from_update() || self.fade_status(Instant::now())
     }
 
     fn top_margin(&self) -> u16 {

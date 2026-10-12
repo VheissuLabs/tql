@@ -3,7 +3,7 @@ use std::process::{Command, Stdio};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::remembered::{CHECKED, INSTALLED, LATEST};
-use super::{BINARY, Installation, Releases, Remembered, Updater, version};
+use super::{BINARY, Installation, Releases, Remembered, Unavailable, Updater, Versions, version};
 
 pub const EVERY_SECONDS: i64 = 86_400;
 
@@ -56,6 +56,62 @@ pub fn run(
 
     remembered.write(INSTALLED, &latest);
     notice(current, installation, &updater.releases, remembered)
+}
+
+pub fn by_hand(
+    current: &str,
+    installation: &Installation,
+    updater: &Updater,
+    remembered: &Remembered,
+    starting: impl FnOnce(&str),
+) -> Result<String, String> {
+    remembered.write(CHECKED, &now().to_string());
+
+    let latest = match updater.releases.latest() {
+        Ok(latest) => latest,
+        Err(Unavailable::NoReleases) => {
+            return Err(format!(
+                "No tql release has been published at {} yet.",
+                updater.releases.page()
+            ));
+        }
+        Err(Unavailable::Unreachable) => {
+            return Err("Could not reach GitHub to see what the latest release is.".to_string());
+        }
+    };
+    remembered.write(LATEST, &latest);
+
+    if !version::is_newer(&latest, current) {
+        return Ok(format!("tql {current} is the latest."));
+    }
+    if !installation.updates_itself() {
+        return Ok(format!(
+            "tql {latest} is out. You have {current}; {}.",
+            installation.upgrade(&updater.releases)
+        ));
+    }
+
+    starting(&format!("Updating tql {current} to {latest}…"));
+    if let Err(failure) = updater.install(&latest, &installation.path) {
+        return Err(format!(
+            "{}.",
+            crate::tui::text::sentence(&failure.to_string())
+        ));
+    }
+    remembered.write(INSTALLED, &latest);
+
+    let versions = Versions::for_installed(&installation.path);
+    Ok(
+        if versions.switches_safely_now() && versions.activate(|| false) {
+            format!(
+                "Updated to {latest}, checked against its published checksum. The next tql you start is the new one."
+            )
+        } else {
+            format!(
+                "Downloaded {latest} and checked it against its published checksum. It takes over the next time you start tql."
+            )
+        },
+    )
 }
 
 pub fn notice(

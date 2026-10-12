@@ -16,6 +16,10 @@ pub enum Name {
     DropDatabase,
     Settings,
     Version,
+    Update,
+    Help,
+    Open,
+    ExportDatabase,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -98,6 +102,35 @@ pub const ENTRIES: &[Entry] = &[
         EVERYWHERE,
     ),
     Entry {
+        shell: Shell::Own,
+        ..entry(
+            Name::Update,
+            &["update"],
+            "check for a newer tql and install it",
+            EVERYWHERE,
+        )
+    },
+    Entry {
+        shell: Shell::Own,
+        takes: Some("path or connection string"),
+        ..entry(
+            Name::Open,
+            &["open"],
+            "open a SQLite file or a connection string",
+            EVERYWHERE,
+        )
+    },
+    Entry {
+        shell: Shell::Own,
+        palette: false,
+        ..entry(
+            Name::Help,
+            &["help", "h"],
+            "show the keys and commands",
+            BROWSER,
+        )
+    },
+    Entry {
         palette: false,
         ..entry(Name::Quit, &["q", "q!", "quit"], "quit tql", EVERYWHERE)
     },
@@ -175,6 +208,12 @@ pub const ENTRIES: &[Entry] = &[
             BROWSER,
         )
     },
+    entry(
+        Name::ExportDatabase,
+        &["export database"],
+        "export every table in this database as SQL",
+        BROWSER,
+    ),
     Entry {
         takes: Some("name"),
         ..entry(

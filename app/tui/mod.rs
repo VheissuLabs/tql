@@ -26,6 +26,7 @@ mod sql;
 mod statements;
 mod structure;
 pub(crate) mod text;
+pub mod updating;
 mod value_editor;
 pub mod vim;
 

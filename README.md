@@ -254,6 +254,10 @@ to save), so `tql export` on its own is a four-question wizard, and
 `tql export prod orders --sql=./orders.sql` is a script. See
 [Exporting](#exporting).
 
+Inside tql, `:open`, `:update`, `:export` (this table) and `:export database`
+(every table) do the same from the command line or the ctrl+k palette, and `:v`
+says which version you have. See [docs/keys.md](docs/keys.md).
+
 `tql list` shows those. tql runs its store's migrations for itself, so there is
 no command for them. A debug build from a source checkout also shows
 `make:command`, which writes the skeleton of a new command.

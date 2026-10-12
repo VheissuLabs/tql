@@ -93,10 +93,14 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 | `:tables` | focus the table list |
 | `:rows` | focus the rows |
 | `:export` | write this table to a `.sql` file |
+| `:export database` | write every table in this database to one `.sql` file |
 | `:create database <name>` | create a database on this server and switch to it |
 | `:drop database <name>` | drop a database on this server; drop the one in use and the database list opens |
 | `:settings` | change your settings |
 | `:v` `:version` | show which version of tql this is |
+| `:update` | check for a newer tql and install it, while you keep working |
+| `:open <path or connection string>` | open a SQLite file or a `mysql://`, `pgsql://` or `sqlsrv://` URL, saved to the connection list as `tql open` does |
+| `:h` `:help` | the keys and commands |
 
 A command that belongs to the other screen says so: `:sql` on the connection
 list says it works once a connection is open. Every command here that needs the
@@ -343,6 +347,8 @@ line, so nothing is dropped until `↵` there.
 | `:new` | a new connection |
 | `:settings` | change your settings |
 | `:v` | show which version of tql this is |
+| `:update` | check for a newer tql and install it |
+| `:open <path or connection string>` | open a SQLite file or a connection string |
 | `ctrl+k` | the command palette: these commands and every connection, by name |
 | `q` / `esc` | quit |
 

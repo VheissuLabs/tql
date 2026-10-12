@@ -57,6 +57,11 @@ pub fn target(path: &str) -> anyhow::Result<Dsn> {
     })
 }
 
+pub fn saved(typed: &str, store: &Path, key: &Path) -> anyhow::Result<Connection> {
+    let target = target(&crate::paths::expand(typed.trim()))?;
+    Ok(connection_for(store, key, target, None, None, false)?.connection)
+}
+
 pub fn looks_like_sqlite(path: &Path) -> bool {
     let mut header = [0; 16];
     File::open(path)

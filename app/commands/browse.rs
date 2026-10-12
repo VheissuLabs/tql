@@ -135,7 +135,7 @@ fn browse(cmd: &mut Cmd, start: Option<&'static Entry>, named: Option<String>) -
                 match pending {
                     Some(entry) if entry.needs == Needs::Nothing => {
                         pending = None;
-                        if let Flow::Exit(_) = picker.run_named(entry.name) {
+                        if let Flow::Exit(_) = picker.run_named(entry.name, "") {
                             return Ok(());
                         }
                     }

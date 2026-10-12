@@ -174,6 +174,10 @@ impl<App: Tui> Fake<App> {
         self.exit.is_some()
     }
 
+    pub fn output(&self) -> Option<&App::Output> {
+        self.exit.as_ref()
+    }
+
     fn render(&mut self) {
         let app = &mut self.app;
         let margin = &mut self.margin;

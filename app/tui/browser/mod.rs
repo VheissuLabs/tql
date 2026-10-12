@@ -81,6 +81,7 @@ pub struct Browser {
     pub filtering: bool,
     pub tables_hidden: bool,
     pub sql_hidden: bool,
+    updating: Option<crate::tui::updating::Updating>,
     pub sidebar_width: Option<usize>,
     pub focus: Focus,
     pub mode: Mode,
@@ -158,6 +159,7 @@ impl Browser {
             filtering: false,
             tables_hidden: false,
             sql_hidden: false,
+            updating: None,
             sidebar_width: None,
             focus: Focus::Sidebar,
             mode: Mode::Browse,
@@ -465,6 +467,9 @@ impl Tui for Browser {
             return true;
         }
         if self.load_related() {
+            return true;
+        }
+        if self.hear_from_update() {
             return true;
         }
         if let Some(keep_cursor) = self.pending {

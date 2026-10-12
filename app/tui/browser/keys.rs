@@ -1,5 +1,6 @@
 use super::*;
 use crate::registry::{self, Name, Screen};
+use crate::tui::updating::{self, Updating};
 
 impl Browser {
     pub(super) fn toggle_tables(&mut self) {
@@ -119,6 +120,10 @@ impl Browser {
             Name::DropDatabase => self.drop_database(argument),
             Name::New => self.say(registry::unavailable(Screen::Browser, "new")),
             Name::Version => self.say(registry::version()),
+            Name::Update => self.start_updating(),
+            Name::Help => return self.run(Action::Help),
+            Name::Open => return self.open_typed(argument),
+            Name::ExportDatabase => self.export_database(),
             Name::Settings => {
                 self.settings = Some(crate::tui::settings_modal::SettingsModal::open(
                     &crate::paths::config_file(),
@@ -126,6 +131,47 @@ impl Browser {
             }
         }
         Flow::Continue
+    }
+
+    fn start_updating(&mut self) {
+        if self.updating.is_some() {
+            return self.say(updating::CHECKING);
+        }
+        self.updating = Some(Updating::start());
+        self.say(updating::CHECKING);
+    }
+
+    pub(super) fn hear_from_update(&mut self) -> bool {
+        let Some((said, done)) = self.updating.as_mut().and_then(Updating::heard) else {
+            return false;
+        };
+        if done {
+            self.updating = None;
+        }
+        self.say(said);
+        true
+    }
+
+    fn open_typed(&mut self, typed: &str) -> Flow<Exit> {
+        if typed.trim().is_empty() {
+            self.command = Some("open ".to_string());
+            return Flow::Continue;
+        }
+        let Some(store) = self.store.clone() else {
+            self.say("there is no connection list to open it into");
+            return Flow::Continue;
+        };
+        match crate::opener::saved(typed, &store, &crate::paths::key()) {
+            Ok(connection) if connection.id == self.connection.id => {
+                self.say(format!("{} is already open", connection.name));
+                Flow::Continue
+            }
+            Ok(connection) => self.leave(Exit::Open(connection.id)),
+            Err(error) => {
+                self.say(format!("{error:#}"));
+                Flow::Continue
+            }
+        }
     }
 
     pub(super) fn type_into_command(&mut self, key: Key) -> Flow<Exit> {

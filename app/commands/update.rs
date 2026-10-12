@@ -4,10 +4,7 @@ use crate::config_file;
 use crate::paths;
 use crate::settings;
 use crate::store_writer::StoreWriter;
-use crate::updates::remembered::{CHECKED, INSTALLED, LATEST};
-use crate::updates::{
-    self, Installation, Releases, Remembered, Unavailable, Updater, Versions, check, version,
-};
+use crate::updates::{self, Installation, Releases, Remembered, Updater, check};
 
 pub struct Update;
 
@@ -41,59 +38,13 @@ fn update(cmd: &mut Cmd) -> Result {
         return Ok(());
     }
 
-    remembered.write(CHECKED, &check::now().to_string());
-
-    let latest = match updater.releases.latest() {
-        Ok(latest) => latest,
-        Err(Unavailable::NoReleases) => {
-            cmd.error(format!(
-                "No tql release has been published at {} yet.",
-                updater.releases.page()
-            ));
+    let mut started = |line: &str| cmd.line(line);
+    match check::by_hand(&current, &installation, &updater, &remembered, &mut started) {
+        Ok(said) => cmd.info(said),
+        Err(failed) => {
+            cmd.error(failed);
             return exit(1);
         }
-        Err(Unavailable::Unreachable) => {
-            cmd.error("Could not reach GitHub to see what the latest release is.");
-            return exit(1);
-        }
-    };
-
-    remembered.write(LATEST, &latest);
-
-    if !version::is_newer(&latest, &current) {
-        cmd.info(format!("tql {current} is the latest."));
-        return Ok(());
     }
-
-    if !installation.updates_itself() {
-        cmd.line(format!(
-            "tql {latest} is out. You have {current}; {}.",
-            installation.upgrade(&updater.releases)
-        ));
-        return Ok(());
-    }
-
-    cmd.line(format!("Updating tql {current} to {latest}…"));
-
-    if let Err(failure) = updater.install(&latest, &installation.path) {
-        cmd.error(format!(
-            "{}.",
-            crate::tui::text::sentence(&failure.to_string())
-        ));
-        return exit(1);
-    }
-
-    remembered.write(INSTALLED, &latest);
-
-    let versions = Versions::for_installed(&installation.path);
-    cmd.info(if versions.switches_safely_now() && versions.activate(|| false) {
-        format!(
-            "Updated to {latest}, checked against its published checksum. The next tql you start is the new one."
-        )
-    } else {
-        format!(
-            "Downloaded {latest} and checked it against its published checksum. It takes over the next time you start tql."
-        )
-    });
     Ok(())
 }

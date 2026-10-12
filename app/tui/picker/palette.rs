@@ -59,7 +59,7 @@ impl Picker {
 
     fn run_palette_item(&mut self, item: Item) -> Flow<Option<Connection>> {
         match item.kind {
-            Kind::Command(name) => self.run_named(name),
+            Kind::Command(name) => self.run_named(name, ""),
             Kind::Connection => {
                 let chosen = self
                     .connections
