@@ -1,16 +1,47 @@
 use super::*;
 
+impl SqlServer {
+    fn schema_of(&mut self, table: &Table) -> String {
+        table
+            .schema
+            .clone()
+            .or_else(|| self.default_schema())
+            .unwrap_or_else(|| "dbo".to_string())
+    }
+}
+
 impl Database for SqlServer {
     fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
         Ok(self
-            .column(
-                "select t.name as name from sys.tables as t \
-                 where t.is_ms_shipped = 0 and t.name <> 'sysdiagrams' \
-                 and schema_name(t.schema_id) = schema_name() order by t.name",
+            .query(
+                &format!(
+                    "select {SCHEMA_OR_DEFAULT}, t.name from sys.tables as t \
+                     where t.is_ms_shipped = 0 and t.name <> 'sysdiagrams' \
+                     order by case when schema_name(t.schema_id) = schema_name() then 0 else 1 end, \
+                     schema_name(t.schema_id), t.name"
+                ),
+                &[],
             )?
+            .rows
             .into_iter()
-            .map(Table::bare)
+            .filter_map(|mut row| {
+                let name = row[1].take()?;
+                Some(Table {
+                    schema: row[0].take(),
+                    name,
+                })
+            })
             .collect())
+    }
+
+    fn default_schema(&mut self) -> Option<String> {
+        if self.default.is_none() {
+            self.default = self
+                .column("select schema_name()")
+                .ok()
+                .and_then(|mut found| found.pop());
+        }
+        self.default.clone()
     }
 
     fn filtered_rows(
@@ -61,17 +92,30 @@ impl Database for SqlServer {
     fn key_columns(&mut self) -> anyhow::Result<HashMap<Table, Vec<String>>> {
         let pairs = self
             .query(
-                "select tbl.name, col.name from sys.indexes as idx \
-                 join sys.tables as tbl on idx.object_id = tbl.object_id \
-                 join sys.index_columns as idxcol on idx.object_id = idxcol.object_id and idx.index_id = idxcol.index_id \
-                 join sys.columns as col on idxcol.object_id = col.object_id and idxcol.column_id = col.column_id \
-                 where idx.is_primary_key = 1 and schema_name(tbl.schema_id) = schema_name() \
-                 order by tbl.name, idxcol.key_ordinal",
+                &format!(
+                    "select {}, t.name, col.name from sys.indexes as idx \
+                     join sys.tables as t on idx.object_id = t.object_id \
+                     join sys.index_columns as idxcol on idx.object_id = idxcol.object_id and idx.index_id = idxcol.index_id \
+                     join sys.columns as col on idxcol.object_id = col.object_id and idxcol.column_id = col.column_id \
+                     where idx.is_primary_key = 1 and t.is_ms_shipped = 0 \
+                     order by schema_name(t.schema_id), t.name, idxcol.key_ordinal",
+                    SCHEMA_OR_DEFAULT
+                ),
                 &[],
             )?
             .rows
             .into_iter()
-            .filter_map(|row| Some((Table::bare(row.first()?.clone()?), row.get(1)?.clone()?)))
+            .filter_map(|mut row| {
+                let name = row[1].take()?;
+                let column = row[2].take()?;
+                Some((
+                    Table {
+                        schema: row[0].take(),
+                        name,
+                    },
+                    column,
+                ))
+            })
             .collect();
         Ok(keyed(pairs))
     }
@@ -82,6 +126,7 @@ impl Database for SqlServer {
     }
 
     fn columns(&mut self, table: &Table) -> anyhow::Result<Vec<Column>> {
+        let schema = self.schema_of(table);
         Ok(self
             .select(
                 "select col.name, type.name as type_name, \
@@ -97,9 +142,9 @@ impl Database for SqlServer {
                  left join sys.default_constraints def on col.default_object_id = def.object_id and col.object_id = def.parent_object_id \
                  left join sys.extended_properties as prop on obj.object_id = prop.major_id and col.column_id = prop.minor_id and prop.name = 'MS_Description' \
                  left join sys.computed_columns as com on col.column_id = com.column_id and col.object_id = com.object_id \
-                 where obj.type in ('U', 'V') and obj.name = ? and scm.name = schema_name() \
+                 where obj.type in ('U', 'V') and obj.name = ? and scm.name = ? \
                  order by col.column_id",
-                std::slice::from_ref(&table.name),
+                &[table.name.clone(), schema],
             )?
             .rows
             .into_iter()
@@ -145,6 +190,7 @@ impl Database for SqlServer {
     }
 
     fn indexes(&mut self, table: &Table) -> anyhow::Result<Vec<Index>> {
+        let schema = self.schema_of(table);
         Ok(self
             .select(
                 "select idx.name as name, string_agg(col.name, ',') within group (order by idxcol.key_ordinal) as columns, \
@@ -154,9 +200,9 @@ impl Database for SqlServer {
                  join sys.schemas as scm on tbl.schema_id = scm.schema_id \
                  join sys.index_columns as idxcol on idx.object_id = idxcol.object_id and idx.index_id = idxcol.index_id \
                  join sys.columns as col on idxcol.object_id = col.object_id and idxcol.column_id = col.column_id \
-                 where tbl.name = ? and scm.name = schema_name() \
+                 where tbl.name = ? and scm.name = ? \
                  group by idx.name, idx.type_desc, idx.is_unique, idx.is_primary_key",
-                std::slice::from_ref(&table.name),
+                &[table.name.clone(), schema],
             )?
             .rows
             .into_iter()
@@ -170,10 +216,12 @@ impl Database for SqlServer {
     }
 
     fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>> {
-        Ok(keys_by_table(
+        Ok(keys_by_schema(
             self.query(
-                "select lt.name as [table], \
+                "select case when ls.name = schema_name() then null else ls.name end as [schema], \
+                 lt.name as [table], \
                  string_agg(lc.name, ',') within group (order by fkc.constraint_column_id) as columns, \
+                 case when fs.name = schema_name() then null else fs.name end as foreign_schema, \
                  ft.name as foreign_table, \
                  string_agg(fc.name, ',') within group (order by fkc.constraint_column_id) as foreign_columns \
                  from sys.foreign_keys as fk \
@@ -182,9 +230,9 @@ impl Database for SqlServer {
                  join sys.schemas as ls on lt.schema_id = ls.schema_id \
                  join sys.columns as lc on fkc.parent_object_id = lc.object_id and fkc.parent_column_id = lc.column_id \
                  join sys.tables as ft on ft.object_id = fk.referenced_object_id \
+                 join sys.schemas as fs on ft.schema_id = fs.schema_id \
                  join sys.columns as fc on fkc.referenced_object_id = fc.object_id and fkc.referenced_column_id = fc.column_id \
-                 where ls.name = schema_name() \
-                 group by lt.name, fk.name, ft.name",
+                 group by ls.name, lt.name, fk.name, fs.name, ft.name",
                 &[],
             )?
             .rows,
@@ -200,6 +248,7 @@ impl Database for SqlServer {
             .reconnect(name)
             .with_context(|| format!("cannot switch to {name}"))?;
         self.connection.database = Some(name.to_string());
+        self.default = None;
         Ok(())
     }
 

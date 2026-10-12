@@ -446,3 +446,41 @@ fn refuses_a_write_that_returns_rows_when_asked_to_only_read() {
 
     assert_eq!(texts(&left.rows[0]), ["vip"]);
 }
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn lists_every_schema_and_keeps_two_tables_of_one_name_apart() {
+    let mut scratch = Scratch::new();
+    scratch
+        .database
+        .run(
+            "exec('create schema ev');\
+             create table ev.customers (id int primary key, name nvarchar(50));\
+             insert into ev.customers values (1, N'Grace');\
+             create table ev.evaluation (id int primary key, customer_id int references dbo.customers (id));",
+        )
+        .unwrap();
+
+    let tables = scratch.database.tables().unwrap();
+    assert!(tables.contains(&Table::bare("customers")), "{tables:?}");
+    assert!(tables.contains(&Table::in_schema("ev", "customers")));
+    assert_eq!(scratch.database.default_schema().as_deref(), Some("dbo"));
+
+    let theirs = Table::in_schema("ev", "customers");
+    let page = scratch.database.rows(&theirs, 10, 0, None).unwrap();
+    assert_eq!(page.rows[0][1].as_deref(), Some("Grace"));
+    assert_eq!(scratch.database.columns(&theirs).unwrap().len(), 2);
+    assert_eq!(scratch.database.key_columns().unwrap()[&theirs], ["id"]);
+    let foreign = scratch.database.foreign_keys().unwrap();
+    assert_eq!(
+        foreign[&Table::in_schema("ev", "evaluation")][0].table,
+        Table::bare("customers")
+    );
+    assert_eq!(
+        scratch
+            .database
+            .update(&theirs, "name", "id", "1", Some("Hopper"))
+            .unwrap(),
+        1
+    );
+}

@@ -107,6 +107,7 @@ impl SqlServer {
             client,
             connection: connection.clone(),
             password,
+            default: None,
             _tunnel: None,
         })
     }

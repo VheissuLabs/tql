@@ -18,7 +18,7 @@ use tokio::net::TcpStream;
 use tokio::runtime::Runtime;
 use tokio_util::compat::{Compat, TokioAsyncWriteCompatExt};
 
-use super::schema::keys_by_table;
+use super::schema::keys_by_schema;
 use super::{
     Column, Database, Filters, ForeignKey, Generation, Index, Outcome, Page, Scalar, Scalars, Sort,
     Values, all_text, delete_statement, insert_statement, keyed, outcome_or_affected, refused,
@@ -37,8 +37,11 @@ pub struct SqlServer {
     client: Wire,
     connection: Connection,
     password: Option<String>,
+    default: Option<String>,
     _tunnel: Option<Arc<Tunnel>>,
 }
+
+const SCHEMA_OR_DEFAULT: &str = "case when schema_name(t.schema_id) = schema_name() then null else schema_name(t.schema_id) end";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Encryption {
