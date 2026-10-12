@@ -465,3 +465,74 @@ fn postgres_names_tables_from_the_users_own_default_schema() {
         .run("set search_path to public; drop schema ev_path cascade; drop table path_users")
         .unwrap();
 }
+
+struct Shell {
+    root: std::path::PathBuf,
+}
+
+impl Shell {
+    fn on_herd(label: &str) -> Shell {
+        let root =
+            std::env::temp_dir().join(format!("tql-kinds-shell-{}-{label}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join("tql")).unwrap();
+        app::paths::use_config_directory(root.join("tql"));
+        let shell = Shell { root };
+        shell.tql(&[
+            "open",
+            "pgsql://root@127.0.0.1:5432/postgres",
+            "--name=herd",
+        ]);
+        shell
+    }
+
+    fn tql(&self, arguments: &[&str]) -> app::console::RunResult {
+        app::application().run_with(arguments.iter().copied(), "")
+    }
+
+    fn file(&self, name: &str) -> String {
+        self.root.join(name).display().to_string()
+    }
+}
+
+impl Drop for Shell {
+    fn drop(&mut self) {
+        let _ = std::fs::remove_dir_all(&self.root);
+    }
+}
+
+#[test]
+#[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
+fn the_shell_commands_name_and_take_tables_in_other_schemas() {
+    let mut database = herd("pgsql", 5432, "postgres");
+    two_schemas(database.as_mut(), "ev_shell", "shell_users");
+    let shell = Shell::on_herd("schemas");
+
+    let listed = shell.tql(&["tables", "herd", "--json"]);
+    assert!(
+        listed.stdout.contains("\"ev_shell.evaluation\""),
+        "{listed:?}"
+    );
+
+    let described = shell.tql(&["describe", "herd", "ev_shell.evaluation", "--json"]);
+    assert!(described.stdout.contains("\"score\""), "{described:?}");
+
+    let alone = shell.tql(&["describe", "herd", "evaluation", "--json"]);
+    assert!(
+        alone.stdout.contains("\"ev_shell.evaluation\""),
+        "{alone:?}"
+    );
+
+    let sql = shell.file("ev.sql");
+    let exported = shell.tql(&["export", "herd", "ev_shell.evaluation", "--sql", &sql]);
+    assert_eq!(exported.code, 0, "{exported:?}");
+    assert!(
+        std::fs::read_to_string(&sql)
+            .unwrap()
+            .contains("\"ev_shell\".\"evaluation\""),
+    );
+
+    database
+        .run("drop schema ev_shell cascade; drop table shell_users")
+        .unwrap();
+}

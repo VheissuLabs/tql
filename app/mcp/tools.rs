@@ -85,7 +85,7 @@ impl Tool {
             Tool::DescribeTable => json!({
                 "properties": {
                     "connection": connection("The tql connection name."),
-                    "table": { "description": "The table to describe.", "type": "string" },
+                    "table": { "description": "The table to describe, as schema.table for one outside the default schema.", "type": "string" },
                 },
                 "type": "object",
                 "required": ["connection", "table"],
