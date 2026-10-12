@@ -203,6 +203,7 @@ impl Browser {
         }
 
         let open = self.current_table();
+        let default_schema = self.database.default_schema();
         let buffer = self.query.editor.buffer();
         let cursor = self.query.editor.cursor();
         let offered = Completion::at(
@@ -210,6 +211,7 @@ impl Browser {
             cursor,
             Schema {
                 tables: &self.tables,
+                default_schema: default_schema.as_deref(),
                 open: open.as_ref(),
                 lookup: &mut Cached {
                     database: self.database.as_mut(),
