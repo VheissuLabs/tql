@@ -12,6 +12,7 @@ use super::{
     Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Table, Values, keyed,
     outcome_or_affected, select_page, single_column_keys, split_list,
 };
+use super::{Total, first_count};
 use crate::store::Connection;
 use crate::tunnel::Tunnel;
 
@@ -259,6 +260,17 @@ impl Database for ClickHouse {
 
     fn quote(&self, identifier: &str) -> String {
         quote(identifier)
+    }
+
+    fn estimated_rows(&mut self, table: &Table) -> Option<Total> {
+        let page = self
+            .select(
+                "select total_rows from system.tables \
+                 where database = currentDatabase() and name = ?",
+                std::slice::from_ref(&table.name),
+            )
+            .ok()?;
+        first_count(page).map(Total::Exact)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {

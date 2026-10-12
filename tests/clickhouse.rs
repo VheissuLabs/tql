@@ -156,6 +156,28 @@ fn filters_and_sorts_with_values_that_need_escaping() {
 
 #[test]
 #[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn counts_rows_exactly_from_the_table_metadata() {
+    let (mut database, name) = scratch();
+
+    assert_eq!(
+        database.estimated_rows(&"events".into()),
+        Some(database::Total::Exact(2))
+    );
+    let filters = Filters::new(
+        vec![Filter::new("name", "is", "O'Brien\\path")],
+        Joiner::And,
+    );
+    assert_eq!(
+        database
+            .count_rows(&"events".into(), Some(&filters))
+            .unwrap(),
+        1
+    );
+    drop(&mut database, &name);
+}
+
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
 fn reading_runs_refuse_a_write() {
     let (mut database, name) = scratch();
 

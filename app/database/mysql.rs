@@ -1,4 +1,4 @@
-use super::Table;
+use super::{Table, Total, first_count};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -311,6 +311,17 @@ impl Database for MySql {
             self.bound_query(&page(Some(condition.placeheld())), condition.bindings())?;
         rows.statement = page(Some(condition.readable()));
         Ok(rows)
+    }
+
+    fn estimated_rows(&mut self, table: &Table) -> Option<Total> {
+        let page = self
+            .select(
+                "select table_rows from information_schema.tables \
+                 where table_schema = database() and table_name = ? and table_type = 'BASE TABLE'",
+                std::slice::from_ref(&table.name),
+            )
+            .ok()?;
+        first_count(page).map(Total::About)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {

@@ -12,6 +12,10 @@ announcement under `release-notes/` for GitHub.
   completion writes keywords in: `"match"` (how you type, as before), `"upper"`
   or `"lower"`.
 - `↵` takes a completion as `tab` does.
+- The status line shows the cursor's row among all the table's rows, `row 105
+  of 5,000,000`, in place of the column position. Filtered tables and small
+  ones are counted exactly; a big Postgres, MySQL or SQL Server table shows
+  the database's own estimate, `~4.9M`, rather than wait on a full count.
 
 ### Bug Fixes
 

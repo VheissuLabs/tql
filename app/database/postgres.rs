@@ -1,4 +1,4 @@
-use super::Table;
+use super::{Table, Total, first_count};
 use std::collections::HashMap;
 
 use std::net::Ipv4Addr;
@@ -285,6 +285,19 @@ impl Database for Postgres {
         ))?;
         rows.statement = page(condition.as_ref().map(|condition| condition.readable()));
         Ok(rows)
+    }
+
+    fn estimated_rows(&mut self, table: &Table) -> Option<Total> {
+        let schema = self.schema_of(table);
+        let page = self
+            .query_with(
+                "select c.reltuples::bigint from pg_class c \
+                 join pg_namespace n on n.oid = c.relnamespace \
+                 where c.relname = ? and n.nspname = ? and c.relkind in ('r', 'm')",
+                &[table.name.clone(), schema],
+            )
+            .ok()?;
+        first_count(page).map(Total::About)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {

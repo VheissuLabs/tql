@@ -69,6 +69,7 @@ impl Browser {
             })
             .collect();
         let fetched = rows.len();
+        self.count_total(&table, fetched);
         self.raw = rows;
         self.prepend_pending_rows();
         self.row_index = 0;
@@ -166,7 +167,37 @@ impl Browser {
         } else {
             self.offset.saturating_sub(PAGE)
         };
+        self.turning = true;
         self.load(false);
+    }
+
+    fn count_total(&mut self, table: &Table, fetched: usize) {
+        let turning = std::mem::take(&mut self.turning);
+        let counted = Some((table.clone(), self.filters.clone()));
+        if !self.has_more {
+            self.total = Some(Total::Exact(self.offset + fetched));
+        } else if !(turning && self.counted == counted && self.total.is_some()) {
+            self.total = self.counted_total(table);
+        }
+        self.counted = counted;
+    }
+
+    fn counted_total(&mut self, table: &Table) -> Option<Total> {
+        let filtered = self.filters.as_ref().is_some_and(Filters::usable);
+        let estimate = if filtered {
+            None
+        } else {
+            self.database.estimated_rows(table)
+        };
+        match estimate {
+            Some(Total::About(rows)) if rows >= ESTIMATED_PAST => Some(Total::About(rows)),
+            Some(Total::Exact(rows)) => Some(Total::Exact(rows)),
+            _ => self
+                .database
+                .count_rows(table, self.filters.as_ref())
+                .ok()
+                .map(Total::Exact),
+        }
     }
 
     pub(super) fn reload(&mut self) {

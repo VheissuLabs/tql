@@ -1,4 +1,5 @@
 use super::*;
+use crate::database::{Total, first_count};
 
 impl SqlServer {
     fn schema_of(&mut self, table: &Table) -> String {
@@ -83,6 +84,17 @@ impl Database for SqlServer {
         let mut rows = self.query(&statement(Some(condition.placeheld())), &values)?;
         rows.statement = statement(Some(condition.readable()));
         Ok(rows)
+    }
+
+    fn estimated_rows(&mut self, table: &Table) -> Option<Total> {
+        let page = self
+            .select(
+                "select sum(rows) from sys.partitions \
+                 where object_id = object_id(?) and index_id in (0, 1)",
+                &[table.quoted(quote_bracket)],
+            )
+            .ok()?;
+        first_count(page).map(Total::About)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {

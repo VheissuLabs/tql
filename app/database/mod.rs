@@ -109,6 +109,57 @@ pub struct Outcome {
     pub affected: Option<usize>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Total {
+    Exact(usize),
+    About(usize),
+}
+
+impl std::fmt::Display for Total {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        match *self {
+            Total::Exact(rows) => formatter.write_str(&grouped(rows)),
+            Total::About(rows) => {
+                let (scale, suffix) = match rows {
+                    1_000_000_000.. => (1e9, "B"),
+                    1_000_000.. => (1e6, "M"),
+                    1_000.. => (1e3, "K"),
+                    _ => return write!(formatter, "~{rows}"),
+                };
+                let scaled = rows as f64 / scale;
+                if scaled >= 10.0 {
+                    write!(formatter, "~{scaled:.0}{suffix}")
+                } else {
+                    write!(formatter, "~{scaled:.1}{suffix}")
+                }
+            }
+        }
+    }
+}
+
+pub fn grouped(number: usize) -> String {
+    let digits = number.to_string();
+    let mut grouped = String::new();
+    for (at, digit) in digits.chars().enumerate() {
+        if at > 0 && (digits.len() - at).is_multiple_of(3) {
+            grouped.push(',');
+        }
+        grouped.push(digit);
+    }
+    grouped
+}
+
+fn first_count(page: Page) -> Option<usize> {
+    page.rows
+        .into_iter()
+        .next()?
+        .into_iter()
+        .next()
+        .flatten()?
+        .parse()
+        .ok()
+}
+
 pub trait Database {
     fn tables(&mut self) -> anyhow::Result<Vec<Table>>;
 
@@ -134,6 +185,27 @@ pub trait Database {
         sort: Option<&Sort>,
         filters: Option<&Filters>,
     ) -> anyhow::Result<Page>;
+
+    fn estimated_rows(&mut self, _table: &Table) -> Option<Total> {
+        None
+    }
+
+    fn count_rows(&mut self, table: &Table, filters: Option<&Filters>) -> anyhow::Result<usize> {
+        let condition = filters.and_then(|filters| filters.condition(&|name| self.quote(name)));
+        let statement = format!(
+            "select count(*) from {}{}",
+            table.quoted(|name| self.quote(name)),
+            condition
+                .as_ref()
+                .map(|condition| format!(" where {}", condition.placeheld()))
+                .unwrap_or_default()
+        );
+        let values = condition
+            .map(|condition| condition.bindings())
+            .unwrap_or_default();
+        first_count(self.select(&statement, &values)?)
+            .ok_or_else(|| anyhow!("the count came back empty"))
+    }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>>;
 

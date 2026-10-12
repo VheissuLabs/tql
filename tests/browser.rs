@@ -133,6 +133,76 @@ fn pages_fetch_one_extra_row_to_know_there_is_more() {
 }
 
 #[test]
+fn the_status_line_shows_the_row_among_all_the_rows() {
+    let mut fake = browser("total");
+
+    fake.press("j\t");
+    let screen = fake.screen();
+    assert!(screen.contains("row 1 of 250"), "{screen}");
+    assert!(!screen.contains("col 1/"), "{screen}");
+
+    fake.press("jjl");
+    assert!(fake.screen().contains("row 3 of 250"));
+
+    fake.press("n");
+    assert!(fake.screen().contains("row 101 of 250"));
+}
+
+#[test]
+fn a_reload_counts_the_rows_again() {
+    let path = fixture("recount");
+    let connection = Connection::sqlite("shop", path.to_str().unwrap());
+    let database = database::connect(&connection, None).unwrap();
+    let mut fake = Fake::sized(Browser::new(connection, database).unwrap(), 120, 30);
+
+    fake.press("j\t");
+    assert!(fake.screen().contains("row 1 of 250"));
+
+    rusqlite::Connection::open(&path)
+        .unwrap()
+        .execute("insert into customers (name) values ('Late')", [])
+        .unwrap();
+    fake.press("n");
+    assert!(
+        fake.screen().contains("row 101 of 250"),
+        "paging keeps the count"
+    );
+
+    fake.press("r");
+    assert!(fake.screen().contains("of 251"), "{}", fake.screen());
+}
+
+#[test]
+fn counting_rows_applies_the_filters() {
+    let path = fixture("count-filtered");
+    let connection = Connection::sqlite("shop", path.to_str().unwrap());
+    let mut database = database::connect(&connection, None).unwrap();
+
+    assert_eq!(database.count_rows(&"customers".into(), None).unwrap(), 250);
+    let vip = database::Filters::new(
+        vec![database::Filter::new("notes", "is", "vip")],
+        database::Joiner::And,
+    );
+    assert_eq!(
+        database
+            .count_rows(&"customers".into(), Some(&vip))
+            .unwrap(),
+        125
+    );
+}
+
+#[test]
+fn totals_read_exact_or_rounded_when_estimated() {
+    use database::Total;
+
+    assert_eq!(Total::Exact(5_000_000).to_string(), "5,000,000");
+    assert_eq!(Total::Exact(12).to_string(), "12");
+    assert_eq!(Total::About(4_912_345).to_string(), "~4.9M");
+    assert_eq!(Total::About(1_260_000_000).to_string(), "~1.3B");
+    assert_eq!(Total::About(48_000).to_string(), "~48K");
+}
+
+#[test]
 fn sorting_cycles_ascending_descending_and_back_to_the_key() {
     let mut fake = browser("sort");
 

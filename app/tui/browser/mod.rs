@@ -48,11 +48,12 @@ use super::palette::{self, Palette};
 use super::schema::Schema;
 use super::sql;
 use super::text::{self, pad, single_line, truncate, window};
-use crate::database::{Database, Direction, Filters, Kind, Sort, Table};
+use crate::database::{Database, Direction, Filters, Kind, Sort, Table, Total};
 use crate::settings;
 use crate::store::Connection;
 
 pub const PAGE: usize = 100;
+const ESTIMATED_PAST: usize = 1_000_000;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Exit {
@@ -128,6 +129,9 @@ pub struct Browser {
     help_hidden: usize,
     keys: HashMap<Table, String>,
     pending: Option<bool>,
+    total: Option<Total>,
+    counted: Option<(Table, Option<Filters>)>,
+    turning: bool,
     schema: Schema,
     pub structure: Option<StructureView>,
     pub inspector: Option<Inspector>,
@@ -208,6 +212,9 @@ impl Browser {
             help_hidden: 0,
             keys,
             pending: None,
+            total: None,
+            counted: None,
+            turning: false,
             schema: Schema::default(),
             structure: None,
             inspector: None,

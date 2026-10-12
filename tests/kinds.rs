@@ -536,3 +536,52 @@ fn the_shell_commands_name_and_take_tables_in_other_schemas() {
         .run("drop schema ev_shell cascade; drop table shell_users")
         .unwrap();
 }
+
+#[test]
+#[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
+fn postgres_estimates_rows_from_its_statistics_and_counts_in_any_schema() {
+    let mut database = herd("pgsql", 5432, "postgres");
+    database
+        .run("drop schema if exists tql_rows cascade; create schema tql_rows")
+        .unwrap();
+    database
+        .run("create table tql_rows.numbers as select n from generate_series(1, 5000) as n")
+        .unwrap();
+    let numbers = Table::in_schema("tql_rows", "numbers");
+
+    assert_eq!(database.count_rows(&numbers, None).unwrap(), 5000);
+    database.run("analyze tql_rows.numbers").unwrap();
+    assert_eq!(
+        database.estimated_rows(&numbers),
+        Some(database::Total::About(5000))
+    );
+    assert_eq!(
+        database.estimated_rows(&Table::in_schema("tql_rows", "missing")),
+        None
+    );
+    database.run("drop schema tql_rows cascade").unwrap();
+}
+
+#[test]
+#[ignore = "needs Herd's MySQL on 127.0.0.1:3306"]
+fn mysql_estimates_rows_from_information_schema() {
+    let mut database = herd("mysql", 3306, "mysql");
+    database.run("drop database if exists tql_rows").unwrap();
+    database.run("create database tql_rows").unwrap();
+    database.use_database("tql_rows").unwrap();
+    database
+        .run("create table numbers (n integer primary key)")
+        .unwrap();
+    database
+        .run("insert into numbers values (1), (2), (3)")
+        .unwrap();
+    database.run("analyze table numbers").unwrap();
+
+    assert_eq!(database.count_rows(&"numbers".into(), None).unwrap(), 3);
+    assert!(matches!(
+        database.estimated_rows(&"numbers".into()),
+        Some(database::Total::About(_))
+    ));
+    assert_eq!(database.estimated_rows(&"missing".into()), None);
+    database.run("drop database tql_rows").unwrap();
+}

@@ -1,5 +1,6 @@
 use crate::console::Cmd;
 use crate::console::boxes::{self, cyan, dim, gray};
+use crate::database::grouped;
 
 pub struct Progress {
     pub label: String,
@@ -81,18 +82,6 @@ fn columns() -> usize {
     ratatui::crossterm::terminal::size()
         .map(|(columns, _)| columns as usize)
         .unwrap_or(80)
-}
-
-fn grouped(number: usize) -> String {
-    let digits = number.to_string();
-    let mut grouped = String::new();
-    for (at, digit) in digits.chars().enumerate() {
-        if at > 0 && (digits.len() - at).is_multiple_of(3) {
-            grouped.push(',');
-        }
-        grouped.push(digit);
-    }
-    grouped
 }
 
 #[cfg(test)]
