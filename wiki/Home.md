@@ -1,5 +1,3 @@
-# tql
-
 ![tql browsing a database: filtering a column, sorting, inspecting a row and its related records, and writing a join in the SQL editor](https://raw.githubusercontent.com/VheissuLabs/tql/main/docs/demo.gif)
 
 tql (pronounced *TEE-kwuhl*, like sequel) is a database client for the terminal,
