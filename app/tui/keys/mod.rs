@@ -1,5 +1,7 @@
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::path::PathBuf;
+use std::rc::Rc;
 use std::sync::mpsc::{self, Receiver, TryRecvError};
 use std::time::Instant;
 
@@ -85,6 +87,7 @@ pub struct KeyBrowser {
     failed: bool,
     store_path: Option<PathBuf>,
     updating: Option<Updating>,
+    tree: RefCell<Option<Rc<Vec<Row>>>>,
 }
 
 impl KeyBrowser {
@@ -126,6 +129,7 @@ impl KeyBrowser {
             failed: false,
             store_path: None,
             updating: None,
+            tree: RefCell::new(None),
         };
         browser.rescan();
         Ok(browser)
@@ -167,7 +171,20 @@ impl KeyBrowser {
         self.failed = true;
     }
 
-    pub fn rows(&self) -> Vec<Row> {
+    fn changed(&self) {
+        self.tree.replace(None);
+    }
+
+    pub fn rows(&self) -> Rc<Vec<Row>> {
+        if let Some(built) = self.tree.borrow().as_ref() {
+            return Rc::clone(built);
+        }
+        let built = Rc::new(self.build_rows());
+        self.tree.replace(Some(Rc::clone(&built)));
+        built
+    }
+
+    fn build_rows(&self) -> Vec<Row> {
         let mut keys = self.keys.clone();
         for change in &self.pending {
             if let Change::NewKey { key, .. } = change
@@ -202,6 +219,7 @@ impl KeyBrowser {
             self.closed.remove(&space);
             self.opened.insert(space);
         }
+        self.changed();
         if let Some(at) = self
             .rows()
             .iter()
@@ -261,6 +279,7 @@ impl KeyBrowser {
     pub fn rescan(&mut self) {
         self.keys.clear();
         self.kinds.clear();
+        self.changed();
         self.total = 0;
         self.capped = false;
         self.index = 0;
@@ -320,10 +339,12 @@ impl KeyBrowser {
                         self.kinds.insert(key.clone(), kind);
                         self.keys.push(key);
                     }
+                    self.changed();
                 }
                 Ok(Batch::Done { capped }) => {
                     self.capped = capped;
                     self.keys.sort();
+                    self.changed();
                     self.scan = None;
                     return true;
                 }
@@ -364,7 +385,8 @@ impl KeyBrowser {
     }
 
     fn fold(&mut self, open: Option<bool>) {
-        match self.current() {
+        let here = self.current();
+        match here {
             Some(Row::Space {
                 path, open: now, ..
             }) => {
@@ -376,11 +398,13 @@ impl KeyBrowser {
                     self.opened.remove(&path);
                     self.closed.insert(path);
                 }
+                self.changed();
             }
             Some(Row::Key { key, .. }) if open == Some(false) => {
                 if let Some(parent) = tree::spaces_of(&key).pop() {
                     self.opened.remove(&parent);
                     self.closed.insert(parent.clone());
+                    self.changed();
                     if let Some(at) = self
                         .rows()
                         .iter()
@@ -457,6 +481,7 @@ impl KeyBrowser {
         self.shown = None;
         self.opened.clear();
         self.closed.clear();
+        self.changed();
         self.rescan();
         self.say(format!("using db{number}"));
     }

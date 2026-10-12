@@ -182,6 +182,7 @@ impl KeyBrowser {
                 if kind == KeyKind::Zset {
                     first.truncate(2);
                 }
+                self.changed();
                 self.pending.push(Change::NewKey {
                     key: key.clone(),
                     kind,
@@ -251,6 +252,7 @@ impl KeyBrowser {
             }
         };
         self.pending.push(change);
+        self.changed();
         self.say(format!(
             "{} pending · :w writes, u drops",
             plural(self.pending.len(), "change")
@@ -262,6 +264,15 @@ impl KeyBrowser {
         let (_, rows, _) = self.overlaid()?;
         let row = rows.get(shown.row)?.clone();
         Some((shown, row))
+    }
+
+    fn binary_here(&self) -> bool {
+        self.shown
+            .as_ref()
+            .is_some_and(|shown| match &shown.contents {
+                Contents::Rows { binary, .. } => binary.get(shown.row).copied().unwrap_or(false),
+                _ => false,
+            })
     }
 
     fn original_row(&self) -> Option<Vec<String>> {
@@ -302,6 +313,9 @@ impl KeyBrowser {
             return;
         }
         let kind = shown.kind.clone();
+        if self.binary_here() {
+            return self.say("a binary value is shown, not edited");
+        }
         let Some((_, row)) = self.here() else {
             return;
         };
@@ -376,6 +390,10 @@ impl KeyBrowser {
         };
         let key = shown.key.clone();
         let kind = shown.kind.clone();
+        if self.binary_here() {
+            return self
+                .say("a binary value is shown, not removed; the command pane can, by its bytes");
+        }
         let Some(row) = self.original_row() else {
             return self.say("nothing to mark here");
         };
@@ -420,6 +438,7 @@ impl KeyBrowser {
             }
             None => self.pending.push(change),
         }
+        self.changed();
         self.say(match self.pending.len() {
             0 => "no changes pending".to_string(),
             count => format!("{} pending · :w writes, u drops", plural(count, "change")),
@@ -548,6 +567,7 @@ impl KeyBrowser {
     pub(super) fn drop_pending(&mut self) {
         let count = self.pending.len();
         self.pending.clear();
+        self.changed();
         self.say(match count {
             0 => "no changes pending".to_string(),
             count => format!("dropped {}", plural(count, "change")),
@@ -568,6 +588,7 @@ impl KeyBrowser {
                     matches!(change, Change::NewKey { .. } | Change::DeleteKey { .. })
                 });
                 self.pending.clear();
+                self.changed();
                 if keys_changed {
                     let shown = self.shown.as_ref().map(|shown| shown.key.clone());
                     self.rescan();

@@ -62,7 +62,7 @@ jobs:
           mkdir -p "$HOME/.cargo/registry"
           docker run --rm -v "$PWD":/src -v "$HOME/.cargo/registry":/usr/local/cargo/registry -w /src rust:1-alpine \
             sh -c "apk add --no-cache musl-dev g++ make cmake python3 >/dev/null && cargo build --release --locked --target ${{ matrix.target }}"
-          sudo chown -R "$(id -u):$(id -g)" target
+          sudo chown -R "$(id -u):$(id -g)" target "$HOME/.cargo/registry"
           cp target/${{ matrix.target }}/release/tql ${{ matrix.asset }}
 
       - name: Build

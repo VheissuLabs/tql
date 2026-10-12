@@ -52,6 +52,7 @@ pub enum Contents {
     Rows {
         headers: Vec<String>,
         rows: Vec<Vec<String>>,
+        binary: Vec<bool>,
         more: bool,
     },
     Missing,
@@ -225,6 +226,35 @@ pub fn blocks(words: &[String]) -> bool {
         && words.iter().any(|word| word.eq_ignore_ascii_case("block"))
 }
 
+pub fn redacted(line: &str) -> String {
+    let words: Vec<&str> = line.split_whitespace().collect();
+    let lowered: Vec<String> = words.iter().map(|word| word.to_lowercase()).collect();
+    let keep = |count: usize| format!("{} •••", words[..count.min(words.len())].join(" "));
+    match lowered
+        .iter()
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .as_slice()
+    {
+        ["auth", ..] => keep(1),
+        ["acl", "setuser", ..] => keep(3),
+        ["config", "set", setting, ..] if setting.contains("pass") || setting.contains("auth") => {
+            keep(3)
+        }
+        _ => match lowered
+            .iter()
+            .position(|word| word == "auth" || word == "auth2")
+        {
+            Some(at) if at > 0 => keep(at + 1),
+            _ => line.to_string(),
+        },
+    }
+}
+
+pub const CONNECTION_STATE: [&str; 10] = [
+    "multi", "exec", "discard", "watch", "unwatch", "reset", "hello", "quit", "client", "auth",
+];
+
 pub fn words(line: &str) -> anyhow::Result<Vec<String>> {
     Ok(raw_words(line)?
         .into_iter()
@@ -349,6 +379,26 @@ mod tests {
         assert!(blocks(&line("XREAD BLOCK 0 STREAMS s $")));
         assert!(!blocks(&line("XREAD COUNT 1 STREAMS s 0")));
         assert!(!blocks(&line("GET k")));
+    }
+
+    #[test]
+    fn keeps_passwords_out_of_what_it_remembers() {
+        assert_eq!(redacted("AUTH alice s3cret"), "AUTH •••");
+        assert_eq!(redacted("auth s3cret"), "auth •••");
+        assert_eq!(redacted("HELLO 3 AUTH alice s3cret"), "HELLO 3 AUTH •••");
+        assert_eq!(
+            redacted("ACL SETUSER bob on >pw ~* +@all"),
+            "ACL SETUSER bob •••"
+        );
+        assert_eq!(
+            redacted("CONFIG SET requirepass hunter2"),
+            "CONFIG SET requirepass •••"
+        );
+        assert_eq!(
+            redacted("MIGRATE h 6379 k 0 5000 AUTH pw"),
+            "MIGRATE h 6379 k 0 5000 AUTH •••"
+        );
+        assert_eq!(redacted("GET user:1"), "GET user:1");
     }
 
     #[test]

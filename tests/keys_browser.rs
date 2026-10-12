@@ -125,9 +125,14 @@ impl KeyStore for Fake2 {
         let world = self.world.lock().unwrap();
         let rows = |headers: &[&str], rows: Vec<Vec<String>>| {
             let more = rows.len() > offset + limit;
+            let rows: Vec<Vec<String>> = rows.into_iter().skip(offset).take(limit).collect();
             Contents::Rows {
                 headers: headers.iter().map(|header| header.to_string()).collect(),
-                rows: rows.into_iter().skip(offset).take(limit).collect(),
+                binary: rows
+                    .iter()
+                    .map(|row| row.iter().any(|cell| cell.starts_with("0x")))
+                    .collect(),
+                rows,
                 more,
             }
         };
@@ -287,6 +292,7 @@ impl KeyStore for Fake2 {
                 .iter()
                 .map(|header| header.to_string())
                 .collect(),
+            binary: vec![false],
             rows: vec![vec![
                 "2026-10-12 09:14:00".into(),
                 "1200µs".into(),
@@ -676,4 +682,52 @@ fn colon_log_shows_the_command_log() {
     assert!(screen.contains("command log"), "{screen}");
     assert!(screen.contains("KEYS *"), "{screen}");
     assert!(screen.contains("1200µs"), "{screen}");
+}
+
+#[test]
+fn a_binary_field_is_shown_but_not_edited_or_removed() {
+    let store = Fake2::with(vec![(
+        "bin",
+        Value::Hash(vec![
+            ("0xff00".into(), "v".into()),
+            ("plain".into(), "w".into()),
+        ]),
+    )]);
+    let mut fake = opened(&store, false);
+    fake.app.open_key("bin");
+    fake.press("e");
+    assert!(fake.screen().contains("binary"), "{}", fake.screen());
+    fake.press("d");
+    assert!(fake.screen().contains("binary"), "{}", fake.screen());
+    assert!(fake.app.pending().is_empty());
+
+    fake.press("j");
+    fake.press("d");
+    assert_eq!(fake.app.pending().len(), 1);
+}
+
+#[test]
+fn the_command_pane_refuses_commands_that_change_the_connection_itself() {
+    let store = small();
+    let mut fake = opened(&store, false);
+    fake.press("s");
+    fake.press("SELECT 3");
+    fake.press("\x12");
+    assert!(
+        fake.screen().contains("b switches database"),
+        "{}",
+        fake.screen()
+    );
+
+    for typed in ["MULTI", "watch k", "RESET", "CLIENT REPLY OFF", "HELLO 3"] {
+        fake.press("\x7f".repeat(30).as_str());
+        fake.press(typed);
+        fake.press("\x12");
+        assert!(
+            fake.screen().contains("tql does not run"),
+            "{typed}: {}",
+            fake.screen()
+        );
+    }
+    assert!(store.world.lock().unwrap().ran.is_empty());
 }

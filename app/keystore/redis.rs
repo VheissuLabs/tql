@@ -24,6 +24,7 @@ pub struct Redis {
 
 impl Redis {
     pub fn open(connection: &Connection, encrypter: Option<&Encrypter>) -> anyhow::Result<Self> {
+        crate::database::tls::choose_ring();
         let password = decrypted(&connection.password, encrypter)?;
         let tunnel = match connection.uses_ssh() {
             true => Some(tunnel::for_connection(
@@ -177,6 +178,10 @@ fn reply(value: Value) -> Reply {
     }
 }
 
+fn raw(value: &Value) -> bool {
+    matches!(value, Value::BulkString(bytes) if shown(bytes) != String::from_utf8_lossy(bytes))
+}
+
 fn pairs(items: Vec<Value>) -> Vec<Vec<String>> {
     items
         .chunks(2)
@@ -249,10 +254,17 @@ impl KeyStore for Redis {
         if exists == 0 {
             return Ok(Contents::Missing);
         }
-        let rows = |headers: &[&str], rows: Vec<Vec<String>>, more: bool| Contents::Rows {
-            headers: headers.iter().map(|header| header.to_string()).collect(),
-            rows,
-            more,
+        let rows = |headers: &[&str], rows: Vec<Vec<String>>, binary: Vec<bool>, more: bool| {
+            Contents::Rows {
+                headers: headers.iter().map(|header| header.to_string()).collect(),
+                binary: binary
+                    .into_iter()
+                    .chain(std::iter::repeat(false))
+                    .take(rows.len())
+                    .collect(),
+                rows,
+                more,
+            }
         };
         Ok(match kind {
             KeyKind::String => {
@@ -264,11 +276,17 @@ impl KeyStore for Redis {
             }
             KeyKind::Hash => {
                 let (items, more) = self.scan_all("HSCAN", key, (offset + limit) * 2)?;
+                let flags: Vec<bool> = items
+                    .chunks(2)
+                    .skip(offset)
+                    .take(limit)
+                    .map(|pair| pair.iter().any(raw))
+                    .collect();
                 let all = pairs(items);
                 let more = more || all.len() > offset + limit;
                 let mut page: Vec<Vec<String>> = all.into_iter().skip(offset).take(limit).collect();
                 if page.is_empty() || !self.supports("httl") {
-                    return Ok(rows(&["field", "value"], page, more));
+                    return Ok(rows(&["field", "value"], page, flags, more));
                 }
                 let ttls: Vec<i64> = redis::cmd("HTTL")
                     .arg(key)
@@ -283,7 +301,7 @@ impl KeyStore for Redis {
                         _ => "none".to_string(),
                     });
                 }
-                rows(&["field", "value", "ttl"], page, more)
+                rows(&["field", "value", "ttl"], page, flags, more)
             }
             KeyKind::Set => {
                 let (items, more) = self.scan_all("SSCAN", key, offset + limit)?;
@@ -296,6 +314,7 @@ impl KeyStore for Redis {
                         .take(limit)
                         .map(|item| vec![text(item)])
                         .collect(),
+                    items.iter().skip(offset).take(limit).map(raw).collect(),
                     more,
                 )
             }
@@ -315,6 +334,7 @@ impl KeyStore for Redis {
                         .enumerate()
                         .map(|(at, item)| vec![(offset + at).to_string(), text(item)])
                         .collect(),
+                    items.iter().take(limit).map(raw).collect(),
                     more,
                 )
             }
@@ -326,11 +346,17 @@ impl KeyStore for Redis {
                     .arg("WITHSCORES")
                     .query(&mut self.connection)
                     .map_err(|error| anyhow!(said(&error)))?;
+                let flags: Vec<bool> = items
+                    .chunks(2)
+                    .take(limit)
+                    .map(|pair| pair.iter().any(raw))
+                    .collect();
                 let all = pairs(items);
                 let more = all.len() > limit;
                 rows(
                     &["member", "score"],
                     all.into_iter().take(limit).collect(),
+                    flags,
                     more,
                 )
             }
@@ -372,6 +398,7 @@ impl KeyStore for Redis {
                             other => vec![text(&other), String::new()],
                         })
                         .collect(),
+                    Vec::new(),
                     more,
                 )
             }
@@ -409,9 +436,30 @@ impl KeyStore for Redis {
         let mut pipe = redis::pipe();
         pipe.atomic();
         for change in changes {
+            if let Change::SetItem {
+                key, index, value, ..
+            } = change
+            {
+                pipe.cmd("LSET").arg(key).arg(*index).arg(value).ignore();
+            }
+        }
+        let mut emptied: Vec<&str> = Vec::new();
+        for change in changes {
+            if let Change::RemoveItem { key, index, .. } = change {
+                pipe.cmd("LSET").arg(key).arg(*index).arg(MARKER).ignore();
+                if !emptied.contains(&key.as_str()) {
+                    emptied.push(key);
+                }
+            }
+        }
+        for key in emptied {
+            pipe.cmd("LREM").arg(key).arg(0).arg(MARKER).ignore();
+        }
+        for change in changes {
             match change {
+                Change::SetItem { .. } | Change::RemoveItem { .. } => {}
                 Change::SetString { key, value } => {
-                    pipe.cmd("SET").arg(key).arg(value).ignore();
+                    pipe.cmd("SET").arg(key).arg(value).arg("KEEPTTL").ignore();
                 }
                 Change::SetField { key, field, value } => {
                     pipe.cmd("HSET").arg(key).arg(field).arg(value).ignore();
@@ -419,17 +467,8 @@ impl KeyStore for Redis {
                 Change::DeleteField { key, field } => {
                     pipe.cmd("HDEL").arg(key).arg(field).ignore();
                 }
-                Change::SetItem {
-                    key, index, value, ..
-                } => {
-                    pipe.cmd("LSET").arg(key).arg(*index).arg(value).ignore();
-                }
                 Change::PushItem { key, value } => {
                     pipe.cmd("RPUSH").arg(key).arg(value).ignore();
-                }
-                Change::RemoveItem { key, index, .. } => {
-                    pipe.cmd("LSET").arg(key).arg(*index).arg(MARKER).ignore();
-                    pipe.cmd("LREM").arg(key).arg(1).arg(MARKER).ignore();
                 }
                 Change::ReplaceMember { key, was, value } => {
                     pipe.cmd("SREM").arg(key).arg(was).ignore();
@@ -661,7 +700,7 @@ impl KeyStore for Redis {
                 .query(&mut self.connection),
         }
         .map_err(|error| anyhow!(said(&error)))?;
-        let rows = entries
+        let rows: Vec<Vec<String>> = entries
             .into_iter()
             .filter_map(|entry| match entry {
                 Value::Array(fields) => Some(fields),
@@ -691,6 +730,7 @@ impl KeyStore for Redis {
                 .iter()
                 .map(|header| header.to_string())
                 .collect(),
+            binary: vec![false; rows.len()],
             rows,
             more: false,
         })

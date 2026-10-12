@@ -381,3 +381,63 @@ fn reads_the_command_log_or_the_slow_log() {
 fn rows_of(contents: Contents) -> Vec<Vec<String>> {
     rows(contents)
 }
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn removes_and_changes_several_items_of_one_list_by_their_first_places() {
+    for (name, place) in servers() {
+        let (mut redis, p) = seeded(&place);
+        let queue = format!("{p}:queue");
+
+        redis
+            .write(&[
+                Change::RemoveItem {
+                    key: queue.clone(),
+                    index: 1,
+                    was: "b".into(),
+                },
+                Change::SetItem {
+                    key: queue.clone(),
+                    index: 4,
+                    was: "e".into(),
+                    value: "E".into(),
+                },
+                Change::RemoveItem {
+                    key: queue.clone(),
+                    index: 3,
+                    was: "d".into(),
+                },
+            ])
+            .unwrap();
+
+        assert_eq!(
+            rows(redis.read(&queue, &KeyKind::List, 0, 100).unwrap()),
+            [["0", "a"], ["1", "c"], ["2", "E"]],
+            "{name}"
+        );
+        cleanup(&mut redis, &p);
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn editing_a_string_keeps_its_ttl() {
+    for (name, place) in servers() {
+        let (mut redis, p) = seeded(&place);
+        let key = format!("{p}:greeting");
+        redis.expire(&key, Some(500)).unwrap();
+
+        redis
+            .write(&[Change::SetString {
+                key: key.clone(),
+                value: "changed".into(),
+            }])
+            .unwrap();
+
+        assert!(
+            redis.ttl(&key).unwrap().is_some_and(|ttl| ttl > 400),
+            "{name}"
+        );
+        cleanup(&mut redis, &p);
+    }
+}

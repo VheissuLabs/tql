@@ -2,7 +2,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::Duration;
 
-use anyhow::bail;
+use anyhow::{anyhow, bail};
 use serde_json::Value;
 
 use super::http;
@@ -95,7 +95,7 @@ impl ClickHouse {
         if reply.status >= 400 {
             bail!("{}", said(&reply.body));
         }
-        Ok(answer(&reply.body))
+        answer(&reply.body)
     }
 
     fn page(&self, sql: &str) -> anyhow::Result<Page> {
@@ -123,17 +123,21 @@ fn said(body: &str) -> String {
         .to_string()
 }
 
-fn answer(body: &str) -> Answer {
+fn answer(body: &str) -> anyhow::Result<Answer> {
     let mut lines = body.lines().filter(|line| !line.trim().is_empty());
-    let parse = |line: Option<&str>| -> Vec<Value> {
-        line.and_then(|line| serde_json::from_str::<Vec<Value>>(line).ok())
-            .unwrap_or_default()
+    let parse = |line: Option<&str>| -> anyhow::Result<Vec<Value>> {
+        match line {
+            None => Ok(Vec::new()),
+            Some(line) => {
+                serde_json::from_str::<Vec<Value>>(line).map_err(|_| anyhow!("{}", said(line)))
+            }
+        }
     };
-    let headers: Vec<String> = parse(lines.next())
+    let headers: Vec<String> = parse(lines.next())?
         .into_iter()
         .map(|name| name.as_str().unwrap_or_default().to_string())
         .collect();
-    let types: Vec<String> = parse(lines.next())
+    let types: Vec<String> = parse(lines.next())?
         .into_iter()
         .map(|kind| kind.as_str().unwrap_or_default().to_string())
         .collect();
@@ -141,15 +145,15 @@ fn answer(body: &str) -> Answer {
     let mut rows = Vec::new();
     let mut kinds = Vec::new();
     for line in lines {
-        let cells = parse(Some(line));
+        let cells = parse(Some(line))?;
         rows.push(cells.iter().map(text).collect());
         kinds.push(row_kinds.clone());
     }
-    Answer {
+    Ok(Answer {
         headers,
         rows,
         kinds,
-    }
+    })
 }
 
 fn unwrapped(kind: &str) -> &str {
@@ -210,7 +214,7 @@ impl Database for ClickHouse {
             )?
             .rows
             .into_iter()
-            .filter_map(|mut row| row[0].take())
+            .filter_map(|mut row| row.get_mut(0).and_then(Option::take))
             .map(Table::bare)
             .collect())
     }
@@ -270,7 +274,12 @@ impl Database for ClickHouse {
             )?
             .rows
             .into_iter()
-            .filter_map(|mut row| Some((Table::bare(row[0].take()?), row[1].take()?)))
+            .filter_map(|mut row| {
+                Some((
+                    Table::bare(row.get_mut(0)?.take()?),
+                    row.get_mut(1)?.take()?,
+                ))
+            })
             .collect(),
         ))
     }
@@ -371,7 +380,7 @@ impl Database for ClickHouse {
             )?
             .rows
             .into_iter()
-            .filter_map(|mut row| row[0].take())
+            .filter_map(|mut row| row.get_mut(0).and_then(Option::take))
             .collect())
     }
 
@@ -417,7 +426,8 @@ mod tests {
     fn reads_the_names_types_and_rows_of_an_answer() {
         let read = answer(
             "[\"id\",\"tags\",\"maybe\",\"price\"]\n[\"UInt64\",\"Array(String)\",\"Nullable(Int32)\",\"Decimal(18, 4)\"]\n[\"1\",[\"a\"],null,\"12.3456\"]\n",
-        );
+        )
+        .unwrap();
         assert_eq!(read.headers, ["id", "tags", "maybe", "price"]);
         assert_eq!(
             read.rows,
@@ -431,6 +441,19 @@ mod tests {
         assert_eq!(
             read.kinds[0],
             [Kind::Integer, Kind::Text, Kind::Integer, Kind::Text]
+        );
+    }
+
+    #[test]
+    fn a_failure_partway_through_the_answer_is_an_error_not_short_results() {
+        let failed = answer(
+            "[\"n\"]\n[\"UInt8\"]\n[1]\nCode: 241. DB::Exception: Memory limit exceeded. (MEMORY_LIMIT_EXCEEDED) (version 26.9.16.11 (official build))\n",
+        )
+        .err()
+        .unwrap();
+        assert_eq!(
+            failed.to_string(),
+            "Memory limit exceeded. (MEMORY_LIMIT_EXCEEDED)"
         );
     }
 

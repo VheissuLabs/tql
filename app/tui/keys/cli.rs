@@ -1,5 +1,5 @@
 use super::*;
-use crate::keystore::{blocks, words};
+use crate::keystore::{CONNECTION_STATE, blocks, redacted, words};
 use crate::tui::history::{self, Execution};
 
 pub struct Cli {
@@ -61,6 +61,20 @@ impl KeyBrowser {
             Ok(typed) => typed,
             Err(error) => return self.fail(format!("{error:#}")),
         };
+        let first = typed[0].to_lowercase();
+        if first == "select" {
+            return self.fail("b switches database here, so the key list follows it");
+        }
+        let replies_off = first == "client"
+            && typed
+                .get(1)
+                .is_some_and(|word| word.eq_ignore_ascii_case("reply"));
+        if (CONNECTION_STATE.contains(&first.as_str()) && first != "client") || replies_off {
+            return self.fail(format!(
+                "{} changes the connection tql reads keys through, so tql does not run it here",
+                typed[0].to_uppercase()
+            ));
+        }
         if blocks(&typed) {
             return self.fail(format!(
                 "{} waits for the server forever, so tql does not run it",
@@ -93,7 +107,7 @@ impl KeyBrowser {
                 "redis",
                 Execution {
                     connection_id: self.connection.id,
-                    statement: &line,
+                    statement: &redacted(&line),
                     error: error.as_deref(),
                     rows,
                     duration_ms: elapsed,
