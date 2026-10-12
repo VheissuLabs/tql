@@ -5,14 +5,7 @@ use crate::registry::{self, Screen};
 use crate::tui::chrome::{Island, Modal};
 use crate::tui::keymap::{self, Action};
 use crate::tui::palette::{self, Item, Kind, Palette};
-
-fn sentence(description: &str) -> String {
-    let mut characters = description.chars();
-    characters
-        .next()
-        .map(|first| first.to_uppercase().chain(characters).collect())
-        .unwrap_or_default()
-}
+use crate::tui::text::sentence;
 
 impl Picker {
     pub(super) fn opens_palette(key: Key) -> bool {

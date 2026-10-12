@@ -201,12 +201,7 @@ fn browse(cmd: &mut Cmd, start: Option<&'static Entry>, named: Option<String>) -
 }
 
 fn launching(description: &str) -> String {
-    let mut characters = description.chars();
-    let sentence: String = characters
-        .next()
-        .map(|first| first.to_uppercase().chain(characters).collect())
-        .unwrap_or_default();
-    format!("{sentence}, in tql")
+    format!("{}, in tql", crate::tui::text::sentence(description))
 }
 
 fn connecting_to(name: &str) -> String {

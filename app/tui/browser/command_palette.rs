@@ -5,6 +5,7 @@ use crate::store::Store;
 use crate::tui::ago;
 use crate::tui::history;
 use crate::tui::palette::{Item, Kind, Palette};
+use crate::tui::text::sentence;
 
 const SKIPPED: [Action; 8] = [
     Action::MoveUp,
@@ -16,14 +17,6 @@ const SKIPPED: [Action; 8] = [
     Action::Command,
     Action::Palette,
 ];
-
-fn sentence(description: &str) -> String {
-    let mut characters = description.chars();
-    characters
-        .next()
-        .map(|first| first.to_uppercase().chain(characters).collect())
-        .unwrap_or_default()
-}
 
 fn keys_of(action: Action) -> String {
     let mut glyphs: Vec<String> = Vec::new();

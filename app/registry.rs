@@ -116,9 +116,13 @@ pub const ENTRIES: &[Entry] = &[
     },
     Entry {
         shell: Shell::Own,
+        palette: false,
         ..entry(Name::Tables, &["tables"], "focus the table list", BROWSER)
     },
-    entry(Name::Rows, &["rows"], "focus the rows", BROWSER),
+    Entry {
+        palette: false,
+        ..entry(Name::Rows, &["rows"], "focus the rows", BROWSER)
+    },
     Entry {
         palette: false,
         ..entry(
@@ -134,7 +138,10 @@ pub const ENTRIES: &[Entry] = &[
         "run the statement in the SQL editor",
         BROWSER,
     ),
-    entry(Name::Reload, &["reload"], "reload the table", BROWSER),
+    Entry {
+        palette: false,
+        ..entry(Name::Reload, &["reload"], "reload the table", BROWSER)
+    },
     Entry {
         shell: Shell::Opens,
         needs: Needs::Connection,
@@ -144,6 +151,7 @@ pub const ENTRIES: &[Entry] = &[
     Entry {
         shell: Shell::Opens,
         needs: Needs::Connection,
+        palette: false,
         ..entry(
             Name::History,
             &["history"],

@@ -25,7 +25,7 @@ pub mod settings_modal;
 mod sql;
 mod statements;
 mod structure;
-mod text;
+pub(crate) mod text;
 mod value_editor;
 pub mod vim;
 

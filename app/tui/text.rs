@@ -104,6 +104,14 @@ pub fn pasted(text: &str) -> String {
         .collect()
 }
 
+pub fn sentence(text: &str) -> String {
+    let mut characters = text.chars();
+    characters
+        .next()
+        .map(|first| first.to_uppercase().chain(characters).collect())
+        .unwrap_or_default()
+}
+
 pub fn single_line(text: &str) -> String {
     pasted(text).replace('\n', " ")
 }
@@ -111,6 +119,13 @@ pub fn single_line(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_sentence_starts_with_a_capital() {
+        assert_eq!(sentence("change tql's settings"), "Change tql's settings");
+        assert_eq!(sentence("écrire"), "Écrire");
+        assert_eq!(sentence(""), "");
+    }
 
     #[test]
     fn a_cell_folds_each_run_of_whitespace_into_one_space_and_keeps_the_ends() {
