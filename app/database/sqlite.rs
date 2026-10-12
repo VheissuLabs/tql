@@ -174,13 +174,13 @@ impl Database for Sqlite {
             .select(
                 "select name, type, not \"notnull\" as \"nullable\", dflt_value as \"default\", pk as \"primary\", \
                  hidden as \"extra\" from pragma_table_xinfo(?, 'main') order by cid asc",
-                &[table.name.clone()],
+                std::slice::from_ref(&table.name),
             )?
             .rows;
         let created = self
             .select(
                 "select sql from sqlite_master where type = 'table' and name = ?",
-                &[table.name.clone()],
+                std::slice::from_ref(&table.name),
             )?
             .rows
             .into_iter()
@@ -236,7 +236,7 @@ impl Database for Sqlite {
                  union select name, group_concat(col) as columns, \"unique\", origin = 'pk' as \"primary\" \
                  from (select il.*, ii.name as col from pragma_index_list(?1, 'main') il, pragma_index_info(il.name, 'main') ii \
                  order by il.seq, ii.seqno) group by name, \"unique\", \"primary\"",
-                &[table.name.clone()],
+                std::slice::from_ref(&table.name),
             )?
             .rows;
         let indexes: Vec<Index> = rows

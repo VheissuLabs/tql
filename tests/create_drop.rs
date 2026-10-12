@@ -1,3 +1,4 @@
+use app::database::Table;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -30,13 +31,13 @@ struct Server {
 }
 
 impl Database for Server {
-    fn tables(&mut self) -> anyhow::Result<Vec<String>> {
+    fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
         Ok(Vec::new())
     }
 
     fn filtered_rows(
         &mut self,
-        _: &str,
+        _: &Table,
         _: usize,
         _: usize,
         _: Option<&Sort>,
@@ -45,7 +46,7 @@ impl Database for Server {
         Ok(Page::default())
     }
 
-    fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
+    fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {
         Ok(HashMap::new())
     }
 
@@ -93,15 +94,15 @@ impl Database for Server {
         Ok(Page::default())
     }
 
-    fn columns(&mut self, _: &str) -> anyhow::Result<Vec<Column>> {
+    fn columns(&mut self, _: &Table) -> anyhow::Result<Vec<Column>> {
         Ok(Vec::new())
     }
 
-    fn indexes(&mut self, _: &str) -> anyhow::Result<Vec<Index>> {
+    fn indexes(&mut self, _: &Table) -> anyhow::Result<Vec<Index>> {
         Ok(Vec::new())
     }
 
-    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>> {
         Ok(HashMap::new())
     }
 }

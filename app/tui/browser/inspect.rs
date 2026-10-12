@@ -6,13 +6,13 @@ const MINIMUM_WIDTH: usize = 60;
 
 enum Load {
     Related {
-        table: String,
+        table: Table,
         column: String,
         value: String,
         limit: usize,
     },
     Through {
-        pivot: String,
+        pivot: Table,
         joined_on: String,
         far: Pivot,
         value: String,
@@ -21,7 +21,7 @@ enum Load {
 }
 
 struct Planned {
-    table: String,
+    table: Table,
     count: Count,
     load: Load,
     limit: usize,
@@ -93,9 +93,9 @@ impl Browser {
         )
     }
 
-    fn open_level(&mut self, table: Option<String>, row: RawRow) -> Level {
+    fn open_level(&mut self, table: Option<Table>, row: RawRow) -> Level {
         let types = table
-            .as_deref()
+            .as_ref()
             .map(|table| {
                 self.schema
                     .columns(self.database.as_mut(), table)
@@ -116,7 +116,7 @@ impl Browser {
         }
     }
 
-    fn relations(&mut self, table: &str, row: &RawRow) -> (Vec<Relation>, HashMap<String, Load>) {
+    fn relations(&mut self, table: &Table, row: &RawRow) -> (Vec<Relation>, HashMap<String, Load>) {
         let limit = settings::with(|settings| settings.inspect_related);
         if limit < 1 {
             return (Vec::new(), HashMap::new());
@@ -150,19 +150,19 @@ impl Browser {
                 continue;
             }
             related.push(Relation {
-                table: relation.table.clone(),
+                table: relation.table.to_string(),
                 rows: None,
                 shown: relation.limit.min(total.unwrap_or(relation.limit)),
                 total,
                 hide: relation.hide,
                 kind: relation.kind,
             });
-            loads.insert(relation.table, relation.load);
+            loads.insert(relation.table.to_string(), relation.load);
         }
         (related, loads)
     }
 
-    fn parents_of(&mut self, table: &str, row: &RawRow) -> Vec<Planned> {
+    fn parents_of(&mut self, table: &Table, row: &RawRow) -> Vec<Planned> {
         self.schema
             .links(self.database.as_mut(), table)
             .into_iter()
@@ -193,7 +193,7 @@ impl Browser {
             .collect()
     }
 
-    fn children_of(&mut self, table: &str, row: &RawRow, limit: usize) -> Vec<Planned> {
+    fn children_of(&mut self, table: &Table, row: &RawRow, limit: usize) -> Vec<Planned> {
         let tables = self.tables.clone();
         self.schema
             .referenced_by(self.database.as_mut(), &tables, table)
@@ -371,8 +371,12 @@ impl Browser {
         let level = inspector.level();
         let line = level.document.lines().get(level.line).cloned();
         let found = line.and_then(|line| {
-            let table = line.table?;
-            let row = level.raw.get(&table)?.get(line.row?)?.clone();
+            let shown = line.table?;
+            let row = level.raw.get(&shown)?.get(line.row?)?.clone();
+            let table = match level.loads.get(&shown)? {
+                Load::Related { table, .. } => table.clone(),
+                Load::Through { far, .. } => far.table.clone(),
+            };
             Some((table, row))
         });
         let Some((table, row)) = found else {

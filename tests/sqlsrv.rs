@@ -1,3 +1,4 @@
+use app::database::Table;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use app::database::{self, Database, Direction, Filter, Filters, Joiner, Pivot, Relations, Sort};
@@ -103,7 +104,7 @@ fn lists_tables_and_databases_and_switches_between_them() {
             .database
             .tables()
             .unwrap()
-            .contains(&"customers".to_string())
+            .contains(&Table::bare("customers"))
     );
 }
 
@@ -114,7 +115,7 @@ fn pages_sorts_and_filters_rows() {
 
     let first = scratch
         .database
-        .filtered_rows("customers", 2, 0, None, None)
+        .filtered_rows(&"customers".into(), 2, 0, None, None)
         .unwrap();
     assert_eq!(
         first.statement,
@@ -136,7 +137,7 @@ fn pages_sorts_and_filters_rows() {
     };
     let sorted = scratch
         .database
-        .filtered_rows("customers", 10, 1, Some(&sort), None)
+        .filtered_rows(&"customers".into(), 10, 1, Some(&sort), None)
         .unwrap();
     assert_eq!(
         sorted
@@ -156,7 +157,7 @@ fn pages_sorts_and_filters_rows() {
     );
     let filtered = scratch
         .database
-        .filtered_rows("customers", 10, 0, None, Some(&filters))
+        .filtered_rows(&"customers".into(), 10, 0, None, Some(&filters))
         .unwrap();
     assert_eq!(filtered.rows.len(), 2);
     assert_eq!(
@@ -167,7 +168,7 @@ fn pages_sorts_and_filters_rows() {
     let empty = scratch
         .database
         .filtered_rows(
-            "customers",
+            &"customers".into(),
             10,
             0,
             None,
@@ -186,7 +187,7 @@ fn pages_sorts_and_filters_rows() {
 fn reads_the_schema_the_way_laravel_does() {
     let mut scratch = Scratch::new();
 
-    let columns = scratch.database.columns("customers").unwrap();
+    let columns = scratch.database.columns(&"customers".into()).unwrap();
     assert_eq!(columns[0].name, "id");
     assert_eq!(columns[0].type_name, "int");
     assert!(columns[0].auto_increment);
@@ -195,7 +196,7 @@ fn reads_the_schema_the_way_laravel_does() {
     assert_eq!(columns[4].default.as_deref(), Some("((1))"));
     assert!(columns[2].nullable);
 
-    let indexes = scratch.database.indexes("orders").unwrap();
+    let indexes = scratch.database.indexes(&"orders".into()).unwrap();
     let primary = indexes.iter().find(|index| index.primary).unwrap();
     assert_eq!(primary.columns, ["id"]);
     assert!(primary.unique);
@@ -208,19 +209,25 @@ fn reads_the_schema_the_way_laravel_does() {
     assert!(!secondary.unique);
 
     let keys = scratch.database.primary_keys().unwrap();
-    assert_eq!(keys.get("customers").map(String::as_str), Some("id"));
-    assert_eq!(keys.get("customer_tag"), None);
-    assert_eq!(scratch.database.key_columns().unwrap()["customers"], ["id"]);
+    assert_eq!(
+        keys.get(&Table::bare("customers")).map(String::as_str),
+        Some("id")
+    );
+    assert_eq!(keys.get(&Table::bare("customer_tag")), None);
+    assert_eq!(
+        scratch.database.key_columns().unwrap()[&Table::bare("customers")],
+        ["id"]
+    );
 
     let foreign = scratch.database.foreign_keys().unwrap();
-    let pivot = &foreign["customer_tag"];
+    let pivot = &foreign[&Table::bare("customer_tag")];
     assert_eq!(pivot.len(), 2);
     assert!(
         pivot.iter().any(|key| key.table == "tags"
             && key.columns == ["tag_id"]
             && key.references == ["id"])
     );
-    assert_eq!(foreign["orders"][0].table, "customers");
+    assert_eq!(foreign[&Table::bare("orders")][0].table, "customers");
 }
 
 #[test]
@@ -231,26 +238,29 @@ fn changes_adds_and_deletes_rows() {
     assert_eq!(
         scratch
             .database
-            .update("customers", "name", "id", "2", Some("Bobby"))
+            .update(&"customers".into(), "name", "id", "2", Some("Bobby"))
             .unwrap(),
         1
     );
     assert_eq!(
         scratch
             .database
-            .update("customers", "name", "id", "999", Some("Bobby"))
+            .update(&"customers".into(), "name", "id", "999", Some("Bobby"))
             .unwrap(),
         0
     );
     scratch
         .database
-        .update("customers", "joined", "id", "2", None)
+        .update(&"customers".into(), "joined", "id", "2", None)
         .unwrap();
-    scratch.database.insert("customers", &Vec::new()).unwrap();
+    scratch
+        .database
+        .insert(&"customers".into(), &Vec::new())
+        .unwrap();
     scratch
         .database
         .insert(
-            "tags",
+            &"tags".into(),
             &vec![
                 ("id".to_string(), Some("3".to_string())),
                 ("label".to_string(), None),
@@ -258,7 +268,7 @@ fn changes_adds_and_deletes_rows() {
         )
         .unwrap();
     assert_eq!(
-        scratch.database.highest("customers", "id").unwrap(),
+        scratch.database.highest(&"customers".into(), "id").unwrap(),
         Some("4".to_string())
     );
 
@@ -274,15 +284,15 @@ fn changes_adds_and_deletes_rows() {
 
     scratch
         .database
-        .delete("tags", "id", &["2".to_string(), "3".to_string()])
+        .delete(&"tags".into(), "id", &["2".to_string(), "3".to_string()])
         .unwrap_err();
     scratch
         .database
-        .delete("customer_tag", "tag_id", &["2".to_string()])
+        .delete(&"customer_tag".into(), "tag_id", &["2".to_string()])
         .unwrap();
     scratch
         .database
-        .delete("tags", "id", &["2".to_string(), "3".to_string()])
+        .delete(&"tags".into(), "id", &["2".to_string(), "3".to_string()])
         .unwrap();
     assert_eq!(scratch.database.tables().unwrap().len(), 4);
     assert_eq!(
@@ -338,7 +348,7 @@ fn follows_links_with_offset_and_fetch() {
 
     let related = scratch
         .database
-        .related("orders", "customer_id", "1", 1)
+        .related(&"orders".into(), "customer_id", "1", 1)
         .unwrap();
     assert_eq!(related.rows.len(), 2);
 
@@ -349,7 +359,7 @@ fn follows_links_with_offset_and_fetch() {
     };
     let through = scratch
         .database
-        .through("customer_tag", "customer_id", &far, "1", 5)
+        .through(&"customer_tag".into(), "customer_id", &far, "1", 5)
         .unwrap();
     assert_eq!(through.rows.len(), 2);
 

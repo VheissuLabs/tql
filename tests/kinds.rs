@@ -1,3 +1,4 @@
+use app::database::Table;
 use app::database::{self, Database, Kind};
 use app::driver::Driver;
 use app::store::Connection;
@@ -162,6 +163,7 @@ fn mysql_refuses_a_write_hidden_in_a_with_when_asked_to_only_read() {
 }
 
 fn counts_the_rows_each_write_reached(database: &mut dyn Database, table: &str) {
+    let table = &Table::bare(table);
     assert_eq!(
         database
             .update(table, "name", "id", "1", Some("after"))
@@ -305,8 +307,8 @@ fn postgres_lists_every_column_of_a_composite_key_in_key_order() {
     let single = database.primary_keys().unwrap();
     database.run("drop table tql_pairs").unwrap();
 
-    assert_eq!(keys["tql_pairs"], ["b", "a"]);
-    assert!(!single.contains_key("tql_pairs"));
+    assert_eq!(keys[&Table::bare("tql_pairs")], ["b", "a"]);
+    assert!(!single.contains_key(&Table::bare("tql_pairs")));
 }
 
 #[test]
@@ -323,7 +325,7 @@ fn mysql_lists_every_column_of_a_composite_key_in_key_order() {
     let keys = database.key_columns().unwrap();
     database.run("drop database tql_pairs").unwrap();
 
-    assert_eq!(keys["pairs"], ["b", "a"]);
+    assert_eq!(keys[&Table::bare("pairs")], ["b", "a"]);
 }
 
 #[test]
@@ -350,11 +352,11 @@ fn mysql_shows_bits_as_numbers_and_writes_them_back_as_numbers() {
         )
         .unwrap();
     database
-        .update("flags", "mask", "id", "1", Some("200"))
+        .update(&"flags".into(), "mask", "id", "1", Some("200"))
         .unwrap();
     database
         .insert(
-            "flags",
+            &"flags".into(),
             &vec![
                 ("id".to_string(), Some("2".to_string())),
                 ("mask".to_string(), Some("7".to_string())),

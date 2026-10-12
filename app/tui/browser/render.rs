@@ -296,7 +296,10 @@ impl Browser {
                 .skip(start)
                 .take(inner_height)
                 .map(|(position, table)| {
-                    let label = format!(" {}", truncate(table, inner_width.saturating_sub(2)));
+                    let label = format!(
+                        " {}",
+                        truncate(&table.to_string(), inner_width.saturating_sub(2))
+                    );
                     if position == self.table_index {
                         Line::styled(pad(&label, inner_width), theme::selection())
                     } else {
@@ -317,11 +320,13 @@ impl Browser {
             ""
         };
         let title = match (&self.query.table, self.query.results) {
-            (Some(table), true) => table.clone(),
+            (Some(table), true) => table.to_string(),
             (None, true) => "RESULTS".to_string(),
             _ => format!(
                 "{}{filtered}",
-                self.current_table().unwrap_or_else(|| "ROWS".to_string())
+                self.current_table()
+                    .map(|table| table.to_string())
+                    .unwrap_or_else(|| "ROWS".to_string())
             ),
         };
         island.title = format!("{}{title}", keymap::pane_key(Action::FocusRows));

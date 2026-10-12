@@ -168,7 +168,7 @@ mod tests {
             vec![(
                 "artist_id".to_string(),
                 Link {
-                    table: "artists".to_string(),
+                    table: "artists".into(),
                     column: "id".to_string(),
                 },
             )],

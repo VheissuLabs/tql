@@ -118,7 +118,7 @@ fn exports_a_table_to_re_importable_sql() {
     let fixture = Fixture::new("round-trip");
 
     let exported = Exporter::new(&fixture.connection, None)
-        .table(fixture.database().as_mut(), "things", None, None)
+        .table(fixture.database().as_mut(), &"things".into(), None, None)
         .unwrap();
 
     assert_eq!(exported.rows, 4);
@@ -142,7 +142,7 @@ fn writes_a_header_naming_the_connection_and_table() {
     let fixture = Fixture::new("header");
 
     let exported = Exporter::new(&fixture.connection, None)
-        .table(fixture.database().as_mut(), "things", None, None)
+        .table(fixture.database().as_mut(), &"things".into(), None, None)
         .unwrap();
     let sql = fs::read_to_string(&exported.path).unwrap();
 
@@ -158,7 +158,7 @@ fn exports_an_empty_table_without_insert_statements() {
     fixture.run("create table empties (id integer primary key)");
 
     let exported = Exporter::new(&fixture.connection, None)
-        .table(fixture.database().as_mut(), "empties", None, None)
+        .table(fixture.database().as_mut(), &"empties".into(), None, None)
         .unwrap();
 
     assert_eq!(exported.rows, 0);
@@ -174,7 +174,7 @@ fn names_exports_after_the_database_table_and_time() {
     let fixture = Fixture::new("naming");
 
     let exported = Exporter::new(&fixture.connection, None)
-        .table(fixture.database().as_mut(), "things", None, None)
+        .table(fixture.database().as_mut(), &"things".into(), None, None)
         .unwrap();
 
     let name = exported
@@ -211,7 +211,7 @@ fn names_exports_after_the_database_in_use_on_a_server() {
 
     connection.database = Some("other_db".into());
     let table = Exporter::new(&connection, None)
-        .filename(Some("users"))
+        .filename(Some(&"users".into()))
         .unwrap();
     assert!(
         table
@@ -242,7 +242,7 @@ fn exports_every_table_into_one_file() {
     let exported = Exporter::new(&fixture.connection, None)
         .tables(
             fixture.database().as_mut(),
-            &["things".to_string(), "others".to_string()],
+            &["things".into(), "others".into()],
             None,
             None,
         )
@@ -269,7 +269,7 @@ fn honours_a_row_limit() {
     let fixture = Fixture::new("limit");
 
     let exported = Exporter::new(&fixture.connection, None)
-        .table(fixture.database().as_mut(), "things", None, Some(2))
+        .table(fixture.database().as_mut(), &"things".into(), None, Some(2))
         .unwrap();
 
     assert_eq!(exported.rows, 2);
@@ -289,7 +289,7 @@ fn pages_through_a_table_in_the_order_of_its_whole_primary_key() {
     );
 
     let exported = Exporter::new(&fixture.connection, None)
-        .table(fixture.database().as_mut(), "pairs", None, None)
+        .table(fixture.database().as_mut(), &"pairs".into(), None, None)
         .unwrap();
     let sql = fs::read_to_string(&exported.path).unwrap();
 
@@ -309,7 +309,7 @@ fn splits_big_tables_into_statements_of_a_hundred_rows() {
     );
 
     let exported = Exporter::new(&fixture.connection, None)
-        .table(fixture.database().as_mut(), "many", None, None)
+        .table(fixture.database().as_mut(), &"many".into(), None, None)
         .unwrap();
     let sql = fs::read_to_string(&exported.path).unwrap();
 
@@ -326,7 +326,7 @@ fn writes_binary_values_as_hex() {
     );
 
     let exported = Exporter::new(&fixture.connection, None)
-        .table(fixture.database().as_mut(), "blobs", None, None)
+        .table(fixture.database().as_mut(), &"blobs".into(), None, None)
         .unwrap();
 
     assert!(
@@ -348,7 +348,7 @@ fn offers_the_folder_the_last_export_went_to() {
     exporter
         .table(
             fixture.database().as_mut(),
-            "things",
+            &"things".into(),
             Some(by_hand.join("by-hand.sql")),
             None,
         )

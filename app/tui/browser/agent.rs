@@ -113,7 +113,7 @@ impl Browser {
             "tag": self.connection.tag,
             "database": self.active_database.clone().or_else(|| self.connection.database.clone()),
             "showing": if self.query.results { "query results" } else { "table" },
-            "table": table,
+            "table": table.map(|table| table.to_string()),
             "focus": focus,
             "statement": self.last_statement,
             "sql_editor": self.query.editor.buffer(),

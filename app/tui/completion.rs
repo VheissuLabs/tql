@@ -8,6 +8,7 @@ use super::palette;
 use super::sql::KEYWORDS;
 use super::statements;
 use super::text::{pad, truncate, width, window};
+use crate::database::Table;
 
 pub const LIMIT: usize = 50;
 const ROWS: usize = 8;
@@ -57,14 +58,14 @@ pub struct Candidate {
 }
 
 pub trait Lookup {
-    fn columns(&mut self, table: &str) -> Vec<String>;
+    fn columns(&mut self, table: &Table) -> Vec<String>;
 
     fn quote(&self, name: &str) -> String;
 }
 
 pub struct Schema<'a> {
-    pub tables: &'a [String],
-    pub open: Option<&'a str>,
+    pub tables: &'a [Table],
+    pub open: Option<&'a Table>,
     pub lookup: &'a mut dyn Lookup,
 }
 
@@ -121,9 +122,10 @@ impl Completion {
         if previous == "as" {
             return None;
         }
+        let table_names: Vec<String> = schema.tables.iter().map(Table::to_string).collect();
         if KEYWORDS_BEFORE_A_TABLE.contains(&previous.as_str()) {
             return narrowed(
-                named(schema.tables, Kind::Table, schema.lookup),
+                named(&table_names, Kind::Table, schema.lookup),
                 prefix,
                 start,
                 cursor,
@@ -131,14 +133,14 @@ impl Completion {
             );
         }
 
-        let mut sources: Vec<String> = Vec::new();
+        let mut sources: Vec<Table> = Vec::new();
         for (_, table) in &referenced {
             if !sources.contains(table) {
                 sources.push(table.clone());
             }
         }
         if sources.is_empty() {
-            sources.extend(schema.open.map(String::from));
+            sources.extend(schema.open.cloned());
         }
         let mut columns: Vec<String> = Vec::new();
         for table in &sources {
@@ -151,7 +153,7 @@ impl Completion {
 
         let candidates = [
             named(&columns, Kind::Column, schema.lookup),
-            named(schema.tables, Kind::Table, schema.lookup),
+            named(&table_names, Kind::Table, schema.lookup),
             keywords(prefix),
         ]
         .concat();
@@ -264,10 +266,10 @@ fn narrowed(
     })
 }
 
-fn referenced(sql: &str, tables: &[String]) -> Vec<(String, String)> {
-    let mut found: Vec<(String, String)> = Vec::new();
+fn referenced(sql: &str, tables: &[Table]) -> Vec<(String, Table)> {
+    let mut found: Vec<(String, Table)> = Vec::new();
     let mut remember =
-        |name: String, table: &String| match found.iter_mut().find(|(known, _)| *known == name) {
+        |name: String, table: &Table| match found.iter_mut().find(|(known, _)| *known == name) {
             Some(entry) => entry.1 = table.clone(),
             None => found.push((name, table.clone())),
         };
@@ -281,7 +283,7 @@ fn referenced(sql: &str, tables: &[String]) -> Vec<(String, String)> {
         let Some(table) = known(&unquote(&last_part), tables) else {
             continue;
         };
-        remember(table.to_lowercase(), &table);
+        remember(table.to_string().to_lowercase(), &table);
 
         let alias = captures
             .get(2)
@@ -294,10 +296,10 @@ fn referenced(sql: &str, tables: &[String]) -> Vec<(String, String)> {
     found
 }
 
-fn known(name: &str, tables: &[String]) -> Option<String> {
+fn known(name: &str, tables: &[Table]) -> Option<Table> {
     tables
         .iter()
-        .find(|table| table.to_lowercase() == name.to_lowercase())
+        .find(|table| table.to_string().to_lowercase() == name.to_lowercase())
         .cloned()
 }
 
@@ -359,17 +361,17 @@ fn in_string_or_comment(line: &str) -> bool {
 mod tests {
     use super::*;
 
-    fn tables() -> Vec<String> {
+    fn tables() -> Vec<Table> {
         ["customers", "orders", "Order Lines"]
-            .map(String::from)
+            .map(Table::bare)
             .to_vec()
     }
 
     struct Shop;
 
     impl Lookup for Shop {
-        fn columns(&mut self, table: &str) -> Vec<String> {
-            let names: &[&str] = match table {
+        fn columns(&mut self, table: &Table) -> Vec<String> {
+            let names: &[&str] = match table.name.as_str() {
                 "customers" => &["id", "name", "email"],
                 "orders" => &["id", "customer_id", "total"],
                 _ => &[],
@@ -392,7 +394,7 @@ mod tests {
             cursor,
             Schema {
                 tables: &tables(),
-                open: Some("customers"),
+                open: Some(&Table::bare("customers")),
                 lookup: &mut Shop,
             },
         )

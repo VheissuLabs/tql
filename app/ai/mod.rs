@@ -1,7 +1,7 @@
 use anyhow::{Context, anyhow};
 use serde_json::{Value, json};
 
-use crate::database::Column;
+use crate::database::{Column, Table};
 use crate::settings::Ai;
 
 pub mod providers;
@@ -64,15 +64,15 @@ pub fn missing(settings: &Ai) -> String {
 }
 
 pub fn summary(
-    tables: &[String],
-    focus: Option<&str>,
-    mut columns: impl FnMut(&str) -> Vec<Column>,
+    tables: &[Table],
+    focus: Option<&Table>,
+    mut columns: impl FnMut(&Table) -> Vec<Column>,
 ) -> String {
-    let mut ordered: Vec<&String> = Vec::with_capacity(tables.len());
+    let mut ordered: Vec<&Table> = Vec::with_capacity(tables.len());
     if let Some(focus) = focus.and_then(|focus| tables.iter().find(|table| *table == focus)) {
         ordered.push(focus);
     }
-    ordered.extend(tables.iter().filter(|table| Some(table.as_str()) != focus));
+    ordered.extend(tables.iter().filter(|table| Some(*table) != focus));
 
     let mut lines: Vec<String> = ordered
         .iter()

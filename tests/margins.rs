@@ -64,8 +64,20 @@ fn a_click_lands_where_the_frame_was_drawn_and_not_in_the_margin() {
     let mut fake = browser("click", [1, 0, 2, 3]);
 
     fake.click(1, 4);
-    assert_eq!(fake.app.current_table().as_deref(), Some("alpha"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("alpha")
+    );
 
     fake.click(5, 4);
-    assert_eq!(fake.app.current_table().as_deref(), Some("beta"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("beta")
+    );
 }

@@ -893,7 +893,13 @@ fn a_query_that_moves_to_another_table_drops_the_pending_changes() {
 
     run_sql(&mut fake, "select * from b");
     assert!(!fake.app.edits.pending());
-    assert_eq!(fake.app.current_table().as_deref(), Some("b"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("b")
+    );
 }
 
 #[test]
@@ -924,14 +930,26 @@ fn following_a_link_and_coming_back_drop_the_pending_changes() {
     assert!(fake.app.edits.pending());
 
     fake.press("jllL");
-    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("artists")
+    );
     assert!(!fake.app.edits.pending());
 
     fake.press("le!\n");
     assert!(fake.app.edits.pending());
 
     fake.press("\x0f");
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
     assert!(!fake.app.edits.pending());
     assert_eq!(
         column(&path, "select name from artists order by id"),
@@ -1019,11 +1037,23 @@ fn filtering_the_table_list_keeps_unwritten_changes_while_the_same_table_stays_o
     assert!(fake.app.edits.pending());
 
     fake.press("/alb");
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
     assert!(fake.app.edits.pending());
 
     fake.press("\x7f\x7f\x7fart");
-    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("artists")
+    );
     assert!(!fake.app.edits.pending());
 }
 

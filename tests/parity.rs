@@ -1,3 +1,4 @@
+use app::database::Table;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -918,11 +919,15 @@ fn export_files_match_the_php_tql() {
     let tables: Vec<String> =
         serde_json::from_str(&fs::read_to_string(php.join("tables.json")).unwrap()).unwrap();
 
+    let listed: Vec<Table> = tables
+        .iter()
+        .map(|table| Table::bare(table.as_str()))
+        .collect();
     for table in &tables {
         exporter
             .table(
                 database.as_mut(),
-                table,
+                &Table::bare(table.as_str()),
                 Some(rust.join(format!("{table}.sql"))),
                 None,
             )
@@ -931,7 +936,7 @@ fn export_files_match_the_php_tql() {
     exporter
         .table(
             database.as_mut(),
-            "customers",
+            &"customers".into(),
             Some(rust.join("customers-limited.sql")),
             Some(7),
         )
@@ -939,7 +944,7 @@ fn export_files_match_the_php_tql() {
     exporter
         .tables(
             database.as_mut(),
-            &tables,
+            &listed,
             Some(rust.join("every-table.sql")),
             None,
         )
@@ -947,7 +952,7 @@ fn export_files_match_the_php_tql() {
     exporter
         .tables(
             database.as_mut(),
-            &tables,
+            &listed,
             Some(rust.join("every-table-limited.sql")),
             Some(2),
         )

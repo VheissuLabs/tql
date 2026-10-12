@@ -402,7 +402,7 @@ impl Database for Postgres {
                  from pg_attribute a, pg_class c, pg_type t, pg_namespace n \
                  where c.relname = ? and n.nspname = current_schema() and a.attnum > 0 and a.attrelid = c.oid \
                  and a.atttypid = t.oid and n.oid = c.relnamespace order by a.attnum",
-                &[table.name.clone()],
+                std::slice::from_ref(&table.name),
             )?
             .rows
             .into_iter()
@@ -447,7 +447,7 @@ impl Database for Postgres {
                  left join pg_attribute a on a.attrelid = i.indrelid and a.attnum = indseq.num \
                  where tc.relname = ? and tn.nspname = current_schema() \
                  group by ic.relname, am.amname, i.indisunique, i.indisprimary",
-                &[table.name.clone()],
+                std::slice::from_ref(&table.name),
             )?
             .rows
             .into_iter()

@@ -52,7 +52,13 @@ fn opens_on_the_first_table_sorted_by_its_key() {
         fake.app.tables,
         ["audit_log", "customers", "orders", "products"]
     );
-    assert_eq!(fake.app.current_table().as_deref(), Some("audit_log"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("audit_log")
+    );
     assert_eq!(fake.app.focus, Focus::Sidebar);
 
     fake.press("j");
@@ -161,7 +167,13 @@ fn slash_filters_the_table_list() {
 
     fake.press("/ord");
     assert!(fake.app.filtering);
-    assert_eq!(fake.app.current_table().as_deref(), Some("orders"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("orders")
+    );
     assert!(fake.screen().contains(" /ord█"));
 
     fake.press("\n");

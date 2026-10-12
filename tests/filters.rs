@@ -299,7 +299,13 @@ fn forgets_the_filter_when_you_change_table() {
     fake.app.focus = Focus::Sidebar;
     fake.press("j");
 
-    assert_eq!(fake.app.current_table().as_deref(), Some("widgets"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("widgets")
+    );
     assert!(fake.app.filters.is_none());
     assert_eq!(fake.app.rows.len(), 1);
 }
@@ -578,7 +584,7 @@ fn filters_through_the_database_with_bound_values() {
 
     let page = database
         .filtered_rows(
-            "people",
+            &"people".into(),
             10,
             0,
             None,
@@ -605,6 +611,12 @@ fn ignores_the_mouse_while_the_form_is_open() {
     fake.press("f").click(4, 3);
 
     assert!(fake.app.filter_form.is_some());
-    assert_eq!(fake.app.current_table().as_deref(), Some("people"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("people")
+    );
     assert_eq!(fake.app.focus, Focus::Grid);
 }

@@ -1,3 +1,4 @@
+use app::database::Table;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader, Read, Write};
 use std::net::TcpListener;
@@ -66,7 +67,7 @@ fn asked(name: &str) -> Fake<Browser> {
     )
 }
 
-fn columns_of(path: &std::path::Path) -> impl FnMut(&str) -> Vec<app::database::Column> {
+fn columns_of(path: &std::path::Path) -> impl FnMut(&Table) -> Vec<app::database::Column> {
     let connection = Connection::sqlite("shop", path.to_str().unwrap());
     let mut database = database::connect(&connection, None).unwrap();
     move |table| database.columns(table).unwrap()
@@ -189,9 +190,9 @@ fn prepared(settings: &Settings, pairs: &[(&str, &str)]) -> Result<ai::Question,
 #[test]
 fn describes_the_schema_without_sending_any_row_data() {
     let path = fixture("summary");
-    let tables = vec!["customers".to_string(), "invoices".to_string()];
+    let tables = vec![Table::bare("customers"), Table::bare("invoices")];
 
-    let summary = ai::summary(&tables, Some("customers"), columns_of(&path));
+    let summary = ai::summary(&tables, Some(&Table::bare("customers")), columns_of(&path));
 
     assert!(summary.contains("customers ("));
     assert!(summary.contains("email"));
@@ -207,18 +208,18 @@ fn describes_the_schema_without_sending_any_row_data() {
 #[test]
 fn puts_the_table_you_are_looking_at_first() {
     let path = fixture("focus");
-    let tables = vec!["customers".to_string(), "invoices".to_string()];
+    let tables = vec![Table::bare("customers"), Table::bare("invoices")];
 
-    let summary = ai::summary(&tables, Some("invoices"), columns_of(&path));
+    let summary = ai::summary(&tables, Some(&Table::bare("invoices")), columns_of(&path));
 
     assert!(summary.starts_with("invoices ("));
 }
 
 #[test]
 fn sends_forty_tables_and_counts_the_rest() {
-    let tables: Vec<String> = (1..=45).map(|n| format!("t{n}")).collect();
+    let tables: Vec<Table> = (1..=45).map(|n| Table::bare(format!("t{n}"))).collect();
 
-    let summary = ai::summary(&tables, Some("t44"), |_| Vec::new());
+    let summary = ai::summary(&tables, Some(&Table::bare("t44")), |_| Vec::new());
 
     let lines: Vec<&str> = summary.lines().collect();
     assert_eq!(lines.len(), 41);

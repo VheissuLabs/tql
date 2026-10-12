@@ -78,6 +78,20 @@ impl fmt::Display for Table {
     }
 }
 
+impl PartialEq<&str> for Table {
+    fn eq(&self, other: &&str) -> bool {
+        match &self.schema {
+            Some(schema) => {
+                other
+                    .strip_prefix(schema.as_str())
+                    .and_then(|rest| rest.strip_prefix('.'))
+                    == Some(self.name.as_str())
+            }
+            None => self.name == *other,
+        }
+    }
+}
+
 impl From<&Table> for String {
     fn from(table: &Table) -> String {
         table.to_string()

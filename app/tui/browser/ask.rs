@@ -119,7 +119,7 @@ impl Browser {
         let focus = self.current_table();
         let database = self.database.as_mut();
         let schema = &mut self.schema;
-        let summary = ai::summary(&tables, focus.as_deref(), |table| {
+        let summary = ai::summary(&tables, focus.as_ref(), |table| {
             schema.columns(database, table)
         });
         let prepared = settings::with(|settings| {

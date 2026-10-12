@@ -55,7 +55,7 @@ impl Browser {
         let tables = self
             .tables
             .iter()
-            .map(|table| Item::new(Kind::Table, table.clone(), "table", table.clone()));
+            .map(|table| Item::new(Kind::Table, table, "table", table));
 
         let mut items: Vec<Item> = actions.chain(commands).chain(tables).collect();
         items.extend(self.other_databases());
@@ -165,7 +165,14 @@ impl Browser {
         match item.kind {
             Kind::Action(action) => return self.run(action),
             Kind::Command(name) => return self.run_named(name, ""),
-            Kind::Table => self.go_to_table(&item.target),
+            Kind::Table => {
+                let default_schema = self.database.default_schema();
+                if let Some(table) =
+                    Table::resolve(&item.target, &self.tables, default_schema.as_deref())
+                {
+                    self.go_to_table(&table);
+                }
+            }
             Kind::Database => self.use_database(Some(item.target)),
             Kind::Connection => {
                 if let Ok(id) = item.target.parse() {
@@ -177,7 +184,7 @@ impl Browser {
         Flow::Continue
     }
 
-    fn go_to_table(&mut self, table: &str) {
+    fn go_to_table(&mut self, table: &Table) {
         self.filter.clear();
         self.query.results = false;
         let Some(index) = self

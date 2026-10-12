@@ -441,7 +441,13 @@ fn the_palette_goes_to_a_table_runs_commands_and_asks_in_english() {
 
     fake.press(PALETTE);
     fake.press("orders\n");
-    assert_eq!(fake.app.current_table().as_deref(), Some("orders"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("orders")
+    );
     assert_eq!(fake.app.focus, Focus::Grid);
 
     fake.press(PALETTE);

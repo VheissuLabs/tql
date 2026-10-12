@@ -175,13 +175,31 @@ fn a_count_moves_the_columns_and_stops_at_the_edges() {
 fn a_count_moves_through_the_table_list() {
     let mut fake = browser("count-tables", &[]);
     fake.press("2j");
-    assert_eq!(fake.app.current_table().as_deref(), Some("zebras"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("zebras")
+    );
 
     fake.press("9j");
-    assert_eq!(fake.app.current_table().as_deref(), Some("zulus"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("zulus")
+    );
 
     fake.press("10k");
-    assert_eq!(fake.app.current_table().as_deref(), Some("alpha"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("alpha")
+    );
 
     fake.press("3l");
     assert_eq!(fake.app.focus, Focus::Grid);

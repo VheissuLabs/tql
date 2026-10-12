@@ -99,7 +99,7 @@ impl Database for SqlServer {
                  left join sys.computed_columns as com on col.column_id = com.column_id and col.object_id = com.object_id \
                  where obj.type in ('U', 'V') and obj.name = ? and scm.name = schema_name() \
                  order by col.column_id",
-                &[table.name.clone()],
+                std::slice::from_ref(&table.name),
             )?
             .rows
             .into_iter()
@@ -156,7 +156,7 @@ impl Database for SqlServer {
                  join sys.columns as col on idxcol.object_id = col.object_id and idxcol.column_id = col.column_id \
                  where tbl.name = ? and scm.name = schema_name() \
                  group by idx.name, idx.type_desc, idx.is_unique, idx.is_primary_key",
-                &[table.name.clone()],
+                std::slice::from_ref(&table.name),
             )?
             .rows
             .into_iter()

@@ -1,3 +1,4 @@
+use app::database::Table;
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -20,14 +21,14 @@ impl Counted {
 }
 
 impl Database for Counted {
-    fn tables(&mut self) -> anyhow::Result<Vec<String>> {
+    fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
         self.log("tables".into());
         self.inner.tables()
     }
 
     fn filtered_rows(
         &mut self,
-        table: &str,
+        table: &Table,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
@@ -38,7 +39,7 @@ impl Database for Counted {
             .filtered_rows(table, limit, offset, sort, filters)
     }
 
-    fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
+    fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {
         self.log("primary keys".into());
         self.inner.primary_keys()
     }
@@ -52,17 +53,17 @@ impl Database for Counted {
         self.inner.select(statement, values)
     }
 
-    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+    fn columns(&mut self, table: &Table) -> anyhow::Result<Vec<Column>> {
         self.log(format!("columns {table}"));
         self.inner.columns(table)
     }
 
-    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>> {
+    fn indexes(&mut self, table: &Table) -> anyhow::Result<Vec<Index>> {
         self.log(format!("indexes {table}"));
         self.inner.indexes(table)
     }
 
-    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>> {
         self.log("foreign keys".into());
         self.inner.foreign_keys()
     }
@@ -131,7 +132,13 @@ fn holding_j_loads_only_where_you_stop() {
 
     fake.burst("jjjj");
     assert_eq!(take(&queries), ["rows e"]);
-    assert_eq!(fake.app.current_table().as_deref(), Some("e"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("e")
+    );
 }
 
 #[test]

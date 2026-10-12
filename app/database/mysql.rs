@@ -497,7 +497,7 @@ impl Database for MySql {
                  generation_expression as `expression`, extra as `extra` \
                  from information_schema.columns where table_schema = database() and table_name = ? \
                  order by ordinal_position asc",
-                &[table.name.clone()],
+                std::slice::from_ref(&table.name),
             )?
             .rows
             .into_iter()
@@ -532,7 +532,7 @@ impl Database for MySql {
                  not non_unique as `unique` from information_schema.statistics \
                  where table_schema = database() and table_name = ? \
                  group by index_name, index_type, non_unique",
-                &[table.name.clone()],
+                std::slice::from_ref(&table.name),
             )?
             .rows
             .into_iter()

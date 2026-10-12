@@ -1,3 +1,4 @@
+use app::database::Table;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
@@ -56,7 +57,7 @@ fn reads_columns_indexes_and_foreign_keys_from_sqlite() {
         database::connect(&Connection::sqlite("schema", path.to_str().unwrap()), None).unwrap();
 
     assert_eq!(
-        database.columns("albums").unwrap()[1],
+        database.columns(&"albums".into()).unwrap()[1],
         Column {
             name: "title".into(),
             type_name: "text".into(),
@@ -67,9 +68,9 @@ fn reads_columns_indexes_and_foreign_keys_from_sqlite() {
             ..Column::default()
         }
     );
-    assert!(database.columns("albums").unwrap()[0].auto_increment);
+    assert!(database.columns(&"albums".into()).unwrap()[0].auto_increment);
     assert_eq!(
-        database.indexes("albums").unwrap(),
+        database.indexes(&"albums".into()).unwrap(),
         [
             Index {
                 name: "albums_artist_id".into(),
@@ -86,7 +87,7 @@ fn reads_columns_indexes_and_foreign_keys_from_sqlite() {
         ]
     );
     assert_eq!(
-        database.indexes("regions").unwrap()[0].columns,
+        database.indexes(&"regions".into()).unwrap()[0].columns,
         ["code", "region"]
     );
 
@@ -96,10 +97,13 @@ fn reads_columns_indexes_and_foreign_keys_from_sqlite() {
         column: "id".into(),
     };
     assert_eq!(
-        links(&keys["albums"]),
+        links(&keys[&Table::bare("albums")]),
         [("artist_id".into(), artist.clone())]
     );
-    assert_eq!(links(&keys["visits"]), [("artist_id".into(), artist)]);
+    assert_eq!(
+        links(&keys[&Table::bare("visits")]),
+        [("artist_id".into(), artist)]
+    );
 }
 
 #[test]
@@ -166,7 +170,13 @@ fn follows_a_foreign_key_to_the_row_it_points_at() {
     fake.press("llL");
     let screen = fake.screen();
 
-    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("artists")
+    );
     assert_eq!(fake.app.rows, [["1", "AC/DC"]]);
     assert!(screen.contains("[2] artists ·  filtered"), "{screen}");
     assert!(
@@ -190,7 +200,13 @@ fn goes_back_with_ctrl_o_or_escape() {
 
         fake.press("jllL").press(back);
 
-        assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+        assert_eq!(
+            fake.app
+                .current_table()
+                .map(|table| table.to_string())
+                .as_deref(),
+            Some("albums")
+        );
         assert_eq!(fake.app.rows.len(), 2);
         assert_eq!(fake.app.row_index, 1);
         assert!(fake.app.filters.is_none());
@@ -206,7 +222,13 @@ fn says_so_when_there_is_nowhere_to_go_back_to() {
     assert_eq!(fake.app.status(), "nowhere to go back to");
 
     fake.press("\x1b");
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
 }
 
 #[test]
@@ -215,7 +237,13 @@ fn says_so_when_the_column_is_not_a_link_and_nothing_points_here() {
 
     fake.press("L");
 
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
     assert_eq!(
         fake.app.status(),
         "nothing links to albums, and id is not a foreign key"
@@ -230,7 +258,13 @@ fn does_not_follow_an_empty_foreign_key() {
 
     fake.press("jjllL");
 
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
     assert_eq!(fake.app.status(), "artist_id is empty on this row");
 }
 
@@ -240,7 +274,13 @@ fn follows_a_row_backwards_to_what_references_it() {
 
     fake.press("\x1b1jL");
 
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
     assert_eq!(fake.app.rows, [["1", "Let There Be Rock", "1"]]);
     assert_eq!(
         fake.app.status(),
@@ -248,7 +288,13 @@ fn follows_a_row_backwards_to_what_references_it() {
     );
 
     fake.press("\x1b");
-    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("artists")
+    );
 }
 
 #[test]
@@ -265,7 +311,13 @@ fn offers_a_list_when_several_tables_reference_the_row() {
     assert!(screen.contains("gigs.artist_id"));
 
     fake.press("gigs\n");
-    assert_eq!(fake.app.current_table().as_deref(), Some("gigs"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("gigs")
+    );
     assert_eq!(fake.app.rows, [["1", "1", "Toronto"]]);
     assert!(!fake.screen().contains("REFERENCED BY"));
 }
@@ -279,7 +331,13 @@ fn leaves_the_list_alone_on_escape() {
     fake.press("\x1b1jL\x1b");
 
     assert!(!fake.screen().contains("REFERENCED BY"));
-    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("artists")
+    );
 }
 
 #[test]
@@ -287,14 +345,32 @@ fn unwinds_a_chain_of_links_one_step_at_a_time() {
     let mut fake = browser(LINKED);
 
     fake.press("llLL");
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
     assert!(fake.app.filters.is_some());
 
     fake.press("\x1b");
-    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("artists")
+    );
 
     fake.press("\x1b");
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
     assert!(fake.app.filters.is_none());
 }
 
@@ -304,7 +380,13 @@ fn follows_a_link_to_a_table_the_sidebar_filter_is_hiding() {
 
     fake.press("\x1b1/album\n\tllL");
 
-    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("artists")
+    );
     assert_eq!(fake.app.filter, "");
     assert_eq!(fake.app.rows, [["1", "AC/DC"]]);
 }
@@ -315,11 +397,23 @@ fn keeps_a_sidebar_filter_that_still_shows_the_table() {
 
     fake.press("\x1b1/a\n\tllL");
 
-    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("artists")
+    );
     assert_eq!(fake.app.filter, "a");
 
     fake.press("\x1b");
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
 }
 
 #[test]
@@ -341,11 +435,23 @@ fn escape_unwinds_the_jump_before_the_filter_it_came_back_to() {
     assert_eq!(fake.app.rows, [["1", "Let There Be Rock", "1"]]);
 
     fake.press("llL");
-    assert_eq!(fake.app.current_table().as_deref(), Some("artists"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("artists")
+    );
     assert!(fake.screen().contains("[2] artists ·  filtered"));
 
     fake.press("\x1b");
-    assert_eq!(fake.app.current_table().as_deref(), Some("albums"));
+    assert_eq!(
+        fake.app
+            .current_table()
+            .map(|table| table.to_string())
+            .as_deref(),
+        Some("albums")
+    );
     assert_eq!(fake.app.rows, [["1", "Let There Be Rock", "1"]]);
     assert!(fake.screen().contains("[2] albums ·  filtered"));
 
