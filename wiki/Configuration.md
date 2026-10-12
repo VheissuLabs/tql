@@ -1,0 +1,265 @@
+# Configuration
+
+Every setting, what it does, and what it is if you never touch it.
+
+`tql settings`, or `:settings` and `ctrl+k` inside tql, opens every setting on one
+screen, grouped under sections that fold. Change one and it takes effect at once
+and is written to `~/.config/tql/config.toml` straight away, that line and nothing
+else, your comments kept. `/` finds a setting by name and `x` puts one back to its
+default. The few that tql reads only as it starts, such as `mouse`, say so.
+
+There is nothing to configure to start. On first run tql writes
+`~/.config/tql/config.toml` with all of this in it, in this order, one short line
+of comment above each key. The long version stays here rather than in your file.
+
+When a later version adds a setting it is written into the place it belongs on the
+next run (your values and your own comments are left alone) and the status line
+names what arrived.
+
+Defaults are built into tql and your file is merged over them, so a setting you
+never touch follows the application instead of freezing at the value it had the day
+you installed it. A file that cannot be parsed does not stop tql: it starts on the
+defaults and says so in the status line.
+
+## Keeping it yours
+
+The shape of the file is tql's: which sections exist, and the order the settings
+come in. What is in it is yours: the values, which settings you keep, and any
+comment you write.
+
+```bash
+tql config           # where it is, and whether it is in order
+tql config --tidy    # put it back in order, keeping all of that
+```
+
+`--tidy` reorders and nothing else. Values, your own comments, sections tql has
+never heard of: all carried across, and a comment written above a setting moves
+with it. It writes a `.bak` beside the file first.
+
+**A setting you delete stays deleted.** The first line records the version the file
+was written for, and only settings that shipped after that are ever added back.
+Deleting something to take the default is a decision, not an accident.
+
+**Every key belongs to a section.** A key written above the first `[section]`
+belongs to no section, is never read, and makes for a confusing afternoon. tql
+notices and tells you which ones.
+
+## `[ui]`
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `sql_position` | `"top"` | where the SQL editor sits: `"top"` or `"bottom"` |
+| `sql_always` | `false` | keep it on screen instead of only after `s` |
+| `sql_height` | `0` | rows it takes; 0 picks a third of the frame |
+| `sql_editor` | `"simple"` | how it takes keys: `"simple"` types and `↵` adds a line, `"vim"` is vim, from normal mode; `ctrl+r` runs the statement in simple, `:r` in vim |
+| `sql_complete` | `true` | offer tables, columns and keywords as you type in the SQL editor; `tab` takes one, `esc` closes the list |
+| `row_style` | `"marker"` | how the current row is shown: `"marker"`, `"dim-others"`, `"bold"`, `"inverse"`, `"underline"` |
+| `top_margin` | `0` | blank rows above the frame |
+| `bottom_margin` | `0` | blank rows below the frame |
+| `left_margin` | `0` | blank columns left of the frame |
+| `right_margin` | `0` | blank columns right of the frame |
+| `sidebar_width` | `24` | width of the table list |
+| `time_zone` | `"UTC"` | the zone `ctrl+t` and `now()` write in |
+| `modal_ring` | `true` | ring a modal with a border as well as the box itself |
+| `inspect_related` | `10` | related rows to load into the inspector; 0 turns it off |
+| `export_path` | `""` | where exports go; empty uses the last folder you saved one in |
+| `mouse` | `true` | click, drag and scroll inside tql |
+| `double_click_ms` | `400` | how close two clicks must be to open the editor |
+| `hotkey_bar` | `true` | the row of keys under the frame; `false` gives the row to the frame, and `?` and the palette still list every key |
+| `status_seconds` | `4` | how long a status message stays before it fades; `0` keeps it until the next one |
+| `mouse_row_offset` | `0` | subtract this from reported mouse rows |
+| `mouse_column_offset` | `0` | subtract this from reported mouse columns |
+| `confirm_create_on_production` | `true` | creating a database from the database list on a connection tagged `production` puts `create database` on the command line for a second `↵` instead of running it |
+
+```toml
+[ui]
+sql_position = "bottom"
+sql_always = true
+sql_height = 8
+top_margin = 1
+mouse_row_offset = 1
+```
+
+The four margins frame tql inside its window: blank rows above and below, blank
+columns to either side, everything tql draws inside them. A terminal or multiplexer
+that pads one side more than the other can be evened out with `left_margin` or
+`right_margin`. A click in a margin lands on nothing. A window too small for tql
+shows its real size, margins or not.
+
+`mouse_row_offset = 1` is the one to reach for inside a multiplexer whose tab bar
+sits above the pane: without it every click lands a row out. The same for
+`mouse_column_offset` and a sidebar to the left of the pane.
+
+`row_style` is a matter of terminal and taste. `marker` puts a `▸` beside the row,
+`dim-others` fades everything else, and `inverse` is the loud one.
+
+## `[theme]`
+
+Colors are names, not hexes (`dim`, `default`, `black`, `red`, `green`, `yellow`,
+`blue`, `magenta`, `cyan`, `white`, `gray`), so tql wears the palette your terminal
+is already themed with, and follows it when you change it.
+
+| Key | Default | What it colors |
+| --- | --- | --- |
+| `border` | `"dim"` | a pane border that is not focused |
+| `focus_border` | `"cyan"` | the border of the pane you are in |
+| `focus_title` | `"cyan"` | its title |
+| `cursor` | `"default"` | the block you are on: the selected cell, the caret |
+| `selection` | `"default"` | highlighted, but not where you are |
+| `edited` | `"yellow"` | a row you have changed, before `:w` |
+| `added` | `"green"` | a row you have added, before `:w` |
+| `deleted` | `"red"` | a row marked for deletion, before `:w` |
+| `modal_border` | `"gray"` | a modal's border, and the ring around it |
+| `modal_focus_border` | `"cyan"` | the same, focused |
+| `modal_title` | `"white"` | a modal's title |
+| `modal_focus_title` | `"cyan"` | the same, focused |
+
+A table's column separators and the rule under its header are drawn in the pane's
+border color, so a whole frame is one color: `focus_border` when you are in it,
+`border` when you are not.
+
+`cursor = "default"` and `selection = "default"` swap the terminal's own colors
+instead of painting one, which is what a terminal cursor has always done and what
+looks right in any theme.
+
+```toml
+[theme]
+cursor = "cyan"
+selection = "cyan"
+border = "dim"
+```
+
+## `[icons]`
+
+The glyph beside a connection name, by driver. The defaults are Nerd Font
+devicons, written as escapes because they are private-use codepoints that only a
+Nerd Font draws. Your config file can hold either the escape or the glyph itself.
+
+```toml
+[icons]
+mysql = "\uE704"    # nf-dev-mysql
+pgsql = "\uE76E"    # nf-dev-postgresql
+sqlite = "\uE7C4"   # nf-dev-sqllite
+sqlsrv = "\uF1C0"   # nf-fa-database
+default = "\uF1C0"  # anything else
+```
+
+No Nerd Font? Any character works: `mysql = "M"`, or `""` for nothing at all.
+
+## `[updates]`
+
+| Key | Default | Meaning |
+| --- | --- | --- |
+| `check` | `true` | look for a new release once a day |
+| `automatic` | `true` | install it by itself, for the next time you start tql |
+
+Once a day, when you start tql, it asks GitHub for the latest release in the
+background. Nothing about you or your databases is sent, and a failed check says
+nothing. What happens next depends on how you installed it:
+
+- **The install script, or the binary by hand:** with `automatic` on, tql
+  downloads the new binary, checks it against the release's `SHA256SUMS`, makes
+  sure it runs, and keeps it in a `.tql-versions` folder beside `tql`. The
+  connection list says *tql 0.8.0 is ready · restart to use it*, and the next
+  start switches `tql` to it. It is a symlink into that folder, so a tql that is
+  already running, an MCP server included, keeps its own file and carries on. The
+  last three versions are kept. A download that does not match its checksum is
+  never installed.
+- **Homebrew, or a `.deb`, `.rpm` or `PKGBUILD`:** tql never replaces a file a
+  package manager owns. The connection list says what to run instead, such as
+  *tql 0.8.0 is out · brew upgrade tql*.
+
+`tql update` does the same on the spot. `check = false` stops tql from asking at
+all; so does `TQL_UPDATE_CHECK=false` in the environment.
+
+## `[ai]`
+
+What answers when you press `a`. Only table and column names are sent, never rows.
+See [Asking for SQL](Asking-for-SQL).
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `provider` | `"auto"` | `auto` uses `url` if it is set, otherwise the first provider you have a key for |
+| `model` | `""` | empty picks a sensible default for that provider |
+| `timeout` | `60` | seconds to wait for an answer |
+| `url` | `""` | an OpenAI-compatible endpoint to use instead |
+| `key` | `""` | bearer token for that endpoint, if it wants one |
+
+`provider` takes `anthropic`, `openai`, `azure`, `gemini`, `groq`, `mistral`,
+`deepseek`, `xai`, `openrouter` or `ollama`, and each reads its own environment
+variable: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` and so on. Azure also needs
+`AZURE_OPENAI_URL`, and Ollama counts once `OLLAMA_URL` is set. With `auto`, tql
+takes the first of them, alphabetically, that is set up; with several keys
+exported, name the one you want. A named provider with no key falls back to `url`.
+The default model for each is on [Asking for SQL](Asking-for-SQL#which-model-answers).
+
+With `auto`, a `url` beats all of that: it points somewhere deliberate, so it wins
+over any key in the environment. That is how you use a local model, see
+[A local model, with LM Studio](Asking-for-SQL#a-local-model-with-lm-studio).
+
+`TQL_AI_PROVIDER`, `TQL_AI_MODEL`, `TQL_AI_TIMEOUT`, `TQL_AI_URL` and `TQL_AI_KEY`
+in the environment win over this section, for one run or one shell.
+
+```toml
+[ai]
+url = "http://localhost:1234/v1"
+model = "qwen2.5-coder-7b-instruct"
+```
+
+## `[mcp]`
+
+What an agent sees through `tql mcp:start`. It can always list, describe and query
+your connections, read-only; this section is about your screen. See
+[For agents](For-Agents).
+
+| Key | Default | What it does |
+| --- | --- | --- |
+| `read_screen` | `false` | let an agent read what you see in the tql you have open |
+| `read_production` | `false` | let it read a connection tagged `production` too |
+
+With `read_screen` on, the MCP server's `read-screen-tool` answers with the table
+or query results on screen, the statement behind them, the SQL editor, the sort,
+the row and column under the cursor, the page of rows loaded, unwritten changes
+and the status line. That is row data, which nothing else in tql hands an agent
+without it asking for it with a query, so it is off until you say, and a production
+connection needs `read_production` as well. tql says on its status line each time
+an agent reads it. Restart tql after changing either.
+
+## `[keys]`
+
+What key asks for what, by action name:
+
+```toml
+[keys]
+filter_rows = "F"
+new_row = "ctrl+n"
+```
+
+The list of actions, what a key may be written as, and which keys are fixed are on
+[Keys](Keys#rebinding).
+
+## What is not configurable
+
+**Tags.** `production`, `staging`, `dev` and `local`, red, yellow, blue and green.
+The point of a tag is that production looks the same in your terminal and in the
+next person's screenshot, so it is a fixed set rather than a list you can add to.
+
+**Movement.** `j k h l`, the arrows, `↵`, `esc`, `tab`, `:` and `ctrl+l` are what a
+terminal and a vim user both already assume. Everything else is in `[keys]`.
+
+## Where things live
+
+| | |
+| --- | --- |
+| `~/.config/tql/config.toml` | this file |
+| `~/.config/tql/tql.sqlite` | saved connections and query history |
+| `~/.config/tql/key` | the encryption key for stored passwords, `0600` |
+| `~/.config/tql/exports/` | where exports go unless you say otherwise |
+
+`XDG_CONFIG_HOME` moves all of it, which is how the tests keep out of your real
+connections.
+
+Connection passwords and SSH passwords are encrypted with AES-256-CBC using a key
+at `~/.config/tql/key`, `0600`, in the same format tql has always written, so a
+store from any earlier version opens. Filter values are always bound, never
+interpolated.
