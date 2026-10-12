@@ -1,7 +1,7 @@
 # Schemas: every schema's tables, and completion that knows them
 
 Date: 2026-10-12
-Status: approved, not built
+Status: built
 Issue: VheissuLabs/tql#5
 Release: 0.14.0, first of three parts (schemas, then DuckDB, libSQL/Turso and
 ClickHouse, then Redis/Valkey, each with its own spec)

@@ -624,6 +624,13 @@ mean anything in another database.
 
 A SQLite connection is one file, so `b` says as much and does nothing.
 
+On Postgres and SQL Server, the table list shows every schema, not only your
+default one. Each schema is a header you fold with `↵`, `h` and `l`; yours comes
+first and open, the rest folded, and tql remembers what you fold. A table
+outside your default schema is called `schema.table` everywhere: in the grid,
+the palette, `tql tables`, `tql describe`, `tql export` and the MCP tools, and
+completion offers it that way. `/` searches every schema at once.
+
 ## Databases behind SSH
 
 A connection can reach its database through an SSH tunnel. Set **SSH host** on

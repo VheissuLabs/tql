@@ -4,6 +4,19 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## Unreleased
+
+### New Features
+
+- Postgres and SQL Server list the tables of every schema under folding
+  headers, remembered per connection and database, and name a table outside
+  your default schema `schema.table` everywhere: the grid, the palette, links,
+  exports, `tql tables`, `tql describe`, `tql export` and the MCP tools.
+- Completion offers schemas and the tables in them, narrows to a schema after
+  `schema.`, and completes the columns of `schema.table` and its alias.
+
+---
+
 ## 0.13.2
 
 ### New Features

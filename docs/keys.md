@@ -16,7 +16,8 @@ does where it does not. **They can be changed**, see [Rebinding](#rebinding).
 | `↑ ↓` / `j k` | move the cursor; a count before it moves that far, so `5j` is five rows and `3l` three columns |
 | `← →` / `h l` | move between columns; `→` from the table list moves to the grid |
 | `n` / `p` | next or previous page, 100 rows |
-| `↵` | open the table, or edit the cell |
+| `↵` | open the table, or edit the cell; on a schema header, fold or unfold it |
+| `h` / `l` on a schema header | fold or unfold the schema; `h` on a table folds the schema it is in |
 | `i` | inspect the row: its fields and its related records |
 | `I` | view just this value in a modal, read only |
 | `e` | edit the value |
