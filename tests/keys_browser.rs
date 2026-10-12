@@ -393,7 +393,7 @@ fn shows_each_type_in_the_value_pane() {
 
     fake.app.open_key("config");
     assert!(
-        fake.screen().contains("\"debug\": true"),
+        fake.screen().contains("    \"debug\": true"),
         "{}",
         fake.screen()
     );

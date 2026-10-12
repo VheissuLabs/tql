@@ -68,6 +68,13 @@ pub fn parse(dsn: &str) -> Option<Dsn> {
     let host = (!host.is_empty()).then(|| host.to_string());
     let name = match query_value(query, "name").filter(|name| !name.is_empty()) {
         Some(name) => name,
+        None if driver == Driver::Redis => {
+            let place = host.clone().unwrap_or_else(|| "localhost".to_string());
+            match database {
+                "" | "0" => place,
+                number => format!("{place} db{number}"),
+            }
+        }
         None => name_for(host.as_deref(), database),
     };
 
@@ -268,6 +275,8 @@ mod tests {
         assert_eq!(plain.port, Some(6380));
         assert_eq!(plain.database.as_deref(), Some("2"));
         assert_eq!(plain.password.as_deref(), Some("secret"));
+        assert_eq!(plain.name, "cache.local db2");
+        assert_eq!(parse("redis://localhost/0").unwrap().name, "localhost");
 
         let secure = parse("rediss://default:pw@redis.cloud").unwrap();
         assert_eq!(secure.driver, Driver::Redis);

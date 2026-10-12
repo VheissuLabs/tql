@@ -213,9 +213,16 @@ impl KeyBrowser {
             true => json::pretty(text),
             false => text.to_string(),
         };
-        wrap(&shown, room.max(10))
-            .into_iter()
-            .map(|line| Line::raw(format!(" {line}")))
+        shown
+            .lines()
+            .flat_map(|line| {
+                let indent = line.len() - line.trim_start().len();
+                let lead = &line[..indent];
+                wrap(line.trim_start(), room.saturating_sub(indent).max(10))
+                    .into_iter()
+                    .map(move |part| Line::raw(format!(" {lead}{part}")))
+                    .collect::<Vec<_>>()
+            })
             .collect()
     }
 
