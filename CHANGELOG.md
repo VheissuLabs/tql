@@ -13,7 +13,8 @@ announcement under `release-notes/` for GitHub.
   your default schema `schema.table` everywhere: the grid, the palette, links,
   exports, `tql tables`, `tql describe`, `tql export` and the MCP tools.
 - Completion offers schemas and the tables in them, narrows to a schema after
-  `schema.`, and completes the columns of `schema.table` and its alias.
+  `schema.`, and completes the columns of `schema.table` and its alias
+  ([#5](https://github.com/VheissuLabs/tql/issues/5)).
 - DuckDB files open in tql, with their schemas, every DuckDB type shown
   readably, and editing by primary key.
 - libSQL and Turso connections, by URL and auth token, over Turso's HTTP API,
