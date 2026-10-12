@@ -4,6 +4,31 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## 0.13.1
+
+### New Features
+
+- Show or hide the SQL editor from the ctrl+k palette or with `|`, next to `\`
+  for the table list. Hiding it holds even with `sql_always` on, until you show
+  it again or quit; rebind it as `toggle_sql`.
+
+### Enhancements
+
+- Editing a setting starts with its value selected, so typing replaces it,
+  backspace clears it and ← → keep it to edit in place.
+- The palette lists tables, rows, reload and query history once each, as the
+  keyed action with its shortcut.
+
+### Bug Fixes
+
+- Editing a setting shows the terminal's own cursor after the value, on a row
+  that keeps its highlight, so it shows whatever the theme colours.
+- The record inspector lines up wide characters (Chinese, Japanese, emoji) by
+  the columns they take.
+- A setting's description breaks a word too long for the line.
+
+---
+
 ## 0.13.0
 
 ### New Features
