@@ -143,9 +143,19 @@ impl Browser {
         !self.query.results && self.row_index < self.edits.inserts.len()
     }
 
-    fn why_read_only(&self) -> Option<String> {
+    pub(super) fn refuses_writes(&self) -> Option<&'static str> {
         if self.connection.read_only {
-            return Some(READ_ONLY.to_string());
+            return Some(READ_ONLY);
+        }
+        if !self.connection.driver.edits_rows() {
+            return Some(crate::database::clickhouse::READ_ONLY);
+        }
+        None
+    }
+
+    fn why_read_only(&self) -> Option<String> {
+        if let Some(refusal) = self.refuses_writes() {
+            return Some(refusal.to_string());
         }
         if self.query.results {
             return Some("query results have no row to write back to".to_string());

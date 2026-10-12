@@ -1,3 +1,4 @@
+pub mod clickhouse;
 mod column_default;
 mod duckdb;
 mod exporter;
@@ -397,9 +398,9 @@ pub fn connect(
         )?)),
         Driver::Mysql => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
         Driver::Libsql => Ok(Box::new(libsql::Libsql::open(connection, password)?)),
-        Driver::Clickhouse => {
-            bail!("{} is not ready in this build", connection.driver.label())
-        }
+        Driver::Clickhouse => Ok(Box::new(clickhouse::ClickHouse::open(
+            connection, password, tunnel,
+        )?)),
         Driver::Sqlite | Driver::Duckdb => bail!("a file connection opened as a server"),
     }
 }

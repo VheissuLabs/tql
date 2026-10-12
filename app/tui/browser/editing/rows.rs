@@ -11,8 +11,8 @@ impl Browser {
             self.say("no primary key on this table, so a row cannot be deleted safely");
             return;
         }
-        if self.connection.read_only {
-            self.say(READ_ONLY);
+        if let Some(refusal) = self.refuses_writes() {
+            self.say(refusal);
             return;
         }
         self.focus = Focus::Grid;
@@ -117,8 +117,8 @@ impl Browser {
             self.say("no table to add to");
             return;
         };
-        if self.connection.read_only {
-            self.say(READ_ONLY);
+        if let Some(refusal) = self.refuses_writes() {
+            self.say(refusal);
             return;
         }
         let columns = self.columns();
