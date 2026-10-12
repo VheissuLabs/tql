@@ -12,7 +12,8 @@ use crate::tui::statements;
 use crate::tui::vim::Vim;
 
 static FROM_TABLE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?i)\bfrom\s+[`"\[]?([A-Za-z0-9_]+)"#).expect("the from pattern is valid")
+    Regex::new(r#"(?i)\bfrom\s+((?:[`"\[]?[A-Za-z0-9_]+[`"\]]?\.)?[`"\[]?[A-Za-z0-9_]+[`"\]]?)"#)
+        .expect("the from pattern is valid")
 });
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -30,7 +31,7 @@ pub struct Query {
     pub completion: Option<Completion>,
     pub vim: Vim,
     last_edit: Option<EditKind>,
-    columns: HashMap<String, Vec<String>>,
+    columns: HashMap<Table, Vec<String>>,
 }
 
 impl Default for Query {
@@ -55,13 +56,13 @@ impl Query {
 
 struct Cached<'a> {
     database: &'a mut dyn Database,
-    columns: &'a mut HashMap<String, Vec<String>>,
+    columns: &'a mut HashMap<Table, Vec<String>>,
 }
 
 impl Lookup for Cached<'_> {
-    fn columns(&mut self, table: &str) -> Vec<String> {
+    fn columns(&mut self, table: &Table) -> Vec<String> {
         self.columns
-            .entry(table.to_string())
+            .entry(table.clone())
             .or_insert_with(|| self.database.column_names(table).unwrap_or_default())
             .clone()
     }
@@ -204,7 +205,7 @@ impl Browser {
             cursor,
             Schema {
                 tables: &self.tables,
-                open: open.as_deref(),
+                open: open.as_ref(),
                 lookup: &mut Cached {
                     database: self.database.as_mut(),
                     columns: &mut self.query.columns,
@@ -369,11 +370,17 @@ impl Browser {
         let Some(captures) = FROM_TABLE.captures(statement) else {
             return;
         };
-        let named = &captures[1];
+        let Some(named) = Table::resolve(
+            &captures[1],
+            &self.tables,
+            self.database.default_schema().as_deref(),
+        ) else {
+            return;
+        };
         let Some(index) = self
             .visible_tables()
             .iter()
-            .position(|table| *table == named)
+            .position(|table| **table == named)
         else {
             return;
         };
@@ -381,7 +388,7 @@ impl Browser {
             self.edits.forget();
         }
         self.table_index = index;
-        self.query.table = Some(named.to_string());
+        self.query.table = Some(named);
     }
 
     pub(super) fn back_to_table(&mut self) {

@@ -190,6 +190,7 @@ impl Browser {
         let back = if self.query.results {
             let table = self
                 .current_table()
+                .map(|table| table.to_string())
                 .unwrap_or_else(|| "the table".to_string());
             format!(" · esc goes back to {table}")
         } else {
