@@ -292,9 +292,10 @@ impl Browser {
     }
 
     pub fn current_table(&self) -> Option<Table> {
-        match self.sidebar_rows().get(self.table_index)? {
-            SidebarRow::Table(table) => Some((*table).clone()),
-            SidebarRow::Schema { .. } => None,
+        match self.sidebar_rows().get(self.table_index) {
+            Some(SidebarRow::Table(table)) => Some((*table).clone()),
+            Some(SidebarRow::Schema { .. }) => self.loaded.clone(),
+            None => None,
         }
     }
 

@@ -12,33 +12,59 @@ use app::tui::Browser;
 #[derive(Clone, Default)]
 struct Server {
     current: Arc<Mutex<String>>,
+    default: Arc<Mutex<Option<String>>>,
     links: HashMap<Table, Vec<ForeignKey>>,
+    extra: Vec<Table>,
 }
 
 struct Schemas {
     server: Server,
 }
 
-fn tables_of(database: &str) -> Vec<Table> {
-    match database {
-        "two" => vec![Table::bare("a"), Table::bare("b")],
+fn tables_of(database: &str, default: &str, extra: &[Table]) -> Vec<Table> {
+    let all = match database {
+        "two" => vec![
+            Table::in_schema("public", "a"),
+            Table::in_schema("public", "b"),
+        ],
         _ => vec![
-            Table::bare("customers"),
-            Table::bare("orders"),
+            Table::in_schema("public", "customers"),
+            Table::in_schema("public", "orders"),
             Table::in_schema("cp", "authorization"),
             Table::in_schema("ev", "evaluation"),
             Table::in_schema("ev", "orders"),
         ],
+    };
+    all.into_iter()
+        .chain(extra.iter().cloned())
+        .map(|table| match table.schema.as_deref() == Some(default) {
+            true => Table::bare(table.name),
+            false => table,
+        })
+        .collect()
+}
+
+impl Server {
+    fn default_name(&self) -> String {
+        self.default
+            .lock()
+            .unwrap()
+            .clone()
+            .unwrap_or_else(|| "public".to_string())
     }
 }
 
 impl Database for Schemas {
     fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
-        Ok(tables_of(&self.server.current.lock().unwrap()))
+        Ok(tables_of(
+            &self.server.current.lock().unwrap(),
+            &self.server.default_name(),
+            &self.server.extra,
+        ))
     }
 
     fn default_schema(&mut self) -> Option<String> {
-        Some("public".to_string())
+        Some(self.server.default_name())
     }
 
     fn filtered_rows(
@@ -90,7 +116,18 @@ impl Database for Schemas {
         Ok(self.server.links.clone())
     }
 
-    fn run(&mut self, _: &str) -> anyhow::Result<Outcome> {
+    fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        if let Some(schema) = statement.strip_prefix("set search_path to ") {
+            *self.server.default.lock().unwrap() = Some(schema.trim().to_string());
+            return Ok(Outcome::default());
+        }
+        if statement.starts_with("select") {
+            return Ok(Outcome {
+                headers: vec!["id".to_string()],
+                rows: vec![vec![Some("1".to_string())]],
+                ..Outcome::default()
+            });
+        }
         Ok(Outcome::default())
     }
 
@@ -347,4 +384,53 @@ fn the_palette_hints_a_tables_schema() {
         .next()
         .unwrap();
     assert_eq!(hint, "ev", "{line}");
+}
+
+#[test]
+fn a_query_on_a_table_in_a_folded_schema_still_knows_its_table() {
+    let mut fake = browser();
+    fake.press("s")
+        .press("select * from ev.orders")
+        .press("\x12");
+    fake.settle();
+    assert_eq!(fake.app.query.table, Some(Table::in_schema("ev", "orders")));
+}
+
+#[test]
+fn folding_the_schema_of_the_open_table_keeps_that_table_open() {
+    let mut fake = browser();
+    fake.settle();
+    fake.press("h");
+    assert_eq!(fake.app.current_table(), Some(Table::bare("customers")));
+    assert!(fake.screen().contains("[2] customers"), "{}", fake.screen());
+}
+
+#[test]
+fn changing_the_search_path_in_the_editor_rereads_the_tables() {
+    let mut fake = browser();
+    fake.press("s").press("set search_path to ev").press("\x12");
+    fake.settle();
+    assert!(
+        fake.app.tables.contains(&Table::bare("evaluation")),
+        "{:?}",
+        fake.app.tables
+    );
+    assert!(
+        fake.app
+            .tables
+            .contains(&Table::in_schema("public", "orders"))
+    );
+}
+
+#[test]
+fn the_palette_opens_a_table_whose_name_has_a_dot() {
+    let mut fake = browser_on(Server {
+        extra: vec![Table::in_schema("ev", "my.table")],
+        ..Server::default()
+    });
+    fake.press("\x0bmy.table\n");
+    assert_eq!(
+        fake.app.current_table(),
+        Some(Table::in_schema("ev", "my.table"))
+    );
 }

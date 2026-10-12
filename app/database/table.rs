@@ -46,14 +46,22 @@ impl Table {
         let schema = wanted
             .schema
             .filter(|schema| default_schema.is_none_or(|default| !same(schema, default)));
-        if let Some(found) = tables.iter().find(|table| {
-            same(&table.name, &wanted.name)
-                && match (&table.schema, &schema) {
-                    (None, None) => true,
-                    (Some(left), Some(right)) => same(left, right),
-                    _ => false,
-                }
-        }) {
+        let here = |table: &&Table| match (&table.schema, &schema) {
+            (None, None) => true,
+            (Some(left), Some(right)) => same(left, right),
+            _ => false,
+        };
+        if let Some(found) = tables
+            .iter()
+            .filter(here)
+            .find(|table| table.name == wanted.name)
+            .or_else(|| {
+                tables
+                    .iter()
+                    .filter(here)
+                    .find(|table| same(&table.name, &wanted.name))
+            })
+        {
             return Some(found.clone());
         }
         if schema.is_some() {
@@ -113,9 +121,14 @@ impl From<&str> for Table {
 pub fn split_name(typed: &str) -> Vec<String> {
     let mut parts = vec![String::new()];
     let mut closing: Option<char> = None;
-    for character in typed.chars() {
+    let mut characters = typed.chars().peekable();
+    while let Some(character) = characters.next() {
         let part = parts.last_mut().expect("there is always a part");
         match closing {
+            Some(close) if character == close && characters.peek() == Some(&close) => {
+                characters.next();
+                part.push(close);
+            }
             Some(close) if character == close => closing = None,
             Some(_) => part.push(character),
             None => match character {
@@ -200,6 +213,28 @@ mod tests {
             Some(Table::in_schema("ev", "evaluation"))
         );
         assert_eq!(resolve("nowhere"), None);
+    }
+
+    #[test]
+    fn an_exact_name_wins_over_one_that_differs_only_in_case() {
+        let tables = [Table::bare("Users"), Table::bare("users")];
+
+        assert_eq!(
+            Table::resolve("users", &tables, Some("public")),
+            Some(Table::bare("users"))
+        );
+        assert_eq!(
+            Table::resolve("USERS", &tables, Some("public")),
+            Some(Table::bare("Users"))
+        );
+    }
+
+    #[test]
+    fn reads_a_doubled_quote_inside_a_quoted_name() {
+        assert_eq!(
+            Table::parse("\"say \"\"hi\"\"\".t"),
+            Some(Table::in_schema("say \"hi\"", "t"))
+        );
     }
 
     #[test]

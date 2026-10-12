@@ -95,7 +95,7 @@ impl Browser {
             return;
         }
         self.table_index = index;
-        if self.current_table().is_none() {
+        if self.schema_here().is_some() {
             return;
         }
         self.offset = 0;
@@ -111,7 +111,7 @@ impl Browser {
             return;
         }
         self.table_index = self.table_index.min(count - 1);
-        if self.current_table().is_none() {
+        if self.schema_here().is_some() {
             self.table_index = self.first_table_row();
         }
         self.offset = 0;

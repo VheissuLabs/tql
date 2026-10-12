@@ -433,3 +433,17 @@ fn agent_commands_are_never_taken_for_a_file_to_open() {
         );
     }
 }
+
+#[test]
+fn describes_a_view_as_well_as_a_table() {
+    let scratch = Scratch::shop("describe-view");
+    rusqlite::Connection::open(scratch.root.join("shop.sqlite"))
+        .unwrap()
+        .execute_batch("create view named as select id, name from users")
+        .unwrap();
+
+    let described = json_of(&tql(&["describe", "shop", "named", "--json"]));
+
+    assert_eq!(described["table"], "named");
+    assert_eq!(described["columns"].as_array().unwrap().len(), 2);
+}

@@ -405,7 +405,11 @@ impl Database for Postgres {
     }
 
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
-        if statement.to_lowercase().contains("search_path") {
+        let lowered = statement.to_lowercase();
+        if ["search_path", "set schema", "discard"]
+            .iter()
+            .any(|word| lowered.contains(word))
+        {
             self.default = None;
         }
         let (headers, mut rows, affected) = self.simple(statement)?;

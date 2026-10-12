@@ -311,6 +311,10 @@ impl Browser {
             self.schema.forget();
             self.query.forget_schema();
             self.keys = self.database.primary_keys().unwrap_or_default();
+            if self.database.default_schema() != self.default_schema {
+                self.recall_folds();
+                self.reload();
+            }
         }
         let error = ran.as_ref().err().map(|error| error.to_string());
         let counted = ran
@@ -384,7 +388,7 @@ impl Browser {
         ) else {
             return;
         };
-        let Some(index) = self.row_of(&named) else {
+        let Some(index) = self.reveal(&named) else {
             return;
         };
         if index != self.table_index {

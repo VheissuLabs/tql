@@ -69,7 +69,9 @@ impl Agent {
         let mut database = self.open(&connection).with_context(failed)?;
         let listed = database.tables().with_context(failed)?;
         let default_schema = database.default_schema();
-        let Some(table) = Table::resolve(table, &listed, default_schema.as_deref()) else {
+        let Some(table) = Table::resolve(table, &listed, default_schema.as_deref())
+            .or_else(|| Table::parse(table))
+        else {
             bail!("Table [{table}] has no columns, or does not exist.");
         };
         let columns = database.columns(&table).with_context(failed)?;

@@ -57,7 +57,7 @@ impl Browser {
                 Kind::Table,
                 table,
                 table.schema.as_deref().unwrap_or("table"),
-                table,
+                table.quoted(|part| format!("\"{}\"", part.replace('"', "\"\""))),
             )
         });
 
