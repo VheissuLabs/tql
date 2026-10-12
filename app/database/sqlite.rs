@@ -54,12 +54,92 @@ fn generated_as(created: &str, column: &str) -> Option<String> {
         .map(|found| found[1].to_string())
 }
 
+pub(crate) const TABLES: &str = "select name from pragma_table_list where type in ('table', 'virtual') \
+     and name not like 'sqlite\\_%' escape '\\' order by schema, name";
+
+pub(crate) const KEY_COLUMNS: &str = "select m.name, p.name from sqlite_master m join pragma_table_info(m.name) p \
+     where m.type = 'table' and p.pk > 0 order by m.name, p.pk";
+
+pub(crate) const COLUMNS: &str = "select name, type, not \"notnull\" as \"nullable\", dflt_value as \"default\", pk as \"primary\", \
+     hidden as \"extra\" from pragma_table_xinfo(?1, 'main') order by cid asc";
+
+pub(crate) const CREATED: &str = "select sql from sqlite_master where type = 'table' and name = ?1";
+
+pub(crate) const INDEXES: &str = "select 'primary' as name, group_concat(col) as columns, 1 as \"unique\", 1 as \"primary\" \
+     from (select name as col from pragma_table_xinfo(?1, 'main') where pk > 0 order by pk, cid) group by name \
+     union select name, group_concat(col) as columns, \"unique\", origin = 'pk' as \"primary\" \
+     from (select il.*, ii.name as col from pragma_index_list(?1, 'main') il, pragma_index_info(il.name, 'main') ii \
+     order by il.seq, ii.seqno) group by name, \"unique\", \"primary\"";
+
+pub(crate) const FOREIGN_KEYS: &str = "select owner, group_concat(\"from\"), \"table\", group_concat(\"to\") from ( \
+     select m.name as owner, f.* from sqlite_master m join pragma_foreign_key_list(m.name) f \
+     where m.type = 'table' order by m.name, f.id desc, f.seq) \
+     group by owner, id, \"table\" order by owner, id";
+
+pub(crate) fn columns_of(rows: Vec<Vec<Option<String>>>, created: &str) -> Vec<Column> {
+    let keyed = rows
+        .iter()
+        .filter(|row| row[4].as_deref() != Some("0"))
+        .count()
+        == 1;
+
+    rows.into_iter()
+        .map(|mut row| {
+            let declared = row[1].take().unwrap_or_default().to_lowercase();
+            let primary = row[4].as_deref() != Some("0");
+            let name = row[0].take().unwrap_or_default();
+            let generation = match row[5].as_deref() {
+                Some("2") => Some("virtual"),
+                Some("3") => Some("stored"),
+                _ => None,
+            }
+            .map(|kind| Generation {
+                kind: Some(kind.to_string()),
+                expression: generated_as(created, &name),
+            });
+            Column {
+                type_name: declared
+                    .trim_start_matches('(')
+                    .split('(')
+                    .next()
+                    .unwrap_or_default()
+                    .to_string(),
+                nullable: row[2].as_deref() == Some("1"),
+                default: row[3].take(),
+                auto_increment: keyed && primary && declared == "integer",
+                collation: collated(created, &name),
+                comment: None,
+                generation,
+                full_type: declared,
+                name,
+            }
+        })
+        .collect()
+}
+
+pub(crate) fn indexes_of(rows: Vec<Vec<Option<String>>>) -> Vec<Index> {
+    let indexes: Vec<Index> = rows
+        .into_iter()
+        .map(|mut row| Index {
+            name: row[0].take().unwrap_or_default().to_lowercase(),
+            columns: split_list(row[1].take()),
+            unique: row[2].as_deref() == Some("1"),
+            primary: row[3].as_deref() == Some("1"),
+        })
+        .collect();
+
+    if indexes.iter().filter(|index| index.primary).count() > 1 {
+        return indexes
+            .into_iter()
+            .filter(|index| index.name != "primary")
+            .collect();
+    }
+    indexes
+}
+
 impl Database for Sqlite {
     fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
-        let mut statement = self.connection.prepare(
-            "select name from pragma_table_list where type in ('table', 'virtual') \
-             and name not like 'sqlite\\_%' escape '\\' order by schema, name",
-        )?;
+        let mut statement = self.connection.prepare(TABLES)?;
         let names = statement.query_map([], |row| row.get::<_, String>(0).map(Table::bare))?;
         Ok(names.collect::<Result<_, _>>()?)
     }
@@ -144,10 +224,7 @@ impl Database for Sqlite {
     }
 
     fn key_columns(&mut self) -> anyhow::Result<HashMap<Table, Vec<String>>> {
-        let mut statement = self.connection.prepare(
-            "select m.name, p.name from sqlite_master m join pragma_table_info(m.name) p \
-             where m.type = 'table' and p.pk > 0 order by m.name, p.pk",
-        )?;
+        let mut statement = self.connection.prepare(KEY_COLUMNS)?;
         let pairs = statement
             .query_map([], |row| {
                 Ok((Table::bare(row.get::<_, String>(0)?), row.get(1)?))
@@ -171,103 +248,27 @@ impl Database for Sqlite {
 
     fn columns(&mut self, table: &Table) -> anyhow::Result<Vec<Column>> {
         let rows = self
-            .select(
-                "select name, type, not \"notnull\" as \"nullable\", dflt_value as \"default\", pk as \"primary\", \
-                 hidden as \"extra\" from pragma_table_xinfo(?, 'main') order by cid asc",
-                std::slice::from_ref(&table.name),
-            )?
+            .select(COLUMNS, std::slice::from_ref(&table.name))?
             .rows;
         let created = self
-            .select(
-                "select sql from sqlite_master where type = 'table' and name = ?",
-                std::slice::from_ref(&table.name),
-            )?
+            .select(CREATED, std::slice::from_ref(&table.name))?
             .rows
             .into_iter()
             .next()
             .and_then(|mut row| row[0].take())
             .unwrap_or_default();
-        let keyed = rows
-            .iter()
-            .filter(|row| row[4].as_deref() != Some("0"))
-            .count()
-            == 1;
-
-        Ok(rows
-            .into_iter()
-            .map(|mut row| {
-                let declared = row[1].take().unwrap_or_default().to_lowercase();
-                let primary = row[4].as_deref() != Some("0");
-                let name = row[0].take().unwrap_or_default();
-                let generation = match row[5].as_deref() {
-                    Some("2") => Some("virtual"),
-                    Some("3") => Some("stored"),
-                    _ => None,
-                }
-                .map(|kind| Generation {
-                    kind: Some(kind.to_string()),
-                    expression: generated_as(&created, &name),
-                });
-                Column {
-                    type_name: declared
-                        .trim_start_matches('(')
-                        .split('(')
-                        .next()
-                        .unwrap_or_default()
-                        .to_string(),
-                    nullable: row[2].as_deref() == Some("1"),
-                    default: row[3].take(),
-                    auto_increment: keyed && primary && declared == "integer",
-                    collation: collated(&created, &name),
-                    comment: None,
-                    generation,
-                    full_type: declared,
-                    name,
-                }
-            })
-            .collect())
+        Ok(columns_of(rows, &created))
     }
 
     fn indexes(&mut self, table: &Table) -> anyhow::Result<Vec<Index>> {
         let rows = self
-            .select(
-                "select 'primary' as name, group_concat(col) as columns, 1 as \"unique\", 1 as \"primary\" \
-                 from (select name as col from pragma_table_xinfo(?1, 'main') where pk > 0 order by pk, cid) group by name \
-                 union select name, group_concat(col) as columns, \"unique\", origin = 'pk' as \"primary\" \
-                 from (select il.*, ii.name as col from pragma_index_list(?1, 'main') il, pragma_index_info(il.name, 'main') ii \
-                 order by il.seq, ii.seqno) group by name, \"unique\", \"primary\"",
-                std::slice::from_ref(&table.name),
-            )?
+            .select(INDEXES, std::slice::from_ref(&table.name))?
             .rows;
-        let indexes: Vec<Index> = rows
-            .into_iter()
-            .map(|mut row| Index {
-                name: row[0].take().unwrap_or_default().to_lowercase(),
-                columns: split_list(row[1].take()),
-                unique: row[2].as_deref() == Some("1"),
-                primary: row[3].as_deref() == Some("1"),
-            })
-            .collect();
-
-        if indexes.iter().filter(|index| index.primary).count() > 1 {
-            return Ok(indexes
-                .into_iter()
-                .filter(|index| index.name != "primary")
-                .collect());
-        }
-        Ok(indexes)
+        Ok(indexes_of(rows))
     }
 
     fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>> {
-        let rows = self
-            .select(
-                "select owner, group_concat(\"from\"), \"table\", group_concat(\"to\") from ( \
-                 select m.name as owner, f.* from sqlite_master m join pragma_foreign_key_list(m.name) f \
-                 where m.type = 'table' order by m.name, f.id desc, f.seq) \
-                 group by owner, id, \"table\" order by owner, id",
-                &[],
-            )?
-            .rows;
+        let rows = self.select(FOREIGN_KEYS, &[])?.rows;
 
         let mut keys = keys_by_table(rows);
         for key in keys.values_mut().flatten() {
@@ -279,7 +280,6 @@ impl Database for Sqlite {
         }
         Ok(keys)
     }
-
     fn highest(&mut self, table: &Table, column: &str) -> anyhow::Result<Option<String>> {
         let sql = format!(
             "select max({}) from {}",

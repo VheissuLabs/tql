@@ -2,7 +2,9 @@ mod column_default;
 mod duckdb;
 mod exporter;
 mod filters;
+mod http;
 mod lexed;
+mod libsql;
 mod mysql;
 pub mod order_by;
 mod postgres;
@@ -394,7 +396,8 @@ pub fn connect(
             connection, password, tunnel,
         )?)),
         Driver::Mysql => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
-        Driver::Libsql | Driver::Clickhouse => {
+        Driver::Libsql => Ok(Box::new(libsql::Libsql::open(connection, password)?)),
+        Driver::Clickhouse => {
             bail!("{} is not ready in this build", connection.driver.label())
         }
         Driver::Sqlite | Driver::Duckdb => bail!("a file connection opened as a server"),
