@@ -21,7 +21,7 @@ mod input;
 mod render;
 mod save;
 
-pub const DRIVERS: [&str; 7] = [
+pub const DRIVERS: [&str; 8] = [
     Driver::Sqlite.name(),
     Driver::Mysql.name(),
     Driver::Pgsql.name(),
@@ -29,6 +29,7 @@ pub const DRIVERS: [&str; 7] = [
     Driver::Duckdb.name(),
     Driver::Libsql.name(),
     Driver::Clickhouse.name(),
+    Driver::Redis.name(),
 ];
 pub const SSL_MODES: [&str; 6] = [
     "",

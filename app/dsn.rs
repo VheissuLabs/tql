@@ -43,10 +43,11 @@ pub fn parse(dsn: &str) -> Option<Dsn> {
     {
         return Some(libsql(&lowered, rest));
     }
-    let tls = lowered == "clickhouses";
-    let driver = match tls {
-        true => Driver::Clickhouse,
-        false => driver_for(&lowered)?,
+    let tls = matches!(lowered.as_str(), "clickhouses" | "rediss" | "valkeys");
+    let driver = match lowered.as_str() {
+        "clickhouses" => Driver::Clickhouse,
+        "rediss" | "valkeys" => Driver::Redis,
+        other => driver_for(other)?,
     };
 
     if driver.is_file() {
@@ -74,9 +75,9 @@ pub fn parse(dsn: &str) -> Option<Dsn> {
         name,
         driver,
         host: Some(host.unwrap_or_else(|| "127.0.0.1".to_string())),
-        port: port.or(match tls {
-            true => Some(8443),
-            false => driver.default_port(),
+        port: port.or(match (tls, driver) {
+            (true, Driver::Clickhouse) => Some(8443),
+            _ => driver.default_port(),
         }),
         ssl_mode: tls.then(|| "require".to_string()),
         database: (!database.is_empty()).then(|| decode(database, false)),
@@ -258,6 +259,26 @@ mod tests {
         assert_eq!(secure.name, "Shop");
 
         assert_eq!(parse("https://example.com/page"), None);
+    }
+
+    #[test]
+    fn reads_redis_and_valkey_urls_with_their_database_number() {
+        let plain = parse("redis://:secret@cache.local:6380/2").unwrap();
+        assert_eq!(plain.driver, Driver::Redis);
+        assert_eq!(plain.port, Some(6380));
+        assert_eq!(plain.database.as_deref(), Some("2"));
+        assert_eq!(plain.password.as_deref(), Some("secret"));
+
+        let secure = parse("rediss://default:pw@redis.cloud").unwrap();
+        assert_eq!(secure.driver, Driver::Redis);
+        assert_eq!(secure.port, Some(6379));
+        assert_eq!(secure.ssl_mode.as_deref(), Some("require"));
+
+        assert_eq!(parse("valkey://localhost").unwrap().driver, Driver::Redis);
+        assert_eq!(
+            parse("valkeys://localhost").unwrap().ssl_mode.as_deref(),
+            Some("require")
+        );
     }
 
     #[test]

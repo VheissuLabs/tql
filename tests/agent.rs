@@ -447,3 +447,20 @@ fn describes_a_view_as_well_as_a_table() {
     assert_eq!(described["table"], "named");
     assert_eq!(described["columns"].as_array().unwrap().len(), 2);
 }
+
+#[test]
+fn says_a_redis_connection_is_not_a_sql_database() {
+    let _scratch = Scratch::new("redis");
+    tql(&["open", "redis://127.0.0.1:1/0", "--name=cache", "--peek"]);
+    tql(&["open", "redis://127.0.0.1:1/0", "--name=cache"]);
+
+    let refused = tql(&["tables", "cache"]);
+
+    assert_eq!(refused.code, 1, "{refused:?}");
+    assert!(
+        refused
+            .stderr
+            .contains("a Redis connection is not a SQL database"),
+        "{refused:?}"
+    );
+}

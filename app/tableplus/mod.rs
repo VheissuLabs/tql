@@ -340,6 +340,7 @@ fn driver_for(table_plus_driver: &str) -> Option<Driver> {
         "SQLServer" => Some(Driver::Sqlsrv),
         "ClickHouse" => Some(Driver::Clickhouse),
         "DuckDB" => Some(Driver::Duckdb),
+        "Redis" => Some(Driver::Redis),
         _ => None,
     }
 }
@@ -376,5 +377,6 @@ mod tests {
     fn maps_tableplus_clickhouse_and_duckdb() {
         assert_eq!(driver_for("ClickHouse"), Some(Driver::Clickhouse));
         assert_eq!(driver_for("DuckDB"), Some(Driver::Duckdb));
+        assert_eq!(driver_for("Redis"), Some(Driver::Redis));
     }
 }
