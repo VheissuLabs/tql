@@ -8,7 +8,7 @@ use crate::paths;
 use crate::settings;
 use crate::terminal::prelude::*;
 use crate::tui::chrome::{Island, Modal, theme};
-use crate::tui::text::{pad, truncate, typed, width, window};
+use crate::tui::text::{pad, truncate, typed, width, window, wrap};
 
 const WIDTH: u16 = 84;
 const NAME_WIDTH: usize = 30;
@@ -43,22 +43,6 @@ fn described(setting: &Setting) -> String {
     lines.join(" ")
 }
 
-fn wrapped(text: &str, room: usize) -> Vec<String> {
-    let mut lines = vec![String::new()];
-    for word in text.split_whitespace() {
-        let last = lines.last_mut().expect("there is always a line");
-        if !last.is_empty() && width(last) + 1 + width(word) > room {
-            lines.push(word.to_string());
-        } else {
-            if !last.is_empty() {
-                last.push(' ');
-            }
-            last.push_str(word);
-        }
-    }
-    lines
-}
-
 impl SettingsModal {
     pub fn draw(
         &self,
@@ -73,7 +57,7 @@ impl SettingsModal {
 
         let selected = self.current();
         let description = match selected {
-            Some(Row::Setting(setting)) => wrapped(&described(setting), inner_width),
+            Some(Row::Setting(setting)) => wrap(&described(setting), inner_width),
             Some(Row::Header(section)) => {
                 vec![format!("{} settings · ↵ folds them", title(section))]
             }

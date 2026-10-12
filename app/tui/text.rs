@@ -104,6 +104,30 @@ pub fn pasted(text: &str) -> String {
         .collect()
 }
 
+pub fn wrap(text: &str, room: usize) -> Vec<String> {
+    let room = room.max(1);
+    let mut lines = Vec::new();
+    for paragraph in text.split('\n') {
+        let mut line = String::new();
+        for word in paragraph.split(' ') {
+            if !line.is_empty() && width(&line) + 1 + width(word) > room {
+                lines.push(std::mem::take(&mut line));
+            } else if !line.is_empty() {
+                line.push(' ');
+            }
+            for character in word.chars() {
+                let character_width = character.width().unwrap_or(0);
+                if width(&line) + character_width > room && !line.is_empty() {
+                    lines.push(std::mem::take(&mut line));
+                }
+                line.push(character);
+            }
+        }
+        lines.push(line);
+    }
+    lines
+}
+
 pub fn sentence(text: &str) -> String {
     let mut characters = text.chars();
     characters
@@ -119,6 +143,31 @@ pub fn single_line(text: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wraps_at_spaces_and_cuts_words_longer_than_the_room() {
+        assert_eq!(
+            wrap("no such table: nowhere\n\nselect * from nowhere", 12),
+            [
+                "no such",
+                "table:",
+                "nowhere",
+                "",
+                "select *",
+                "from nowhere"
+            ]
+        );
+        assert_eq!(
+            wrap(&"x".repeat(25), 10),
+            ["xxxxxxxxxx", "xxxxxxxxxx", "xxxxx"]
+        );
+    }
+
+    #[test]
+    fn wraps_wide_characters_by_the_columns_they_take() {
+        assert_eq!(wrap("東京都 大阪府", 6), ["東京都", "大阪府"]);
+        assert_eq!(wrap("東京都庁舎", 4), ["東京", "都庁", "舎"]);
+    }
 
     #[test]
     fn a_sentence_starts_with_a_capital() {

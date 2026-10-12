@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use super::text::{self, pad, truncate};
+
 pub type Row = Vec<(String, String)>;
 
 const CELL_FLOOR: usize = 8;
@@ -199,8 +201,8 @@ impl RowDocument {
             .iter()
             .map(|column| {
                 rows.iter()
-                    .map(|row| length(&value_of(row, column)))
-                    .fold(length(column), usize::max)
+                    .map(|row| text::width(&value_of(row, column)))
+                    .fold(text::width(column), usize::max)
             })
             .collect();
         let cap = cap(&natural, width);
@@ -210,7 +212,7 @@ impl RowDocument {
             cells
                 .iter()
                 .zip(&widths)
-                .map(|(cell, width)| pad(&clamp(cell, *width), *width))
+                .map(|(cell, width)| pad(&truncate(cell, *width), *width))
                 .collect::<Vec<_>>()
                 .join("  ")
                 .trim_end()
@@ -236,11 +238,11 @@ impl RowDocument {
         } else {
             ""
         };
-        let name = pad(&clamp(column, 21), 22);
+        let name = pad(&truncate(column, 21), 22);
         if kind.is_empty() {
             return format!("{name}{value}");
         }
-        format!("{name}{}{kind}", pad(&clamp(value, 46), 48))
+        format!("{name}{}{kind}", pad(&truncate(value, 46), 48))
     }
 
     pub fn section(&self, section: Section) -> Vec<(usize, Line)> {
@@ -312,7 +314,7 @@ impl RowDocument {
     pub fn natural_width(&self) -> usize {
         self.lines_within(None)
             .iter()
-            .map(|line| length(&line.text))
+            .map(|line| text::width(&line.text))
             .max()
             .unwrap_or(0)
             + 4
@@ -348,22 +350,6 @@ fn body_line(text: &str, table: Option<&str>, row: Option<usize>) -> Line {
         row,
         ..Line::new(format!("      {text}"), Section::Related)
     }
-}
-
-fn length(text: &str) -> usize {
-    text.chars().count()
-}
-
-fn clamp(text: &str, width: usize) -> String {
-    if length(text) <= width {
-        return text.to_string();
-    }
-    let kept: String = text.chars().take(width.saturating_sub(1)).collect();
-    format!("{kept}…")
-}
-
-fn pad(text: &str, width: usize) -> String {
-    format!("{text}{}", " ".repeat(width.saturating_sub(length(text))))
 }
 
 pub fn shown(value: Option<&str>) -> String {
@@ -493,6 +479,51 @@ mod tests {
         relation.shown = 3;
 
         assert!(text(&artist(vec![relation])).contains("albums  ·  has many  (3 of 13)"));
+    }
+
+    #[test]
+    fn lines_up_wide_characters_by_the_columns_they_take() {
+        let mut document = RowDocument::new(
+            row(&[("id", "1"), ("city", "東京都")]),
+            [("id", "integer"), ("city", "text")]
+                .into_iter()
+                .map(|(column, kind)| (column.to_string(), kind.to_string()))
+                .collect(),
+            vec![albums(
+                Some(vec![
+                    row(&[("id", "1"), ("title", "東京物語"), ("label", "Shochiku")]),
+                    row(&[("id", "2"), ("title", "Ran"), ("label", "Toho")]),
+                ]),
+                Some(2),
+            )],
+        );
+        document.toggle(4);
+
+        let lines = document.lines();
+        let column_of =
+            |text: &str, cell: &str| crate::tui::text::width(&text[..text.find(cell).unwrap()]);
+        let record = lines.iter().map(|line| line.text.as_str());
+        let kinds: Vec<usize> = record
+            .clone()
+            .filter_map(|line| {
+                ["integer", "text"]
+                    .iter()
+                    .find(|kind| line.ends_with(*kind))
+                    .map(|kind| column_of(line, kind))
+            })
+            .collect();
+        assert_eq!(kinds.len(), 2, "{lines:?}");
+        assert_eq!(kinds[0], kinds[1], "{lines:?}");
+        let labels: Vec<usize> = record
+            .filter_map(|line| {
+                ["Shochiku", "Toho"]
+                    .iter()
+                    .find(|label| line.contains(*label))
+                    .map(|label| column_of(line, label))
+            })
+            .collect();
+        assert_eq!(labels.len(), 2, "{lines:?}");
+        assert_eq!(labels[0], labels[1], "{lines:?}");
     }
 
     #[test]

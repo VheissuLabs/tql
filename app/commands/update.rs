@@ -76,7 +76,10 @@ fn update(cmd: &mut Cmd) -> Result {
     cmd.line(format!("Updating tql {current} to {latest}…"));
 
     if let Err(failure) = updater.install(&latest, &installation.path) {
-        cmd.error(format!("{}.", capitalised(&failure.to_string())));
+        cmd.error(format!(
+            "{}.",
+            crate::tui::text::sentence(&failure.to_string())
+        ));
         return exit(1);
     }
 
@@ -93,12 +96,4 @@ fn update(cmd: &mut Cmd) -> Result {
         )
     });
     Ok(())
-}
-
-fn capitalised(message: &str) -> String {
-    let mut characters = message.chars();
-    match characters.next() {
-        Some(first) => first.to_uppercase().chain(characters).collect(),
-        None => String::new(),
-    }
 }

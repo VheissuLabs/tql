@@ -1,7 +1,7 @@
 use crate::terminal::prelude::*;
 
 use super::chrome::theme;
-use super::text::width;
+use super::text::wrap;
 
 pub const WIDTH: u16 = 76;
 
@@ -47,53 +47,13 @@ impl ErrorBox<'_> {
 fn wrapped(message: &str, room: usize) -> Vec<String> {
     message
         .split('\n')
-        .flat_map(|paragraph| word_wrap(paragraph, room.max(10)))
+        .flat_map(|paragraph| wrap(paragraph, room.max(10)))
         .collect()
-}
-
-fn word_wrap(paragraph: &str, room: usize) -> Vec<String> {
-    let mut lines = Vec::new();
-    let mut line = String::new();
-    for word in paragraph.split(' ') {
-        let mut word = word.to_string();
-        if !line.is_empty() && width(&line) + 1 + width(&word) > room {
-            lines.push(std::mem::take(&mut line));
-        } else if !line.is_empty() {
-            line.push(' ');
-        }
-        while width(&word) > room {
-            let head: String = word.chars().take(room).collect();
-            word = word.chars().skip(room).collect();
-            lines.push(head);
-        }
-        line.push_str(&word);
-    }
-    lines.push(line);
-    lines
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn wraps_at_spaces_and_cuts_words_longer_than_the_room() {
-        assert_eq!(
-            wrapped("no such table: nowhere\n\nselect * from nowhere", 12),
-            [
-                "no such",
-                "table:",
-                "nowhere",
-                "",
-                "select *",
-                "from nowhere"
-            ]
-        );
-        assert_eq!(
-            word_wrap(&"x".repeat(25), 10),
-            ["xxxxxxxxxx", "xxxxxxxxxx", "xxxxx"]
-        );
-    }
 
     #[test]
     fn is_as_tall_as_the_message_and_its_notes() {
