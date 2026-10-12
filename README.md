@@ -342,7 +342,8 @@ about each one.
 | `sql_always` | `false` | keep the SQL editor on screen instead of only after `s` |
 | `sql_height` | `0` | rows it takes, 0 picks a third of the frame |
 | `sql_editor` | `"simple"` | how the SQL editor takes keys: `"simple"` or `"vim"`, see [the SQL editor](docs/keys.md#the-sql-editor) |
-| `sql_complete` | `true` | offer tables, columns and keywords as you type in the SQL editor; `tab` takes one |
+| `sql_complete` | `true` | offer tables, columns and keywords as you type in the SQL editor; `tab` or `↵` takes one |
+| `sql_keyword_case` | `"match"` | the case completion writes keywords in: `"match"` follows how you type (`sel` gives `select`, `SEL` gives `SELECT`), or always `"upper"` or `"lower"` |
 | `row_style` | `"marker"` | how the current row is shown: `marker`, `dim-others`, `bold`, `inverse`, `underline` |
 | `top_margin` | `0` | blank rows above the frame |
 | `bottom_margin` | `0` | blank rows below the frame |

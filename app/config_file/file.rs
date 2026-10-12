@@ -290,6 +290,7 @@ mod tests {
             added,
             [
                 "sql_complete",
+                "sql_keyword_case",
                 "bottom_margin",
                 "left_margin",
                 "right_margin",
@@ -302,7 +303,7 @@ mod tests {
             ]
         );
         assert!(topped.starts_with(
-            "# tql configuration 0.12.0\n[ui]\n# mine\nsql_editor = \"simple\"\n\n# Offer tables"
+            "# tql configuration 0.14.0\n[ui]\n# mine\nsql_editor = \"simple\"\n\n# Offer tables"
         ));
     }
 
@@ -320,6 +321,7 @@ mod tests {
         assert_eq!(
             added,
             [
+                "sql_keyword_case",
                 "bottom_margin",
                 "left_margin",
                 "right_margin",
@@ -339,9 +341,9 @@ mod tests {
     #[test]
     fn leaves_a_file_at_this_version_or_newer_exactly_as_it_is() {
         for file in [
-            "# tql configuration 0.12.0\n\n\n[ui]\nsidebar_width = 40\n",
-            "#tql configuration 0.12.0   \r\n[ui]\r\nsidebar_width = 40\r\n",
-            "# tql configuration 0.13.0\n[ui]\nsidebar_width = 40\n",
+            "# tql configuration 0.14.0\n\n\n[ui]\nsidebar_width = 40\n",
+            "#tql configuration 0.14.0   \r\n[ui]\r\nsidebar_width = 40\r\n",
+            "# tql configuration 0.15.0\n[ui]\nsidebar_width = 40\n",
             "# tql configuration 1.0.0\n",
         ] {
             assert_eq!(top_up(file), (file.to_string(), Vec::new()), "{file:?}");
@@ -355,6 +357,7 @@ mod tests {
         assert_eq!(
             added,
             [
+                "sql_keyword_case",
                 "bottom_margin",
                 "left_margin",
                 "right_margin",
@@ -365,7 +368,7 @@ mod tests {
                 "read_production"
             ]
         );
-        assert!(topped.starts_with("# tql configuration 0.12.0\n[ui]\n"));
+        assert!(topped.starts_with("# tql configuration 0.14.0\n[ui]\n"));
         assert_eq!(stamp(&topped), topped);
     }
 

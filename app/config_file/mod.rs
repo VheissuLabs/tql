@@ -195,7 +195,7 @@ mod tests {
         assert_eq!(
             prepare(&path).notice.as_deref(),
             Some(
-                "8 new settings added to config.toml: bottom_margin, left_margin, right_margin, confirm_create_on_production, check, automatic, read_screen, read_production"
+                "9 new settings added to config.toml: sql_keyword_case, bottom_margin, left_margin, right_margin, confirm_create_on_production, check, automatic, read_screen, read_production"
             )
         );
     }

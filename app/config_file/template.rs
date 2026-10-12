@@ -1,4 +1,4 @@
-pub const VERSION: &str = "0.12.0";
+pub const VERSION: &str = "0.14.0";
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct Setting {
@@ -60,6 +60,15 @@ pub const SETTINGS: &[Setting] = &[
         "true",
         "0.6.2",
         &["Offer tables, columns and keywords as you type, tab takes one"],
+    ),
+    setting(
+        "ui",
+        "sql_keyword_case",
+        "\"match\"",
+        "0.14.0",
+        &[
+            "Keywords completion offers: \"match\" follows how you type, or always \"upper\" or \"lower\"",
+        ],
     ),
     setting(
         "ui",

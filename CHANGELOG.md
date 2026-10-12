@@ -6,6 +6,18 @@ announcement under `release-notes/` for GitHub.
 
 ## Unreleased
 
+### Enhancements
+
+- `sql_keyword_case` (in `[ui]` and the settings screen) sets the case
+  completion writes keywords in: `"match"` (how you type, as before), `"upper"`
+  or `"lower"`.
+- `↵` takes a completion as `tab` does.
+
+### Bug Fixes
+
+- The insert-mode cursor in the SQL editor and the Redis command pane sits
+  right after the text, not a row down and a column over.
+
 ### New Features
 
 - Postgres and SQL Server list the tables of every schema under folding

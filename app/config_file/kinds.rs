@@ -14,6 +14,7 @@ pub enum Kind {
 
 const SQL_POSITIONS: &[&str] = &["top", "bottom"];
 const SQL_EDITORS: &[&str] = &["simple", "vim"];
+const KEYWORD_CASES: &[&str] = &["match", "upper", "lower"];
 const ROW_STYLES: &[&str] = &["marker", "dim-others", "bold", "inverse", "underline"];
 
 pub const PROVIDERS: [&str; 12] = [
@@ -35,6 +36,7 @@ pub fn kind(setting: &Setting) -> Option<Kind> {
     Some(match (setting.section, setting.key) {
         ("ui", "sql_position") => Kind::Choice(SQL_POSITIONS),
         ("ui", "sql_editor") => Kind::Choice(SQL_EDITORS),
+        ("ui", "sql_keyword_case") => Kind::Choice(KEYWORD_CASES),
         ("ui", "row_style") => Kind::Choice(ROW_STYLES),
         ("ui", "top_margin" | "bottom_margin" | "left_margin" | "right_margin") => Kind::Whole {
             least: 0,

@@ -448,7 +448,14 @@ fn needs_quoting(name: &str) -> bool {
 
 fn keywords(prefix: &str) -> Vec<Candidate> {
     let shouting =
-        prefix.chars().any(|character| character.is_uppercase()) && prefix.to_uppercase() == prefix;
+        match crate::settings::with(|settings| settings.sql_keyword_case.clone()).as_str() {
+            "upper" => true,
+            "lower" => false,
+            _ => {
+                prefix.chars().any(|character| character.is_uppercase())
+                    && prefix.to_uppercase() == prefix
+            }
+        };
     let mut sorted: Vec<&str> = KEYWORDS.to_vec();
     sorted.sort();
     sorted.dedup();
@@ -629,5 +636,22 @@ mod tests {
     fn knows_duckdb_and_clickhouse_words() {
         assert_eq!(texts("select * from t qua|"), ["qualify"]);
         assert_eq!(texts("select * from t prew|"), ["prewhere"]);
+    }
+
+    #[test]
+    fn writes_keywords_in_the_case_the_setting_asks_for() {
+        let mut upper = crate::settings::Settings::default();
+        upper.set("ui.sql_keyword_case", &toml::Value::from("upper"));
+        crate::settings::install(upper);
+        assert_eq!(texts("sel|"), ["SELECT"]);
+
+        let mut lower = crate::settings::Settings::default();
+        lower.set("ui.sql_keyword_case", &toml::Value::from("lower"));
+        crate::settings::install(lower);
+        assert_eq!(texts("SEL|"), ["select"]);
+
+        crate::settings::install(crate::settings::Settings::default());
+        assert_eq!(texts("SEL|"), ["SELECT"]);
+        assert_eq!(texts("sel|"), ["select"]);
     }
 }
