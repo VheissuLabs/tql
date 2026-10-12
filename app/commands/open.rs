@@ -57,6 +57,28 @@ fn open(cmd: &mut Cmd) -> Result {
         cmd.flag("peek"),
     )?;
 
+    if opened.connection.driver == crate::driver::Driver::Redis {
+        let store = match crate::keystore::connect(&opened.connection, opened.encrypter.as_ref()) {
+            Ok(store) => store,
+            Err(error) => {
+                cmd.error(format!("{error:#}"));
+                return exit(1);
+            }
+        };
+        if !cmd.has_terminal() {
+            cmd.error("tql needs a terminal. Run it directly rather than piping into it.");
+            return exit(1);
+        }
+        if opened.connection.id != 0 {
+            StoreWriter::open(&paths::store(), &paths::key())?.touch(opened.connection.id)?;
+        }
+        settings::install(config_file::prepare(&paths::config_file()).settings);
+        let mut keys =
+            crate::tui::KeyBrowser::new(opened.connection, store)?.with_store(paths::store());
+        cmd.tui(&mut keys)?;
+        return Ok(());
+    }
+
     let database = match database::connect(&opened.connection, opened.encrypter.as_ref()) {
         Ok(database) => database,
         Err(error) => {

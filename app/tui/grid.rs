@@ -17,7 +17,7 @@ pub enum Tone {
 }
 
 impl Tone {
-    fn style(self) -> Style {
+    pub(crate) fn style(self) -> Style {
         let (key, fallback) = match self {
             Tone::Marked => ("deleted", "red"),
             Tone::Added => ("added", "green"),

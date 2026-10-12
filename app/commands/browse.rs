@@ -3,7 +3,9 @@ use crate::terminal::{Flow, Session};
 
 use crate::config_file;
 use crate::database;
+use crate::driver::Driver;
 use crate::encrypter::Encrypter;
+use crate::keystore;
 use crate::live::{self, Live};
 use crate::paths;
 use crate::registry::{self, Entry, Needs, Shell};
@@ -11,7 +13,7 @@ use crate::settings;
 use crate::store::Store;
 use crate::store_writer::StoreWriter;
 use crate::tui::clipboard::SystemClipboard;
-use crate::tui::{Browser, Exit, Picker};
+use crate::tui::{Browser, Exit, KeyBrowser, Picker};
 use crate::updates::{self, Installation, Releases, Remembered, check};
 
 pub struct Browse;
@@ -155,6 +157,36 @@ fn browse(cmd: &mut Cmd, start: Option<&'static Entry>, named: Option<String>) -
         };
 
         let encrypter = Encrypter::from_file(&paths::key()).ok();
+        if connection.driver == Driver::Redis {
+            let opened = keystore::connect(&connection, encrypter.as_ref())
+                .and_then(|store| KeyBrowser::new(connection.clone(), store))
+                .map(|browser| browser.with_store(paths::store()));
+            let mut keys = match opened {
+                Ok(keys) => keys,
+                Err(error) => {
+                    notice = Some(format!("{}: {error:#}", connection.name));
+                    continue;
+                }
+            };
+            let _ = StoreWriter::open(&paths::store(), &paths::key())
+                .and_then(|writer| writer.touch(connection.id));
+            pending = None;
+            match session.run(&mut keys)? {
+                Exit::Quit => return Ok(()),
+                Exit::Connections => {}
+                Exit::Open(id) => {
+                    chosen = store
+                        .connections()?
+                        .into_iter()
+                        .find(|connection| connection.id == id);
+                    if let Some(next) = &chosen {
+                        keys.tell(connecting_to(&next.name));
+                        session.show(&mut keys)?;
+                    }
+                }
+            }
+            continue;
+        }
         let opened = database::connect(&connection, encrypter.as_ref())
             .and_then(|database| Browser::new(connection.clone(), database))
             .map(|browser| {
