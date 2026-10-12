@@ -67,7 +67,9 @@ fn opens_on_the_first_table_sorted_by_its_key() {
     assert!(screen.contains("[2] customers"));
     assert!(screen.contains("id ▲"));
     assert!(screen.contains("Customer 001"));
-    assert!(fake.app.status().starts_with("rows 1-100+ · "));
+    assert!(fake.app.status().ends_with("ms"), "{}", fake.app.status());
+    assert!(!fake.app.status().contains("rows"));
+    assert!(screen.contains(" · 1 of 250"), "{screen}");
 }
 
 #[test]
@@ -123,7 +125,7 @@ fn pages_fetch_one_extra_row_to_know_there_is_more() {
     assert!(!fake.app.has_more);
     assert_eq!(fake.app.rows.len(), 50);
     assert_eq!(fake.app.rows[0][1], "Customer 201");
-    assert!(fake.app.status().starts_with("rows 201-250"));
+    assert!(fake.screen().contains(" · 201 of 250"));
 
     fake.press("n");
     assert_eq!(fake.app.offset, 200, "no page past the end");
@@ -138,14 +140,14 @@ fn the_status_line_shows_the_row_among_all_the_rows() {
 
     fake.press("j\t");
     let screen = fake.screen();
-    assert!(screen.contains("row 1 of 250"), "{screen}");
+    assert!(screen.contains(" · 1 of 250"), "{screen}");
     assert!(!screen.contains("col 1/"), "{screen}");
 
     fake.press("jjl");
-    assert!(fake.screen().contains("row 3 of 250"));
+    assert!(fake.screen().contains(" · 3 of 250"));
 
     fake.press("n");
-    assert!(fake.screen().contains("row 101 of 250"));
+    assert!(fake.screen().contains(" · 101 of 250"));
 }
 
 #[test]
@@ -156,7 +158,7 @@ fn a_reload_counts_the_rows_again() {
     let mut fake = Fake::sized(Browser::new(connection, database).unwrap(), 120, 30);
 
     fake.press("j\t");
-    assert!(fake.screen().contains("row 1 of 250"));
+    assert!(fake.screen().contains(" · 1 of 250"));
 
     rusqlite::Connection::open(&path)
         .unwrap()
@@ -164,7 +166,7 @@ fn a_reload_counts_the_rows_again() {
         .unwrap();
     fake.press("n");
     assert!(
-        fake.screen().contains("row 101 of 250"),
+        fake.screen().contains(" · 101 of 250"),
         "paging keeps the count"
     );
 

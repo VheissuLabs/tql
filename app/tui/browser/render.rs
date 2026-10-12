@@ -185,15 +185,15 @@ impl Browser {
             String::new()
         } else if self.query.results {
             format!(
-                " · row {} of {}",
-                self.row_index + 1,
+                " · {} of {}",
+                Total::Exact(self.row_index + 1),
                 Total::Exact(self.rows.len())
             )
         } else {
-            let row = self.offset + self.row_index + 1;
+            let row = Total::Exact(self.offset + self.row_index + 1);
             match self.total {
-                Some(total) => format!(" · row {row} of {total}"),
-                None => format!(" · row {row}"),
+                Some(total) => format!(" · {row} of {total}"),
+                None => format!(" · {row}"),
             }
         };
         let back = if self.query.results {

@@ -83,12 +83,12 @@ impl Browser {
             self.row_index = row.min(self.rows.len().saturating_sub(1));
         }
 
-        let first = if fetched == 0 { 0 } else { self.offset + 1 };
-        let more = if self.has_more { "+" } else { "" };
-        self.say(format!(
-            "rows {first}-{}{more} · {elapsed}ms",
-            self.offset + fetched
-        ));
+        let said = if fetched == 0 {
+            format!("no rows · {elapsed}ms")
+        } else {
+            format!("{elapsed}ms")
+        };
+        self.say(said);
     }
 
     pub(super) fn select_table(&mut self, index: usize) {
