@@ -10,6 +10,13 @@ use super::editor::QueryEditor;
 
 pub const KEYWORDS: &[&str] = &[
     "select",
+    "qualify",
+    "pivot",
+    "unpivot",
+    "exclude",
+    "final",
+    "prewhere",
+    "settings",
     "from",
     "where",
     "and",

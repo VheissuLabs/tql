@@ -624,4 +624,10 @@ mod tests {
         );
         assert_eq!(texts("select sc| from ev.evaluation"), ["score"]);
     }
+
+    #[test]
+    fn knows_duckdb_and_clickhouse_words() {
+        assert_eq!(texts("select * from t qua|"), ["qualify"]);
+        assert_eq!(texts("select * from t prew|"), ["prewhere"]);
+    }
 }

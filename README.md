@@ -41,6 +41,9 @@ as happily as a Postgres server behind an SSH tunnel.
 | **PostgreSQL** | built in |
 | **SQLite** | built in, any `.sqlite`, `.sqlite3` or `.db` file |
 | **SQL Server** | built in, nothing else to install ([below](#sql-server)) |
+| **DuckDB** | built in, any `.duckdb` file, schemas and all |
+| **libSQL** and **Turso** | built in, a `libsql://` URL and its auth token ([below](#libsql-and-turso)) |
+| **ClickHouse** | built in, browse and query ([below](#clickhouse)) |
 
 A hosted database that speaks the MySQL or PostgreSQL protocol connects the same
 way, with a connection string or the connection form, over [TLS](#tls) and, if
@@ -66,6 +69,22 @@ TLS 1.2 update.
 A connection is encrypted by default without checking the server's certificate,
 which is what a local or self-signed SQL Server needs; `ssl_mode` `verify-ca` or
 `verify-full` checks it, and `disable` turns encryption off.
+
+### libSQL and Turso
+
+A libSQL connection is a URL and an auth token: `tql open
+"libsql://shop-you.turso.io?authToken=…"`, or the connection form's **URL** and
+**Auth token**. tql speaks Turso's HTTP API, so a self-hosted `sqld` works too
+(`http://127.0.0.1:8080`). Everything SQLite does works here, editing included.
+
+### ClickHouse
+
+ClickHouse connects over its HTTP interface, port 8123, or 8443 with an
+`ssl_mode` set (`clickhouses://` in a connection string). Databases switch with
+`b`, and every type shows as itself: arrays, maps and tuples as JSON, and big
+integers and decimals exactly. Tables are read only in tql: ClickHouse changes
+rows with background mutations, which do not fit editing a cell and writing it
+with `:w`. The SQL editor runs whatever the connection allows.
 
 ## Installing
 

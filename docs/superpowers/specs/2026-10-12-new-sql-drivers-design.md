@@ -1,7 +1,7 @@
 # DuckDB, libSQL/Turso and ClickHouse
 
 Date: 2026-10-12
-Status: proposed
+Status: built
 Release: 0.14.0, second of three parts (schemas, then these drivers, then
 Redis/Valkey)
 

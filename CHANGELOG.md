@@ -14,6 +14,15 @@ announcement under `release-notes/` for GitHub.
   exports, `tql tables`, `tql describe`, `tql export` and the MCP tools.
 - Completion offers schemas and the tables in them, narrows to a schema after
   `schema.`, and completes the columns of `schema.table` and its alias.
+- DuckDB files open in tql, with their schemas, every DuckDB type shown
+  readably, and editing by primary key.
+- libSQL and Turso connections, by URL and auth token, over Turso's HTTP API,
+  with editing as SQLite has.
+- ClickHouse connections over its HTTP interface, browse and query only, with
+  every ClickHouse type shown exactly.
+- `tql open` takes a DuckDB file, `libsql://` and `https://…?authToken=` URLs,
+  and `clickhouse://` and `clickhouses://` URLs; TablePlus import brings
+  ClickHouse and DuckDB connections over.
 
 ---
 
