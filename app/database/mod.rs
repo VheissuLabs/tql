@@ -8,6 +8,7 @@ mod postgres;
 mod schema;
 mod sqlite;
 mod sqlsrv;
+mod table;
 pub mod tls;
 
 use std::collections::HashMap;
@@ -18,6 +19,7 @@ use regex::Regex;
 
 pub use column_default::ColumnDefault;
 pub use exporter::{Exported, Exporter, Scalar, Scalars};
+pub use table::{Table, split_name};
 
 use crate::driver::Driver;
 use crate::encrypter::Encrypter;
