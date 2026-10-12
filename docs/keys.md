@@ -331,6 +331,30 @@ command line instead, so nothing is created until `↵` there
 off). `ctrl+d` on a database puts `:drop database` and its name on the command
 line, so nothing is dropped until `↵` there.
 
+## The key browser
+
+A Redis or Valkey connection opens the key browser.
+
+| Key | Action |
+| --- | --- |
+| `j k` / `↑ ↓` | move |
+| `↵` / `l` | open a key, or unfold a namespace |
+| `h` | fold the namespace |
+| `tab` | between the keys and the value |
+| `/` | find keys by pattern: `user:*`, or words, which become `*words*` |
+| `b` | switch database |
+| `r` | scan again |
+| `N` | on the keys, a new key; on a value, a new field, item or member |
+| `e` | edit the value, field, item, member or score |
+| `d` | mark a key, or a value's field, item or member, for removal |
+| `T` | set the key's TTL; empty keeps it forever |
+| `R` | rename the key |
+| `n` / `p` | next or previous page of a value |
+| `:w` | write every pending change in one transaction |
+| `u` | drop the pending changes |
+| `s` | the command pane; `ctrl+r` runs the line, `esc` closes it |
+| `ctrl+k` | the command palette, keys included |
+
 ## The connection list
 
 | Key | Action |

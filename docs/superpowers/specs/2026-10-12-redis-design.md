@@ -1,7 +1,7 @@
 # Redis and Valkey
 
 Date: 2026-10-12
-Status: proposed
+Status: built
 Release: 0.14.0, third of three parts (schemas, then the new SQL drivers, then
 this)
 

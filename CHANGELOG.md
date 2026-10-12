@@ -20,6 +20,9 @@ announcement under `release-notes/` for GitHub.
   with editing as SQLite has.
 - ClickHouse connections over its HTTP interface, browse and query only, with
   every ClickHouse type shown exactly.
+- Redis and Valkey connections open a key browser: folding `:` namespaces
+  scanned in the background, a view for every type, edits written together on
+  `:w`, TTL, rename, database switching and a command pane.
 - `tql open` takes a DuckDB file, `libsql://` and `https://…?authToken=` URLs,
   and `clickhouse://` and `clickhouses://` URLs; TablePlus import brings
   ClickHouse and DuckDB connections over.

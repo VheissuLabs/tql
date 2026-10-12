@@ -44,6 +44,7 @@ as happily as a Postgres server behind an SSH tunnel.
 | **DuckDB** | built in, any `.duckdb` file, schemas and all |
 | **libSQL** and **Turso** | built in, a `libsql://` URL and its auth token ([below](#libsql-and-turso)) |
 | **ClickHouse** | built in, browse and query ([below](#clickhouse)) |
+| **Redis** and **Valkey** | built in, a key browser of their own ([below](#redis-and-valkey)) |
 
 A hosted database that speaks the MySQL or PostgreSQL protocol connects the same
 way, with a connection string or the connection form, over [TLS](#tls) and, if
@@ -76,6 +77,27 @@ A libSQL connection is a URL and an auth token: `tql open
 "libsql://shop-you.turso.io?authToken=…"`, or the connection form's **URL** and
 **Auth token**. tql speaks Turso's HTTP API, so a self-hosted `sqld` works too
 (`http://127.0.0.1:8080`). Everything SQLite does works here, editing included.
+
+### Redis and Valkey
+
+A Redis or Valkey connection opens a key browser in place of the table list:
+`tql open redis://:password@host:6379/0`, `rediss://` for TLS, or the
+connection form. Keys are read with `SCAN` in the background, never `KEYS`, and
+folded into namespaces on `:`; `/` narrows them with a pattern such as `user:*`,
+and `b` switches database.
+
+Every type shows as itself: a string as text (JSON pretty-printed, binary as
+hex), a hash as fields and values, a list, set or sorted set as rows, and a
+stream as entries. `e` edits a value, a field, an item, a member or a score,
+`N` adds one, and `d` marks one for removal; on the key list, `N` makes a key,
+`d` deletes one, `T` sets its TTL and `R` renames it. Edits wait for `:w`, which
+sends them all in one transaction, so either every one happens or none does. A
+list item that moved since tql read it is not removed by mistake.
+
+`s` opens a command pane for anything else (`HGETALL user:1`, `ZRANGE leaders 0
+9 WITHSCORES`); `ctrl+r` runs the line. On a read-only connection it runs only
+commands the server says only read, and it never runs one that waits forever,
+such as `BLPOP` or `SUBSCRIBE`.
 
 ### ClickHouse
 
