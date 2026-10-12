@@ -283,7 +283,7 @@ than saving a second.
 
 | Argument or flag | What it does |
 | --- | --- |
-| `<path-or-dsn>` | a SQLite file, or a `mysql://`, `pgsql://`, `postgres://`, `sqlsrv://` or `mssql://` string; `mysql+ssh://` and the others with `+ssh` go through an SSH server first |
+| `<path-or-dsn>` | a SQLite or DuckDB file, or a `mysql://`, `pgsql://`, `postgres://`, `sqlsrv://`, `mssql://`, `libsql://`, `clickhouse://`, `redis://` or `valkey://` string (`clickhouses://`, `rediss://` and `valkeys://` for TLS); `mysql+ssh://` and the others with `+ssh` go through an SSH server first |
 | `--name=<name>` | what to call it in the connection list; on one already saved, a rename |
 | `--tag=<tag>` | what it *is*: `production`, `staging`, `dev` or `local`, which decides the color it wears; see [Tags and read only](#tags-and-read-only) |
 | `--peek` | open it without saving it |

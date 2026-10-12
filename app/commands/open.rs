@@ -15,7 +15,7 @@ pub struct Open;
 
 impl Command for Open {
     fn signature(&self) -> &str {
-        "open {path : a SQLite file, or a mysql:// pgsql:// sqlsrv:// connection string} {--name= : what to call it in the connection list} {--tag= : what it is: production, staging, dev or local} {--peek : open it without remembering it}"
+        "open {path : a SQLite or DuckDB file, or a mysql:// pgsql:// sqlsrv:// libsql:// clickhouse:// redis:// or valkey:// connection string} {--name= : what to call it in the connection list} {--tag= : what it is: production, staging, dev or local} {--peek : open it without remembering it}"
     }
 
     fn description(&self) -> &str {

@@ -4,24 +4,7 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
-## Unreleased
-
-### Enhancements
-
-- `sql_keyword_case` (in `[ui]` and the settings screen) sets the case
-  completion writes keywords in: `"match"` (how you type, as before), `"upper"`
-  or `"lower"`.
-- `↵` takes a completion as `tab` does.
-- The status line shows the cursor's row among all the table's rows, `105
-  of 5,000,000`, in place of the column position, and loading a page says
-  only how long it took. Filtered tables and small ones are counted exactly;
-  a big Postgres, MySQL or SQL Server table shows the database's own
-  estimate, `~4.9M`, rather than wait on a full count.
-
-### Bug Fixes
-
-- The insert-mode cursor in the SQL editor and the Redis command pane sits
-  right after the text, not a row down and a column over.
+## 0.14.0
 
 ### New Features
 
@@ -43,9 +26,27 @@ announcement under `release-notes/` for GitHub.
   `:w`, TTL, rename, database switching and a command pane. On Redis 7.4 and
   Valkey 9 a hash shows each field's TTL and `T` sets it; `:log` shows the
   command log (Valkey) or slow log (Redis).
-- `tql open` takes a DuckDB file, `libsql://` and `https://…?authToken=` URLs,
-  and `clickhouse://` and `clickhouses://` URLs; TablePlus import brings
-  ClickHouse and DuckDB connections over.
+- `tql open` and `:open` take a DuckDB file, `libsql://` and
+  `https://…?authToken=` URLs, `clickhouse://`, `redis://` and `valkey://`
+  URLs and their TLS forms; TablePlus import brings ClickHouse and DuckDB
+  connections over.
+
+### Enhancements
+
+- The status line shows the cursor's row among all the table's rows, `105
+  of 5,000,000`, in place of the column position, and loading a page says
+  only how long it took. Filtered tables and small ones are counted exactly;
+  a big Postgres, MySQL or SQL Server table shows the database's own
+  estimate, `~4.9M`, rather than wait on a full count.
+- `sql_keyword_case` (in `[ui]` and the settings screen) sets the case
+  completion writes keywords in: `"match"` (how you type, as before), `"upper"`
+  or `"lower"`. A config file from an earlier tql is offered it on first run.
+- `↵` takes a completion as `tab` does.
+
+### Bug Fixes
+
+- The insert-mode cursor in the SQL editor and the Redis command pane sits
+  right after the text, not a row down and a column over.
 
 ---
 
