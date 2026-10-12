@@ -67,7 +67,14 @@ impl Database for Schemas {
         Ok(HashMap::new())
     }
 
-    fn select(&mut self, _: &str, _: &[String]) -> anyhow::Result<Page> {
+    fn select(&mut self, statement: &str, _: &[String]) -> anyhow::Result<Page> {
+        if statement.contains("from \"ev\".\"evaluation\"") && statement.ends_with("offset 0") {
+            return Ok(Page {
+                headers: vec!["id".to_string()],
+                rows: vec![vec![Some("7".to_string())]],
+                ..Page::default()
+            });
+        }
         Ok(Page::default())
     }
 
@@ -242,4 +249,102 @@ fn switching_database_reads_its_own_schemas_and_folds() {
     let screen = fake.screen();
     assert!(screen.contains("▾ public"), "{screen}");
     assert!(screen.contains("▸ ev"), "{screen}");
+}
+
+#[test]
+fn the_palette_finds_a_table_in_another_schema_and_opens_it() {
+    let mut fake = browser();
+    fake.press("\x0bev.eval\n");
+    assert_eq!(
+        fake.app.current_table(),
+        Some(Table::in_schema("ev", "evaluation"))
+    );
+    assert!(fake.screen().contains("▾ ev"), "{}", fake.screen());
+}
+
+#[test]
+fn the_palette_finds_it_by_its_own_name_too() {
+    let mut fake = browser();
+    fake.press("\x0bauthorization\n");
+    assert_eq!(
+        fake.app.current_table(),
+        Some(Table::in_schema("cp", "authorization"))
+    );
+}
+
+#[test]
+fn following_a_link_opens_the_table_in_the_schema_it_points_to() {
+    let server = Server {
+        links: HashMap::from([(
+            Table::in_schema("ev", "evaluation"),
+            vec![ForeignKey {
+                columns: vec!["user_id".to_string()],
+                table: Table::bare("customers"),
+                references: vec!["id".to_string()],
+            }],
+        )]),
+        ..Server::default()
+    };
+    let mut fake = browser_on(server);
+    fake.press("\x0bev.eval\n");
+    fake.settle();
+    fake.app.focus = app::tui::Focus::Grid;
+    fake.press("l");
+    fake.press("L");
+    fake.settle();
+    assert_eq!(fake.app.current_table(), Some(Table::bare("customers")));
+}
+
+#[test]
+fn an_export_names_and_quotes_a_table_in_another_schema() {
+    let root = std::env::temp_dir().join(format!("tql-schemas-export-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&root);
+    std::fs::create_dir_all(root.join("tql")).unwrap();
+    paths::use_config_directory(root.join("tql"));
+
+    let exporter = app::database::Exporter::new(&connection(), None);
+    let named = exporter
+        .filename(Some(&Table::in_schema("ev", "evaluation")))
+        .unwrap();
+    let file_name = named.file_name().unwrap().to_string_lossy().into_owned();
+    assert!(file_name.contains("-ev-evaluation-"), "{file_name}");
+
+    let mut database: Box<dyn Database> = Box::new(Schemas {
+        server: Server::default(),
+    });
+    let path = root.join("both.sql");
+    exporter
+        .tables(
+            database.as_mut(),
+            &[Table::bare("orders"), Table::in_schema("ev", "evaluation")],
+            Some(path.clone()),
+            None,
+        )
+        .unwrap();
+    let written = std::fs::read_to_string(&path).unwrap();
+    assert!(written.contains("-- orders\n"), "{written}");
+    assert!(written.contains("-- ev.evaluation\n"), "{written}");
+    assert!(
+        written.contains("insert into \"ev\".\"evaluation\""),
+        "{written}"
+    );
+
+    let _ = std::fs::remove_dir_all(&root);
+}
+
+#[test]
+fn the_palette_hints_a_tables_schema() {
+    let mut fake = browser();
+    fake.press("\x0beval");
+    let screen = fake.screen();
+    let line = screen
+        .lines()
+        .find(|line| line.contains("ev.evaluation"))
+        .unwrap_or_else(|| panic!("{screen}"));
+    let hint = line
+        .trim_end_matches(['│', ' '])
+        .rsplit(' ')
+        .next()
+        .unwrap();
+    assert_eq!(hint, "ev", "{line}");
 }

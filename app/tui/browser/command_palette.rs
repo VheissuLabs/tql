@@ -52,10 +52,14 @@ impl Browser {
                     entry.word(),
                 )
             });
-        let tables = self
-            .tables
-            .iter()
-            .map(|table| Item::new(Kind::Table, table, "table", table));
+        let tables = self.tables.iter().map(|table| {
+            Item::new(
+                Kind::Table,
+                table,
+                table.schema.as_deref().unwrap_or("table"),
+                table,
+            )
+        });
 
         let mut items: Vec<Item> = actions.chain(commands).chain(tables).collect();
         items.extend(self.other_databases());
