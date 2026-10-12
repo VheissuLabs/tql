@@ -67,10 +67,21 @@ jobs:
           ACCEPT_EULA: 'Y'
           MSSQL_SA_PASSWORD: Tql-ci-Pass1
         ports: ['1433:1433']
+      clickhouse:
+        image: clickhouse/clickhouse-server:latest
+        env:
+          CLICKHOUSE_USER: tql
+          CLICKHOUSE_PASSWORD: tql
+        ports: ['8123:8123']
+      libsql:
+        image: ghcr.io/tursodatabase/libsql-server:latest
+        ports: ['8080:8080']
 
     env:
       TQL_TEST_SQLSRV: 127.0.0.1:1433
       TQL_TEST_SQLSRV_PASSWORD: Tql-ci-Pass1
+      TQL_TEST_CLICKHOUSE: 127.0.0.1:8123
+      TQL_TEST_LIBSQL: http://127.0.0.1:8080
 
     steps:
       - uses: actions/checkout@v4
@@ -92,6 +103,14 @@ jobs:
 
       - name: SQL Server
         run: cargo test --locked --test sqlsrv -- --ignored --test-threads=1
+
+      - name: ClickHouse and libSQL
+        run: |
+          for attempt in $(seq 1 60); do
+            curl -sf 'http://127.0.0.1:8123/ping' >/dev/null && curl -sf 'http://127.0.0.1:8080/health' >/dev/null && break
+            sleep 2
+          done
+          cargo test --locked --test clickhouse --test libsql -- --include-ignored
 
       - name: TLS and SSH, in throwaway containers
         run: cargo test --locked --test live_tls_ssh -- --ignored --test-threads=1

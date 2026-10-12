@@ -39,9 +39,6 @@ jobs:
         with:
           key: ${{ matrix.target }}
 
-      - name: Get the musl toolchain
-        if: runner.os == 'Linux'
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq musl-tools
 
       - name: Read the version this builds
         id: version
@@ -57,7 +54,19 @@ jobs:
             exit 1
           }
 
+      # DuckDB is C++, and a static musl build needs a musl C++ compiler, which
+      # Alpine has and musl-tools does not.
+      - name: Build on Alpine
+        if: runner.os == 'Linux'
+        run: |
+          mkdir -p "$HOME/.cargo/registry"
+          docker run --rm -v "$PWD":/src -v "$HOME/.cargo/registry":/usr/local/cargo/registry -w /src rust:1-alpine \
+            sh -c "apk add --no-cache musl-dev g++ make cmake python3 >/dev/null && cargo build --release --locked --target ${{ matrix.target }}"
+          sudo chown -R "$(id -u):$(id -g)" target
+          cp target/${{ matrix.target }}/release/tql ${{ matrix.asset }}
+
       - name: Build
+        if: runner.os != 'Linux'
         run: |
           cargo build --release --locked --target ${{ matrix.target }}
           cp target/${{ matrix.target }}/release/tql ${{ matrix.asset }}
