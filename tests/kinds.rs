@@ -380,3 +380,88 @@ fn mysql_shows_bits_as_numbers_and_writes_them_back_as_numbers() {
         ]
     );
 }
+
+fn two_schemas(database: &mut dyn Database) {
+    database
+        .run(
+            "drop schema if exists ev cascade; drop table if exists schema_users cascade; \
+             create table schema_users (id int primary key, name text); \
+             insert into schema_users values (1, 'Ada'); \
+             create schema ev; \
+             create table ev.schema_users (id int primary key, name text); \
+             insert into ev.schema_users values (1, 'Grace'); \
+             create table ev.evaluation (id int primary key, user_id int references public.schema_users (id), score int); \
+             insert into ev.evaluation values (7, 1, 90)",
+        )
+        .unwrap();
+}
+
+#[test]
+#[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
+fn postgres_lists_every_schema_and_keeps_two_tables_of_one_name_apart() {
+    let mut database = herd("pgsql", 5432, "postgres");
+    two_schemas(database.as_mut());
+
+    let tables = database.tables().unwrap();
+    assert!(tables.contains(&Table::bare("schema_users")), "{tables:?}");
+    assert!(tables.contains(&Table::in_schema("ev", "schema_users")));
+    assert!(tables.contains(&Table::in_schema("ev", "evaluation")));
+    assert!(
+        !tables
+            .iter()
+            .any(|table| table.schema.as_deref() == Some("pg_catalog"))
+    );
+    assert_eq!(database.default_schema().as_deref(), Some("public"));
+
+    let theirs = Table::in_schema("ev", "schema_users");
+    let page = database.rows(&theirs, 10, 0, None).unwrap();
+    assert_eq!(page.rows[0][1].as_deref(), Some("Grace"));
+    assert_eq!(database.columns(&theirs).unwrap().len(), 2);
+    assert_eq!(
+        database
+            .indexes(&theirs)
+            .unwrap()
+            .iter()
+            .filter(|index| index.primary)
+            .count(),
+        1
+    );
+
+    assert_eq!(
+        database
+            .update(&theirs, "name", "id", "1", Some("Hopper"))
+            .unwrap(),
+        1
+    );
+    let ours = database
+        .rows(&Table::bare("schema_users"), 10, 0, None)
+        .unwrap();
+    assert_eq!(ours.rows[0][1].as_deref(), Some("Ada"));
+
+    let keys = database.key_columns().unwrap();
+    assert_eq!(keys[&theirs], ["id"]);
+    let foreign = database.foreign_keys().unwrap();
+    let evaluation = &foreign[&Table::in_schema("ev", "evaluation")][0];
+    assert_eq!(evaluation.table, Table::bare("schema_users"));
+
+    database
+        .run("drop schema ev cascade; drop table schema_users")
+        .unwrap();
+}
+
+#[test]
+#[ignore = "needs Herd's Postgres on 127.0.0.1:5432"]
+fn postgres_names_tables_from_the_users_own_default_schema() {
+    let mut database = herd("pgsql", 5432, "postgres");
+    two_schemas(database.as_mut());
+    database.run("set search_path to ev, public").unwrap();
+
+    let tables = database.tables().unwrap();
+    assert_eq!(database.default_schema().as_deref(), Some("ev"));
+    assert!(tables.contains(&Table::bare("evaluation")), "{tables:?}");
+    assert!(tables.contains(&Table::in_schema("public", "schema_users")));
+
+    database
+        .run("set search_path to public; drop schema ev cascade; drop table schema_users")
+        .unwrap();
+}

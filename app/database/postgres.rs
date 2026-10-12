@@ -11,7 +11,7 @@ type Rows = Vec<Vec<Option<String>>>;
 use postgres::{Client, SimpleQueryMessage};
 use tokio_postgres_rustls::MakeRustlsConnect;
 
-use super::schema::{fill, keys_by_table};
+use super::schema::{fill, keys_by_schema};
 use super::tls::Tls;
 use super::{
     Column, Database, Filters, ForeignKey, Generation, Index, Kind, Outcome, Page, Sort, Values,
@@ -26,8 +26,15 @@ pub struct Postgres {
     client: Client,
     config: postgres::Config,
     tls: MakeRustlsConnect,
+    default: Option<String>,
     _tunnel: Option<Arc<Tunnel>>,
 }
+
+const USER_SCHEMAS: &str = "n.nspname not in ('pg_catalog', 'information_schema') \
+     and n.nspname not like 'pg\\_toast%' and n.nspname not like 'pg\\_temp\\_%'";
+
+const SCHEMA_OR_DEFAULT: &str =
+    "case when n.nspname = current_schema() then null else n.nspname end";
 
 impl Postgres {
     pub fn open(
@@ -70,6 +77,7 @@ impl Postgres {
             client,
             config,
             tls,
+            default: None,
             _tunnel: tunnel,
         })
     }
@@ -203,6 +211,14 @@ fn literal(value: Option<&str>) -> String {
 }
 
 impl Postgres {
+    fn schema_of(&mut self, table: &Table) -> String {
+        table
+            .schema
+            .clone()
+            .or_else(|| self.default_schema())
+            .unwrap_or_else(|| "public".to_string())
+    }
+
     fn write(&mut self, sql: String, shown: String) -> anyhow::Result<u64> {
         self.client
             .execute(&sql, &[])
@@ -217,12 +233,21 @@ fn escaped_literal(value: &str) -> String {
 impl Database for Postgres {
     fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
         Ok(self
-            .column(
-                "select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace \
-                 where c.relkind in ('r', 'p') and n.nspname = current_schema() order by c.relname",
-            )?
+            .query(&format!(
+                "select {SCHEMA_OR_DEFAULT}, c.relname \
+                 from pg_class c join pg_namespace n on n.oid = c.relnamespace \
+                 where c.relkind in ('r', 'p') and {USER_SCHEMAS} \
+                 order by n.nspname <> current_schema(), n.nspname, c.relname"
+            ))?
+            .rows
             .into_iter()
-            .map(Table::bare)
+            .filter_map(|mut row| {
+                let name = row[1].take()?;
+                Some(Table {
+                    schema: row[0].take(),
+                    name,
+                })
+            })
             .collect())
     }
 
@@ -268,17 +293,27 @@ impl Database for Postgres {
 
     fn key_columns(&mut self) -> anyhow::Result<HashMap<Table, Vec<String>>> {
         let pairs = self
-            .query(
-                "select c.relname, a.attname from pg_index i \
+            .query(&format!(
+                "select {SCHEMA_OR_DEFAULT}, c.relname, a.attname from pg_index i \
                  join pg_class c on c.oid = i.indrelid \
                  join pg_namespace n on n.oid = c.relnamespace \
                  join pg_attribute a on a.attrelid = i.indrelid and a.attnum = any(i.indkey) \
-                 where i.indisprimary and n.nspname = current_schema() \
-                 order by c.relname, array_position(i.indkey, a.attnum)",
-            )?
+                 where i.indisprimary and {USER_SCHEMAS} \
+                 order by n.nspname, c.relname, array_position(i.indkey, a.attnum)"
+            ))?
             .rows
             .into_iter()
-            .filter_map(|row| Some((Table::bare(row.first()?.clone()?), row.get(1)?.clone()?)))
+            .filter_map(|mut row| {
+                let name = row[1].take()?;
+                let column = row[2].take()?;
+                Some((
+                    Table {
+                        schema: row[0].take(),
+                        name,
+                    },
+                    column,
+                ))
+            })
             .collect();
         Ok(keyed(pairs))
     }
@@ -294,7 +329,18 @@ impl Database for Postgres {
             .connect(self.tls.clone())
             .with_context(|| format!("cannot switch to {name}"))?;
         self.config = config;
+        self.default = None;
         Ok(())
+    }
+
+    fn default_schema(&mut self) -> Option<String> {
+        if self.default.is_none() {
+            self.default = self
+                .column("select current_schema()")
+                .ok()
+                .and_then(|mut found| found.pop());
+        }
+        self.default.clone()
     }
 
     fn highest(&mut self, table: &Table, column: &str) -> anyhow::Result<Option<String>> {
@@ -359,6 +405,9 @@ impl Database for Postgres {
     }
 
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
+        if statement.to_lowercase().contains("search_path") {
+            self.default = None;
+        }
         let (headers, mut rows, affected) = self.simple(statement)?;
         if headers.is_empty() {
             return Ok(outcome_or_affected(headers, rows, affected));
@@ -392,6 +441,7 @@ impl Database for Postgres {
     }
 
     fn columns(&mut self, table: &Table) -> anyhow::Result<Vec<Column>> {
+        let schema = self.schema_of(table);
         Ok(self
             .query_with(
                 "select a.attname as name, t.typname as type_name, format_type(a.atttypid, a.atttypmod) as type, \
@@ -400,9 +450,9 @@ impl Database for Postgres {
                  (select pg_get_expr(adbin, adrelid) from pg_attrdef where c.oid = pg_attrdef.adrelid and pg_attrdef.adnum = a.attnum) as default, \
                  a.attgenerated as generated, col_description(c.oid, a.attnum) as comment \
                  from pg_attribute a, pg_class c, pg_type t, pg_namespace n \
-                 where c.relname = ? and n.nspname = current_schema() and a.attnum > 0 and a.attrelid = c.oid \
+                 where c.relname = ? and n.nspname = ? and a.attnum > 0 and a.attrelid = c.oid \
                  and a.atttypid = t.oid and n.oid = c.relnamespace order by a.attnum",
-                std::slice::from_ref(&table.name),
+                &[table.name.clone(), schema],
             )?
             .rows
             .into_iter()
@@ -434,6 +484,7 @@ impl Database for Postgres {
     }
 
     fn indexes(&mut self, table: &Table) -> anyhow::Result<Vec<Index>> {
+        let schema = self.schema_of(table);
         Ok(self
             .select(
                 "select ic.relname as name, string_agg(a.attname, ',' order by indseq.ord) as columns, \
@@ -445,9 +496,9 @@ impl Database for Postgres {
                  join pg_am am on am.oid = ic.relam \
                  join lateral unnest(i.indkey) with ordinality as indseq(num, ord) on true \
                  left join pg_attribute a on a.attrelid = i.indrelid and a.attnum = indseq.num \
-                 where tc.relname = ? and tn.nspname = current_schema() \
+                 where tc.relname = ? and tn.nspname = ? \
                  group by ic.relname, am.amname, i.indisunique, i.indisprimary",
-                std::slice::from_ref(&table.name),
+                &[table.name.clone(), schema],
             )?
             .rows
             .into_iter()
@@ -461,9 +512,12 @@ impl Database for Postgres {
     }
 
     fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>> {
-        Ok(keys_by_table(
-            self.query(
-                "select tc.relname as table, string_agg(la.attname, ',' order by conseq.ord) as columns, \
+        let user_schemas = USER_SCHEMAS.replace("n.nspname", "tn.nspname");
+        Ok(keys_by_schema(
+            self.query(&format!(
+                "select case when tn.nspname = current_schema() then null else tn.nspname end as schema, \
+                 tc.relname as table, string_agg(la.attname, ',' order by conseq.ord) as columns, \
+                 case when fn.nspname = current_schema() then null else fn.nspname end as foreign_schema, \
                  fc.relname as foreign_table, string_agg(fa.attname, ',' order by conseq.ord) as foreign_columns \
                  from pg_constraint c \
                  join pg_class tc on c.conrelid = tc.oid \
@@ -473,9 +527,9 @@ impl Database for Postgres {
                  join lateral unnest(c.conkey) with ordinality as conseq(num, ord) on true \
                  join pg_attribute la on la.attrelid = c.conrelid and la.attnum = conseq.num \
                  join pg_attribute fa on fa.attrelid = c.confrelid and fa.attnum = c.confkey[conseq.ord] \
-                 where c.contype = 'f' and tn.nspname = current_schema() \
-                 group by tc.relname, c.conname, fn.nspname, fc.relname, c.confupdtype, c.confdeltype",
-            )?
+                 where c.contype = 'f' and {user_schemas} \
+                 group by tn.nspname, tc.relname, c.conname, fn.nspname, fc.relname, c.confupdtype, c.confdeltype"
+            ))?
             .rows,
         ))
     }

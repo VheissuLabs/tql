@@ -78,6 +78,25 @@ pub(crate) fn keys_by_table(rows: Vec<Vec<Option<String>>>) -> HashMap<Table, Ve
     keys
 }
 
+pub(crate) fn keys_by_schema(rows: Vec<Vec<Option<String>>>) -> HashMap<Table, Vec<ForeignKey>> {
+    let mut keys: HashMap<Table, Vec<ForeignKey>> = HashMap::new();
+    for mut row in rows {
+        let owner = Table {
+            schema: row[0].take(),
+            name: row[1].take().unwrap_or_default(),
+        };
+        keys.entry(owner).or_default().push(ForeignKey {
+            columns: split_list(row[2].take()),
+            table: Table {
+                schema: row[3].take(),
+                name: row[4].take().unwrap_or_default(),
+            },
+            references: split_list(row[5].take()),
+        });
+    }
+    keys
+}
+
 pub fn links(keys: &[ForeignKey]) -> Vec<(String, Link)> {
     keys.iter()
         .filter(|key| key.columns.len() == 1 && key.references.len() == 1)
