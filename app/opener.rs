@@ -134,6 +134,7 @@ pub fn connection_for(
                 database: target.database,
                 username: target.username,
                 password,
+                ssl_mode: target.ssl_mode.clone(),
                 tag: tag.filter(|tag| !tag.is_empty()),
                 ssh_host: target.ssh_host,
                 ssh_port: target.ssh_port,
@@ -166,6 +167,9 @@ pub fn connection_for(
                 target.password.clone().map_or(Field::Null, Field::Secret),
             ),
         ]);
+        if let Some(ssl_mode) = &target.ssl_mode {
+            fields.push(("ssl_mode", Field::Text(ssl_mode.clone())));
+        }
         if target.ssh_host.is_some() {
             fields.extend([
                 ("ssh_host", text(target.ssh_host.clone())),

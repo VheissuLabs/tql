@@ -17,6 +17,7 @@ pub struct Dsn {
     pub username: Option<String>,
     pub password: Option<String>,
     pub tag: Option<String>,
+    pub ssl_mode: Option<String>,
     pub ssh_host: Option<String>,
     pub ssh_port: Option<u16>,
     pub ssh_user: Option<String>,
@@ -36,7 +37,17 @@ pub fn parse(dsn: &str) -> Option<Dsn> {
     if scheme.to_lowercase().ends_with("+ssh") {
         return over_ssh(&scheme[..scheme.len() - 4], rest);
     }
-    let driver = driver_for(&scheme.to_lowercase())?;
+    let lowered = scheme.to_lowercase();
+    if lowered == "libsql"
+        || matches!(lowered.as_str(), "http" | "https") && rest.contains("authToken=")
+    {
+        return Some(libsql(&lowered, rest));
+    }
+    let tls = lowered == "clickhouses";
+    let driver = match tls {
+        true => Driver::Clickhouse,
+        false => driver_for(&lowered)?,
+    };
 
     if driver.is_file() {
         return Some(file(rest, driver));
@@ -63,7 +74,11 @@ pub fn parse(dsn: &str) -> Option<Dsn> {
         name,
         driver,
         host: Some(host.unwrap_or_else(|| "127.0.0.1".to_string())),
-        port: port.or(driver.default_port()),
+        port: port.or(match tls {
+            true => Some(8443),
+            false => driver.default_port(),
+        }),
+        ssl_mode: tls.then(|| "require".to_string()),
         database: (!database.is_empty()).then(|| decode(database, false)),
         username: user.map(|user| decode(user, false)),
         password: pass.map(|pass| decode(pass, false)),
@@ -153,6 +168,22 @@ fn driver_for(scheme: &str) -> Option<Driver> {
     }
 }
 
+fn libsql(scheme: &str, rest: &str) -> Dsn {
+    let (location, query) = rest.split_once('?').unwrap_or((rest, ""));
+    let location = location.trim_end_matches('/');
+    let place = location.rsplit('@').next().unwrap_or(location).to_string();
+    Dsn {
+        name: query_value(query, "name")
+            .filter(|name| !name.is_empty())
+            .unwrap_or_else(|| place.clone()),
+        driver: Driver::Libsql,
+        host: Some(format!("{scheme}://{place}")),
+        password: query_value(query, "authToken"),
+        tag: query_value(query, "env").and_then(|env| tag_for(&env)),
+        ..Dsn::default()
+    }
+}
+
 fn file(rest: &str, driver: Driver) -> Dsn {
     let (path, query) = rest.split_once('?').unwrap_or((rest, ""));
     let path = decode(path, false);
@@ -214,6 +245,36 @@ mod tests {
     use super::*;
 
     #[test]
+    fn reads_a_turso_url_with_its_token() {
+        let parsed = parse("libsql://shop-karl.turso.io?authToken=secret").unwrap();
+        assert_eq!(parsed.driver, Driver::Libsql);
+        assert_eq!(parsed.host.as_deref(), Some("libsql://shop-karl.turso.io"));
+        assert_eq!(parsed.password.as_deref(), Some("secret"));
+        assert_eq!(parsed.name, "shop-karl.turso.io");
+
+        let secure = parse("https://shop.turso.io?authToken=t&name=Shop").unwrap();
+        assert_eq!(secure.driver, Driver::Libsql);
+        assert_eq!(secure.host.as_deref(), Some("https://shop.turso.io"));
+        assert_eq!(secure.name, "Shop");
+
+        assert_eq!(parse("https://example.com/page"), None);
+    }
+
+    #[test]
+    fn reads_a_clickhouse_url_and_its_tls_form() {
+        let plain = parse("clickhouse://default:pw@ch.local:8123/events").unwrap();
+        assert_eq!(plain.driver, Driver::Clickhouse);
+        assert_eq!(plain.port, Some(8123));
+        assert_eq!(plain.database.as_deref(), Some("events"));
+        assert_eq!(plain.ssl_mode, None);
+
+        let secure = parse("clickhouses://default:pw@ch.cloud/events").unwrap();
+        assert_eq!(secure.driver, Driver::Clickhouse);
+        assert_eq!(secure.port, Some(8443));
+        assert_eq!(secure.ssl_mode.as_deref(), Some("require"));
+    }
+
+    #[test]
     fn parses_a_mysql_connection_string() {
         assert_eq!(
             parse("mysql://alice:s3cret@db.example.com:3307/shop"),
@@ -245,6 +306,7 @@ mod tests {
                 username: Some("dbuser".into()),
                 password: Some("pw".into()),
                 tag: Some("production".into()),
+                ssl_mode: None,
                 ssh_host: Some("bastion.example.com".into()),
                 ssh_port: None,
                 ssh_user: Some("deploy".into()),

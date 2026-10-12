@@ -7,7 +7,13 @@ impl ConnectionForm {
         }
         let sqlite = self.driver().is_file();
         if sqlite && self.value("database").trim().is_empty() {
-            return Ok(Some("A path to the .sqlite file is required.".to_string()));
+            return Ok(Some(match self.driver() {
+                Driver::Duckdb => "A path to the .duckdb file is required.".to_string(),
+                _ => "A path to the .sqlite file is required.".to_string(),
+            }));
+        }
+        if self.driver() == Driver::Libsql && self.value("host").trim().is_empty() {
+            return Ok(Some("A libsql:// or https:// URL is required.".to_string()));
         }
         if sqlite {
             let resolved =

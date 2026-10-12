@@ -21,11 +21,14 @@ mod input;
 mod render;
 mod save;
 
-pub const DRIVERS: [&str; 4] = [
+pub const DRIVERS: [&str; 7] = [
     Driver::Sqlite.name(),
     Driver::Mysql.name(),
     Driver::Pgsql.name(),
     Driver::Sqlsrv.name(),
+    Driver::Duckdb.name(),
+    Driver::Libsql.name(),
+    Driver::Clickhouse.name(),
 ];
 pub const SSL_MODES: [&str; 6] = [
     "",
@@ -200,6 +203,8 @@ impl ConnectionForm {
         fields.push(("name", "Name"));
         if self.driver().is_file() {
             fields.push(("database", "Path"));
+        } else if self.driver() == Driver::Libsql {
+            fields.extend([("host", "URL"), ("password", "Auth token")]);
         } else {
             fields.extend([
                 ("host", "Host"),
@@ -266,6 +271,21 @@ impl ConnectionForm {
         }
         let next = stepped(&choices, self.value(key), forward);
         self.set(key, next.to_string());
+        if key == "ssl_mode" {
+            self.follow_tls_port();
+        }
+    }
+
+    fn follow_tls_port(&mut self) {
+        if self.driver() != Driver::Clickhouse {
+            return;
+        }
+        let tls = !matches!(self.value("ssl_mode").trim(), "" | "disable");
+        match (tls, self.value("port")) {
+            (true, "8123") => self.set("port", "8443".to_string()),
+            (false, "8443") => self.set("port", "8123".to_string()),
+            _ => {}
+        }
     }
 
     pub fn cycle_driver(&mut self, forward: bool) {
@@ -281,6 +301,12 @@ impl ConnectionForm {
 
     fn apply_driver_defaults(&mut self) {
         if self.driver().is_file() {
+            return;
+        }
+        if self.driver() == Driver::Libsql {
+            if self.value("host") == "127.0.0.1" {
+                self.set("host", String::new());
+            }
             return;
         }
         if self.value("host").is_empty() {

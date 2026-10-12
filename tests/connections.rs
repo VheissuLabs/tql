@@ -1365,3 +1365,63 @@ fn lets_the_status_line_fade_back_to_the_connection_count() {
     );
     assert_eq!(fake.app.status, None);
 }
+
+#[test]
+fn the_form_asks_each_new_driver_for_what_it_needs() {
+    let mut form = app::tui::ConnectionForm::creating(Places {
+        home: std::env::temp_dir(),
+        cwd: std::env::temp_dir(),
+    });
+    let labels = |form: &app::tui::ConnectionForm| {
+        form.fields()
+            .iter()
+            .map(|(_, label)| *label)
+            .collect::<Vec<_>>()
+    };
+    let switch_to = |form: &mut app::tui::ConnectionForm, driver: Driver| {
+        for _ in 0..Driver::ALL.len() {
+            if form.driver() == driver {
+                return;
+            }
+            form.cycle_driver(true);
+        }
+        panic!("the form never offered {driver}");
+    };
+
+    switch_to(&mut form, Driver::Duckdb);
+    assert_eq!(
+        labels(&form),
+        ["Driver", "Name", "Path", "Group", "Tag", "Read only"]
+    );
+
+    switch_to(&mut form, Driver::Libsql);
+    assert_eq!(
+        labels(&form),
+        [
+            "Driver",
+            "Name",
+            "URL",
+            "Auth token",
+            "Group",
+            "Tag",
+            "Read only"
+        ]
+    );
+    assert_eq!(form.value("host"), "");
+
+    switch_to(&mut form, Driver::Clickhouse);
+    assert!(labels(&form).contains(&"Host"));
+    assert!(labels(&form).contains(&"SSL mode"));
+    assert_eq!(form.value("port"), "8123");
+    let at = form
+        .keys()
+        .iter()
+        .position(|key| *key == "ssl_mode")
+        .unwrap();
+    form.move_by(at as isize);
+    form.cycle(true);
+    form.cycle(true);
+    form.cycle(true);
+    assert_eq!(form.value("ssl_mode"), "require");
+    assert_eq!(form.value("port"), "8443");
+}

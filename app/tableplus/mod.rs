@@ -338,6 +338,8 @@ fn driver_for(table_plus_driver: &str) -> Option<Driver> {
         "PostgreSQL" => Some(Driver::Pgsql),
         "SQLite" => Some(Driver::Sqlite),
         "SQLServer" => Some(Driver::Sqlsrv),
+        "ClickHouse" => Some(Driver::Clickhouse),
+        "DuckDB" => Some(Driver::Duckdb),
         _ => None,
     }
 }
@@ -364,4 +366,15 @@ fn tls_modes(table_plus_driver: &str) -> &'static [&'static str] {
 fn non_empty(text: String) -> Option<String> {
     let trimmed = text.trim();
     (!trimmed.is_empty()).then(|| trimmed.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maps_tableplus_clickhouse_and_duckdb() {
+        assert_eq!(driver_for("ClickHouse"), Some(Driver::Clickhouse));
+        assert_eq!(driver_for("DuckDB"), Some(Driver::Duckdb));
+    }
 }
