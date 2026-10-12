@@ -106,11 +106,15 @@ pub struct Outcome {
 }
 
 pub trait Database {
-    fn tables(&mut self) -> anyhow::Result<Vec<String>>;
+    fn tables(&mut self) -> anyhow::Result<Vec<Table>>;
+
+    fn default_schema(&mut self) -> Option<String> {
+        None
+    }
 
     fn rows(
         &mut self,
-        table: &str,
+        table: &Table,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
@@ -120,16 +124,16 @@ pub trait Database {
 
     fn filtered_rows(
         &mut self,
-        table: &str,
+        table: &Table,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
         filters: Option<&Filters>,
     ) -> anyhow::Result<Page>;
 
-    fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>>;
+    fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>>;
 
-    fn key_columns(&mut self) -> anyhow::Result<HashMap<String, Vec<String>>> {
+    fn key_columns(&mut self) -> anyhow::Result<HashMap<Table, Vec<String>>> {
         Ok(self
             .primary_keys()?
             .into_iter()
@@ -139,11 +143,11 @@ pub trait Database {
 
     fn select(&mut self, statement: &str, values: &[String]) -> anyhow::Result<Page>;
 
-    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>>;
+    fn columns(&mut self, table: &Table) -> anyhow::Result<Vec<Column>>;
 
-    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>>;
+    fn indexes(&mut self, table: &Table) -> anyhow::Result<Vec<Index>>;
 
-    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>>;
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>>;
 
     fn databases(&mut self) -> anyhow::Result<Vec<String>> {
         Ok(Vec::new())
@@ -185,17 +189,17 @@ pub trait Database {
         })
     }
 
-    fn column_names(&mut self, table: &str) -> anyhow::Result<Vec<String>> {
+    fn column_names(&mut self, table: &Table) -> anyhow::Result<Vec<String>> {
         Ok(self.rows(table, 0, 0, None)?.headers)
     }
 
-    fn highest(&mut self, _table: &str, _column: &str) -> anyhow::Result<Option<String>> {
+    fn highest(&mut self, _table: &Table, _column: &str) -> anyhow::Result<Option<String>> {
         Ok(None)
     }
 
     fn update(
         &mut self,
-        _table: &str,
+        _table: &Table,
         _column: &str,
         _key: &str,
         _key_value: &str,
@@ -204,11 +208,16 @@ pub trait Database {
         bail!("this database cannot change rows")
     }
 
-    fn insert(&mut self, _table: &str, _values: &Values) -> anyhow::Result<()> {
+    fn insert(&mut self, _table: &Table, _values: &Values) -> anyhow::Result<()> {
         bail!("this database cannot add rows")
     }
 
-    fn delete(&mut self, _table: &str, _key: &str, _key_values: &[String]) -> anyhow::Result<u64> {
+    fn delete(
+        &mut self,
+        _table: &Table,
+        _key: &str,
+        _key_values: &[String],
+    ) -> anyhow::Result<u64> {
         bail!("this database cannot delete rows")
     }
 }
@@ -220,13 +229,13 @@ fn listed(count: usize, placeholder: &impl Fn(usize) -> String) -> String {
 pub(crate) fn update_statement(
     quote: impl Fn(&str) -> String,
     placeholder: impl Fn(usize) -> String,
-    table: &str,
+    table: &Table,
     column: &str,
     key: &str,
 ) -> String {
     format!(
         "update {} set {} = {} where {} = {}",
-        quote(table),
+        table.quoted(&quote),
         quote(column),
         placeholder(1),
         quote(key),
@@ -237,16 +246,16 @@ pub(crate) fn update_statement(
 pub(crate) fn insert_statement(
     quote: impl Fn(&str) -> String,
     placeholder: impl Fn(usize) -> String,
-    table: &str,
+    table: &Table,
     values: &Values,
     defaults_only: &str,
 ) -> String {
     if values.is_empty() {
-        return format!("insert into {} {defaults_only}", quote(table));
+        return format!("insert into {} {defaults_only}", table.quoted(&quote));
     }
     format!(
         "insert into {} ({}) values ({})",
-        quote(table),
+        table.quoted(&quote),
         values
             .iter()
             .map(|(column, _)| quote(column))
@@ -259,13 +268,13 @@ pub(crate) fn insert_statement(
 pub(crate) fn delete_statement(
     quote: impl Fn(&str) -> String,
     placeholder: impl Fn(usize) -> String,
-    table: &str,
+    table: &Table,
     key: &str,
     count: usize,
 ) -> String {
     format!(
         "delete from {} where {} in ({})",
-        quote(table),
+        table.quoted(&quote),
         quote(key),
         listed(count, &placeholder)
     )
@@ -290,7 +299,7 @@ fn question(_: usize) -> String {
 
 pub(crate) fn shown_update(
     quote: impl Fn(&str) -> String,
-    table: &str,
+    table: &Table,
     column: &str,
     key: &str,
     value: Option<&str>,
@@ -304,7 +313,7 @@ pub(crate) fn shown_update(
 
 pub(crate) fn shown_insert(
     quote: impl Fn(&str) -> String,
-    table: &str,
+    table: &Table,
     values: &Values,
     defaults_only: &str,
 ) -> String {
@@ -317,7 +326,7 @@ pub(crate) fn shown_insert(
 
 pub(crate) fn shown_delete(
     quote: impl Fn(&str) -> String,
-    table: &str,
+    table: &Table,
     key: &str,
     key_values: &[String],
 ) -> String {
@@ -464,15 +473,15 @@ pub(crate) fn outcome_or_affected(
     }
 }
 
-pub(crate) fn keyed(pairs: Vec<(String, String)>) -> HashMap<String, Vec<String>> {
-    let mut columns: HashMap<String, Vec<String>> = HashMap::new();
+pub(crate) fn keyed(pairs: Vec<(Table, String)>) -> HashMap<Table, Vec<String>> {
+    let mut columns: HashMap<Table, Vec<String>> = HashMap::new();
     for (table, column) in pairs {
         columns.entry(table).or_default().push(column);
     }
     columns
 }
 
-pub(crate) fn single_column_keys(keys: HashMap<String, Vec<String>>) -> HashMap<String, String> {
+pub(crate) fn single_column_keys(keys: HashMap<Table, Vec<String>>) -> HashMap<Table, String> {
     keys.into_iter()
         .filter_map(|(table, mut key)| (key.len() == 1).then(|| (table, key.remove(0))))
         .collect()

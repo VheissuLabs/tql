@@ -1,3 +1,4 @@
+use super::Table;
 use std::collections::HashMap;
 
 use std::net::Ipv4Addr;
@@ -214,16 +215,20 @@ fn escaped_literal(value: &str) -> String {
 }
 
 impl Database for Postgres {
-    fn tables(&mut self) -> anyhow::Result<Vec<String>> {
-        self.column(
-            "select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace \
-             where c.relkind in ('r', 'p') and n.nspname = current_schema() order by c.relname",
-        )
+    fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
+        Ok(self
+            .column(
+                "select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace \
+                 where c.relkind in ('r', 'p') and n.nspname = current_schema() order by c.relname",
+            )?
+            .into_iter()
+            .map(Table::bare)
+            .collect())
     }
 
     fn filtered_rows(
         &mut self,
-        table: &str,
+        table: &Table,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
@@ -232,7 +237,7 @@ impl Database for Postgres {
         let condition = filters.and_then(|filters| filters.condition(&quote_double));
         let page = |shown: Option<String>| {
             select_page(
-                &quote_double(table),
+                &table.quoted(quote_double),
                 quote_double,
                 limit,
                 offset,
@@ -257,11 +262,11 @@ impl Database for Postgres {
         Ok(rows)
     }
 
-    fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
+    fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {
         Ok(single_column_keys(self.key_columns()?))
     }
 
-    fn key_columns(&mut self) -> anyhow::Result<HashMap<String, Vec<String>>> {
+    fn key_columns(&mut self) -> anyhow::Result<HashMap<Table, Vec<String>>> {
         let pairs = self
             .query(
                 "select c.relname, a.attname from pg_index i \
@@ -273,7 +278,7 @@ impl Database for Postgres {
             )?
             .rows
             .into_iter()
-            .filter_map(|row| Some((row.first()?.clone()?, row.get(1)?.clone()?)))
+            .filter_map(|row| Some((Table::bare(row.first()?.clone()?), row.get(1)?.clone()?)))
             .collect();
         Ok(keyed(pairs))
     }
@@ -292,11 +297,11 @@ impl Database for Postgres {
         Ok(())
     }
 
-    fn highest(&mut self, table: &str, column: &str) -> anyhow::Result<Option<String>> {
+    fn highest(&mut self, table: &Table, column: &str) -> anyhow::Result<Option<String>> {
         let page = self.query(&format!(
             "select max({}) from {}",
             quote_double(column),
-            quote_double(table)
+            table.quoted(quote_double)
         ))?;
         Ok(page
             .rows
@@ -307,7 +312,7 @@ impl Database for Postgres {
 
     fn update(
         &mut self,
-        table: &str,
+        table: &Table,
         column: &str,
         key: &str,
         key_value: &str,
@@ -327,7 +332,7 @@ impl Database for Postgres {
         )
     }
 
-    fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
+    fn insert(&mut self, table: &Table, values: &Values) -> anyhow::Result<()> {
         let sql = insert_statement(
             quote_double,
             |position| literal(values[position - 1].1.as_deref()),
@@ -342,7 +347,7 @@ impl Database for Postgres {
         .map(|_| ())
     }
 
-    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
+    fn delete(&mut self, table: &Table, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
         let sql = delete_statement(
             quote_double,
             |position| literal(Some(&key_values[position - 1])),
@@ -386,7 +391,7 @@ impl Database for Postgres {
         Ok(page)
     }
 
-    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+    fn columns(&mut self, table: &Table) -> anyhow::Result<Vec<Column>> {
         Ok(self
             .query_with(
                 "select a.attname as name, t.typname as type_name, format_type(a.atttypid, a.atttypmod) as type, \
@@ -397,7 +402,7 @@ impl Database for Postgres {
                  from pg_attribute a, pg_class c, pg_type t, pg_namespace n \
                  where c.relname = ? and n.nspname = current_schema() and a.attnum > 0 and a.attrelid = c.oid \
                  and a.atttypid = t.oid and n.oid = c.relnamespace order by a.attnum",
-                &[table.to_string()],
+                &[table.name.clone()],
             )?
             .rows
             .into_iter()
@@ -428,7 +433,7 @@ impl Database for Postgres {
             .collect())
     }
 
-    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>> {
+    fn indexes(&mut self, table: &Table) -> anyhow::Result<Vec<Index>> {
         Ok(self
             .select(
                 "select ic.relname as name, string_agg(a.attname, ',' order by indseq.ord) as columns, \
@@ -442,7 +447,7 @@ impl Database for Postgres {
                  left join pg_attribute a on a.attrelid = i.indrelid and a.attnum = indseq.num \
                  where tc.relname = ? and tn.nspname = current_schema() \
                  group by ic.relname, am.amname, i.indisunique, i.indisprimary",
-                &[table.to_string()],
+                &[table.name.clone()],
             )?
             .rows
             .into_iter()
@@ -455,7 +460,7 @@ impl Database for Postgres {
             .collect())
     }
 
-    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>> {
         Ok(keys_by_table(
             self.query(
                 "select tc.relname as table, string_agg(la.attname, ',' order by conseq.ord) as columns, \

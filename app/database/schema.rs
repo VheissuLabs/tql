@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::{Database, Page, split_list};
+use super::{Database, Page, Table, split_list};
 
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Column {
@@ -32,19 +32,19 @@ pub struct Index {
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct ForeignKey {
     pub columns: Vec<String>,
-    pub table: String,
+    pub table: Table,
     pub references: Vec<String>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Link {
-    pub table: String,
+    pub table: Table,
     pub column: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct BackLink {
-    pub table: String,
+    pub table: Table,
     pub column: String,
     pub references: String,
     pub unique: bool,
@@ -52,26 +52,26 @@ pub struct BackLink {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Pivot {
-    pub table: String,
+    pub table: Table,
     pub on: String,
     pub references: String,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Count {
-    pub table: String,
+    pub table: Table,
     pub column: String,
     pub value: String,
 }
 
-pub(crate) fn keys_by_table(rows: Vec<Vec<Option<String>>>) -> HashMap<String, Vec<ForeignKey>> {
-    let mut keys: HashMap<String, Vec<ForeignKey>> = HashMap::new();
+pub(crate) fn keys_by_table(rows: Vec<Vec<Option<String>>>) -> HashMap<Table, Vec<ForeignKey>> {
+    let mut keys: HashMap<Table, Vec<ForeignKey>> = HashMap::new();
     for mut row in rows {
-        keys.entry(row[0].take().unwrap_or_default())
+        keys.entry(Table::bare(row[0].take().unwrap_or_default()))
             .or_default()
             .push(ForeignKey {
                 columns: split_list(row[1].take()),
-                table: row[2].take().unwrap_or_default(),
+                table: Table::bare(row[2].take().unwrap_or_default()),
                 references: split_list(row[3].take()),
             });
     }
@@ -142,7 +142,7 @@ pub(crate) fn fill(statement: &str, values: &[String], literal: impl Fn(&str) ->
 pub trait Relations {
     fn related(
         &mut self,
-        table: &str,
+        table: &Table,
         column: &str,
         value: &str,
         limit: usize,
@@ -150,7 +150,7 @@ pub trait Relations {
 
     fn through(
         &mut self,
-        pivot: &str,
+        pivot: &Table,
         joined_on: &str,
         far: &Pivot,
         value: &str,
@@ -163,7 +163,7 @@ pub trait Relations {
 impl<Driver: Database + ?Sized> Relations for Driver {
     fn related(
         &mut self,
-        table: &str,
+        table: &Table,
         column: &str,
         value: &str,
         limit: usize,
@@ -171,7 +171,7 @@ impl<Driver: Database + ?Sized> Relations for Driver {
         let statement = self.page(
             &format!(
                 "select * from {} where {} = ?",
-                self.quote(table),
+                table.quoted(|name| self.quote(name)),
                 self.quote(column)
             ),
             limit + 1,
@@ -182,14 +182,14 @@ impl<Driver: Database + ?Sized> Relations for Driver {
 
     fn through(
         &mut self,
-        pivot: &str,
+        pivot: &Table,
         joined_on: &str,
         far: &Pivot,
         value: &str,
         limit: usize,
     ) -> anyhow::Result<Page> {
-        let far_table = self.quote(&far.table);
-        let pivot_table = self.quote(pivot);
+        let far_table = far.table.quoted(|name| self.quote(name));
+        let pivot_table = pivot.quoted(|name| self.quote(name));
         let statement = self.page(
             &format!(
                 "select {far_table}.* from {far_table} join {pivot_table} on {pivot_table}.{} = {far_table}.{} \
@@ -211,7 +211,7 @@ impl<Driver: Database + ?Sized> Relations for Driver {
         let count_of = |driver: &Self, target: &Count| {
             format!(
                 "(select count(*) from {} where {} = ?)",
-                driver.quote(&target.table),
+                target.table.quoted(|name| driver.quote(name)),
                 driver.quote(&target.column)
             )
         };

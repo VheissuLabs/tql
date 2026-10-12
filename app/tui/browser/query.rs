@@ -26,7 +26,7 @@ enum EditKind {
 pub struct Query {
     pub editor: QueryEditor,
     pub results: bool,
-    pub table: Option<String>,
+    pub table: Option<Table>,
     pub completion: Option<Completion>,
     pub vim: Vim,
     last_edit: Option<EditKind>,

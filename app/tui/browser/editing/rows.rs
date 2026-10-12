@@ -73,7 +73,7 @@ impl Browser {
                 && column.type_name.eq_ignore_ascii_case("integer")
     }
 
-    pub(super) fn suggested_key(&mut self, table: &str, columns: &[Column]) -> Values {
+    pub(super) fn suggested_key(&mut self, table: &Table, columns: &[Column]) -> Values {
         let Some(key) = self.key_column() else {
             return Values::new();
         };
@@ -92,7 +92,7 @@ impl Browser {
         let statement = format!(
             "select max({}) as highest from {}",
             self.database.quote(&key),
-            self.database.quote(table)
+            table.quoted(|name| self.database.quote(name))
         );
         let started = Instant::now();
         let highest = self.database.highest(table, &key);
@@ -130,7 +130,7 @@ impl Browser {
             .collect();
         let given = self.suggested_key(&table, &columns);
         self.edits.form = Some(RecordForm::adding(
-            &table,
+            &table.to_string(),
             &columns,
             self.connection.driver,
             &generated,

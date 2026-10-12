@@ -3,7 +3,7 @@ use crate::database::{BackLink, Filter, Joiner};
 
 #[derive(Debug, Clone)]
 pub(super) struct Jump {
-    table: String,
+    table: Table,
     filters: Option<Filters>,
     row: usize,
 }
@@ -168,11 +168,11 @@ impl Browser {
         !self.jumps.is_empty() || self.filters.is_some()
     }
 
-    pub(super) fn browsed_table(&self) -> Option<String> {
+    pub(super) fn browsed_table(&self) -> Option<Table> {
         self.current_table().filter(|_| !self.query.results)
     }
 
-    fn open_linked(&mut self, table: &str, filters: Option<Filters>) {
+    fn open_linked(&mut self, table: &Table, filters: Option<Filters>) {
         if !self
             .visible_tables()
             .iter()

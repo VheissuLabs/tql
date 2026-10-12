@@ -10,7 +10,7 @@ use jiff::Zoned;
 use jiff::tz::TimeZone;
 use regex::Regex;
 
-use super::Database;
+use super::{Database, Table};
 use crate::driver::Driver;
 use crate::paths;
 use crate::settings;
@@ -196,7 +196,7 @@ impl<'a> Exporter<'a> {
         Ok(path)
     }
 
-    pub fn filename(&self, table: Option<&str>) -> anyhow::Result<PathBuf> {
+    pub fn filename(&self, table: Option<&Table>) -> anyhow::Result<PathBuf> {
         let database = self.connection.database.clone().unwrap_or_default();
         let subject = if self.connection.driver == Driver::Sqlite {
             Path::new(&database)
@@ -212,7 +212,7 @@ impl<'a> Exporter<'a> {
             subject
         };
         let part = table
-            .map(|table| format!("{}-", slug(table)))
+            .map(|table| format!("{}-", slug(&table.to_string())))
             .unwrap_or_default();
         let stamp = now().strftime("%Y%m%d-%H%M%S");
         Ok(self
@@ -223,7 +223,7 @@ impl<'a> Exporter<'a> {
     pub fn table(
         &self,
         database: &mut dyn Database,
-        table: &str,
+        table: &Table,
         path: Option<PathBuf>,
         limit: Option<usize>,
     ) -> anyhow::Result<Exported> {
@@ -233,7 +233,7 @@ impl<'a> Exporter<'a> {
             None => self.filename(Some(table))?,
         };
         let mut file = self.create(&path)?;
-        file.write_all(self.header(table).as_bytes())?;
+        file.write_all(self.header(&table.to_string()).as_bytes())?;
         let rows = self.write_table(database, table, limit, &mut file)?;
         file.flush()?;
         drop(file);
@@ -245,7 +245,7 @@ impl<'a> Exporter<'a> {
     pub fn tables(
         &self,
         database: &mut dyn Database,
-        tables: &[String],
+        tables: &[Table],
         path: Option<PathBuf>,
         limit: Option<usize>,
     ) -> anyhow::Result<Exported> {
@@ -253,12 +253,13 @@ impl<'a> Exporter<'a> {
         let path = match path {
             Some(path) => path,
             None => {
-                let only = (tables.len() == 1).then(|| tables[0].as_str());
+                let only = (tables.len() == 1).then(|| &tables[0]);
                 self.filename(only)?
             }
         };
         let mut file = self.create(&path)?;
-        file.write_all(self.header(&tables.join(", ")).as_bytes())?;
+        let names: Vec<String> = tables.iter().map(Table::to_string).collect();
+        file.write_all(self.header(&names.join(", ")).as_bytes())?;
         let mut rows = 0;
         for table in tables {
             writeln!(file, "-- {table}")?;
@@ -282,7 +283,7 @@ impl<'a> Exporter<'a> {
         let started = Instant::now();
         let path = match path {
             Some(path) => path,
-            None => self.filename(Some(label))?,
+            None => self.filename(Some(&Table::bare(label)))?,
         };
         let mut file = self.create(&path)?;
         file.write_all(self.header(label).as_bytes())?;
@@ -308,7 +309,7 @@ impl<'a> Exporter<'a> {
     fn write_table(
         &self,
         database: &mut dyn Database,
-        table: &str,
+        table: &Table,
         limit: Option<usize>,
         file: &mut impl Write,
     ) -> anyhow::Result<usize> {
@@ -325,7 +326,7 @@ impl<'a> Exporter<'a> {
         };
         let mut statements = Statements {
             driver: self.connection.driver,
-            table: database.quote(table),
+            table: table.quoted(|name| database.quote(name)),
             columns: String::new(),
             buffer: Vec::new(),
         };

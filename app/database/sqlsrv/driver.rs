@@ -1,17 +1,21 @@
 use super::*;
 
 impl Database for SqlServer {
-    fn tables(&mut self) -> anyhow::Result<Vec<String>> {
-        self.column(
-            "select t.name as name from sys.tables as t \
-             where t.is_ms_shipped = 0 and t.name <> 'sysdiagrams' \
-             and schema_name(t.schema_id) = schema_name() order by t.name",
-        )
+    fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
+        Ok(self
+            .column(
+                "select t.name as name from sys.tables as t \
+                 where t.is_ms_shipped = 0 and t.name <> 'sysdiagrams' \
+                 and schema_name(t.schema_id) = schema_name() order by t.name",
+            )?
+            .into_iter()
+            .map(Table::bare)
+            .collect())
     }
 
     fn filtered_rows(
         &mut self,
-        table: &str,
+        table: &Table,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
@@ -32,7 +36,10 @@ impl Database for SqlServer {
                 })
                 .unwrap_or_default();
             page(
-                &format!("select * from {}{filter}{order}", quote_bracket(table)),
+                &format!(
+                    "select * from {}{filter}{order}",
+                    table.quoted(quote_bracket)
+                ),
                 limit,
                 offset,
             )
@@ -47,11 +54,11 @@ impl Database for SqlServer {
         Ok(rows)
     }
 
-    fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
+    fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {
         Ok(single_column_keys(self.key_columns()?))
     }
 
-    fn key_columns(&mut self) -> anyhow::Result<HashMap<String, Vec<String>>> {
+    fn key_columns(&mut self) -> anyhow::Result<HashMap<Table, Vec<String>>> {
         let pairs = self
             .query(
                 "select tbl.name, col.name from sys.indexes as idx \
@@ -64,7 +71,7 @@ impl Database for SqlServer {
             )?
             .rows
             .into_iter()
-            .filter_map(|row| Some((row.first()?.clone()?, row.get(1)?.clone()?)))
+            .filter_map(|row| Some((Table::bare(row.first()?.clone()?), row.get(1)?.clone()?)))
             .collect();
         Ok(keyed(pairs))
     }
@@ -74,7 +81,7 @@ impl Database for SqlServer {
         self.query(statement, &bound)
     }
 
-    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+    fn columns(&mut self, table: &Table) -> anyhow::Result<Vec<Column>> {
         Ok(self
             .select(
                 "select col.name, type.name as type_name, \
@@ -92,7 +99,7 @@ impl Database for SqlServer {
                  left join sys.computed_columns as com on col.column_id = com.column_id and col.object_id = com.object_id \
                  where obj.type in ('U', 'V') and obj.name = ? and scm.name = schema_name() \
                  order by col.column_id",
-                &[table.to_string()],
+                &[table.name.clone()],
             )?
             .rows
             .into_iter()
@@ -137,7 +144,7 @@ impl Database for SqlServer {
             .collect())
     }
 
-    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>> {
+    fn indexes(&mut self, table: &Table) -> anyhow::Result<Vec<Index>> {
         Ok(self
             .select(
                 "select idx.name as name, string_agg(col.name, ',') within group (order by idxcol.key_ordinal) as columns, \
@@ -149,7 +156,7 @@ impl Database for SqlServer {
                  join sys.columns as col on idxcol.object_id = col.object_id and idxcol.column_id = col.column_id \
                  where tbl.name = ? and scm.name = schema_name() \
                  group by idx.name, idx.type_desc, idx.is_unique, idx.is_primary_key",
-                &[table.to_string()],
+                &[table.name.clone()],
             )?
             .rows
             .into_iter()
@@ -162,7 +169,7 @@ impl Database for SqlServer {
             .collect())
     }
 
-    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>> {
         Ok(keys_by_table(
             self.query(
                 "select lt.name as [table], \
@@ -251,12 +258,12 @@ impl Database for SqlServer {
         Ok(Scalars { headers, rows })
     }
 
-    fn highest(&mut self, table: &str, column: &str) -> anyhow::Result<Option<String>> {
+    fn highest(&mut self, table: &Table, column: &str) -> anyhow::Result<Option<String>> {
         let page = self.query(
             &format!(
                 "select max({}) from {}",
                 quote_bracket(column),
-                quote_bracket(table)
+                table.quoted(quote_bracket)
             ),
             &[],
         )?;
@@ -269,7 +276,7 @@ impl Database for SqlServer {
 
     fn update(
         &mut self,
-        table: &str,
+        table: &Table,
         column: &str,
         key: &str,
         key_value: &str,
@@ -280,14 +287,14 @@ impl Database for SqlServer {
         self.write(&statement, &[value, Some(key_value)], &shown)
     }
 
-    fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
+    fn insert(&mut self, table: &Table, values: &Values) -> anyhow::Result<()> {
         let statement = insert_statement(quote_bracket, question, table, values, "default values");
         let bound: Vec<Option<&str>> = values.iter().map(|(_, value)| value.as_deref()).collect();
         let shown = shown_insert(quote_bracket, table, values, "default values");
         self.write(&statement, &bound, &shown).map(|_| ())
     }
 
-    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
+    fn delete(&mut self, table: &Table, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
         let statement = delete_statement(quote_bracket, question, table, key, key_values.len());
         let bound: Vec<Option<&str>> = key_values
             .iter()

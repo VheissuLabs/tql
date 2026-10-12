@@ -21,7 +21,7 @@ impl Browser {
                 .cloned()
                 .collect();
             RecordForm::pending(
-                &table,
+                &table.to_string(),
                 &columns,
                 self.connection.driver,
                 &generated,
@@ -45,7 +45,7 @@ impl Browser {
             {
                 row.put(&column, value);
             }
-            RecordForm::editing(&table, &columns, &row, &key)
+            RecordForm::editing(&table.to_string(), &columns, &row, &key)
         };
 
         let header = self.headers.get(self.column_index);

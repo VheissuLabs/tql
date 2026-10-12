@@ -1,3 +1,4 @@
+use super::Table;
 use std::collections::HashMap;
 use std::sync::{Arc, LazyLock};
 use std::time::Duration;

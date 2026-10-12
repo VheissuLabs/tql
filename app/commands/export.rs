@@ -4,7 +4,7 @@ use crate::console::prelude::*;
 use crate::driver::Driver;
 
 use crate::config_file;
-use crate::database::{self, Database, Exporter};
+use crate::database::{self, Database, Exporter, Table};
 use crate::encrypter::Encrypter;
 use crate::paths;
 use crate::settings;
@@ -103,19 +103,27 @@ fn export(cmd: &mut Cmd) -> Result {
         return Ok(());
     }
 
-    let mut table = cmd.argument("table").map(String::from);
-    if table.is_none() && asked {
-        table = choose_table(cmd, &available)?;
+    let mut typed = cmd.argument("table").map(String::from);
+    if typed.is_none() && asked {
+        typed = choose_table(cmd, &available)?;
     }
 
-    if let Some(table) = table.as_ref().filter(|table| !available.contains(table)) {
-        cmd.error(format!(
-            "No table named [{table}] in [{}].",
-            connection.name
-        ));
-        cmd.line(format!("  known: {}", available.join(", ")));
-        return exit(1);
-    }
+    let default_schema = database.default_schema();
+    let table = match typed {
+        Some(typed) => match Table::resolve(&typed, &available, default_schema.as_deref()) {
+            Some(table) => Some(table),
+            None => {
+                cmd.error(format!(
+                    "No table named [{typed}] in [{}].",
+                    connection.name
+                ));
+                let known: Vec<String> = available.iter().map(Table::to_string).collect();
+                cmd.line(format!("  known: {}", known.join(", ")));
+                return exit(1);
+            }
+        },
+        None => None,
+    };
 
     let tables = table.map(|table| vec![table]).unwrap_or(available);
     if tables.is_empty() {
@@ -138,7 +146,7 @@ fn export(cmd: &mut Cmd) -> Result {
     };
 
     let what = match tables.as_slice() {
-        [only] => only.clone(),
+        [only] => only.to_string(),
         many => format!("{} tables", many.len()),
     };
     cmd.line(format!(
@@ -256,10 +264,10 @@ fn ask_database(
     Ok(true)
 }
 
-fn choose_table(cmd: &mut Cmd, available: &[String]) -> Result<Option<String>> {
+fn choose_table(cmd: &mut Cmd, available: &[Table]) -> Result<Option<String>> {
     let every = format!("{EVERY_TABLE} ({})", available.len());
     let options: Vec<String> = std::iter::once(every.clone())
-        .chain(available.iter().cloned())
+        .chain(available.iter().map(Table::to_string))
         .collect();
     let chosen = if available.len() <= 15 {
         cmd.select("Which table?", &options, None)?
@@ -281,8 +289,8 @@ fn folder_of(path: &Path) -> PathBuf {
     }
 }
 
-fn ask_where(cmd: &mut Cmd, exporter: &Exporter, tables: &[String]) -> Result<Option<String>> {
-    let only = (tables.len() == 1).then(|| tables[0].as_str());
+fn ask_where(cmd: &mut Cmd, exporter: &Exporter, tables: &[Table]) -> Result<Option<String>> {
+    let only = (tables.len() == 1).then(|| &tables[0]);
     let suggested = exporter.filename(only)?.display().to_string();
     loop {
         let answer = cmd.ask_with_hint(
@@ -307,7 +315,7 @@ fn ask_where(cmd: &mut Cmd, exporter: &Exporter, tables: &[String]) -> Result<Op
 fn destination(
     cmd: &mut Cmd,
     exporter: &Exporter,
-    tables: &[String],
+    tables: &[Table],
     asked: bool,
 ) -> Result<Option<PathBuf>> {
     let sql = match cmd.option("sql") {
@@ -323,7 +331,7 @@ fn destination(
     if !path.is_dir() {
         return Ok(Some(path));
     }
-    let only = (tables.len() == 1).then(|| tables[0].as_str());
+    let only = (tables.len() == 1).then(|| &tables[0]);
     let named = exporter.filename(only)?;
     Ok(Some(path.join(named.file_name().unwrap_or_default())))
 }

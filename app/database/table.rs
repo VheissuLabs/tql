@@ -78,6 +78,18 @@ impl fmt::Display for Table {
     }
 }
 
+impl From<&Table> for String {
+    fn from(table: &Table) -> String {
+        table.to_string()
+    }
+}
+
+impl From<Table> for String {
+    fn from(table: Table) -> String {
+        table.to_string()
+    }
+}
+
 impl From<&str> for Table {
     fn from(name: &str) -> Table {
         Table::bare(name)

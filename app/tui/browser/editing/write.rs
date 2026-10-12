@@ -44,7 +44,7 @@ impl Browser {
         self.say(format!("wrote {}", written.join(" · ")));
     }
 
-    pub(super) fn write_all(&mut self, table: &str, key: &str) -> Result<(), Failure> {
+    pub(super) fn write_all(&mut self, table: &Table, key: &str) -> Result<(), Failure> {
         let failed = |title, error, note| Failure { title, error, note };
 
         let defaults_only = match self.connection.driver {

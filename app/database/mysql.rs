@@ -1,3 +1,4 @@
+use super::Table;
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -79,12 +80,12 @@ impl MySql {
         page_of(self.connection.exec_iter(sql, bindings).map_err(said)?)
     }
 
-    fn bit_columns(&mut self, table: &str) -> anyhow::Result<Vec<String>> {
+    fn bit_columns(&mut self, table: &Table) -> anyhow::Result<Vec<String>> {
         Ok(self
             .bound_query(
                 "select column_name from information_schema.columns \
                  where table_schema = database() and table_name = ? and data_type = 'bit'",
-                vec![table.to_string()],
+                vec![table.name.clone()],
             )?
             .rows
             .into_iter()
@@ -267,7 +268,7 @@ fn quote_backtick(identifier: &str) -> String {
 }
 
 impl Database for MySql {
-    fn tables(&mut self) -> anyhow::Result<Vec<String>> {
+    fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
         Ok(self
             .query(
                 "select table_name from information_schema.tables \
@@ -277,12 +278,13 @@ impl Database for MySql {
             .rows
             .into_iter()
             .filter_map(|mut row| row.swap_remove(0))
+            .map(Table::bare)
             .collect())
     }
 
     fn filtered_rows(
         &mut self,
-        table: &str,
+        table: &Table,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
@@ -291,7 +293,7 @@ impl Database for MySql {
         let condition = filters.and_then(|filters| filters.condition(&quote_backtick));
         let page = |shown: Option<String>| {
             select_page(
-                &quote_backtick(table),
+                &table.quoted(quote_backtick),
                 quote_backtick,
                 limit,
                 offset,
@@ -311,11 +313,11 @@ impl Database for MySql {
         Ok(rows)
     }
 
-    fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
+    fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {
         Ok(single_column_keys(self.key_columns()?))
     }
 
-    fn key_columns(&mut self) -> anyhow::Result<HashMap<String, Vec<String>>> {
+    fn key_columns(&mut self) -> anyhow::Result<HashMap<Table, Vec<String>>> {
         let pairs = self
             .query(
                 "select table_name, column_name from information_schema.statistics \
@@ -324,7 +326,7 @@ impl Database for MySql {
             )?
             .rows
             .into_iter()
-            .filter_map(|row| Some((row.first()?.clone()?, row.get(1)?.clone()?)))
+            .filter_map(|row| Some((Table::bare(row.first()?.clone()?), row.get(1)?.clone()?)))
             .collect();
         Ok(keyed(pairs))
     }
@@ -345,11 +347,11 @@ impl Database for MySql {
         Ok(())
     }
 
-    fn highest(&mut self, table: &str, column: &str) -> anyhow::Result<Option<String>> {
+    fn highest(&mut self, table: &Table, column: &str) -> anyhow::Result<Option<String>> {
         let page = self.query(&format!(
             "select max({}) from {}",
             quote_backtick(column),
-            quote_backtick(table)
+            table.quoted(quote_backtick)
         ))?;
         Ok(page
             .rows
@@ -360,7 +362,7 @@ impl Database for MySql {
 
     fn update(
         &mut self,
-        table: &str,
+        table: &Table,
         column: &str,
         key: &str,
         key_value: &str,
@@ -385,7 +387,7 @@ impl Database for MySql {
         Ok(self.connection.affected_rows())
     }
 
-    fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
+    fn insert(&mut self, table: &Table, values: &Values) -> anyhow::Result<()> {
         let sql = insert_statement(quote_backtick, question, table, values, "() values ()");
         let bits = self.bit_columns(table)?;
         let bindings: Vec<Value> = values
@@ -405,7 +407,7 @@ impl Database for MySql {
         })
     }
 
-    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
+    fn delete(&mut self, table: &Table, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
         let sql = delete_statement(quote_backtick, question, table, key, key_values.len());
         let bindings: Vec<Value> = key_values
             .iter()
@@ -486,7 +488,7 @@ impl Database for MySql {
         Ok(page)
     }
 
-    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+    fn columns(&mut self, table: &Table) -> anyhow::Result<Vec<Column>> {
         Ok(self
             .select(
                 "select column_name as `name`, data_type as `type_name`, column_type as `type`, \
@@ -495,7 +497,7 @@ impl Database for MySql {
                  generation_expression as `expression`, extra as `extra` \
                  from information_schema.columns where table_schema = database() and table_name = ? \
                  order by ordinal_position asc",
-                &[table.to_string()],
+                &[table.name.clone()],
             )?
             .rows
             .into_iter()
@@ -523,14 +525,14 @@ impl Database for MySql {
             .collect())
     }
 
-    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>> {
+    fn indexes(&mut self, table: &Table) -> anyhow::Result<Vec<Index>> {
         Ok(self
             .select(
                 "select index_name as `name`, group_concat(column_name order by seq_in_index) as `columns`, \
                  not non_unique as `unique` from information_schema.statistics \
                  where table_schema = database() and table_name = ? \
                  group by index_name, index_type, non_unique",
-                &[table.to_string()],
+                &[table.name.clone()],
             )?
             .rows
             .into_iter()
@@ -546,7 +548,7 @@ impl Database for MySql {
             .collect())
     }
 
-    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>> {
         Ok(keys_by_table(
             self.query(
                 "select kc.table_name as `table`, group_concat(kc.column_name order by kc.ordinal_position) as `columns`, \

@@ -4,7 +4,7 @@ use std::time::Instant;
 use anyhow::{Context, anyhow, bail};
 use serde_json::{Map, Value, json};
 
-use crate::database::{self, Column, Database, Kind, Outcome};
+use crate::database::{self, Column, Database, Kind, Outcome, Table};
 use crate::encrypter::Encrypter;
 use crate::store::{Connection, Store};
 use crate::store_writer::StoreWriter;
@@ -54,6 +54,7 @@ impl Agent {
             .open(&connection)
             .and_then(|mut database| database.tables())
             .context("Could not read the schema")?;
+        let tables: Vec<String> = tables.iter().map(Table::to_string).collect();
         Ok(json!({ "connection": connection.name, "tables": tables }))
     }
 
@@ -66,17 +67,22 @@ impl Agent {
         let connection = self.connection(name, on)?;
         let failed = || format!("Could not describe [{table}]");
         let mut database = self.open(&connection).with_context(failed)?;
-        let columns = database.columns(table).with_context(failed)?;
+        let listed = database.tables().with_context(failed)?;
+        let default_schema = database.default_schema();
+        let Some(table) = Table::resolve(table, &listed, default_schema.as_deref()) else {
+            bail!("Table [{table}] has no columns, or does not exist.");
+        };
+        let columns = database.columns(&table).with_context(failed)?;
         if columns.is_empty() {
             bail!("Table [{table}] has no columns, or does not exist.");
         }
         let primary_key = database
-            .indexes(table)
+            .indexes(&table)
             .ok()
             .and_then(|indexes| database::primary_key(&indexes));
         Ok(json!({
             "connection": connection.name,
-            "table": table,
+            "table": table.to_string(),
             "primary_key": primary_key,
             "columns": columns.iter().map(described).collect::<Vec<_>>(),
         }))

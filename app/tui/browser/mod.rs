@@ -46,7 +46,7 @@ use super::palette::{self, Palette};
 use super::schema::Schema;
 use super::sql;
 use super::text::{self, pad, single_line, truncate, window};
-use crate::database::{Database, Direction, Filters, Kind, Sort};
+use crate::database::{Database, Direction, Filters, Kind, Sort, Table};
 use crate::settings;
 use crate::store::Connection;
 
@@ -75,7 +75,7 @@ pub enum Mode {
 pub struct Browser {
     pub connection: Connection,
     database: Box<dyn Database>,
-    pub tables: Vec<String>,
+    pub tables: Vec<Table>,
     pub table_index: usize,
     pub filter: String,
     pub filtering: bool,
@@ -89,7 +89,7 @@ pub struct Browser {
     pub rows: Vec<Vec<String>>,
     pub raw: Vec<Vec<Option<String>>>,
     kinds: Vec<Vec<Kind>>,
-    loaded: Option<String>,
+    loaded: Option<Table>,
     pub edits: Edits,
     pub row_index: usize,
     pub column_index: usize,
@@ -122,7 +122,7 @@ pub struct Browser {
     last_click: Option<(usize, usize, Instant)>,
     help_offset: usize,
     help_hidden: usize,
-    keys: HashMap<String, String>,
+    keys: HashMap<Table, String>,
     pending: Option<bool>,
     schema: Schema,
     pub structure: Option<StructureView>,
@@ -275,18 +275,18 @@ impl Browser {
         self.status_fresh = false;
     }
 
-    pub fn visible_tables(&self) -> Vec<&String> {
+    pub fn visible_tables(&self) -> Vec<&Table> {
         let needle = self.filter.to_lowercase();
         self.tables
             .iter()
-            .filter(|table| table.to_lowercase().contains(&needle))
+            .filter(|table| table.to_string().to_lowercase().contains(&needle))
             .collect()
     }
 
-    pub fn current_table(&self) -> Option<String> {
+    pub fn current_table(&self) -> Option<Table> {
         self.visible_tables()
             .get(self.table_index)
-            .map(|table| table.to_string())
+            .map(|table| (*table).clone())
     }
 
     pub fn tables_width(&self) -> usize {

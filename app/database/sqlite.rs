@@ -1,3 +1,4 @@
+use super::Table;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -54,18 +55,18 @@ fn generated_as(created: &str, column: &str) -> Option<String> {
 }
 
 impl Database for Sqlite {
-    fn tables(&mut self) -> anyhow::Result<Vec<String>> {
+    fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
         let mut statement = self.connection.prepare(
             "select name from pragma_table_list where type in ('table', 'virtual') \
              and name not like 'sqlite\\_%' escape '\\' order by schema, name",
         )?;
-        let names = statement.query_map([], |row| row.get(0))?;
+        let names = statement.query_map([], |row| row.get::<_, String>(0).map(Table::bare))?;
         Ok(names.collect::<Result<_, _>>()?)
     }
 
     fn filtered_rows(
         &mut self,
-        table: &str,
+        table: &Table,
         limit: usize,
         offset: usize,
         sort: Option<&Sort>,
@@ -74,7 +75,7 @@ impl Database for Sqlite {
         let condition = filters.and_then(|filters| filters.condition(&quote_double));
         let page = |shown: Option<String>| {
             select_page(
-                &quote_double(table),
+                &table.quoted(quote_double),
                 quote_double,
                 limit,
                 offset,
@@ -138,17 +139,19 @@ impl Database for Sqlite {
         Ok(Scalars { headers, rows })
     }
 
-    fn primary_keys(&mut self) -> anyhow::Result<HashMap<String, String>> {
+    fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {
         Ok(single_column_keys(self.key_columns()?))
     }
 
-    fn key_columns(&mut self) -> anyhow::Result<HashMap<String, Vec<String>>> {
+    fn key_columns(&mut self) -> anyhow::Result<HashMap<Table, Vec<String>>> {
         let mut statement = self.connection.prepare(
             "select m.name, p.name from sqlite_master m join pragma_table_info(m.name) p \
              where m.type = 'table' and p.pk > 0 order by m.name, p.pk",
         )?;
         let pairs = statement
-            .query_map([], |row| Ok((row.get(0)?, row.get(1)?)))?
+            .query_map([], |row| {
+                Ok((Table::bare(row.get::<_, String>(0)?), row.get(1)?))
+            })?
             .collect::<Result<_, _>>()?;
         Ok(keyed(pairs))
     }
@@ -166,18 +169,18 @@ impl Database for Sqlite {
         })
     }
 
-    fn columns(&mut self, table: &str) -> anyhow::Result<Vec<Column>> {
+    fn columns(&mut self, table: &Table) -> anyhow::Result<Vec<Column>> {
         let rows = self
             .select(
                 "select name, type, not \"notnull\" as \"nullable\", dflt_value as \"default\", pk as \"primary\", \
                  hidden as \"extra\" from pragma_table_xinfo(?, 'main') order by cid asc",
-                &[table.to_string()],
+                &[table.name.clone()],
             )?
             .rows;
         let created = self
             .select(
                 "select sql from sqlite_master where type = 'table' and name = ?",
-                &[table.to_string()],
+                &[table.name.clone()],
             )?
             .rows
             .into_iter()
@@ -225,7 +228,7 @@ impl Database for Sqlite {
             .collect())
     }
 
-    fn indexes(&mut self, table: &str) -> anyhow::Result<Vec<Index>> {
+    fn indexes(&mut self, table: &Table) -> anyhow::Result<Vec<Index>> {
         let rows = self
             .select(
                 "select 'primary' as name, group_concat(col) as columns, 1 as \"unique\", 1 as \"primary\" \
@@ -233,7 +236,7 @@ impl Database for Sqlite {
                  union select name, group_concat(col) as columns, \"unique\", origin = 'pk' as \"primary\" \
                  from (select il.*, ii.name as col from pragma_index_list(?1, 'main') il, pragma_index_info(il.name, 'main') ii \
                  order by il.seq, ii.seqno) group by name, \"unique\", \"primary\"",
-                &[table.to_string()],
+                &[table.name.clone()],
             )?
             .rows;
         let indexes: Vec<Index> = rows
@@ -255,7 +258,7 @@ impl Database for Sqlite {
         Ok(indexes)
     }
 
-    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<String, Vec<ForeignKey>>> {
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<ForeignKey>>> {
         let rows = self
             .select(
                 "select owner, group_concat(\"from\"), \"table\", group_concat(\"to\") from ( \
@@ -277,11 +280,11 @@ impl Database for Sqlite {
         Ok(keys)
     }
 
-    fn highest(&mut self, table: &str, column: &str) -> anyhow::Result<Option<String>> {
+    fn highest(&mut self, table: &Table, column: &str) -> anyhow::Result<Option<String>> {
         let sql = format!(
             "select max({}) from {}",
             quote_double(column),
-            quote_double(table)
+            table.quoted(quote_double)
         );
         Ok(self
             .connection
@@ -290,7 +293,7 @@ impl Database for Sqlite {
 
     fn update(
         &mut self,
-        table: &str,
+        table: &Table,
         column: &str,
         key: &str,
         key_value: &str,
@@ -309,7 +312,7 @@ impl Database for Sqlite {
         Ok(reached as u64)
     }
 
-    fn insert(&mut self, table: &str, values: &Values) -> anyhow::Result<()> {
+    fn insert(&mut self, table: &Table, values: &Values) -> anyhow::Result<()> {
         let sql = insert_statement(quote_double, numbered, table, values, "default values");
         self.connection
             .execute(
@@ -325,7 +328,7 @@ impl Database for Sqlite {
         Ok(())
     }
 
-    fn delete(&mut self, table: &str, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
+    fn delete(&mut self, table: &Table, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
         let sql = delete_statement(quote_double, numbered, table, key, key_values.len());
         let reached = self
             .connection
