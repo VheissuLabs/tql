@@ -15,8 +15,27 @@ impl Browser {
         }
     }
 
+    pub(super) fn sql_shown(&self) -> bool {
+        self.mode == Mode::Query
+            || !self.sql_hidden && settings::with(|settings| settings.sql_always)
+    }
+
+    pub(super) fn toggle_sql(&mut self) {
+        if !self.sql_shown() {
+            self.sql_hidden = false;
+            self.open_query();
+            return;
+        }
+        if self.mode == Mode::Query {
+            self.leave_query();
+        }
+        self.sql_hidden = true;
+        let key = keymap::spelled(Action::ToggleSql);
+        self.say(format!("SQL editor hidden · {key} shows it"));
+    }
+
     pub(super) fn toggle_focus(&mut self, forward: bool) {
-        let sql_shown = self.mode == Mode::Query || settings::with(|settings| settings.sql_always);
+        let sql_shown = self.sql_shown();
         let panes: Vec<Option<Focus>> = [
             (!self.tables_hidden).then_some(Some(Focus::Sidebar)),
             Some(Some(Focus::Grid)),
@@ -268,6 +287,7 @@ impl Browser {
                 self.mode = Mode::Browse;
             }
             Action::ToggleTables => self.toggle_tables(),
+            Action::ToggleSql => self.toggle_sql(),
             Action::SortColumn => self.sort_by_current_column(),
             Action::FilterRows => self.open_filters(),
             Action::FilterTables => {

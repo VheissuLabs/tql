@@ -154,7 +154,10 @@ impl Browser {
     }
 
     fn run_palette_item(&mut self, item: Item) -> Flow<Exit> {
-        let opens_the_editor = matches!(item.kind, Kind::History | Kind::Action(Action::Sql));
+        let opens_the_editor = matches!(
+            item.kind,
+            Kind::History | Kind::Action(Action::Sql | Action::ToggleSql)
+        );
         if self.mode == Mode::Query && !opens_the_editor {
             self.mode = Mode::Browse;
         }

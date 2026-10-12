@@ -366,10 +366,9 @@ impl Browser {
         }
 
         let area = frame.area();
-        let (hotkey_bar, sql_always, sql_at_bottom, under, gap) = settings::with(|settings| {
+        let (hotkey_bar, sql_at_bottom, under, gap) = settings::with(|settings| {
             (
                 settings.hotkey_bar,
-                settings.sql_always,
                 settings.sql_at_bottom,
                 settings.bottom_margin,
                 settings.pane_gap,
@@ -398,7 +397,7 @@ impl Browser {
         };
         let right_width = (area.width + 1).saturating_sub(right_x + gap).max(20);
 
-        let sql_shown = sql_always || self.mode == Mode::Query;
+        let sql_shown = self.sql_shown();
         let editor_height = if sql_shown {
             settings::with(|settings| settings.sql_height(frame_height as usize)) as u16
         } else {

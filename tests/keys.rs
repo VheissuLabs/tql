@@ -209,3 +209,43 @@ fn a_count_reaches_the_rebound_keys_without_changing_them() {
     assert!(fake.app.filter_form.is_some());
     assert!(fake.app.count_prefix.is_empty());
 }
+
+fn sql_pane_shown(fake: &mut Fake<Browser>) -> bool {
+    fake.screen().contains("] SQL")
+}
+
+#[test]
+fn the_palette_shows_and_hides_the_sql_editor() {
+    let mut fake = browser("toggle-sql-palette", &[]);
+    assert!(!sql_pane_shown(&mut fake), "{}", fake.screen());
+
+    fake.press("\x0bshow or hide the sql\n");
+    assert_eq!(fake.app.mode, app::tui::Mode::Query);
+    assert!(sql_pane_shown(&mut fake), "{}", fake.screen());
+
+    fake.press("\x0bshow or hide the sql\n");
+    assert_eq!(fake.app.mode, app::tui::Mode::Browse);
+    assert!(!sql_pane_shown(&mut fake), "{}", fake.screen());
+    assert_eq!(fake.app.status(), "SQL editor hidden · | shows it");
+}
+
+#[test]
+fn hiding_the_sql_editor_holds_even_when_it_is_always_shown() {
+    let mut configured = Settings::default();
+    configured.set("ui.sql_always", &toml::Value::Boolean(true));
+    settings::install(configured);
+    let path = fixture("toggle-sql-always");
+    let connection = Connection::sqlite("keys", path.to_str().unwrap());
+    let database = database::connect(&connection, None).unwrap();
+    let mut fake = Fake::sized(Browser::new(connection, database).unwrap(), 120, 30);
+    assert!(sql_pane_shown(&mut fake), "{}", fake.screen());
+
+    fake.press("|");
+    assert!(!sql_pane_shown(&mut fake), "{}", fake.screen());
+    fake.press("j");
+    assert!(!sql_pane_shown(&mut fake), "{}", fake.screen());
+
+    fake.press("|");
+    assert!(sql_pane_shown(&mut fake), "{}", fake.screen());
+    assert_eq!(fake.app.mode, app::tui::Mode::Query);
+}

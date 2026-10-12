@@ -68,6 +68,12 @@ pub fn defaults() -> Vec<Binding> {
             "show or hide tables",
         ),
         ported(
+            Action::ToggleSql,
+            "toggle_sql",
+            &[Key::Char('|')],
+            "show or hide the SQL editor",
+        ),
+        ported(
             Action::InspectRow,
             "inspect_row",
             &[Key::Char('i')],

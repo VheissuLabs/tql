@@ -25,6 +25,7 @@ pub enum Action {
     FocusRows,
     FocusSql,
     ToggleTables,
+    ToggleSql,
     InspectRow,
     ViewValue,
     EditValue,

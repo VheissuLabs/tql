@@ -434,6 +434,7 @@ of is ignored and the default stands.
 | `palette` | `ctrl+k` | the command palette |
 | `focus_tables` / `focus_rows` / `focus_sql` | `alt+1` / `alt+2` / `alt+3` | go to a pane |
 | `toggle_tables` | `\` | hide or show the table list |
+| `toggle_sql` | `\|` | hide or show the SQL editor |
 | `help` | `?` | help |
 | `quit` | `q` | quit |
 

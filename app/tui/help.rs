@@ -49,7 +49,10 @@ fn sections() -> Vec<(&'static str, Vec<Entry>)> {
             "tables / rows / SQL",
         ),
     ];
-    moving.extend(each(&[Action::ToggleTables]));
+    moving.push(pair(
+        &[Action::ToggleTables, Action::ToggleSql],
+        "toggle tables / SQL",
+    ));
     moving.push(pair(
         &[Action::NextPage, Action::PreviousPage],
         "next / previous page",
