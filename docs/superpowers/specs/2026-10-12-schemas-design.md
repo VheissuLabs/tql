@@ -78,7 +78,7 @@ other schema is written `schema.table` wherever tql names it:
 - the grid's title and the status line
 - the ctrl+k palette (tables are listed qualified and found by either part)
 - the record inspector's related tables
-- export file names (`shop-ev.evaluation-20261012-120000.sql`) and the
+- export file names (`shop-ev-evaluation-20261012-120000.sql`) and the
   `-- ev.evaluation` section comments in a whole-database export
 - the agent and MCP tools
 
