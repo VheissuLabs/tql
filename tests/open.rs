@@ -111,7 +111,7 @@ fn refuses_a_file_that_is_not_there() {
 #[test]
 fn refuses_a_scheme_it_does_not_understand() {
     assert_eq!(
-        opener::target("redis://localhost").map_err(|error| error.to_string()),
+        opener::target("mongodb://localhost").map_err(|error| error.to_string()),
         Err("That connection string is not one I understand.".to_string())
     );
 }

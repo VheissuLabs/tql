@@ -223,6 +223,7 @@ pub(super) fn driver_color(driver: Option<Driver>) -> Color {
         Some(Driver::Duckdb) => Color::LightYellow,
         Some(Driver::Libsql) => Color::Cyan,
         Some(Driver::Clickhouse) => Color::LightRed,
+        Some(Driver::Redis) => Color::Red,
         None => Color::DarkGray,
     }
 }

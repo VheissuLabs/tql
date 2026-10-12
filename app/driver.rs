@@ -10,10 +10,11 @@ pub enum Driver {
     Duckdb,
     Libsql,
     Clickhouse,
+    Redis,
 }
 
 impl Driver {
-    pub const ALL: [Driver; 7] = [
+    pub const ALL: [Driver; 8] = [
         Driver::Sqlite,
         Driver::Mysql,
         Driver::Pgsql,
@@ -21,6 +22,7 @@ impl Driver {
         Driver::Duckdb,
         Driver::Libsql,
         Driver::Clickhouse,
+        Driver::Redis,
     ];
 
     pub fn parse(name: &str) -> Option<Driver> {
@@ -32,6 +34,7 @@ impl Driver {
             "duckdb" => Some(Driver::Duckdb),
             "libsql" | "turso" => Some(Driver::Libsql),
             "clickhouse" => Some(Driver::Clickhouse),
+            "redis" | "valkey" => Some(Driver::Redis),
             _ => None,
         }
     }
@@ -45,6 +48,7 @@ impl Driver {
             Driver::Duckdb => "duckdb",
             Driver::Libsql => "libsql",
             Driver::Clickhouse => "clickhouse",
+            Driver::Redis => "redis",
         }
     }
 
@@ -57,6 +61,7 @@ impl Driver {
             Driver::Duckdb => "DuckDB",
             Driver::Libsql => "libSQL",
             Driver::Clickhouse => "ClickHouse",
+            Driver::Redis => "Redis / Valkey",
         }
     }
 
@@ -67,6 +72,7 @@ impl Driver {
             Driver::Pgsql => Some(5432),
             Driver::Sqlsrv => Some(1433),
             Driver::Clickhouse => Some(8123),
+            Driver::Redis => Some(6379),
         }
     }
 
@@ -85,7 +91,7 @@ impl Driver {
     pub fn has_databases(self) -> bool {
         matches!(
             self,
-            Driver::Mysql | Driver::Pgsql | Driver::Sqlsrv | Driver::Clickhouse
+            Driver::Mysql | Driver::Pgsql | Driver::Sqlsrv | Driver::Clickhouse | Driver::Redis
         )
     }
 }

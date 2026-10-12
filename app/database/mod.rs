@@ -22,7 +22,7 @@ use anyhow::{anyhow, bail};
 use regex::Regex;
 
 pub use column_default::ColumnDefault;
-pub use exporter::{Exported, Exporter, Scalar, Scalars};
+pub use exporter::{Exported, Exporter, Scalar, Scalars, real_text as exporter_real_text};
 pub use table::{Table, split_name};
 
 use crate::driver::Driver;
@@ -398,6 +398,7 @@ pub fn connect(
         )?)),
         Driver::Mysql => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
         Driver::Libsql => Ok(Box::new(libsql::Libsql::open(connection, password)?)),
+        Driver::Redis => bail!("a Redis connection is not a SQL database"),
         Driver::Clickhouse => Ok(Box::new(clickhouse::ClickHouse::open(
             connection, password, tunnel,
         )?)),

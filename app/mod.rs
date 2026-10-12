@@ -9,6 +9,7 @@ pub mod driver;
 pub mod dsn;
 pub mod dump;
 pub mod encrypter;
+pub mod keystore;
 pub mod live;
 pub mod mcp;
 pub mod opener;

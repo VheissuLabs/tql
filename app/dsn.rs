@@ -416,7 +416,7 @@ mod tests {
     #[test]
     fn says_no_to_a_scheme_it_does_not_know() {
         for dsn in [
-            "redis://localhost",
+            "mongodb://localhost",
             "https://example.com/db",
             "mongodb://host/db",
         ] {
