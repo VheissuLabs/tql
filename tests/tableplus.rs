@@ -251,7 +251,10 @@ fn skips_what_tql_cannot_open_and_what_it_already_has_so_running_it_twice_is_saf
     let scratch = Scratch::new("twice");
     let folder = scratch.folder(
         vec![
-            connection(&[("ConnectionName", text("Cache")), ("Driver", text("Redis"))]),
+            connection(&[
+                ("ConnectionName", text("Cache")),
+                ("Driver", text("MongoDB")),
+            ]),
             connection(&[
                 ("ID", text("prod-1")),
                 ("ConnectionName", text("NotaryDash Prod")),
@@ -271,7 +274,7 @@ fn skips_what_tql_cannot_open_and_what_it_already_has_so_running_it_twice_is_saf
         again.stdout.contains("already in tql as NotaryDash Prod"),
         "{again:?}"
     );
-    assert!(again.stdout.contains("tql does not speak Redis"));
+    assert!(again.stdout.contains("tql does not speak MongoDB"));
     assert!(again.stdout.contains("Added 0. Run tql to see them."));
     assert_eq!(scratch.count(), 1);
 }
