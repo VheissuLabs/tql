@@ -242,12 +242,19 @@ impl KeyBrowser {
     }
 
     fn reload_shown(&mut self) {
-        if let Some((key, offset)) = self
+        if let Some((key, offset, row)) = self
             .shown
             .as_ref()
-            .map(|shown| (shown.key.clone(), shown.offset))
+            .map(|shown| (shown.key.clone(), shown.offset, shown.row))
         {
             self.load(&key, offset);
+            let count = self
+                .overlaid()
+                .map(|(_, rows, _)| rows.len())
+                .unwrap_or_default();
+            if let Some(shown) = self.shown.as_mut() {
+                shown.row = row.min(count.saturating_sub(1));
+            }
         }
     }
 
@@ -505,6 +512,10 @@ impl KeyBrowser {
             self.open_cli();
             return Flow::Continue;
         }
+        if line == "log" {
+            self.show_log();
+            return Flow::Continue;
+        }
         match registry::parse(line) {
             Some((entry, argument)) => self.run_named(entry.name, &argument),
             None => {
@@ -714,6 +725,7 @@ impl KeyBrowser {
             Key::Char('e') | Key::Enter => self.edit_here(),
             Key::Char('N') => self.add_here(),
             Key::Char('d') => self.mark_here(),
+            Key::Char('T') => self.ask_field_ttl(),
             Key::Char('n') => self.page(true),
             Key::Char('p') => self.page(false),
             Key::Up | Key::Char('k') => self.move_by(-1),

@@ -94,6 +94,10 @@ stream as entries. `e` edits a value, a field, an item, a member or a score,
 sends them all in one transaction, so either every one happens or none does. A
 list item that moved since tql read it is not removed by mistake.
 
+On Redis 7.4 and Valkey 9, a hash shows each field's TTL, and `T` on a field
+sets or clears it. `:log` shows the server's recent slow commands, from
+Valkey's command log or Redis's slow log.
+
 `s` opens a command pane for anything else (`HGETALL user:1`, `ZRANGE leaders 0
 9 WITHSCORES`); `ctrl+r` runs the line. On a read-only connection it runs only
 commands the server says only read, and it never runs one that waits forever,

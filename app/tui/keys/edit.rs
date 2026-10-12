@@ -52,6 +52,10 @@ enum Purpose {
     Ttl {
         key: String,
     },
+    FieldTtl {
+        key: String,
+        field: String,
+    },
     Rename {
         key: String,
     },
@@ -203,6 +207,27 @@ impl KeyBrowser {
                         self.say(match seconds {
                             Some(seconds) => format!("{key} expires in {seconds}s"),
                             None => format!("{key} no longer expires"),
+                        });
+                    }
+                    Err(error) => self.fail(format!("{error:#}")),
+                }
+                return;
+            }
+            Purpose::FieldTtl { key, field } => {
+                let typed = next();
+                let seconds = match typed.trim() {
+                    "" => None,
+                    typed => match typed.trim_end_matches('s').parse::<i64>() {
+                        Ok(seconds) if seconds > 0 => Some(seconds),
+                        _ => return self.fail("a TTL is a whole number of seconds"),
+                    },
+                };
+                match self.store.expire_field(&key, &field, seconds) {
+                    Ok(()) => {
+                        self.reload_shown();
+                        self.say(match seconds {
+                            Some(seconds) => format!("{field} expires in {seconds}s"),
+                            None => format!("{field} no longer expires"),
                         });
                     }
                     Err(error) => self.fail(format!("{error:#}")),
@@ -453,6 +478,56 @@ impl KeyBrowser {
             &now.map(|seconds| seconds.to_string()).unwrap_or_default(),
             Purpose::Ttl { key },
         );
+    }
+
+    pub(super) fn ask_field_ttl(&mut self) {
+        if self.refuses() {
+            return;
+        }
+        let Some(shown) = self.shown.as_ref() else {
+            return;
+        };
+        if shown.kind != KeyKind::Hash {
+            return self.say("T on a hash field sets its TTL; T on the key list sets the key's");
+        }
+        let key = shown.key.clone();
+        if !self.store.supports("hexpire") {
+            return self.say("this server has no expiry on hash fields; Redis 7.4 and Valkey 9 do");
+        }
+        let Some(row) = self.original_row() else {
+            return;
+        };
+        let start = row
+            .get(2)
+            .filter(|ttl| *ttl != "none")
+            .map(|ttl| ttl.trim_end_matches('s').to_string())
+            .unwrap_or_default();
+        self.ask(
+            format!("{key} · {} · TTL", row[0]),
+            vec!["seconds, empty to keep it forever"],
+            &start,
+            Purpose::FieldTtl {
+                key,
+                field: row[0].clone(),
+            },
+        );
+    }
+
+    pub(super) fn show_log(&mut self) {
+        match self.store.log() {
+            Ok(contents) => {
+                self.shown = Some(Shown {
+                    key: "command log".to_string(),
+                    kind: KeyKind::Other("log".to_string()),
+                    ttl: None,
+                    contents,
+                    row: 0,
+                    offset: 0,
+                });
+                self.focus = Focus::Value;
+            }
+            Err(error) => self.fail(format!("{error:#}")),
+        }
     }
 
     pub(super) fn ask_rename(&mut self) {

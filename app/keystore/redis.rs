@@ -18,6 +18,7 @@ pub struct Redis {
     connection: redis::Connection,
     database: u32,
     flags: HashMap<String, bool>,
+    known: HashMap<String, bool>,
     _tunnel: Option<Arc<Tunnel>>,
 }
 
@@ -83,6 +84,7 @@ impl Redis {
             connection: opened,
             database,
             flags: HashMap::new(),
+            known: HashMap::new(),
             _tunnel: tunnel,
         })
     }
@@ -264,11 +266,24 @@ impl KeyStore for Redis {
                 let (items, more) = self.scan_all("HSCAN", key, (offset + limit) * 2)?;
                 let all = pairs(items);
                 let more = more || all.len() > offset + limit;
-                rows(
-                    &["field", "value"],
-                    all.into_iter().skip(offset).take(limit).collect(),
-                    more,
-                )
+                let mut page: Vec<Vec<String>> = all.into_iter().skip(offset).take(limit).collect();
+                if page.is_empty() || !self.supports("httl") {
+                    return Ok(rows(&["field", "value"], page, more));
+                }
+                let ttls: Vec<i64> = redis::cmd("HTTL")
+                    .arg(key)
+                    .arg("FIELDS")
+                    .arg(page.len())
+                    .arg(page.iter().map(|row| row[0].as_str()).collect::<Vec<_>>())
+                    .query(&mut self.connection)
+                    .map_err(|error| anyhow!(said(&error)))?;
+                for (row, ttl) in page.iter_mut().zip(ttls) {
+                    row.push(match ttl {
+                        seconds if seconds >= 0 => format!("{seconds}s"),
+                        _ => "none".to_string(),
+                    });
+                }
+                rows(&["field", "value", "ttl"], page, more)
             }
             KeyKind::Set => {
                 let (items, more) = self.scan_all("SSCAN", key, offset + limit)?;
@@ -594,6 +609,93 @@ impl KeyStore for Redis {
         }
     }
 
+    fn supports(&mut self, command: &str) -> bool {
+        let name = command.to_lowercase();
+        if let Some(known) = self.known.get(&name) {
+            return *known;
+        }
+        let found = matches!(
+            redis::cmd("COMMAND").arg("INFO").arg(&name).query::<Value>(&mut self.connection),
+            Ok(Value::Array(entries)) if entries.first().is_some_and(|entry| *entry != Value::Nil)
+        );
+        self.known.insert(name, found);
+        found
+    }
+
+    fn expire_field(&mut self, key: &str, field: &str, seconds: Option<i64>) -> anyhow::Result<()> {
+        if !self.supports("hexpire") {
+            bail!("this server has no expiry on hash fields; Redis 7.4 and Valkey 9 do");
+        }
+        let mut command = match seconds {
+            Some(seconds) => {
+                let mut command = redis::cmd("HEXPIRE");
+                command.arg(key).arg(seconds);
+                command
+            }
+            None => {
+                let mut command = redis::cmd("HPERSIST");
+                command.arg(key);
+                command
+            }
+        };
+        command.arg("FIELDS").arg(1).arg(field);
+        let answered: Vec<i64> = command
+            .query(&mut self.connection)
+            .map_err(|error| anyhow!(said(&error)))?;
+        match answered.first() {
+            Some(-2) => bail!("{field} is no longer in {key}"),
+            _ => Ok(()),
+        }
+    }
+
+    fn log(&mut self) -> anyhow::Result<Contents> {
+        let entries: Vec<Value> = match self.supports("commandlog") {
+            true => redis::cmd("COMMANDLOG")
+                .arg("GET")
+                .arg(50)
+                .arg("slow")
+                .query(&mut self.connection),
+            false => redis::cmd("SLOWLOG")
+                .arg("GET")
+                .arg(50)
+                .query(&mut self.connection),
+        }
+        .map_err(|error| anyhow!(said(&error)))?;
+        let rows = entries
+            .into_iter()
+            .filter_map(|entry| match entry {
+                Value::Array(fields) => Some(fields),
+                _ => None,
+            })
+            .map(|fields| {
+                let number = |at: usize| match fields.get(at) {
+                    Some(Value::Int(number)) => *number,
+                    _ => 0,
+                };
+                let when = jiff::Timestamp::from_second(number(1))
+                    .map(|at| at.strftime("%Y-%m-%d %H:%M:%S").to_string())
+                    .unwrap_or_default();
+                let command = match fields.get(3) {
+                    Some(Value::Array(words)) => {
+                        words.iter().map(text).collect::<Vec<_>>().join(" ")
+                    }
+                    Some(other) => text(other),
+                    None => String::new(),
+                };
+                let client = fields.get(4).map(text).unwrap_or_default();
+                vec![when, format!("{}µs", number(2)), command, client]
+            })
+            .collect();
+        Ok(Contents::Rows {
+            headers: ["when", "took", "command", "client"]
+                .iter()
+                .map(|header| header.to_string())
+                .collect(),
+            rows,
+            more: false,
+        })
+    }
+
     fn fork(&mut self) -> anyhow::Result<Box<dyn KeyStore>> {
         let mut connection = self
             .client
@@ -608,6 +710,7 @@ impl KeyStore for Redis {
             connection,
             database: self.database,
             flags: HashMap::new(),
+            known: HashMap::new(),
             _tunnel: self._tunnel.clone(),
         }))
     }

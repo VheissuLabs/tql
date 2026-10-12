@@ -347,7 +347,8 @@ A Redis or Valkey connection opens the key browser.
 | `N` | on the keys, a new key; on a value, a new field, item or member |
 | `e` | edit the value, field, item, member or score |
 | `d` | mark a key, or a value's field, item or member, for removal |
-| `T` | set the key's TTL; empty keeps it forever |
+| `T` | set the key's TTL, or on a hash field, that field's (Redis 7.4, Valkey 9); empty keeps it forever |
+| `:log` | the server's recent slow commands |
 | `R` | rename the key |
 | `n` / `p` | next or previous page of a value |
 | `:w` | write every pending change in one transaction |

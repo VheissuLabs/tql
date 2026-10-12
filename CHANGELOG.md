@@ -22,7 +22,9 @@ announcement under `release-notes/` for GitHub.
   every ClickHouse type shown exactly.
 - Redis and Valkey connections open a key browser: folding `:` namespaces
   scanned in the background, a view for every type, edits written together on
-  `:w`, TTL, rename, database switching and a command pane.
+  `:w`, TTL, rename, database switching and a command pane. On Redis 7.4 and
+  Valkey 9 a hash shows each field's TTL and `T` sets it; `:log` shows the
+  command log (Valkey) or slow log (Redis).
 - `tql open` takes a DuckDB file, `libsql://` and `https://…?authToken=` URLs,
   and `clickhouse://` and `clickhouses://` URLs; TablePlus import brings
   ClickHouse and DuckDB connections over.

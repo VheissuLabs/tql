@@ -82,6 +82,9 @@ jobs:
       valkey:
         image: valkey/valkey:8
         ports: ['6380:6379']
+      valkey9:
+        image: valkey/valkey:9
+        ports: ['6381:6379']
 
     env:
       TQL_TEST_SQLSRV: 127.0.0.1:1433
@@ -90,6 +93,7 @@ jobs:
       TQL_TEST_LIBSQL: http://127.0.0.1:8080
       TQL_TEST_REDIS: 127.0.0.1:6379
       TQL_TEST_VALKEY: 127.0.0.1:6380
+      TQL_TEST_VALKEY9: 127.0.0.1:6381
 
     steps:
       - uses: actions/checkout@v4

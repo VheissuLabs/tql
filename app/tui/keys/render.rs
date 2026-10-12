@@ -152,6 +152,13 @@ impl KeyBrowser {
     }
 
     fn value_title(shown: &Shown) -> String {
+        if shown.kind == KeyKind::Other("log".to_string()) {
+            let count = match &shown.contents {
+                Contents::Rows { rows, .. } => rows.len(),
+                _ => 0,
+            };
+            return format!("[2] command log · {}", plural(count, "entry"));
+        }
         let size = match &shown.contents {
             Contents::Text(bytes) => plural(bytes.len(), "byte"),
             Contents::Rows { rows, more, .. } => {

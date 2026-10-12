@@ -124,7 +124,11 @@ fn scans_and_reads_every_type() {
             Contents::Text(bytes) => assert_eq!(bytes, [0xff, 0x00]),
             other => panic!("{name}: {other:?}"),
         }
-        let mut hash = rows(redis.read(&keys[1], &KeyKind::Hash, 0, 100).unwrap());
+        let mut hash: Vec<Vec<String>> =
+            rows(redis.read(&keys[1], &KeyKind::Hash, 0, 100).unwrap())
+                .into_iter()
+                .map(|row| row[..2].to_vec())
+                .collect();
         hash.sort();
         assert_eq!(
             hash,
@@ -297,4 +301,83 @@ fn expires_renames_switches_databases_and_runs_commands() {
         let mut other = store(&place, 1);
         assert_eq!(other.scan(0, &format!("{p}*"), 100).unwrap().keys.len(), 0);
     }
+}
+
+fn newer_servers() -> Vec<(&'static str, String)> {
+    ["TQL_TEST_REDIS", "TQL_TEST_VALKEY", "TQL_TEST_VALKEY9"]
+        .into_iter()
+        .filter_map(|name| std::env::var(name).ok().map(|place| (name, place)))
+        .collect()
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS, TQL_TEST_VALKEY or TQL_TEST_VALKEY9 as host:port"]
+fn shows_and_sets_the_ttl_of_a_hash_field_where_the_server_has_them() {
+    for (name, place) in newer_servers() {
+        let (mut redis, p) = seeded(&place);
+        let key = format!("{p}:user:1");
+        if !redis.supports("httl") {
+            assert!(
+                matches!(
+                    redis.read(&key, &KeyKind::Hash, 0, 100).unwrap(),
+                    Contents::Rows { ref headers, .. } if headers.len() == 2
+                ),
+                "{name}"
+            );
+            cleanup(&mut redis, &p);
+            continue;
+        }
+        redis.expire_field(&key, "email", Some(300)).unwrap();
+        let Contents::Rows { headers, rows, .. } =
+            redis.read(&key, &KeyKind::Hash, 0, 100).unwrap()
+        else {
+            panic!("{name}: not rows");
+        };
+        assert_eq!(headers, ["field", "value", "ttl"], "{name}");
+        let email = rows.iter().find(|row| row[0] == "email").unwrap();
+        assert!(
+            email[2].trim_end_matches('s').parse::<i64>().unwrap() > 290,
+            "{name}: {email:?}"
+        );
+        let other = rows.iter().find(|row| row[0] == "name").unwrap();
+        assert_eq!(other[2], "none", "{name}");
+
+        redis.expire_field(&key, "email", None).unwrap();
+        let rows = rows_of(redis.read(&key, &KeyKind::Hash, 0, 100).unwrap());
+        assert!(rows.iter().all(|row| row[2] == "none"), "{name}: {rows:?}");
+
+        cleanup(&mut redis, &p);
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS, TQL_TEST_VALKEY or TQL_TEST_VALKEY9 as host:port"]
+fn reads_the_command_log_or_the_slow_log() {
+    for (name, place) in newer_servers() {
+        let mut redis = store(&place, 0);
+        redis.run("CONFIG SET slowlog-log-slower-than 0").unwrap();
+        if redis.supports("commandlog") {
+            redis
+                .run("CONFIG SET commandlog-execution-slower-than 0")
+                .unwrap();
+        }
+        redis.run("PING").unwrap();
+        let Contents::Rows { headers, rows, .. } = redis.log().unwrap() else {
+            panic!("{name}: not rows");
+        };
+        assert_eq!(headers, ["when", "took", "command", "client"], "{name}");
+        assert!(!rows.is_empty(), "{name}");
+        redis
+            .run("CONFIG SET slowlog-log-slower-than 10000")
+            .unwrap();
+        if redis.supports("commandlog") {
+            redis
+                .run("CONFIG SET commandlog-execution-slower-than 10000")
+                .unwrap();
+        }
+    }
+}
+
+fn rows_of(contents: Contents) -> Vec<Vec<String>> {
+    rows(contents)
 }

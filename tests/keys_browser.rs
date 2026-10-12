@@ -25,6 +25,7 @@ struct World {
     ran: Vec<String>,
     expired: Vec<(String, Option<i64>)>,
     renamed: Vec<(String, String)>,
+    field_expiry: Vec<(String, String, Option<i64>)>,
     refuse_write: Option<String>,
 }
 
@@ -265,6 +266,35 @@ impl KeyStore for Fake2 {
 
     fn fork(&mut self) -> anyhow::Result<Box<dyn KeyStore>> {
         Ok(Box::new(self.clone()))
+    }
+
+    fn supports(&mut self, command: &str) -> bool {
+        matches!(command, "hexpire" | "httl" | "commandlog")
+    }
+
+    fn expire_field(&mut self, key: &str, field: &str, seconds: Option<i64>) -> anyhow::Result<()> {
+        self.world
+            .lock()
+            .unwrap()
+            .field_expiry
+            .push((key.to_string(), field.to_string(), seconds));
+        Ok(())
+    }
+
+    fn log(&mut self) -> anyhow::Result<Contents> {
+        Ok(Contents::Rows {
+            headers: ["when", "took", "command", "client"]
+                .iter()
+                .map(|header| header.to_string())
+                .collect(),
+            rows: vec![vec![
+                "2026-10-12 09:14:00".into(),
+                "1200µs".into(),
+                "KEYS *".into(),
+                "127.0.0.1:5000".into(),
+            ]],
+            more: false,
+        })
     }
 }
 
@@ -617,4 +647,33 @@ fn the_command_pane_refuses_writes_on_a_read_only_connection_and_blocking_comman
     fake.press("\x12");
     assert!(fake.screen().contains("waits"), "{}", fake.screen());
     assert!(store.world.lock().unwrap().ran.is_empty());
+}
+
+#[test]
+fn t_on_a_hash_field_sets_its_ttl() {
+    let store = small();
+    let mut fake = opened(&store, false);
+    fake.app.open_key("user:1");
+    fake.press("j");
+    fake.press("T");
+    fake.press("90\n");
+    fake.press("T");
+    fake.press("\x7f\n");
+    assert_eq!(
+        store.world.lock().unwrap().field_expiry,
+        [
+            ("user:1".to_string(), "email".to_string(), Some(90)),
+            ("user:1".to_string(), "email".to_string(), None)
+        ]
+    );
+}
+
+#[test]
+fn colon_log_shows_the_command_log() {
+    let mut fake = opened(&small(), false);
+    fake.press(":log\n");
+    let screen = fake.screen();
+    assert!(screen.contains("command log"), "{screen}");
+    assert!(screen.contains("KEYS *"), "{screen}");
+    assert!(screen.contains("1200µs"), "{screen}");
 }

@@ -177,6 +177,23 @@ pub trait KeyStore: Send {
     fn reads_only(&mut self, command: &str) -> anyhow::Result<bool>;
     fn server(&mut self) -> String;
     fn fork(&mut self) -> anyhow::Result<Box<dyn KeyStore>>;
+
+    fn supports(&mut self, _command: &str) -> bool {
+        false
+    }
+
+    fn expire_field(
+        &mut self,
+        _key: &str,
+        _field: &str,
+        _seconds: Option<i64>,
+    ) -> anyhow::Result<()> {
+        anyhow::bail!("this server has no expiry on hash fields; Redis 7.4 and Valkey 9 do")
+    }
+
+    fn log(&mut self) -> anyhow::Result<Contents> {
+        anyhow::bail!("this server keeps no command log")
+    }
 }
 
 pub const BLOCKING: [&str; 15] = [
