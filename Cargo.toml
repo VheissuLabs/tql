@@ -41,6 +41,7 @@ unicode-width = "0.2.2"
 ureq = "3.4.2"
 webpki-roots = "1"
 plist = "1.10.1"
+duckdb = { version = "1.10506.0", features = ["bundled"] }
 
 [lints.rust]
 warnings = "deny"

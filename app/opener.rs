@@ -41,12 +41,16 @@ pub fn target(path: &str) -> anyhow::Result<Dsn> {
         .file_name()
         .map(|name| name.to_string_lossy().into_owned())
         .unwrap_or_default();
-    if !looks_like_sqlite(file) {
-        bail!("{name} is not a SQLite database.");
-    }
+    let driver = if looks_like_sqlite(file) {
+        Driver::Sqlite
+    } else if looks_like_duckdb(file) {
+        Driver::Duckdb
+    } else {
+        bail!("{name} is not a SQLite or DuckDB database.");
+    };
     Ok(Dsn {
         name,
-        driver: Driver::Sqlite,
+        driver,
         database: Some(
             fs::canonicalize(file)
                 .unwrap_or_else(|_| file.to_path_buf())
@@ -60,6 +64,13 @@ pub fn target(path: &str) -> anyhow::Result<Dsn> {
 pub fn saved(typed: &str, store: &Path, key: &Path) -> anyhow::Result<Connection> {
     let target = target(&crate::paths::expand(typed.trim()))?;
     Ok(connection_for(store, key, target, None, None, false)?.connection)
+}
+
+pub fn looks_like_duckdb(path: &Path) -> bool {
+    let mut header = [0; 12];
+    File::open(path)
+        .and_then(|mut file| file.read_exact(&mut header))
+        .is_ok_and(|_| &header[8..12] == b"DUCK")
 }
 
 pub fn looks_like_sqlite(path: &Path) -> bool {
@@ -140,7 +151,7 @@ pub fn connection_for(
         ("driver", Field::Text(target.driver.name().to_string())),
         ("database", text(target.database.clone())),
     ];
-    if target.driver != Driver::Sqlite {
+    if !target.driver.is_file() {
         fields.extend([
             ("host", text(target.host.clone())),
             (

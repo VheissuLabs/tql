@@ -53,7 +53,7 @@ impl ColumnDefault {
         if let Some(captures) = QUOTED.captures(&literal) {
             return ColumnDefault::Value(captures[1].replace("''", "'"));
         }
-        if driver == Driver::Sqlite
+        if matches!(driver, Driver::Sqlite | Driver::Libsql)
             && let Some(captures) = DOUBLE_QUOTED.captures(&literal)
         {
             return ColumnDefault::Value(captures[1].replace("\"\"", "\""));

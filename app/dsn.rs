@@ -38,8 +38,8 @@ pub fn parse(dsn: &str) -> Option<Dsn> {
     }
     let driver = driver_for(&scheme.to_lowercase())?;
 
-    if driver == Driver::Sqlite {
-        return Some(sqlite(rest));
+    if driver.is_file() {
+        return Some(file(rest, driver));
     }
 
     let (before_fragment, _) = rest.split_once('#').unwrap_or((rest, ""));
@@ -83,7 +83,7 @@ fn over_ssh(scheme: &str, rest: &str) -> Option<Dsn> {
     }
 
     let mut target = parse(&format!("{scheme}://{database}"))?;
-    if target.driver == Driver::Sqlite {
+    if target.driver.is_file() {
         return None;
     }
     let (_, query) = database.split_once('?').unwrap_or((database, ""));
@@ -153,13 +153,13 @@ fn driver_for(scheme: &str) -> Option<Driver> {
     }
 }
 
-fn sqlite(rest: &str) -> Dsn {
+fn file(rest: &str, driver: Driver) -> Dsn {
     let (path, query) = rest.split_once('?').unwrap_or((rest, ""));
     let path = decode(path, false);
     let base = path.rsplit('/').next().unwrap_or_default().to_string();
     Dsn {
         name: query_value(query, "name").unwrap_or(base),
-        driver: Driver::Sqlite,
+        driver,
         database: Some(path),
         ..Dsn::default()
     }

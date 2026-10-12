@@ -198,7 +198,7 @@ impl ConnectionForm {
             fields.push(("driver", "Driver"));
         }
         fields.push(("name", "Name"));
-        if self.driver() == Driver::Sqlite {
+        if self.driver().is_file() {
             fields.push(("database", "Path"));
         } else {
             fields.extend([
@@ -280,7 +280,7 @@ impl ConnectionForm {
     }
 
     fn apply_driver_defaults(&mut self) {
-        if self.driver() == Driver::Sqlite {
+        if self.driver().is_file() {
             return;
         }
         if self.value("host").is_empty() {

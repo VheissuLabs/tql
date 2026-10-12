@@ -73,6 +73,22 @@ fn recognises_a_sqlite_file_by_its_header() {
 }
 
 #[test]
+fn opens_a_duckdb_file_as_duckdb() {
+    let scratch = Scratch::new("duckdb");
+    let path = scratch.root.join("warehouse.duckdb");
+    duckdb::Connection::open(&path)
+        .unwrap()
+        .execute_batch("create table t (id integer)")
+        .unwrap();
+
+    assert!(opener::looks_like_duckdb(&path));
+    assert!(!opener::looks_like_sqlite(&path));
+    let target = opener::target(&path.display().to_string()).unwrap();
+    assert_eq!(target.driver, Driver::Duckdb);
+    assert_eq!(target.name, "warehouse.duckdb");
+}
+
+#[test]
 fn refuses_a_file_that_is_not_a_database() {
     let scratch = Scratch::new("not-a-database");
     let text = scratch.root.join("notes.txt");
@@ -80,7 +96,7 @@ fn refuses_a_file_that_is_not_a_database() {
 
     assert_eq!(
         opener::target(&text.display().to_string()).map_err(|error| error.to_string()),
-        Err("notes.txt is not a SQLite database.".to_string())
+        Err("notes.txt is not a SQLite or DuckDB database.".to_string())
     );
 }
 
@@ -133,7 +149,7 @@ fn the_command_refuses_before_touching_any_store() {
     assert_eq!(not_a_database.code, 1);
     assert!(
         format!("{}{}", not_a_database.stdout, not_a_database.stderr)
-            .contains("notes.txt is not a SQLite database.")
+            .contains("notes.txt is not a SQLite or DuckDB database.")
     );
 
     let bad_tag = app::application().run_with(
@@ -393,7 +409,7 @@ fn connect_is_another_name_for_open() {
     assert_eq!(connected.code, 1);
     assert!(
         format!("{}{}", connected.stdout, connected.stderr)
-            .contains("notes.txt is not a SQLite database.")
+            .contains("notes.txt is not a SQLite or DuckDB database.")
     );
 
     let listed = app::application().run_with(["--help"], "");

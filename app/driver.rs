@@ -7,10 +7,21 @@ pub enum Driver {
     Mysql,
     Pgsql,
     Sqlsrv,
+    Duckdb,
+    Libsql,
+    Clickhouse,
 }
 
 impl Driver {
-    pub const ALL: [Driver; 4] = [Driver::Sqlite, Driver::Mysql, Driver::Pgsql, Driver::Sqlsrv];
+    pub const ALL: [Driver; 7] = [
+        Driver::Sqlite,
+        Driver::Mysql,
+        Driver::Pgsql,
+        Driver::Sqlsrv,
+        Driver::Duckdb,
+        Driver::Libsql,
+        Driver::Clickhouse,
+    ];
 
     pub fn parse(name: &str) -> Option<Driver> {
         match name.trim().to_lowercase().as_str() {
@@ -18,6 +29,9 @@ impl Driver {
             "mysql" | "mariadb" => Some(Driver::Mysql),
             "pgsql" => Some(Driver::Pgsql),
             "sqlsrv" => Some(Driver::Sqlsrv),
+            "duckdb" => Some(Driver::Duckdb),
+            "libsql" | "turso" => Some(Driver::Libsql),
+            "clickhouse" => Some(Driver::Clickhouse),
             _ => None,
         }
     }
@@ -28,6 +42,9 @@ impl Driver {
             Driver::Mysql => "mysql",
             Driver::Pgsql => "pgsql",
             Driver::Sqlsrv => "sqlsrv",
+            Driver::Duckdb => "duckdb",
+            Driver::Libsql => "libsql",
+            Driver::Clickhouse => "clickhouse",
         }
     }
 
@@ -37,20 +54,39 @@ impl Driver {
             Driver::Mysql => "MySQL",
             Driver::Pgsql => "Postgres",
             Driver::Sqlsrv => "SQL Server",
+            Driver::Duckdb => "DuckDB",
+            Driver::Libsql => "libSQL",
+            Driver::Clickhouse => "ClickHouse",
         }
     }
 
     pub fn default_port(self) -> Option<u16> {
         match self {
-            Driver::Sqlite => None,
+            Driver::Sqlite | Driver::Duckdb | Driver::Libsql => None,
             Driver::Mysql => Some(3306),
             Driver::Pgsql => Some(5432),
             Driver::Sqlsrv => Some(1433),
+            Driver::Clickhouse => Some(8123),
         }
     }
 
     pub fn is_server(self) -> bool {
-        self != Driver::Sqlite
+        !self.is_file()
+    }
+
+    pub fn is_file(self) -> bool {
+        matches!(self, Driver::Sqlite | Driver::Duckdb)
+    }
+
+    pub fn edits_rows(self) -> bool {
+        self != Driver::Clickhouse
+    }
+
+    pub fn has_databases(self) -> bool {
+        matches!(
+            self,
+            Driver::Mysql | Driver::Pgsql | Driver::Sqlsrv | Driver::Clickhouse
+        )
     }
 }
 

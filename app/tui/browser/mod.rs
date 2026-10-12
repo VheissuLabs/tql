@@ -145,7 +145,7 @@ impl Browser {
             .database
             .clone()
             .filter(|database| !database.trim().is_empty());
-        let undecided = connection.driver != Driver::Sqlite && active_database.is_none();
+        let undecided = connection.driver.has_databases() && active_database.is_none();
         let (tables, keys) = if undecided {
             (Vec::new(), HashMap::new())
         } else {

@@ -61,7 +61,7 @@ impl Tls {
 
     pub fn from_home(connection: &Connection, home: &Path) -> anyhow::Result<Tls> {
         let mode = match connection.driver {
-            Driver::Sqlite => Mode::Unset,
+            Driver::Sqlite | Driver::Duckdb | Driver::Libsql => Mode::Unset,
             _ => Mode::named(connection.ssl_mode.as_deref().unwrap_or_default().trim())?,
         };
         if matches!(mode, Mode::Unset | Mode::Disable) {

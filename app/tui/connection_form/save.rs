@@ -5,7 +5,7 @@ impl ConnectionForm {
         if self.value("name").trim().is_empty() {
             return Ok(Some("A name is required.".to_string()));
         }
-        let sqlite = self.driver() == Driver::Sqlite;
+        let sqlite = self.driver().is_file();
         if sqlite && self.value("database").trim().is_empty() {
             return Ok(Some("A path to the .sqlite file is required.".to_string()));
         }

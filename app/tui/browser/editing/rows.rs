@@ -68,7 +68,7 @@ impl Browser {
             return false;
         };
         column.auto_increment
-            || self.connection.driver == Driver::Sqlite
+            || matches!(self.connection.driver, Driver::Sqlite | Driver::Libsql)
                 && self.key_column().as_deref() == Some(name)
                 && column.type_name.eq_ignore_ascii_case("integer")
     }

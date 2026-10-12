@@ -23,8 +23,8 @@ fn database_name(typed: &str) -> String {
 
 impl Browser {
     pub(super) fn open_databases(&mut self) {
-        if self.connection.driver == Driver::Sqlite {
-            self.say("a sqlite connection is one file");
+        if let Some(why) = one_database(self.connection.driver) {
+            self.say(why);
             return;
         }
         let databases = self.database.databases().unwrap_or_default();
@@ -121,8 +121,8 @@ impl Browser {
     }
 
     fn cannot_change_databases(&self) -> Option<&'static str> {
-        if self.connection.driver == Driver::Sqlite {
-            return Some("a sqlite connection is one file");
+        if let Some(why) = one_database(self.connection.driver) {
+            return Some(why);
         }
         if self.connection.read_only {
             return Some("this connection is marked read-only");
@@ -265,5 +265,14 @@ impl Browser {
             .find(|database| !SYSTEM_DATABASES.contains(&database.as_str()))
             .or_else(|| others.first())
             .cloned()
+    }
+}
+
+fn one_database(driver: Driver) -> Option<&'static str> {
+    match driver {
+        Driver::Sqlite => Some("a sqlite connection is one file"),
+        Driver::Duckdb => Some("a duckdb connection is one file"),
+        Driver::Libsql => Some("a libsql connection is one database"),
+        _ => None,
     }
 }

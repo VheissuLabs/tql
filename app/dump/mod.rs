@@ -144,7 +144,7 @@ impl Engine {
             Driver::Mysql => Some(Engine::MySql),
             Driver::Pgsql => Some(Engine::Postgres),
             Driver::Sqlite => Some(Engine::Sqlite),
-            Driver::Sqlsrv => None,
+            Driver::Sqlsrv | Driver::Duckdb | Driver::Libsql | Driver::Clickhouse => None,
         }
     }
 

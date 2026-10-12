@@ -198,7 +198,7 @@ impl<'a> Exporter<'a> {
 
     pub fn filename(&self, table: Option<&Table>) -> anyhow::Result<PathBuf> {
         let database = self.connection.database.clone().unwrap_or_default();
-        let subject = if self.connection.driver == Driver::Sqlite {
+        let subject = if self.connection.driver.is_file() {
             Path::new(&database)
                 .file_stem()
                 .map(|stem| stem.to_string_lossy().into_owned())

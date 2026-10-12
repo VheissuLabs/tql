@@ -1,4 +1,5 @@
 mod column_default;
+mod duckdb;
 mod exporter;
 mod filters;
 mod lexed;
@@ -371,8 +372,10 @@ pub fn connect(
     tls::choose_ring();
     let password = decrypted(&connection.password, encrypter)?;
 
-    if connection.driver == Driver::Sqlite {
-        return Ok(Box::new(sqlite::Sqlite::open(connection)?));
+    match connection.driver {
+        Driver::Sqlite => return Ok(Box::new(sqlite::Sqlite::open(connection)?)),
+        Driver::Duckdb => return Ok(Box::new(duckdb::Duck::open(connection)?)),
+        _ => {}
     }
 
     let tunnel = match connection.uses_ssh() {
@@ -390,9 +393,11 @@ pub fn connect(
         Driver::Sqlsrv => Ok(Box::new(sqlsrv::SqlServer::through(
             connection, password, tunnel,
         )?)),
-        Driver::Mysql | Driver::Sqlite => {
-            Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?))
+        Driver::Mysql => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
+        Driver::Libsql | Driver::Clickhouse => {
+            bail!("{} is not ready in this build", connection.driver.label())
         }
+        Driver::Sqlite | Driver::Duckdb => bail!("a file connection opened as a server"),
     }
 }
 

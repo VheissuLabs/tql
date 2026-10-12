@@ -51,7 +51,7 @@ impl Connection {
     }
 
     pub fn uses_ssh(&self) -> bool {
-        self.driver != Driver::Sqlite
+        self.driver.is_server()
             && self
                 .ssh_host
                 .as_deref()
@@ -60,8 +60,8 @@ impl Connection {
 
     pub fn connection_string(&self, password: Option<&str>) -> String {
         let database = self.database.clone().unwrap_or_default();
-        if self.driver == Driver::Sqlite {
-            return format!("sqlite://{database}");
+        if self.driver.is_file() {
+            return format!("{}://{database}", self.driver);
         }
         let credentials = match (self.username.as_deref(), password) {
             (None | Some(""), _) => String::new(),
@@ -84,9 +84,10 @@ impl Connection {
     }
 
     pub fn describe_from(&self, home: &Path) -> String {
-        if self.driver == Driver::Sqlite {
+        if self.driver.is_file() {
             return format!(
-                "sqlite:{}",
+                "{}:{}",
+                self.driver,
                 paths::shorten_from(self.database.as_deref().unwrap_or_default(), home)
             );
         }

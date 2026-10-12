@@ -220,6 +220,9 @@ pub(super) fn driver_color(driver: Option<Driver>) -> Color {
         Some(Driver::Pgsql) => Color::Blue,
         Some(Driver::Sqlite) => Color::Green,
         Some(Driver::Sqlsrv) => Color::Magenta,
+        Some(Driver::Duckdb) => Color::LightYellow,
+        Some(Driver::Libsql) => Color::Cyan,
+        Some(Driver::Clickhouse) => Color::LightRed,
         None => Color::DarkGray,
     }
 }
