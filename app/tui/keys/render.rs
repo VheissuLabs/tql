@@ -422,7 +422,7 @@ impl KeyBrowser {
         let mut value_height = frame_height;
         let mut cursor = None;
         if let Some((island, (row, column))) = self.cli_island(right_x, 1, right_width) {
-            cursor = Some((island.x + 2 + column as u16, island.y + 1 + row as u16));
+            cursor = Some((island.x + 1 + column as u16, island.y + row as u16));
             island.draw(frame.buffer_mut());
             value_y += CLI_HEIGHT;
             value_height = value_height.saturating_sub(CLI_HEIGHT).max(5);

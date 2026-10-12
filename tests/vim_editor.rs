@@ -544,3 +544,26 @@ fn insert_mode_asks_for_a_bar_cursor() {
     fake.press("\x1b");
     assert_eq!(fake.app.cursor_shape(), CursorShape::Default);
 }
+
+#[test]
+fn the_terminal_cursor_sits_right_after_what_insert_mode_typed() {
+    let mut fake = vim_on("|");
+    keys(&mut fake, "iselect off");
+
+    let (x, y) = fake.cursor();
+    let row = fake.screen_row(y);
+    assert_eq!(row[x as usize - 1], "f", "{}", row.concat());
+    assert_eq!(row[x as usize - 2], "f", "{}", row.concat());
+    assert_eq!(row[x as usize - 3], "o", "{}", row.concat());
+}
+
+#[test]
+fn enter_takes_the_suggestion_in_insert_mode() {
+    let mut fake = vim_on("|");
+    keys(&mut fake, "iselect * from fr");
+    assert!(fake.app.query.completion.is_some());
+
+    keys(&mut fake, "\r");
+    assert_eq!(fake.app.query.editor.buffer(), "select * from fruit");
+    assert_eq!(fake.app.query.vim.mode, VimMode::Insert);
+}

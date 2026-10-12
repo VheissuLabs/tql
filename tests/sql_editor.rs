@@ -634,3 +634,17 @@ fn writes_from_the_grid_go_into_the_history_as_tql_s_own() {
         "{recorded:?}"
     );
 }
+
+#[test]
+fn enter_takes_the_suggestion_instead_of_breaking_the_line() {
+    let mut fake = sql_pane("enter-completes");
+    fake.press("select * from fr");
+    assert!(fake.app.query.completion.is_some());
+
+    fake.press("\r");
+    assert_eq!(fake.app.query.editor.buffer(), "select * from fruit");
+    assert!(fake.app.query.completion.is_none());
+
+    fake.press("\r");
+    assert_eq!(fake.app.query.editor.buffer(), "select * from fruit\n");
+}

@@ -594,8 +594,8 @@ impl Browser {
         if at_terminal_cursor {
             let (row, column) = pane.cursor;
             frame.set_cursor_position((
-                editor.x + 1 + EDITOR_PADDING + column as u16,
-                editor.y + 1 + row as u16,
+                editor.x + EDITOR_PADDING + column as u16,
+                editor.y + row as u16,
             ));
         }
         self.hits.editor = Some(Area::of(&editor));

@@ -174,6 +174,23 @@ impl<App: Tui> Fake<App> {
         self.exit.is_some()
     }
 
+    pub fn cursor(&mut self) -> (u16, u16) {
+        self.render();
+        let position = self
+            .terminal
+            .get_cursor_position()
+            .expect("the test backend always has a cursor");
+        (position.x, position.y)
+    }
+
+    pub fn screen_row(&mut self, row: u16) -> Vec<String> {
+        self.render();
+        let buffer = self.terminal.backend().buffer();
+        (0..buffer.area.width)
+            .map(|x| buffer[(x, row)].symbol().to_string())
+            .collect()
+    }
+
     pub fn output(&self) -> Option<&App::Output> {
         self.exit.as_ref()
     }

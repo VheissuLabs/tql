@@ -731,3 +731,14 @@ fn the_command_pane_refuses_commands_that_change_the_connection_itself() {
     }
     assert!(store.world.lock().unwrap().ran.is_empty());
 }
+
+#[test]
+fn the_command_pane_cursor_sits_right_after_what_was_typed() {
+    let mut fake = opened(&small(), false);
+    fake.press("s");
+    fake.press("GET ab");
+    let (x, y) = fake.cursor();
+    let row = fake.screen_row(y);
+    assert_eq!(row[x as usize - 1], "b", "{}", row.concat());
+    assert_eq!(row[x as usize - 2], "a", "{}", row.concat());
+}

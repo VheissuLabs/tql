@@ -166,7 +166,7 @@ impl Browser {
 
     pub(super) fn take_completion_key(&mut self, key: Key, mut offered: Completion) -> bool {
         match key {
-            Key::Tab => self.complete(&offered),
+            Key::Tab | Key::Enter => self.complete(&offered),
             Key::Up | Key::Ctrl('p') | Key::Down | Key::Ctrl('n') => {
                 offered.move_by(matches!(key, Key::Down | Key::Ctrl('n')));
                 self.query.completion = Some(offered);
