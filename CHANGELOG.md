@@ -4,6 +4,26 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## 0.13.2
+
+### New Features
+
+- `:update` checks for a newer tql and installs it in the background, on either
+  screen, with the result in the status bar.
+- `:open <path or connection string>` opens a SQLite file or a connection
+  string, saving it as `tql open` does and reusing one already saved.
+- `:export database` writes every table in the current database to one `.sql`
+  file.
+- `:v` / `:version` say which version of tql is running.
+- `:help` / `:h` open help.
+
+### Enhancements
+
+- The new commands are in the ctrl+k palette, the help screen and
+  `docs/keys.md`.
+
+---
+
 ## 0.13.1
 
 ### New Features
