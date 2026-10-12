@@ -94,6 +94,8 @@ impl Browser {
             }
         };
 
+        self.recall_folds();
+        self.table_index = self.first_table_row();
         if self.tables.is_empty() {
             self.say(format!("{chosen} has no tables"));
             return;

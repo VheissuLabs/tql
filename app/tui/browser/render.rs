@@ -285,25 +285,57 @@ impl Browser {
 
         let inner_width = island.inner_width();
         let inner_height = island.inner_height();
-        let tables = self.visible_tables();
-        island.content = if tables.is_empty() {
+        let rows = self.sidebar_rows();
+        let grouped = rows
+            .iter()
+            .any(|row| matches!(row, SidebarRow::Schema { .. }));
+        island.content = if rows.is_empty() {
             vec![Line::styled(" nothing matches", theme::dim())]
         } else {
-            let start = window(self.table_index, tables.len(), inner_height);
-            tables
-                .iter()
+            let start = window(self.table_index, rows.len(), inner_height);
+            rows.iter()
                 .enumerate()
                 .skip(start)
                 .take(inner_height)
-                .map(|(position, table)| {
-                    let label = format!(
-                        " {}",
-                        truncate(&table.to_string(), inner_width.saturating_sub(2))
-                    );
+                .map(|(position, row)| {
+                    let (label, style) = match row {
+                        SidebarRow::Schema {
+                            name,
+                            count,
+                            folded,
+                        } => {
+                            let marker = if *folded { "▸" } else { "▾" };
+                            let counted = if *folded {
+                                format!(" ({count})")
+                            } else {
+                                String::new()
+                            };
+                            let room = inner_width.saturating_sub(4 + text::width(&counted));
+                            let head = format!(" {marker} {}", truncate(name, room));
+                            let gap = inner_width
+                                .saturating_sub(text::width(&head) + text::width(&counted) + 1);
+                            (format!("{head}{}{counted}", " ".repeat(gap)), theme::bold())
+                        }
+                        SidebarRow::Table(table) => {
+                            let indent = if grouped { "   " } else { " " };
+                            let shown = if grouped {
+                                table.name.clone()
+                            } else {
+                                table.to_string()
+                            };
+                            (
+                                format!(
+                                    "{indent}{}",
+                                    truncate(&shown, inner_width.saturating_sub(indent.len() + 1))
+                                ),
+                                theme::dim(),
+                            )
+                        }
+                    };
                     if position == self.table_index {
                         Line::styled(pad(&label, inner_width), theme::selection())
                     } else {
-                        Line::styled(label, theme::dim())
+                        Line::styled(label, style)
                     }
                 })
                 .collect()
@@ -391,7 +423,7 @@ impl Browser {
             sidebar: (!self.tables_hidden).then(|| Area::of(&sidebar)),
             sidebar_start: window(
                 self.table_index,
-                self.visible_tables().len(),
+                self.sidebar_rows().len(),
                 sidebar.inner_height(),
             ),
             ..Hits::default()

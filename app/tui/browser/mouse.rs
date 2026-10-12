@@ -121,8 +121,11 @@ impl Browser {
             && sidebar.contains_content(column, row)
         {
             let target = self.hits.sidebar_start + sidebar.local_row(row) as usize;
-            if target < self.visible_tables().len() {
+            if target < self.sidebar_rows().len() {
                 self.select_table(target);
+                if let Some((schema, folded)) = self.schema_here() {
+                    self.fold_schema(&schema, !folded);
+                }
             }
             return;
         }

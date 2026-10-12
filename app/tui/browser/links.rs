@@ -173,15 +173,7 @@ impl Browser {
     }
 
     fn open_linked(&mut self, table: &Table, filters: Option<Filters>) {
-        if !self.visible_tables().contains(&table) {
-            self.filter.clear();
-            self.filtering = false;
-        }
-        let Some(at) = self
-            .visible_tables()
-            .iter()
-            .position(|visible| *visible == table)
-        else {
+        let Some(at) = self.reveal(table) else {
             return;
         };
 

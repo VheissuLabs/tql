@@ -74,7 +74,12 @@ impl Lookup for Cached<'_> {
 
 impl Browser {
     pub fn with_store(mut self, store: PathBuf) -> Self {
+        let table = self.current_table();
         self.store = Some(store);
+        self.recall_folds();
+        if let Some(at) = table.and_then(|table| self.row_of(&table)) {
+            self.table_index = at;
+        }
         self
     }
 
@@ -377,11 +382,7 @@ impl Browser {
         ) else {
             return;
         };
-        let Some(index) = self
-            .visible_tables()
-            .iter()
-            .position(|table| **table == named)
-        else {
+        let Some(index) = self.row_of(&named) else {
             return;
         };
         if index != self.table_index {

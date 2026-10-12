@@ -95,6 +95,9 @@ impl Browser {
             return;
         }
         self.table_index = index;
+        if self.current_table().is_none() {
+            return;
+        }
         self.offset = 0;
         self.edits.forget();
         self.sort = None;
@@ -103,11 +106,14 @@ impl Browser {
     }
 
     pub(super) fn reselect(&mut self) {
-        let count = self.visible_tables().len();
+        let count = self.sidebar_rows().len();
         if count == 0 {
             return;
         }
         self.table_index = self.table_index.min(count - 1);
+        if self.current_table().is_none() {
+            self.table_index = self.first_table_row();
+        }
         self.offset = 0;
         self.sort = None;
         if self.current_table() == self.loaded {
@@ -176,10 +182,10 @@ impl Browser {
             }
         }
 
-        let visible = self.visible_tables();
+        let count = self.sidebar_rows().len();
         self.table_index = table
-            .and_then(|table| visible.iter().position(|candidate| **candidate == table))
-            .unwrap_or_else(|| self.table_index.min(visible.len().saturating_sub(1)));
+            .and_then(|table| self.row_of(&table))
+            .unwrap_or_else(|| self.table_index.min(count.saturating_sub(1)));
         self.load(true);
     }
 }

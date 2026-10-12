@@ -187,11 +187,7 @@ impl Browser {
     fn go_to_table(&mut self, table: &Table) {
         self.filter.clear();
         self.query.results = false;
-        let Some(index) = self
-            .visible_tables()
-            .iter()
-            .position(|candidate| *candidate == table)
-        else {
+        let Some(index) = self.reveal(table) else {
             return;
         };
         if index == self.table_index {

@@ -21,6 +21,7 @@ mod mouse;
 mod paste;
 mod query;
 mod render;
+mod sidebar;
 mod structure;
 mod vim;
 mod yank;
@@ -31,6 +32,7 @@ pub use inspect::Inspector;
 use links::{Jump, LinkPicker};
 use mouse::{Area, Drag, Hits};
 pub use query::Query;
+pub use sidebar::{Folds, SidebarRow};
 use structure::StructureView;
 use vim::query_hint;
 
@@ -80,6 +82,8 @@ pub struct Browser {
     pub filter: String,
     pub filtering: bool,
     pub tables_hidden: bool,
+    default_schema: Option<String>,
+    folds: Folds,
     pub sql_hidden: bool,
     updating: Option<crate::tui::updating::Updating>,
     pub sidebar_width: Option<usize>,
@@ -158,6 +162,8 @@ impl Browser {
             filter: String::new(),
             filtering: false,
             tables_hidden: false,
+            default_schema: None,
+            folds: Folds::default(),
             sql_hidden: false,
             updating: None,
             sidebar_width: None,
@@ -212,6 +218,8 @@ impl Browser {
             question: None,
             ai_environment: ask::environment(),
         };
+        browser.recall_folds();
+        browser.table_index = browser.first_table_row();
         if undecided {
             browser.open_databases();
         } else if !browser.tables.is_empty() {
@@ -284,9 +292,10 @@ impl Browser {
     }
 
     pub fn current_table(&self) -> Option<Table> {
-        self.visible_tables()
-            .get(self.table_index)
-            .map(|table| (*table).clone())
+        match self.sidebar_rows().get(self.table_index)? {
+            SidebarRow::Table(table) => Some((*table).clone()),
+            SidebarRow::Schema { .. } => None,
+        }
     }
 
     pub fn tables_width(&self) -> usize {

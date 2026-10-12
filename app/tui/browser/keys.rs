@@ -269,7 +269,7 @@ impl Browser {
 
     fn move_by(&mut self, action: Action, count: usize) -> Flow<Exit> {
         if self.focus == Focus::Sidebar {
-            let last = self.visible_tables().len().saturating_sub(1);
+            let last = self.sidebar_rows().len().saturating_sub(1);
             match action {
                 Action::MoveUp => self.select_table(self.table_index.saturating_sub(count)),
                 Action::MoveDown => {
@@ -293,10 +293,34 @@ impl Browser {
 
     pub(super) fn run(&mut self, action: Action) -> Flow<Exit> {
         let sidebar = self.focus == Focus::Sidebar;
+        if sidebar && let Some((schema, folded)) = self.schema_here() {
+            match action {
+                Action::Activate => {
+                    self.fold_schema(&schema, !folded);
+                    return Flow::Continue;
+                }
+                Action::MoveLeft => {
+                    self.fold_schema(&schema, true);
+                    return Flow::Continue;
+                }
+                Action::MoveRight => {
+                    self.fold_schema(&schema, false);
+                    return Flow::Continue;
+                }
+                _ => {}
+            }
+        }
+        if sidebar
+            && action == Action::MoveLeft
+            && let Some(schema) = self.schema_of_row()
+        {
+            self.fold_schema(&schema, true);
+            return Flow::Continue;
+        }
         match action {
             Action::MoveUp if sidebar => self.select_table(self.table_index.saturating_sub(1)),
             Action::MoveDown if sidebar => {
-                let last = self.visible_tables().len().saturating_sub(1);
+                let last = self.sidebar_rows().len().saturating_sub(1);
                 self.select_table((self.table_index + 1).min(last));
             }
             Action::MoveUp => self.row_index = self.row_index.saturating_sub(1),
