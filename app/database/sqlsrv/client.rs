@@ -9,6 +9,7 @@ pub(super) fn configured(
     config.host(connection.host.as_deref().unwrap_or("127.0.0.1"));
     config.port(connection.port.unwrap_or(1433));
     config.application_name("tql");
+    config.command_timeout(None);
     config.authentication(AuthMethod::sql_server(
         connection.username.as_deref().unwrap_or_default(),
         password.unwrap_or_default(),
@@ -140,7 +141,7 @@ impl SqlServer {
         convert: fn(ColumnData<'static>, ColumnType) -> Cell,
     ) -> anyhow::Result<(Vec<String>, Vec<Vec<Cell>>)> {
         let client = &mut self.client;
-        self.runtime.block_on(async {
+        let fetched = self.runtime.block_on(async {
             let stream = if values.is_empty() {
                 client.simple_query(statement).await.map_err(said)?
             } else {
@@ -151,7 +152,31 @@ impl SqlServer {
                 query.query(client).await.map_err(said)?
             };
             first_result(stream, convert).await
-        })
+        });
+        self.mended(fetched)
+    }
+
+    fn mended<T>(&mut self, result: anyhow::Result<T>) -> anyhow::Result<T> {
+        let Err(error) = &result else {
+            return result;
+        };
+        let broken = error.chain().any(|cause| {
+            matches!(
+                cause.downcast_ref::<tiberius::error::Error>(),
+                Some(
+                    tiberius::error::Error::Io { .. }
+                        | tiberius::error::Error::Protocol(_)
+                        | tiberius::error::Error::Tls(_)
+                )
+            ) || cause.downcast_ref::<std::io::Error>().is_some()
+        });
+        if broken {
+            let database = self.connection.database.clone().unwrap_or_default();
+            if let Ok(client) = self.reconnect(&database) {
+                self.client = client;
+            }
+        }
+        result
     }
 
     pub(super) fn execute(
@@ -160,13 +185,14 @@ impl SqlServer {
         values: &[Option<&str>],
     ) -> anyhow::Result<u64> {
         let client = &mut self.client;
-        self.runtime.block_on(async {
+        let executed = self.runtime.block_on(async {
             let mut query = Query::new(numbered_parameters(statement));
             for value in values {
                 query.bind(*value);
             }
             Ok(query.execute(client).await.map_err(said)?.total())
-        })
+        });
+        self.mended(executed)
     }
 
     pub(super) fn column(&mut self, statement: &str) -> anyhow::Result<Vec<String>> {

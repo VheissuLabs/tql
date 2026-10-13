@@ -167,12 +167,16 @@ impl Database for SqlServer {
                     "binary" | "varbinary" | "char" | "varchar" | "nchar" | "nvarchar" => {
                         match number(2).as_str() {
                             "-1" => format!("{type_name}(max)"),
-                            length => format!("{type_name}({length})"),
+                            bytes => match (type_name.starts_with('n'), bytes.parse::<u32>()) {
+                                (true, Ok(bytes)) => format!("{type_name}({})", bytes / 2),
+                                _ => format!("{type_name}({bytes})"),
+                            },
                         }
                     }
                     "decimal" | "numeric" => format!("{type_name}({},{})", number(3), number(4)),
-                    "float" | "datetime2" | "datetimeoffset" | "time" => {
-                        format!("{type_name}({})", number(3))
+                    "float" => format!("{type_name}({})", number(3)),
+                    "datetime2" | "datetimeoffset" | "time" => {
+                        format!("{type_name}({})", number(4))
                     }
                     _ => type_name.clone(),
                 };
@@ -281,7 +285,9 @@ impl Database for SqlServer {
     }
 
     fn run_reading(&mut self, statement: &str) -> anyhow::Result<Outcome> {
-        if let Some(word) = crate::database::lexed::writing_word(statement) {
+        if let Some(word) = crate::database::lexed::writing_word(statement)
+            .or_else(|| crate::database::lexed::tsql_control_word(statement))
+        {
             anyhow::bail!(
                 "that statement has {word} in it, so tql did not run it; only statements that read run here"
             );
@@ -308,6 +314,15 @@ impl Database for SqlServer {
 
     fn quote(&self, identifier: &str) -> String {
         quote_bracket(identifier)
+    }
+
+    fn column_names(&mut self, table: &Table) -> anyhow::Result<Vec<String>> {
+        Ok(self
+            .query(
+                &format!("select top 0 * from {}", table.quoted(quote_bracket)),
+                &[],
+            )?
+            .headers)
     }
 
     fn page(&self, statement: &str, limit: usize, offset: usize) -> String {

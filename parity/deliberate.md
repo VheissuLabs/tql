@@ -151,3 +151,10 @@ Where it differs:
   driver and OpenSSL 3 are not needed, on macOS or Linux.
 - **TLS 1.2 or newer only.** A SQL Server that has never had its TLS 1.2 update (2014 and
   older, unpatched) does not connect. tql reached those through Microsoft's driver.
+- **Column types show their declared lengths.** tql showed `nvarchar(50)` as
+  `nvarchar(100)` and `datetime2(7)` as `datetime2(27)`, because it printed the storage
+  bytes and the precision in digits; tql-rust prints characters and the fractional-second
+  scale.
+- **Statements that read stay reading.** On a read-only connection and in the MCP's
+  `run-query`, a select followed by T-SQL such as `commit`, `use`, `kill` or `dbcc`
+  (which needs no `;` between statements) is refused rather than run.

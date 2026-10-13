@@ -484,3 +484,87 @@ fn lists_every_schema_and_keeps_two_tables_of_one_name_apart() {
         1
     );
 }
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn a_select_cannot_carry_t_sql_past_the_read_only_check() {
+    let mut scratch = Scratch::new();
+
+    for statement in [
+        "select 1 as a use master",
+        "select 1 as a commit",
+        "select 1 as a dbcc freeproccache",
+        "select 1 as a declare @x int",
+    ] {
+        let refused = scratch.database.run_reading(statement).unwrap_err();
+        assert!(
+            refused
+                .to_string()
+                .contains("only statements that read run here"),
+            "{statement}: {refused}"
+        );
+    }
+    let here = scratch.database.run_reading("select db_name()").unwrap();
+    assert_eq!(texts(&here.rows[0]), [scratch.name.as_str()]);
+}
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn names_columns_and_their_declared_types() {
+    let mut scratch = Scratch::new();
+    scratch
+        .database
+        .run("create table sized (a nvarchar(50), b nchar(5), c datetime2(7), d time(3), e datetimeoffset(2), f varchar(20))")
+        .unwrap();
+
+    assert_eq!(
+        scratch.database.column_names(&"sized".into()).unwrap(),
+        ["a", "b", "c", "d", "e", "f"]
+    );
+    let types: Vec<String> = scratch
+        .database
+        .columns(&"sized".into())
+        .unwrap()
+        .into_iter()
+        .map(|column| column.full_type)
+        .collect();
+    assert_eq!(
+        types,
+        [
+            "nvarchar(50)",
+            "nchar(5)",
+            "datetime2(7)",
+            "time(3)",
+            "datetimeoffset(2)",
+            "varchar(20)"
+        ]
+    );
+}
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn waits_for_a_query_slower_than_thirty_seconds() {
+    let mut scratch = Scratch::new();
+
+    let slow = scratch
+        .database
+        .run("waitfor delay '00:00:31'; select 1 as done")
+        .unwrap();
+    assert_eq!(texts(&slow.rows[0]), ["1"]);
+}
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn connects_again_after_the_server_drops_the_connection() {
+    let mut scratch = Scratch::new();
+    let session = scratch.database.run("select @@spid").unwrap().rows[0][0]
+        .clone()
+        .unwrap();
+
+    server("master", None)
+        .run(&format!("kill {session}"))
+        .unwrap();
+    let _ = scratch.database.run("select 1");
+    let after = scratch.database.run("select db_name()").unwrap();
+    assert_eq!(texts(&after.rows[0]), [scratch.name.as_str()]);
+}

@@ -9,6 +9,19 @@ static WRITING: LazyLock<Regex> = LazyLock::new(|| {
     .expect("the writing pattern is valid")
 });
 
+static TSQL_CONTROL: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(
+        r"(?i)\b(declare|set|begin|commit|rollback|save|kill|shutdown|dbcc|backup|restore|use|writetext|updatetext|reconfigure|checkpoint|bulk|openrowset|openquery|opendatasource|receive|send|enable|disable|if|while|goto|print|raiserror|throw|return|waitfor|revert|setuser)\b",
+    )
+    .expect("the T-SQL control pattern is valid")
+});
+
+pub(crate) fn tsql_control_word(statement: &str) -> Option<String> {
+    TSQL_CONTROL
+        .find(&code(statement, false).0)
+        .map(|found| found.as_str().to_lowercase())
+}
+
 pub(crate) fn writing_word(statement: &str) -> Option<String> {
     WRITING
         .find(&code(statement, false).0)
@@ -110,5 +123,33 @@ mod tests {
             Some("into".to_string())
         );
         assert_eq!(writing_word("select updated_at from t"), None);
+    }
+
+    #[test]
+    fn finds_t_sql_that_would_slip_a_second_statement_past_a_select() {
+        for (statement, word) in [
+            ("select 1 as a commit kill 51", "commit"),
+            ("select 1 as a use master", "use"),
+            ("select 1 as a dbcc freeproccache", "dbcc"),
+            (
+                "select 1 as a declare @p varbinary(16) writetext t.c @p 'x'",
+                "declare",
+            ),
+            ("select 1 as a checkpoint", "checkpoint"),
+            ("select 1 as a shutdown", "shutdown"),
+        ] {
+            assert_eq!(
+                tsql_control_word(statement).as_deref(),
+                Some(word),
+                "{statement}"
+            );
+        }
+        for reading in [
+            "select [use], [set] from t where note = 'commit' order by 1 offset 0 rows fetch next 5 rows only",
+            "with c as (select 1 as x) select x, case when x > 0 then 'y' end from c",
+            "select * from t -- then commit",
+        ] {
+            assert_eq!(tsql_control_word(reading), None, "{reading}");
+        }
     }
 }
