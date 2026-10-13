@@ -9,6 +9,63 @@ impl SqlServer {
             .or_else(|| self.default_schema())
             .unwrap_or_else(|| "dbo".to_string())
     }
+
+    fn condition(
+        &mut self,
+        table: &Table,
+        filters: Option<&Filters>,
+    ) -> Option<crate::database::Condition> {
+        let filters = filters?;
+        let liked = filters.filters.iter().any(|filter| {
+            matches!(
+                filter.operator.as_str(),
+                "contains" | "starts with" | "ends with"
+            )
+        });
+        let types: HashMap<String, String> = match liked {
+            true => self
+                .columns(table)
+                .unwrap_or_default()
+                .into_iter()
+                .map(|column| (column.name, column.type_name))
+                .collect(),
+            false => HashMap::new(),
+        };
+        filters.condition_as_text(&quote_bracket, &|name, quoted| match types
+            .get(name)
+            .map(String::as_str)
+        {
+            Some("datetime" | "smalldatetime") => {
+                format!("convert(nvarchar(30), {quoted}, 121)")
+            }
+            Some("money" | "smallmoney") => format!("convert(nvarchar(40), {quoted}, 2)"),
+            _ => quoted.to_string(),
+        })
+    }
+
+    fn binary_columns(&mut self, table: &Table) -> anyhow::Result<Vec<String>> {
+        let schema = self.schema_of(table);
+        Ok(self
+            .select(
+                "select col.name from sys.columns as col \
+                 join sys.types as type on col.user_type_id = type.user_type_id \
+                 join sys.objects as obj on col.object_id = obj.object_id \
+                 join sys.schemas as scm on obj.schema_id = scm.schema_id \
+                 where type.name in ('binary', 'varbinary', 'image') and obj.name = ? and scm.name = ?",
+                &[table.name.clone(), schema],
+            )?
+            .rows
+            .into_iter()
+            .filter_map(|mut row| row.swap_remove(0))
+            .collect())
+    }
+}
+
+fn bytes_from(value: Option<&str>) -> String {
+    match value.is_some_and(|value| value.starts_with("0x") || value.starts_with("0X")) {
+        true => "convert(varbinary(max), ?, 1)".to_string(),
+        false => "convert(varbinary(max), ?, 2)".to_string(),
+    }
 }
 
 impl Database for SqlServer {
@@ -53,7 +110,7 @@ impl Database for SqlServer {
         sort: Option<&Sort>,
         filters: Option<&Filters>,
     ) -> anyhow::Result<Page> {
-        let condition = filters.and_then(|filters| filters.condition(&quote_bracket));
+        let condition = self.condition(table, filters);
         let statement = |shown: Option<String>| {
             let filter = shown
                 .map(|condition| format!(" where {condition}"))
@@ -82,8 +139,31 @@ impl Database for SqlServer {
         let bindings = condition.bindings();
         let values: Vec<Option<&str>> = bindings.iter().map(|value| Some(value.as_str())).collect();
         let mut rows = self.query(&statement(Some(condition.placeheld())), &values)?;
-        rows.statement = statement(Some(condition.readable()));
+        rows.statement =
+            statement(Some(condition.render(
+                |value| match crate::database::readable_value(value) {
+                    quoted if quoted.starts_with('\'') => format!("N{quoted}"),
+                    number => number,
+                },
+            )));
         Ok(rows)
+    }
+
+    fn count_rows(&mut self, table: &Table, filters: Option<&Filters>) -> anyhow::Result<usize> {
+        let condition = self.condition(table, filters);
+        let statement = format!(
+            "select count(*) from {}{}",
+            table.quoted(quote_bracket),
+            condition
+                .as_ref()
+                .map(|condition| format!(" where {}", condition.placeheld()))
+                .unwrap_or_default()
+        );
+        let values = condition
+            .map(|condition| condition.bindings())
+            .unwrap_or_default();
+        first_count(self.select(&statement, &values)?)
+            .ok_or_else(|| anyhow::anyhow!("the count came back empty"))
     }
 
     fn estimated_rows(&mut self, table: &Table) -> Option<Total> {
@@ -358,13 +438,34 @@ impl Database for SqlServer {
         key_value: &str,
         value: Option<&str>,
     ) -> anyhow::Result<u64> {
-        let statement = update_statement(quote_bracket, question, table, column, key);
+        let binary = self.binary_columns(table)?;
+        let statement = update_statement(
+            quote_bracket,
+            |at| match (at, binary.iter().any(|name| name == column)) {
+                (1, true) if value.is_some() => bytes_from(value),
+                (2, _) if binary.iter().any(|name| name == key) => bytes_from(Some(key_value)),
+                _ => question(at),
+            },
+            table,
+            column,
+            key,
+        );
         let shown = shown_update(quote_bracket, table, column, key, value, key_value);
         self.write(&statement, &[value, Some(key_value)], &shown)
     }
 
     fn insert(&mut self, table: &Table, values: &Values) -> anyhow::Result<()> {
-        let statement = insert_statement(quote_bracket, question, table, values, "default values");
+        let binary = self.binary_columns(table)?;
+        let statement = insert_statement(
+            quote_bracket,
+            |at| match values.get(at - 1) {
+                Some((column, Some(value))) if binary.contains(column) => bytes_from(Some(value)),
+                _ => question(at),
+            },
+            table,
+            values,
+            "default values",
+        );
         let bound: Vec<Option<&str>> = values.iter().map(|(_, value)| value.as_deref()).collect();
         let shown = shown_insert(quote_bracket, table, values, "default values");
         self.write(&statement, &bound, &shown).map(|_| ())

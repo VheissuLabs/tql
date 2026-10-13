@@ -92,7 +92,7 @@ pub(super) fn text(value: ColumnData<'static>, column_type: ColumnType) -> Optio
         {
             format!("{:.4}", number?)
         }
-        ColumnData::F64(number) => number?.to_string(),
+        ColumnData::F64(number) => crate::database::exporter::float_text(number?),
         ColumnData::Bit(bit) => if bit? { "1" } else { "0" }.to_string(),
         ColumnData::String(text) => text?.into_owned(),
         ColumnData::Guid(guid) => guid?.to_string().to_uppercase(),
@@ -137,7 +137,9 @@ pub(super) fn scalar(value: ColumnData<'static>, column_type: ColumnType) -> Sca
         | ColumnData::Numeric(_) => text(value, column_type)
             .map(Scalar::Number)
             .unwrap_or(Scalar::Null),
-        ColumnData::F32(Some(number)) => Scalar::real(f64::from(number)),
+        ColumnData::F32(Some(number)) => {
+            Scalar::real(number.to_string().parse().unwrap_or(f64::from(number)))
+        }
         ColumnData::F64(Some(number))
             if !matches!(column_type, ColumnType::Money | ColumnType::Money4) =>
         {

@@ -162,7 +162,7 @@ fn pages_sorts_and_filters_rows() {
     assert_eq!(filtered.rows.len(), 2);
     assert_eq!(
         filtered.statement,
-        "select * from [customers] where [name] like '%y%' or [id] in (1, 3) order by (select null) offset 0 rows fetch next 10 rows only"
+        "select * from [customers] where [name] like N'%y%' or [id] in (1, 3) order by (select null) offset 0 rows fetch next 10 rows only"
     );
 
     let empty = scratch
@@ -567,4 +567,136 @@ fn connects_again_after_the_server_drops_the_connection() {
     let _ = scratch.database.run("select 1");
     let after = scratch.database.run("select db_name()").unwrap();
     assert_eq!(texts(&after.rows[0]), [scratch.name.as_str()]);
+}
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn an_export_with_identity_rowversion_computed_and_huge_floats_loads_back() {
+    let mut scratch = Scratch::new();
+    let shape = "(id int identity primary key, name nvarchar(20), stamp rowversion, \
+                 twice as id * 2, big float, small real)";
+    scratch
+        .database
+        .run(&format!(
+            "create table source {shape}; create table copied {shape}; \
+             insert into source (name, big, small) values (N'a', 1.5e300, 1.1), (N'b', -2.5e-9, null)"
+        ))
+        .unwrap();
+
+    let place = std::env::var("TQL_TEST_SQLSRV").unwrap();
+    let (host, port) = place.rsplit_once(':').unwrap();
+    let file = std::env::temp_dir().join(format!("{}.sql", scratch.name));
+    database::Exporter::new(
+        &Connection {
+            driver: Driver::Sqlsrv,
+            host: Some(host.into()),
+            port: Some(port.parse().unwrap()),
+            database: Some(scratch.name.clone()),
+            ..Connection::sqlite("mssql", "")
+        },
+        None,
+    )
+    .table(
+        scratch.database.as_mut(),
+        &"source".into(),
+        Some(file.clone()),
+        None,
+    )
+    .unwrap();
+    let sql = std::fs::read_to_string(&file).unwrap();
+    let _ = std::fs::remove_file(&file);
+    scratch
+        .database
+        .run(&sql.replace("[source]", "[copied]"))
+        .unwrap();
+
+    let copied = scratch
+        .database
+        .run("select id, name, twice, big, small from copied order by id")
+        .unwrap();
+    assert_eq!(texts(&copied.rows[0]), ["1", "a", "2", "1.5e300", "1.1"]);
+    assert_eq!(texts(&copied.rows[1]), ["2", "b", "4", "-2.5e-9", "NULL"]);
+}
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn writes_bytes_into_varbinary_columns_as_the_grid_shows_them() {
+    let mut scratch = Scratch::new();
+
+    scratch
+        .database
+        .update(&"customers".into(), "photo", "id", "2", Some("0x0A0B"))
+        .unwrap();
+    scratch
+        .database
+        .insert(
+            &"customers".into(),
+            &vec![
+                ("name".to_string(), Some("Di".to_string())),
+                ("photo".to_string(), Some("0xFF00".to_string())),
+            ],
+        )
+        .unwrap();
+
+    let photos = scratch
+        .database
+        .run("select photo from customers where id in (2, 4) order by id")
+        .unwrap();
+    assert_eq!(texts(&photos.rows[0]), ["0x0A0B"]);
+    assert_eq!(texts(&photos.rows[1]), ["0xFF00"]);
+}
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn a_filtered_statement_finds_the_same_unicode_rows_when_run_again() {
+    let mut scratch = Scratch::new();
+    scratch
+        .database
+        .run("insert into customers (name) values (N'Zoë 中')")
+        .unwrap();
+
+    let filters = Filters::new(vec![Filter::new("name", "contains", "中")], Joiner::And);
+    let filtered = scratch
+        .database
+        .filtered_rows(&"customers".into(), 10, 0, None, Some(&filters))
+        .unwrap();
+    let again = scratch.database.run(&filtered.statement).unwrap();
+
+    assert_eq!(filtered.rows.len(), 1);
+    assert_eq!(again.rows, filtered.rows);
+}
+
+#[test]
+#[ignore = "needs a SQL Server: set TQL_TEST_SQLSRV=host:port and TQL_TEST_SQLSRV_PASSWORD for sa"]
+fn contains_finds_dates_and_money_as_the_grid_shows_them() {
+    let mut scratch = Scratch::new();
+    scratch
+        .database
+        .run(
+            "create table stamps (id int primary key, at datetime, brief smalldatetime, cost money); \
+             insert into stamps values (1, '2024-01-02 03:04:05.997', '2024-01-02 03:04', 12.75), \
+             (2, '2025-06-07 08:09:10', '2025-06-07 08:09', 3)",
+        )
+        .unwrap();
+
+    for (column, operator, value) in [
+        ("at", "contains", "2024-01-02"),
+        ("brief", "starts with", "2024"),
+        ("cost", "contains", ".75"),
+    ] {
+        let filters = Filters::new(vec![Filter::new(column, operator, value)], Joiner::And);
+        let found = scratch
+            .database
+            .filtered_rows(&"stamps".into(), 10, 0, None, Some(&filters))
+            .unwrap();
+        assert_eq!(found.rows.len(), 1, "{column} {operator} {value}");
+        assert_eq!(
+            scratch
+                .database
+                .count_rows(&"stamps".into(), Some(&filters))
+                .unwrap(),
+            1,
+            "{column} {operator} {value}"
+        );
+    }
 }

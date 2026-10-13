@@ -82,6 +82,14 @@ impl Filter {
     }
 
     pub fn condition(&self, quote: &dyn Fn(&str) -> String) -> Option<Condition> {
+        self.condition_as_text(quote, &|_, quoted| quoted.to_string())
+    }
+
+    pub fn condition_as_text(
+        &self,
+        quote: &dyn Fn(&str) -> String,
+        textual: &dyn Fn(&str, &str) -> String,
+    ) -> Option<Condition> {
         if !self.usable() {
             return None;
         }
@@ -91,13 +99,21 @@ impl Filter {
                 parts: vec![Part::Sql(format!("{column} {sql} ")), Part::Value(value)],
             })
         };
+        let liked = |value: String| {
+            Some(Condition {
+                parts: vec![
+                    Part::Sql(format!("{} like ", textual(&self.column, &column))),
+                    Part::Value(value),
+                ],
+            })
+        };
 
         match self.operator.as_str() {
             "is empty" => Some(Condition::sql(format!("{column} is null"))),
             "is not empty" => Some(Condition::sql(format!("{column} is not null"))),
-            "contains" => compared("like", format!("%{}%", self.value)),
-            "starts with" => compared("like", format!("{}%", self.value)),
-            "ends with" => compared("like", format!("%{}", self.value)),
+            "contains" => liked(format!("%{}%", self.value)),
+            "starts with" => liked(format!("{}%", self.value)),
+            "ends with" => liked(format!("%{}", self.value)),
             "is one of" => Some(self.one_of(&column)),
             operator => {
                 let sql = OPERATORS
@@ -142,12 +158,20 @@ impl Filters {
     }
 
     pub fn condition(&self, quote: &dyn Fn(&str) -> String) -> Option<Condition> {
+        self.condition_as_text(quote, &|_, quoted| quoted.to_string())
+    }
+
+    pub fn condition_as_text(
+        &self,
+        quote: &dyn Fn(&str) -> String,
+        textual: &dyn Fn(&str, &str) -> String,
+    ) -> Option<Condition> {
         let separator = format!(" {} ", self.joiner.keyword());
         let mut parts = Vec::new();
         for condition in self
             .filters
             .iter()
-            .filter_map(|filter| filter.condition(quote))
+            .filter_map(|filter| filter.condition_as_text(quote, textual))
         {
             if !parts.is_empty() {
                 parts.push(Part::Sql(separator.clone()));

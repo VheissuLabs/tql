@@ -10,7 +10,7 @@ use jiff::Zoned;
 use jiff::tz::TimeZone;
 use regex::Regex;
 
-use super::{Database, Table};
+use super::{Column, Database, Table};
 use crate::driver::Driver;
 use crate::paths;
 use crate::settings;
@@ -334,6 +334,28 @@ impl<'a> Exporter<'a> {
             columns: String::new(),
             buffer: Vec::new(),
         };
+        let columns = database.columns(table).unwrap_or_default();
+        let writable: Vec<&Column> = columns
+            .iter()
+            .filter(|column| {
+                column.generation.is_none()
+                    && !(self.connection.driver == Driver::Sqlsrv
+                        && matches!(column.type_name.as_str(), "timestamp" | "rowversion"))
+            })
+            .collect();
+        let selected = match writable.len() == columns.len() {
+            true => "*".to_string(),
+            false => writable
+                .iter()
+                .map(|column| database.quote(&column.name))
+                .collect::<Vec<_>>()
+                .join(", "),
+        };
+        let identity = self.connection.driver == Driver::Sqlsrv
+            && writable.iter().any(|column| column.auto_increment);
+        if identity {
+            write!(file, "set identity_insert {} on;\n\n", statements.table)?;
+        }
 
         let mut written = 0;
         loop {
@@ -342,7 +364,7 @@ impl<'a> Exporter<'a> {
                 break;
             }
             let page = database.scalars(&database.page(
-                &format!("select * from {}{order}", statements.table),
+                &format!("select {selected} from {}{order}", statements.table),
                 take,
                 written,
             ))?;
@@ -358,6 +380,9 @@ impl<'a> Exporter<'a> {
             }
         }
         statements.flush(file)?;
+        if identity {
+            write!(file, "set identity_insert {} off;\n\n", statements.table)?;
+        }
         Ok(written)
     }
 
@@ -438,8 +463,16 @@ fn now() -> Zoned {
     Zoned::now().with_time_zone(TimeZone::UTC)
 }
 
+pub fn float_text(number: f64) -> String {
+    let magnitude = number.abs();
+    match number.is_finite() && magnitude != 0.0 && !(1e-6..1e16).contains(&magnitude) {
+        true => format!("{number:e}"),
+        false => number.to_string(),
+    }
+}
+
 pub fn real_text(number: f64) -> String {
-    let text = number.to_string();
+    let text = float_text(number);
     match number.is_finite() && !text.contains(['.', 'e', 'E']) {
         true => format!("{text}.0"),
         false => text,
@@ -468,6 +501,8 @@ mod tests {
         assert_eq!(Scalar::real(0.15).literal(Driver::Sqlite), "0.15");
         assert_eq!(Scalar::real(f64::INFINITY).literal(Driver::Sqlite), "9e999");
         assert_eq!(Scalar::real(2.0).literal(Driver::Sqlite), "2.0");
+        assert_eq!(Scalar::real(1.5e300).literal(Driver::Sqlsrv), "1.5e300");
+        assert_eq!(Scalar::real(-2.5e-9).literal(Driver::Sqlsrv), "-2.5e-9");
         assert_eq!(Scalar::real(-0.5).literal(Driver::Sqlite), "-0.5");
         assert_eq!(
             Scalar::real(1e300)
