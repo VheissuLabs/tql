@@ -49,6 +49,10 @@ pub struct Scanned {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Contents {
     Text(Vec<u8>),
+    Long {
+        head: Vec<u8>,
+        size: u64,
+    },
     Rows {
         headers: Vec<String>,
         rows: Vec<Vec<String>>,
@@ -157,6 +161,36 @@ pub enum Reply {
     Error(String),
 }
 
+#[derive(Debug)]
+pub struct PartlyWritten(pub String);
+
+impl std::fmt::Display for PartlyWritten {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(
+            formatter,
+            "{} · Redis may have written some of the changes, so tql dropped them and shows what is there now",
+            self.0
+        )
+    }
+}
+
+impl std::error::Error for PartlyWritten {}
+
+pub fn score(typed: &str) -> Option<String> {
+    let trimmed = typed.trim();
+    if matches!(
+        trimmed.to_ascii_lowercase().as_str(),
+        "inf" | "+inf" | "-inf"
+    ) {
+        return Some(trimmed.to_string());
+    }
+    trimmed
+        .parse::<f64>()
+        .ok()
+        .filter(|number| number.is_finite())
+        .map(|_| trimmed.to_string())
+}
+
 pub trait KeyStore: Send {
     fn scan(&mut self, cursor: u64, pattern: &str, count: usize) -> anyhow::Result<Scanned>;
     fn size(&mut self) -> anyhow::Result<u64>;
@@ -175,7 +209,7 @@ pub trait KeyStore: Send {
     fn databases(&mut self) -> anyhow::Result<Vec<(u32, u64)>>;
     fn select(&mut self, database: u32) -> anyhow::Result<()>;
     fn run(&mut self, line: &str) -> anyhow::Result<Reply>;
-    fn reads_only(&mut self, command: &str) -> anyhow::Result<bool>;
+    fn reads_only(&mut self, command: &str, subcommand: Option<&str>) -> anyhow::Result<bool>;
     fn server(&mut self) -> String;
     fn fork(&mut self) -> anyhow::Result<Box<dyn KeyStore>>;
 
@@ -360,6 +394,16 @@ pub fn shown(bytes: &[u8]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn takes_a_score_redis_takes() {
+        assert_eq!(score(" 5 ").as_deref(), Some("5"));
+        assert_eq!(score("-inf").as_deref(), Some("-inf"));
+        assert_eq!(score("2.5e3").as_deref(), Some("2.5e3"));
+        assert_eq!(score("NaN"), None);
+        assert_eq!(score("1e400"), None);
+        assert_eq!(score("five"), None);
+    }
 
     #[test]
     fn splits_a_command_line_the_way_redis_cli_does() {

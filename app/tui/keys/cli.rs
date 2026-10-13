@@ -82,7 +82,10 @@ impl KeyBrowser {
             ));
         }
         if self.connection.read_only {
-            match self.store.reads_only(&typed[0]) {
+            match self
+                .store
+                .reads_only(&typed[0], typed.get(1).map(String::as_str))
+            {
                 Ok(true) => {}
                 Ok(false) => {
                     return self.fail(format!(
@@ -126,7 +129,10 @@ impl KeyBrowser {
                     false => self.say(format!("ran in {elapsed}ms")),
                 }
                 if !typed[0].eq_ignore_ascii_case("get")
-                    && !self.store.reads_only(&typed[0]).unwrap_or(true)
+                    && !self
+                        .store
+                        .reads_only(&typed[0], typed.get(1).map(String::as_str))
+                        .unwrap_or(true)
                 {
                     self.reload_shown();
                 }

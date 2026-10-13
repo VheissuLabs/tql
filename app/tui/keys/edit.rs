@@ -134,10 +134,10 @@ impl KeyBrowser {
                 value: next(),
             },
             Purpose::Score { key, member } => {
-                let score = next();
-                if score.trim().parse::<f64>().is_err() {
-                    return self.fail(format!("{score} is not a score; a score is a number"));
-                }
+                let typed = next();
+                let Some(score) = crate::keystore::score(&typed) else {
+                    return self.fail(format!("{typed} is not a score; a score is a number"));
+                };
                 Change::SetScore { key, member, score }
             }
             Purpose::AddField { key } => {
@@ -152,10 +152,10 @@ impl KeyBrowser {
             Purpose::AddMember { key } => Change::AddMember { key, value: next() },
             Purpose::AddScored { key } => {
                 let member = next();
-                let score = next();
-                if score.trim().parse::<f64>().is_err() {
-                    return self.fail(format!("{score} is not a score; a score is a number"));
-                }
+                let typed = next();
+                let Some(score) = crate::keystore::score(&typed) else {
+                    return self.fail(format!("{typed} is not a score; a score is a number"));
+                };
                 Change::AddScored { key, member, score }
             }
             Purpose::NewKeyName => {
@@ -172,12 +172,12 @@ impl KeyBrowser {
             }
             Purpose::NewKeyFirst { key, kind } => {
                 let mut first: Vec<String> = std::mem::take(&mut values);
-                if kind == KeyKind::Zset
-                    && first
-                        .get(1)
-                        .is_some_and(|score| score.trim().parse::<f64>().is_err())
-                {
-                    return self.fail("a score is a number");
+                if kind == KeyKind::Zset {
+                    match first.get(1).map(|typed| crate::keystore::score(typed)) {
+                        Some(Some(score)) => first[1] = score,
+                        Some(None) => return self.fail("a score is a number"),
+                        None => {}
+                    }
                 }
                 if kind == KeyKind::Zset {
                     first.truncate(2);
@@ -239,6 +239,15 @@ impl KeyBrowser {
                 let to = next();
                 if to.trim().is_empty() || to == key {
                     return;
+                }
+                if self
+                    .pending
+                    .iter()
+                    .any(|change| change.key() == key || change.key() == to)
+                {
+                    return self.fail(format!(
+                        "{key} has changes pending; :w or u them before renaming it"
+                    ));
                 }
                 match self.store.rename(&key, &to) {
                     Ok(()) => {
@@ -311,6 +320,9 @@ impl KeyBrowser {
                 None => self.say("a binary value is shown, not edited"),
             }
             return;
+        }
+        if let Contents::Long { .. } = &shown.contents {
+            return self.say("this value is too long to edit here; the command pane can SET it");
         }
         let kind = shown.kind.clone();
         if self.binary_here() {
@@ -389,6 +401,9 @@ impl KeyBrowser {
             return;
         };
         let key = shown.key.clone();
+        if let Contents::Long { .. } = &shown.contents {
+            return self.say("this value is too long to edit here; the command pane can SET it");
+        }
         let kind = shown.kind.clone();
         if self.binary_here() {
             return self
@@ -556,6 +571,11 @@ impl KeyBrowser {
         let Some(key) = self.current_key() else {
             return self.say("R renames a key; move onto one");
         };
+        if self.pending.iter().any(|change| change.key() == key) {
+            return self.fail(format!(
+                "{key} has changes pending; :w or u them before renaming it"
+            ));
+        }
         self.ask(
             format!("rename {key}"),
             vec!["new name"],
@@ -600,6 +620,20 @@ impl KeyBrowser {
                     self.reload_shown();
                 }
                 self.say(format!("wrote {}", plural(count, "change")));
+            }
+            Err(error)
+                if error
+                    .downcast_ref::<crate::keystore::PartlyWritten>()
+                    .is_some() =>
+            {
+                self.pending.clear();
+                self.changed();
+                let shown = self.shown.take().map(|shown| shown.key);
+                self.rescan();
+                if let Some(key) = shown {
+                    self.load(&key, 0);
+                }
+                self.fail(format!("{error:#}"));
             }
             Err(error) => self.fail(format!("{error:#} · the changes are still pending")),
         }

@@ -27,6 +27,7 @@ struct World {
     renamed: Vec<(String, String)>,
     field_expiry: Vec<(String, String, Option<i64>)>,
     refuse_write: Option<String>,
+    partly_written: bool,
 }
 
 #[derive(Clone)]
@@ -171,6 +172,9 @@ impl KeyStore for Fake2 {
     fn write(&mut self, changes: &[Change]) -> anyhow::Result<()> {
         let mut world = self.world.lock().unwrap();
         if let Some(refusal) = world.refuse_write.clone() {
+            if world.partly_written {
+                return Err(app::keystore::PartlyWritten(refusal).into());
+            }
             anyhow::bail!(refusal);
         }
         world.written.push(changes.to_vec());
@@ -258,7 +262,7 @@ impl KeyStore for Fake2 {
         )
     }
 
-    fn reads_only(&mut self, command: &str) -> anyhow::Result<bool> {
+    fn reads_only(&mut self, command: &str, _subcommand: Option<&str>) -> anyhow::Result<bool> {
         Ok(matches!(
             command.to_lowercase().as_str(),
             "get" | "hgetall" | "keys" | "scan"
@@ -548,6 +552,45 @@ fn a_failed_write_keeps_the_changes_and_says_why() {
     fake.press(":w\n");
     assert_eq!(fake.app.pending().len(), 1);
     assert!(fake.screen().contains("moved"), "{}", fake.screen());
+}
+
+#[test]
+fn a_write_redis_took_only_part_of_drops_the_changes_and_shows_what_is_there() {
+    let store = small();
+    {
+        let mut world = store.world.lock().unwrap();
+        world.refuse_write = Some("ERR value is not a valid float".into());
+        world.partly_written = true;
+    }
+    let mut fake = opened(&store, false);
+    fake.app.select_key("tags");
+    fake.press("d");
+    fake.press(":w\n");
+    assert!(fake.app.pending().is_empty());
+    assert!(
+        fake.screen().contains("may have written"),
+        "{}",
+        fake.screen()
+    );
+}
+
+#[test]
+fn renaming_a_key_with_changes_pending_is_refused() {
+    let store = small();
+    let mut fake = opened(&store, false);
+    fake.app.open_key("user:1");
+    fake.press("N");
+    fake.press("plan\n");
+    fake.press("pro\n");
+    fake.app.select_key("user:1");
+    fake.press("R");
+    settled(&mut fake);
+    assert!(store.world.lock().unwrap().renamed.is_empty());
+    assert!(
+        fake.screen().contains("changes pending"),
+        "{}",
+        fake.screen()
+    );
 }
 
 #[test]

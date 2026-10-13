@@ -1,17 +1,38 @@
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 use anyhow::{anyhow, bail};
-use redis::{Client, Value};
+use redis::{Client, FromRedisValue, Value};
 
-use super::{Change, Contents, KeyKind, KeyStore, Reply, Scanned, raw_words, shown};
-use crate::database::{decrypted, tls::Tls};
+use super::{Change, Contents, KeyKind, KeyStore, PartlyWritten, Reply, Scanned, raw_words, shown};
+use crate::database::decrypted;
+use crate::database::tls::{Mode, Tls};
 use crate::dsn::encode;
 use crate::encrypter::Encrypter;
 use crate::store::Connection;
 use crate::tunnel::{self, Tunnel};
 
 const MARKER: &str = "__tql_removed__";
+const CONNECT: Duration = Duration::from_secs(10);
+const ANSWER: Duration = Duration::from_secs(60);
+const LONG: u64 = 256 * 1024;
+const READS_THOUGH_ADMIN: [&str; 12] = [
+    "config|get",
+    "client|list",
+    "client|info",
+    "client|getname",
+    "client|id",
+    "slowlog|get",
+    "slowlog|len",
+    "commandlog|get",
+    "commandlog|len",
+    "latency|latest",
+    "latency|history",
+    "acl|whoami",
+];
+
+type Names = Arc<Mutex<HashMap<String, Vec<u8>>>>;
 
 pub struct Redis {
     client: Client,
@@ -19,6 +40,7 @@ pub struct Redis {
     database: u32,
     flags: HashMap<String, bool>,
     known: HashMap<String, bool>,
+    names: Names,
     _tunnel: Option<Arc<Tunnel>>,
 }
 
@@ -33,10 +55,7 @@ impl Redis {
             )?),
             false => None,
         };
-        let secure = !matches!(
-            Tls::of(connection)?.mode,
-            crate::database::tls::Mode::Unset | crate::database::tls::Mode::Disable
-        );
+        let tls = Tls::of(connection)?;
         let host = match &tunnel {
             Some(_) => "127.0.0.1".to_string(),
             None => connection
@@ -70,30 +89,90 @@ impl Redis {
             (Some(user), _) if !user.is_empty() => format!("{}@", encode(user)),
             _ => String::new(),
         };
-        let scheme = if secure { "rediss" } else { "redis" };
-        let host = if host.contains(':') {
-            format!("[{host}]")
-        } else {
-            host
+        let bare = host.trim_start_matches('[').trim_end_matches(']');
+        let host = match bare.contains(':') {
+            true => format!("[{bare}]"),
+            false => bare.to_string(),
         };
-        let client = Client::open(format!("{scheme}://{credentials}{host}:{port}/{database}"))?;
-        let opened = client
-            .get_connection()
-            .map_err(|error| anyhow!("cannot reach Redis at {host}:{port}: {error}"))?;
+        let place = format!("{credentials}{host}:{port}/{database}");
+        let plain = || Client::open(format!("redis://{place}"));
+        let reached = match tls.mode {
+            Mode::Unset | Mode::Disable => reach(plain()?),
+            mode => {
+                let secure = secured(&place, &tls)?;
+                match (reach(secure), mode) {
+                    (Err(_), Mode::Prefer) => reach(plain()?),
+                    (reached, _) => reached,
+                }
+            }
+        };
+        let (client, opened) =
+            reached.map_err(|error| anyhow!("cannot reach Redis at {host}:{port}: {error}"))?;
         Ok(Redis {
             client,
             connection: opened,
             database,
             flags: HashMap::new(),
             known: HashMap::new(),
+            names: Arc::new(Mutex::new(HashMap::new())),
             _tunnel: tunnel,
         })
     }
 
+    fn key(&self, name: &str) -> Vec<u8> {
+        self.names
+            .lock()
+            .ok()
+            .and_then(|names| names.get(name).cloned())
+            .unwrap_or_else(|| name.as_bytes().to_vec())
+    }
+
+    fn named(&self, bytes: Vec<u8>) -> String {
+        match String::from_utf8(bytes) {
+            Ok(name) => name,
+            Err(error) => {
+                let bytes = error.into_bytes();
+                let name = escaped(&bytes);
+                if let Ok(mut names) = self.names.lock() {
+                    names.insert(name.clone(), bytes);
+                }
+                name
+            }
+        }
+    }
+
+    fn reconnect(&mut self) -> anyhow::Result<()> {
+        let mut connection = opened(&self.client)?;
+        redis::cmd("SELECT")
+            .arg(self.database)
+            .query::<()>(&mut connection)
+            .map_err(|error| anyhow!(said(&error)))?;
+        self.connection = connection;
+        Ok(())
+    }
+
+    fn ask<T: FromRedisValue>(&mut self, command: &redis::Cmd) -> anyhow::Result<T> {
+        match command.query(&mut self.connection) {
+            Err(error) if error.is_timeout() => {
+                let _ = self.reconnect();
+                Err(anyhow!(
+                    "Redis did not answer within {}s, so tql stopped waiting",
+                    ANSWER.as_secs()
+                ))
+            }
+            Err(error) if broken(&error) => {
+                self.reconnect()
+                    .map_err(|_| anyhow!("{} · and tql could not reconnect", said(&error)))?;
+                command
+                    .query(&mut self.connection)
+                    .map_err(|error| anyhow!(said(&error)))
+            }
+            answered => answered.map_err(|error| anyhow!(said(&error))),
+        }
+    }
+
     fn query(&mut self, command: &mut redis::Cmd) -> anyhow::Result<Value> {
-        command
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))
+        self.ask(command)
     }
 
     fn scan_all(
@@ -104,14 +183,15 @@ impl Redis {
     ) -> anyhow::Result<(Vec<Value>, bool)> {
         let mut found = Vec::new();
         let mut cursor = 0u64;
+        let key = self.key(key);
         loop {
-            let (next, items): (u64, Vec<Value>) = redis::cmd(command)
-                .arg(key)
-                .arg(cursor)
-                .arg("COUNT")
-                .arg(1000)
-                .query(&mut self.connection)
-                .map_err(|error| anyhow!(said(&error)))?;
+            let (next, items): (u64, Vec<Value>) = self.ask(
+                redis::cmd(command)
+                    .arg(&key)
+                    .arg(cursor)
+                    .arg("COUNT")
+                    .arg(1000),
+            )?;
             found.extend(items);
             cursor = next;
             if cursor == 0 || found.len() > limit {
@@ -119,6 +199,108 @@ impl Redis {
             }
         }
     }
+
+    fn checked(&mut self, changes: &[Change], keys: &[String]) -> anyhow::Result<()> {
+        for key in keys {
+            let kind: String = self.ask(redis::cmd("TYPE").arg(self.key(key)))?;
+            let mut deleted = false;
+            for change in changes.iter().filter(|change| change.key() == key) {
+                let fits: &[&str] = match change {
+                    Change::DeleteKey { .. } => {
+                        deleted = true;
+                        continue;
+                    }
+                    Change::NewKey { .. } if deleted => continue,
+                    Change::NewKey { .. } => &["none"],
+                    Change::SetString { .. } => &["string", "none"],
+                    Change::SetField { .. } | Change::DeleteField { .. } => &["hash", "none"],
+                    Change::SetItem { .. } | Change::RemoveItem { .. } => &["list"],
+                    Change::PushItem { .. } => &["list", "none"],
+                    Change::ReplaceMember { .. }
+                    | Change::AddMember { .. }
+                    | Change::RemoveMember { .. } => &["set", "none"],
+                    Change::SetScore { .. }
+                    | Change::AddScored { .. }
+                    | Change::RemoveScored { .. } => &["zset", "none"],
+                };
+                if fits.contains(&kind.as_str()) {
+                    continue;
+                }
+                match change {
+                    Change::NewKey { .. } => bail!("{key} already exists, so nothing was written"),
+                    _ => bail!("{key} is a {kind} now, so nothing was written"),
+                }
+            }
+        }
+        for change in changes {
+            let (Change::SetItem {
+                key, index, was, ..
+            }
+            | Change::RemoveItem { key, index, was }) = change
+            else {
+                continue;
+            };
+            let here: Option<Vec<u8>> =
+                self.ask(redis::cmd("LINDEX").arg(self.key(key)).arg(*index))?;
+            if here.as_deref() != Some(was.as_bytes()) {
+                return Err(moved());
+            }
+        }
+        Ok(())
+    }
+}
+
+fn opened(client: &Client) -> redis::RedisResult<redis::Connection> {
+    let connection = client.get_connection_with_timeout(CONNECT)?;
+    connection.set_read_timeout(Some(ANSWER))?;
+    connection.set_write_timeout(Some(ANSWER))?;
+    Ok(connection)
+}
+
+fn reach(client: Client) -> redis::RedisResult<(Client, redis::Connection)> {
+    let connection = opened(&client)?;
+    Ok((client, connection))
+}
+
+fn secured(place: &str, tls: &Tls) -> anyhow::Result<Client> {
+    let read = |path: &std::path::Path| {
+        std::fs::read(path).map_err(|error| anyhow!("cannot read {}: {error}", path.display()))
+    };
+    let unchecked = match tls.checks_chain() {
+        true => "",
+        false => "#insecure",
+    };
+    Ok(Client::build_with_tls(
+        format!("rediss://{place}{unchecked}"),
+        redis::TlsCertificates {
+            client_tls: match &tls.identity {
+                Some((certificate, key)) => Some(redis::ClientTlsConfig {
+                    client_cert: read(certificate)?,
+                    client_key: read(key)?,
+                }),
+                None => None,
+            },
+            root_cert: match (&tls.ca, tls.checks_chain()) {
+                (Some(ca), true) => Some(read(ca)?),
+                _ => None,
+            },
+        },
+    )?)
+}
+
+fn broken(error: &redis::RedisError) -> bool {
+    error.is_io_error() || error.is_connection_dropped() || error.is_unrecoverable_error()
+}
+
+fn escaped(bytes: &[u8]) -> String {
+    let mut name = String::new();
+    for chunk in bytes.utf8_chunks() {
+        name.push_str(chunk.valid());
+        for byte in chunk.invalid() {
+            name.push_str(&format!("\\x{byte:02x}"));
+        }
+    }
+    name
 }
 
 fn said(error: &redis::RedisError) -> String {
@@ -195,27 +377,22 @@ fn moved() -> anyhow::Error {
 
 impl KeyStore for Redis {
     fn scan(&mut self, cursor: u64, pattern: &str, count: usize) -> anyhow::Result<Scanned> {
-        let (cursor, keys): (u64, Vec<Vec<u8>>) = redis::cmd("SCAN")
-            .arg(cursor)
-            .arg("MATCH")
-            .arg(if pattern.is_empty() { "*" } else { pattern })
-            .arg("COUNT")
-            .arg(count)
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))?;
+        let (cursor, keys): (u64, Vec<Vec<u8>>) = self.ask(
+            redis::cmd("SCAN")
+                .arg(cursor)
+                .arg("MATCH")
+                .arg(if pattern.is_empty() { "*" } else { pattern })
+                .arg("COUNT")
+                .arg(count),
+        )?;
         Ok(Scanned {
             cursor,
-            keys: keys
-                .into_iter()
-                .map(|key| String::from_utf8_lossy(&key).into_owned())
-                .collect(),
+            keys: keys.into_iter().map(|key| self.named(key)).collect(),
         })
     }
 
     fn size(&mut self) -> anyhow::Result<u64> {
-        redis::cmd("DBSIZE")
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))
+        self.ask(&redis::cmd("DBSIZE"))
     }
 
     fn kinds(&mut self, keys: &[String]) -> anyhow::Result<Vec<KeyKind>> {
@@ -223,20 +400,28 @@ impl KeyStore for Redis {
             return Ok(Vec::new());
         }
         let mut pipe = redis::pipe();
+        pipe.ignore_errors();
         for key in keys {
-            pipe.cmd("TYPE").arg(key);
+            pipe.cmd("TYPE").arg(self.key(key));
         }
-        let names: Vec<String> = pipe
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))?;
-        Ok(names.iter().map(|name| KeyKind::of(name)).collect())
+        let answers: Vec<Value> = match pipe.query(&mut self.connection) {
+            Err(error) if broken(&error) || error.is_timeout() => {
+                let _ = self.reconnect();
+                return Err(anyhow!(said(&error)));
+            }
+            answered => answered.map_err(|error| anyhow!(said(&error)))?,
+        };
+        Ok(answers
+            .iter()
+            .map(|answer| match answer {
+                Value::ServerError(_) => KeyKind::Other("unreadable".to_string()),
+                name => KeyKind::of(&text(name)),
+            })
+            .collect())
     }
 
     fn ttl(&mut self, key: &str) -> anyhow::Result<Option<i64>> {
-        let seconds: i64 = redis::cmd("TTL")
-            .arg(key)
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))?;
+        let seconds: i64 = self.ask(redis::cmd("TTL").arg(self.key(key)))?;
         Ok((seconds >= 0).then_some(seconds))
     }
 
@@ -247,10 +432,8 @@ impl KeyStore for Redis {
         offset: usize,
         limit: usize,
     ) -> anyhow::Result<Contents> {
-        let exists: i64 = redis::cmd("EXISTS")
-            .arg(key)
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))?;
+        let name = self.key(key);
+        let exists: i64 = self.ask(redis::cmd("EXISTS").arg(&name))?;
         if exists == 0 {
             return Ok(Contents::Missing);
         }
@@ -268,11 +451,14 @@ impl KeyStore for Redis {
         };
         Ok(match kind {
             KeyKind::String => {
-                let bytes: Vec<u8> = redis::cmd("GET")
-                    .arg(key)
-                    .query(&mut self.connection)
-                    .map_err(|error| anyhow!(said(&error)))?;
-                Contents::Text(bytes)
+                let size: u64 = self.ask(redis::cmd("STRLEN").arg(&name))?;
+                match size > LONG {
+                    true => Contents::Long {
+                        head: self.ask(redis::cmd("GETRANGE").arg(&name).arg(0).arg(LONG - 1))?,
+                        size,
+                    },
+                    false => Contents::Text(self.ask(redis::cmd("GET").arg(&name))?),
+                }
             }
             KeyKind::Hash => {
                 let (items, more) = self.scan_all("HSCAN", key, (offset + limit) * 2)?;
@@ -282,19 +468,29 @@ impl KeyStore for Redis {
                     .take(limit)
                     .map(|pair| pair.iter().any(raw))
                     .collect();
-                let all = pairs(items);
+                let all = pairs(items.clone());
                 let more = more || all.len() > offset + limit;
                 let mut page: Vec<Vec<String>> = all.into_iter().skip(offset).take(limit).collect();
                 if page.is_empty() || !self.supports("httl") {
                     return Ok(rows(&["field", "value"], page, flags, more));
                 }
-                let ttls: Vec<i64> = redis::cmd("HTTL")
-                    .arg(key)
-                    .arg("FIELDS")
-                    .arg(page.len())
-                    .arg(page.iter().map(|row| row[0].as_str()).collect::<Vec<_>>())
-                    .query(&mut self.connection)
-                    .map_err(|error| anyhow!(said(&error)))?;
+                let fields: Vec<Vec<u8>> = items
+                    .iter()
+                    .step_by(2)
+                    .skip(offset)
+                    .take(limit)
+                    .map(|field| match field {
+                        Value::BulkString(bytes) => bytes.clone(),
+                        other => text(other).into_bytes(),
+                    })
+                    .collect();
+                let ttls: Vec<i64> = self.ask(
+                    redis::cmd("HTTL")
+                        .arg(&name)
+                        .arg("FIELDS")
+                        .arg(page.len())
+                        .arg(fields),
+                )?;
                 for (row, ttl) in page.iter_mut().zip(ttls) {
                     row.push(match ttl {
                         seconds if seconds >= 0 => format!("{seconds}s"),
@@ -319,12 +515,12 @@ impl KeyStore for Redis {
                 )
             }
             KeyKind::List => {
-                let items: Vec<Value> = redis::cmd("LRANGE")
-                    .arg(key)
-                    .arg(offset)
-                    .arg(offset + limit)
-                    .query(&mut self.connection)
-                    .map_err(|error| anyhow!(said(&error)))?;
+                let items: Vec<Value> = self.ask(
+                    redis::cmd("LRANGE")
+                        .arg(&name)
+                        .arg(offset)
+                        .arg(offset + limit),
+                )?;
                 let more = items.len() > limit;
                 rows(
                     &["index", "value"],
@@ -339,13 +535,13 @@ impl KeyStore for Redis {
                 )
             }
             KeyKind::Zset => {
-                let items: Vec<Value> = redis::cmd("ZRANGE")
-                    .arg(key)
-                    .arg(offset)
-                    .arg(offset + limit)
-                    .arg("WITHSCORES")
-                    .query(&mut self.connection)
-                    .map_err(|error| anyhow!(said(&error)))?;
+                let items: Vec<Value> = self.ask(
+                    redis::cmd("ZRANGE")
+                        .arg(&name)
+                        .arg(offset)
+                        .arg(offset + limit)
+                        .arg("WITHSCORES"),
+                )?;
                 let flags: Vec<bool> = items
                     .chunks(2)
                     .take(limit)
@@ -361,14 +557,14 @@ impl KeyStore for Redis {
                 )
             }
             KeyKind::Stream => {
-                let entries: Vec<Value> = redis::cmd("XRANGE")
-                    .arg(key)
-                    .arg("-")
-                    .arg("+")
-                    .arg("COUNT")
-                    .arg(offset + limit + 1)
-                    .query(&mut self.connection)
-                    .map_err(|error| anyhow!(said(&error)))?;
+                let entries: Vec<Value> = self.ask(
+                    redis::cmd("XRANGE")
+                        .arg(&name)
+                        .arg("-")
+                        .arg("+")
+                        .arg("COUNT")
+                        .arg(offset + limit + 1),
+                )?;
                 let more = entries.len() > offset + limit;
                 rows(
                     &["id", "fields"],
@@ -379,18 +575,7 @@ impl KeyStore for Redis {
                         .map(|entry| match entry {
                             Value::Array(parts) if parts.len() == 2 => {
                                 let fields = match &parts[1] {
-                                    Value::Array(items) => serde_json::Value::Object(
-                                        pairs(items.clone())
-                                            .into_iter()
-                                            .map(|pair| {
-                                                (
-                                                    pair[0].clone(),
-                                                    pair.get(1).cloned().unwrap_or_default().into(),
-                                                )
-                                            })
-                                            .collect(),
-                                    )
-                                    .to_string(),
+                                    Value::Array(items) => fields(pairs(items.clone())),
                                     other => text(other),
                                 };
                                 vec![text(&parts[0]), fields]
@@ -407,30 +592,20 @@ impl KeyStore for Redis {
     }
 
     fn write(&mut self, changes: &[Change]) -> anyhow::Result<()> {
-        let watched: Vec<&Change> = changes
-            .iter()
-            .filter(|change| matches!(change, Change::SetItem { .. } | Change::RemoveItem { .. }))
-            .collect();
-        for change in &watched {
-            self.query(redis::cmd("WATCH").arg(change.key()))?;
+        let mut keys: Vec<String> = Vec::new();
+        for change in changes {
+            if !keys.iter().any(|key| key == change.key()) {
+                keys.push(change.key().to_string());
+            }
         }
-        for change in &watched {
-            let (Change::SetItem {
-                key, index, was, ..
-            }
-            | Change::RemoveItem { key, index, was }) = change
-            else {
-                continue;
-            };
-            let here: Option<Vec<u8>> = redis::cmd("LINDEX")
-                .arg(key)
-                .arg(*index)
-                .query(&mut self.connection)
-                .map_err(|error| anyhow!(said(&error)))?;
-            if here.as_deref() != Some(was.as_bytes()) {
-                let _ = self.query(&mut redis::cmd("UNWATCH"));
-                return Err(moved());
-            }
+        let mut watch = redis::cmd("WATCH");
+        for key in &keys {
+            watch.arg(self.key(key));
+        }
+        self.ask::<()>(&watch)?;
+        if let Err(error) = self.checked(changes, &keys) {
+            let _ = self.ask::<()>(&redis::cmd("UNWATCH"));
+            return Err(error);
         }
 
         let mut pipe = redis::pipe();
@@ -440,52 +615,76 @@ impl KeyStore for Redis {
                 key, index, value, ..
             } = change
             {
-                pipe.cmd("LSET").arg(key).arg(*index).arg(value).ignore();
+                pipe.cmd("LSET")
+                    .arg(self.key(key))
+                    .arg(*index)
+                    .arg(value)
+                    .ignore();
             }
         }
         let mut emptied: Vec<&str> = Vec::new();
         for change in changes {
             if let Change::RemoveItem { key, index, .. } = change {
-                pipe.cmd("LSET").arg(key).arg(*index).arg(MARKER).ignore();
+                pipe.cmd("LSET")
+                    .arg(self.key(key))
+                    .arg(*index)
+                    .arg(MARKER)
+                    .ignore();
                 if !emptied.contains(&key.as_str()) {
                     emptied.push(key);
                 }
             }
         }
         for key in emptied {
-            pipe.cmd("LREM").arg(key).arg(0).arg(MARKER).ignore();
+            pipe.cmd("LREM")
+                .arg(self.key(key))
+                .arg(0)
+                .arg(MARKER)
+                .ignore();
         }
         for change in changes {
             match change {
                 Change::SetItem { .. } | Change::RemoveItem { .. } => {}
                 Change::SetString { key, value } => {
-                    pipe.cmd("SET").arg(key).arg(value).arg("KEEPTTL").ignore();
+                    pipe.cmd("SET")
+                        .arg(self.key(key))
+                        .arg(value)
+                        .arg("KEEPTTL")
+                        .ignore();
                 }
                 Change::SetField { key, field, value } => {
-                    pipe.cmd("HSET").arg(key).arg(field).arg(value).ignore();
+                    pipe.cmd("HSET")
+                        .arg(self.key(key))
+                        .arg(field)
+                        .arg(value)
+                        .ignore();
                 }
                 Change::DeleteField { key, field } => {
-                    pipe.cmd("HDEL").arg(key).arg(field).ignore();
+                    pipe.cmd("HDEL").arg(self.key(key)).arg(field).ignore();
                 }
                 Change::PushItem { key, value } => {
-                    pipe.cmd("RPUSH").arg(key).arg(value).ignore();
+                    pipe.cmd("RPUSH").arg(self.key(key)).arg(value).ignore();
                 }
                 Change::ReplaceMember { key, was, value } => {
-                    pipe.cmd("SREM").arg(key).arg(was).ignore();
-                    pipe.cmd("SADD").arg(key).arg(value).ignore();
+                    pipe.cmd("SREM").arg(self.key(key)).arg(was).ignore();
+                    pipe.cmd("SADD").arg(self.key(key)).arg(value).ignore();
                 }
                 Change::AddMember { key, value } => {
-                    pipe.cmd("SADD").arg(key).arg(value).ignore();
+                    pipe.cmd("SADD").arg(self.key(key)).arg(value).ignore();
                 }
                 Change::RemoveMember { key, value } => {
-                    pipe.cmd("SREM").arg(key).arg(value).ignore();
+                    pipe.cmd("SREM").arg(self.key(key)).arg(value).ignore();
                 }
                 Change::SetScore { key, member, score }
                 | Change::AddScored { key, member, score } => {
-                    pipe.cmd("ZADD").arg(key).arg(score).arg(member).ignore();
+                    pipe.cmd("ZADD")
+                        .arg(self.key(key))
+                        .arg(score)
+                        .arg(member)
+                        .ignore();
                 }
                 Change::RemoveScored { key, member } => {
-                    pipe.cmd("ZREM").arg(key).arg(member).ignore();
+                    pipe.cmd("ZREM").arg(self.key(key)).arg(member).ignore();
                 }
                 Change::NewKey { key, kind, first } => {
                     let command = match kind {
@@ -500,36 +699,44 @@ impl KeyStore for Redis {
                     if *kind == KeyKind::Zset && values.len() == 2 {
                         values.reverse();
                     }
-                    pipe.cmd(command).arg(key).arg(values).ignore();
+                    pipe.cmd(command).arg(self.key(key)).arg(values).ignore();
                 }
                 Change::DeleteKey { key } => {
-                    pipe.cmd("DEL").arg(key).ignore();
+                    pipe.cmd("DEL").arg(self.key(key)).ignore();
                 }
             }
         }
-        let done: Value = pipe
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))?;
-        if done == Value::Nil {
-            return Err(moved());
+        match pipe.query::<Value>(&mut self.connection) {
+            Ok(Value::Nil) => Err(anyhow!(
+                "a key changed before it was written, so nothing was written"
+            )),
+            Ok(_) => Ok(()),
+            Err(error) => {
+                if broken(&error) || error.is_timeout() {
+                    let _ = self.reconnect();
+                }
+                Err(PartlyWritten(said(&error)).into())
+            }
         }
-        Ok(())
     }
 
     fn expire(&mut self, key: &str, seconds: Option<i64>) -> anyhow::Result<()> {
-        match seconds {
-            Some(seconds) => self.query(redis::cmd("EXPIRE").arg(key).arg(seconds))?,
-            None => self.query(redis::cmd("PERSIST").arg(key))?,
+        let name = self.key(key);
+        let done: i64 = match seconds {
+            Some(seconds) => self.ask(redis::cmd("EXPIRE").arg(&name).arg(seconds))?,
+            None => self.ask(redis::cmd("PERSIST").arg(&name))?,
         };
+        if done == 0 {
+            let exists: i64 = self.ask(redis::cmd("EXISTS").arg(&name))?;
+            if exists == 0 {
+                bail!("{key} is not in Redis, so it has no TTL to set; :w writes a new key first");
+            }
+        }
         Ok(())
     }
 
     fn rename(&mut self, from: &str, to: &str) -> anyhow::Result<()> {
-        let renamed: i64 = redis::cmd("RENAMENX")
-            .arg(from)
-            .arg(to)
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))?;
+        let renamed: i64 = self.ask(redis::cmd("RENAMENX").arg(self.key(from)).arg(to))?;
         if renamed == 0 {
             bail!("{to} already exists, so {from} keeps its name");
         }
@@ -544,10 +751,7 @@ impl KeyStore for Redis {
             .ok()
             .and_then(|pair| pair.get(1)?.parse().ok())
             .unwrap_or(16);
-        let info: String = redis::cmd("INFO")
-            .arg("keyspace")
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))?;
+        let info: String = self.ask(redis::cmd("INFO").arg("keyspace"))?;
         let mut keys: HashMap<u32, u64> = HashMap::new();
         for line in info.lines() {
             let Some((name, fields)) = line.trim().split_once(':') else {
@@ -587,6 +791,17 @@ impl KeyStore for Redis {
             command.arg(word.as_slice());
         }
         match command.query::<Value>(&mut self.connection) {
+            Err(error) if broken(&error) || error.is_timeout() => {
+                let reconnected = self.reconnect();
+                Err(anyhow!(
+                    "{}{}",
+                    said(&error),
+                    match reconnected {
+                        Ok(()) => " · tql reconnected, so the next command runs",
+                        Err(_) => " · and tql could not reconnect",
+                    }
+                ))
+            }
             Ok(value) => {
                 if String::from_utf8_lossy(first).eq_ignore_ascii_case("select")
                     && let Some(number) = rest
@@ -597,23 +812,26 @@ impl KeyStore for Redis {
                 }
                 Ok(reply(value))
             }
-            Err(error) if error.is_io_error() || error.is_connection_dropped() => {
-                Err(anyhow!(said(&error)))
-            }
             Err(error) => Ok(Reply::Error(said(&error))),
         }
     }
 
-    fn reads_only(&mut self, command: &str) -> anyhow::Result<bool> {
-        let name = command.to_lowercase();
+    fn reads_only(&mut self, command: &str, subcommand: Option<&str>) -> anyhow::Result<bool> {
+        let command = command.to_lowercase();
+        let name = match subcommand {
+            Some(subcommand) => {
+                let both = format!("{command}|{}", subcommand.to_lowercase());
+                match self.supports(&both) {
+                    true => both,
+                    false => command,
+                }
+            }
+            None => command,
+        };
         if let Some(known) = self.flags.get(&name) {
             return Ok(*known);
         }
-        let info: Value = redis::cmd("COMMAND")
-            .arg("INFO")
-            .arg(&name)
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))?;
+        let info: Value = self.ask(redis::cmd("COMMAND").arg("INFO").arg(&name))?;
         let flags: Vec<String> = match info {
             Value::Array(entries) => match entries.into_iter().next() {
                 Some(Value::Array(fields)) => match fields.get(2) {
@@ -626,16 +844,24 @@ impl KeyStore for Redis {
             },
             _ => Vec::new(),
         };
-        let reads = flags.iter().any(|flag| flag == "readonly")
-            && !flags.iter().any(|flag| flag == "write");
+        let known = !flags.is_empty() || self.supports(&name);
+        let scripted = matches!(name.as_str(), "eval" | "evalsha" | "fcall");
+        let reads = known
+            && !scripted
+            && (READS_THOUGH_ADMIN.contains(&name.as_str())
+                || !flags.iter().any(|flag| {
+                    matches!(
+                        flag.as_str(),
+                        "write" | "admin" | "pubsub" | "may_replicate" | "blocking"
+                    )
+                }));
         self.flags.insert(name, reads);
         Ok(reads)
     }
 
     fn server(&mut self) -> String {
-        let info: String = redis::cmd("INFO")
-            .arg("server")
-            .query(&mut self.connection)
+        let info: String = self
+            .ask(redis::cmd("INFO").arg("server"))
             .unwrap_or_default();
         let field = |name: &str| {
             info.lines()
@@ -668,19 +894,17 @@ impl KeyStore for Redis {
         let mut command = match seconds {
             Some(seconds) => {
                 let mut command = redis::cmd("HEXPIRE");
-                command.arg(key).arg(seconds);
+                command.arg(self.key(key)).arg(seconds);
                 command
             }
             None => {
                 let mut command = redis::cmd("HPERSIST");
-                command.arg(key);
+                command.arg(self.key(key));
                 command
             }
         };
         command.arg("FIELDS").arg(1).arg(field);
-        let answered: Vec<i64> = command
-            .query(&mut self.connection)
-            .map_err(|error| anyhow!(said(&error)))?;
+        let answered: Vec<i64> = self.ask(&command)?;
         match answered.first() {
             Some(-2) => bail!("{field} is no longer in {key}"),
             _ => Ok(()),
@@ -689,17 +913,9 @@ impl KeyStore for Redis {
 
     fn log(&mut self) -> anyhow::Result<Contents> {
         let entries: Vec<Value> = match self.supports("commandlog") {
-            true => redis::cmd("COMMANDLOG")
-                .arg("GET")
-                .arg(50)
-                .arg("slow")
-                .query(&mut self.connection),
-            false => redis::cmd("SLOWLOG")
-                .arg("GET")
-                .arg(50)
-                .query(&mut self.connection),
-        }
-        .map_err(|error| anyhow!(said(&error)))?;
+            true => self.ask(redis::cmd("COMMANDLOG").arg("GET").arg(50).arg("slow"))?,
+            false => self.ask(redis::cmd("SLOWLOG").arg("GET").arg(50))?,
+        };
         let rows: Vec<Vec<String>> = entries
             .into_iter()
             .filter_map(|entry| match entry {
@@ -737,10 +953,7 @@ impl KeyStore for Redis {
     }
 
     fn fork(&mut self) -> anyhow::Result<Box<dyn KeyStore>> {
-        let mut connection = self
-            .client
-            .get_connection()
-            .map_err(|error| anyhow!(said(&error)))?;
+        let mut connection = opened(&self.client).map_err(|error| anyhow!(said(&error)))?;
         redis::cmd("SELECT")
             .arg(self.database)
             .query::<()>(&mut connection)
@@ -751,7 +964,31 @@ impl KeyStore for Redis {
             database: self.database,
             flags: HashMap::new(),
             known: HashMap::new(),
+            names: self.names.clone(),
             _tunnel: self._tunnel.clone(),
         }))
     }
+}
+
+fn fields(pairs: Vec<Vec<String>>) -> String {
+    let mut names: Vec<&str> = pairs.iter().map(|pair| pair[0].as_str()).collect();
+    names.sort_unstable();
+    let repeated = names.windows(2).any(|two| two[0] == two[1]);
+    let value =
+        |pair: &Vec<String>| serde_json::Value::from(pair.get(1).cloned().unwrap_or_default());
+    match repeated {
+        true => serde_json::Value::Array(
+            pairs
+                .iter()
+                .map(|pair| serde_json::Value::Array(vec![pair[0].clone().into(), value(pair)]))
+                .collect(),
+        ),
+        false => serde_json::Value::Object(
+            pairs
+                .iter()
+                .map(|pair| (pair[0].clone(), value(pair)))
+                .collect(),
+        ),
+    }
+    .to_string()
 }

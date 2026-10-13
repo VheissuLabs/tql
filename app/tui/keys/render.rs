@@ -161,6 +161,7 @@ impl KeyBrowser {
         }
         let size = match &shown.contents {
             Contents::Text(bytes) => plural(bytes.len(), "byte"),
+            Contents::Long { size, .. } => plural(*size as usize, "byte"),
             Contents::Rows { rows, more, .. } => {
                 let noun = match shown.kind {
                     KeyKind::Hash => "field",
@@ -280,6 +281,22 @@ impl KeyBrowser {
                     format!(" {kind} values are not shown"),
                     theme::dim(),
                 )];
+                island
+            }
+            Contents::Long { head, size } => {
+                let mut lines = vec![Line::styled(
+                    format!(
+                        " the first {} of {} · too long to edit here; the command pane can",
+                        plural(head.len(), "byte"),
+                        plural(*size as usize, "byte")
+                    ),
+                    theme::dim(),
+                )];
+                lines.extend(Self::text_lines(
+                    &shown_bytes(head),
+                    island.inner_width().saturating_sub(2),
+                ));
+                island.content = lines;
                 island
             }
             Contents::Text(bytes) => {

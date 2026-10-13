@@ -545,3 +545,59 @@ fn clickhouse_speaks_tls_as_far_as_the_mode_asks() {
         "connected"
     );
 }
+
+#[test]
+#[ignore = "starts throwaway mysql, postgres and sshd containers in docker"]
+fn redis_speaks_tls_as_far_as_the_mode_asks() {
+    let mut lab = Lab::new("redis-tls");
+    Authority::new("tql test ca").sign_into(&lab.directory, &["127.0.0.1"]);
+    let certificates = format!("{}:/certs:ro", lab.directory.display());
+    let container = lab.run(
+        "redis",
+        &[
+            "-v",
+            &certificates,
+            "-p",
+            "127.0.0.1::6379",
+            "redis:7",
+            "redis-server",
+            "--port",
+            "0",
+            "--tls-port",
+            "6379",
+            "--tls-cert-file",
+            "/certs/server.pem",
+            "--tls-key-file",
+            "/certs/server.key",
+            "--tls-ca-cert-file",
+            "/certs/ca.pem",
+            "--tls-auth-clients",
+            "no",
+        ],
+    );
+    let port = lab.port(&container, 6379);
+    let reach = |host: &str, mode: &str, ca: bool| Connection {
+        name: "redis".to_string(),
+        driver: Driver::Redis,
+        host: Some(host.to_string()),
+        port: Some(port),
+        ssl_mode: Some(mode.to_string()),
+        ssl_ca: ca.then(|| lab.path("ca.pem")),
+        ..Connection::default()
+    };
+    let deadline = Instant::now() + Duration::from_secs(60);
+    let mut required = loop {
+        match app::keystore::connect(&reach("127.0.0.1", "require", false), None) {
+            Ok(store) => break store,
+            Err(error) if Instant::now() > deadline => panic!("never came up: {error:#}"),
+            Err(_) => thread::sleep(Duration::from_millis(500)),
+        }
+    };
+    assert_eq!(
+        required.run("PING").unwrap(),
+        app::keystore::Reply::Text("PONG".to_string())
+    );
+    assert!(app::keystore::connect(&reach("127.0.0.1", "verify-full", true), None).is_ok());
+    assert!(app::keystore::connect(&reach("127.0.0.1", "verify-full", false), None).is_err());
+    assert!(app::keystore::connect(&reach("127.0.0.1", "disable", false), None).is_err());
+}

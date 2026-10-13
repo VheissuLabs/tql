@@ -289,8 +289,8 @@ fn expires_renames_switches_databases_and_runs_commands() {
             redis.run("NOSUCHCOMMAND").unwrap(),
             Reply::Error(_)
         ));
-        assert!(redis.reads_only("get").unwrap());
-        assert!(!redis.reads_only("set").unwrap());
+        assert!(redis.reads_only("get", None).unwrap());
+        assert!(!redis.reads_only("set", None).unwrap());
         assert!(
             redis.server().starts_with("Redis") || redis.server().starts_with("Valkey"),
             "{}",
@@ -440,4 +440,311 @@ fn editing_a_string_keeps_its_ttl() {
         );
         cleanup(&mut redis, &p);
     }
+}
+
+fn list(redis: &mut Box<dyn KeyStore>, key: &str) -> Vec<String> {
+    rows(redis.read(key, &KeyKind::List, 0, 100).unwrap())
+        .into_iter()
+        .map(|row| row[1].clone())
+        .collect()
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn writes_nothing_when_a_key_is_not_the_type_the_changes_expect() {
+    for (name, place) in servers() {
+        let (mut redis, p) = seeded(&place);
+        let key = |rest: &str| format!("{p}:{rest}");
+
+        for _ in 0..2 {
+            let refused = redis
+                .write(&[
+                    Change::PushItem {
+                        key: key("queue"),
+                        value: "f".into(),
+                    },
+                    Change::SetField {
+                        key: key("greeting"),
+                        field: "f".into(),
+                        value: "v".into(),
+                    },
+                ])
+                .unwrap_err();
+            assert!(
+                refused.to_string().contains("is a string now"),
+                "{name}: {refused}"
+            );
+        }
+        assert_eq!(
+            list(&mut redis, &key("queue")),
+            ["a", "b", "c", "d", "e"],
+            "{name}"
+        );
+
+        let refused = redis
+            .write(&[Change::SetItem {
+                key: key("greeting"),
+                index: 0,
+                was: "h".into(),
+                value: "x".into(),
+            }])
+            .unwrap_err();
+        assert!(
+            refused.to_string().contains("nothing was written"),
+            "{name}: {refused}"
+        );
+        redis
+            .write(&[Change::SetString {
+                key: key("greeting"),
+                value: "after".into(),
+            }])
+            .unwrap();
+        assert_eq!(
+            redis
+                .read(&key("greeting"), &KeyKind::String, 0, 1)
+                .unwrap(),
+            Contents::Text(b"after".to_vec()),
+            "{name}: a refused list edit left a WATCH behind"
+        );
+
+        cleanup(&mut redis, &p);
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn a_new_key_never_overwrites_one_that_exists() {
+    for (name, place) in servers() {
+        let (mut redis, p) = seeded(&place);
+        let key = format!("{p}:greeting");
+        redis.run(&format!("EXPIRE {key} 5000")).unwrap();
+
+        let refused = redis
+            .write(&[Change::NewKey {
+                key: key.clone(),
+                kind: KeyKind::String,
+                first: vec!["oops".into()],
+            }])
+            .unwrap_err();
+        assert!(
+            refused.to_string().contains("already exists"),
+            "{name}: {refused}"
+        );
+        assert_eq!(
+            redis.read(&key, &KeyKind::String, 0, 1).unwrap(),
+            Contents::Text(b"hello".to_vec()),
+            "{name}"
+        );
+        assert!(redis.ttl(&key).unwrap().is_some(), "{name}");
+
+        cleanup(&mut redis, &p);
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn keeps_binary_key_names_apart_and_reaches_each() {
+    for (name, place) in servers() {
+        let mut redis = store(&place, 0);
+        let p = prefix();
+        redis.run(&format!("SET \"{p}:\\xff\\xfe\" one")).unwrap();
+        redis.run(&format!("SET \"{p}:\\xfe\\xff\" two")).unwrap();
+
+        let mut keys = redis.scan(0, &format!("{p}*"), 1000).unwrap().keys;
+        keys.sort();
+        assert_eq!(
+            keys,
+            [format!("{p}:\\xfe\\xff"), format!("{p}:\\xff\\xfe")],
+            "{name}"
+        );
+        assert_eq!(
+            redis.kinds(&keys).unwrap(),
+            [KeyKind::String, KeyKind::String],
+            "{name}"
+        );
+        assert_eq!(
+            redis.read(&keys[1], &KeyKind::String, 0, 1).unwrap(),
+            Contents::Text(b"one".to_vec()),
+            "{name}"
+        );
+        redis
+            .write(&[Change::DeleteKey {
+                key: keys[1].clone(),
+            }])
+            .unwrap();
+        assert_eq!(
+            redis.scan(0, &format!("{p}*"), 1000).unwrap().keys,
+            [keys[0].clone()],
+            "{name}"
+        );
+
+        redis
+            .write(&[Change::DeleteKey {
+                key: keys[0].clone(),
+            }])
+            .unwrap();
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn reads_again_after_the_server_drops_the_connection() {
+    for (name, place) in servers() {
+        let (mut redis, p) = seeded(&place);
+        let id = match redis.run("CLIENT ID").unwrap() {
+            Reply::Number(id) => id,
+            other => panic!("{name}: {other:?}"),
+        };
+        store(&place, 0)
+            .run(&format!("CLIENT KILL ID {id}"))
+            .unwrap();
+
+        assert_eq!(
+            redis
+                .read(&format!("{p}:greeting"), &KeyKind::String, 0, 1)
+                .unwrap(),
+            Contents::Text(b"hello".to_vec()),
+            "{name}"
+        );
+        cleanup(&mut redis, &p);
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn a_ttl_on_a_key_that_is_not_there_is_an_error() {
+    for (name, place) in servers() {
+        let mut redis = store(&place, 0);
+        let missing = format!("{}:missing", prefix());
+        assert!(redis.expire(&missing, Some(60)).is_err(), "{name}");
+        assert!(redis.expire(&missing, None).is_err(), "{name}");
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn a_read_only_connection_runs_commands_that_only_look() {
+    for (name, place) in servers() {
+        let mut redis = store(&place, 0);
+        for (command, subcommand) in [
+            ("info", None),
+            ("ping", None),
+            ("time", None),
+            ("config", Some("get")),
+            ("xinfo", Some("stream")),
+            ("object", Some("encoding")),
+            ("client", Some("list")),
+        ] {
+            assert!(
+                redis.reads_only(command, subcommand).unwrap(),
+                "{name}: {command} {subcommand:?}"
+            );
+        }
+        for (command, subcommand) in [
+            ("set", None),
+            ("flushall", None),
+            ("shutdown", None),
+            ("config", Some("set")),
+            ("client", Some("kill")),
+            ("eval", None),
+            ("subscribe", None),
+        ] {
+            assert!(
+                !redis.reads_only(command, subcommand).unwrap(),
+                "{name}: {command} {subcommand:?}"
+            );
+        }
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn shows_a_stream_entry_with_a_repeated_field_and_a_long_string_in_part() {
+    for (name, place) in servers() {
+        let mut redis = store(&place, 0);
+        let p = prefix();
+        redis.run(&format!("XADD {p}:s 1-1 a 1 a 2")).unwrap();
+        assert_eq!(
+            rows(
+                redis
+                    .read(&format!("{p}:s"), &KeyKind::Stream, 0, 10)
+                    .unwrap()
+            )[0][1],
+            r#"[["a","1"],["a","2"]]"#,
+            "{name}"
+        );
+
+        redis
+            .run(&format!("SET {p}:long {}", "x".repeat(300 * 1024)))
+            .unwrap();
+        match redis
+            .read(&format!("{p}:long"), &KeyKind::String, 0, 1)
+            .unwrap()
+        {
+            Contents::Long { head, size } => {
+                assert_eq!(size, 300 * 1024, "{name}");
+                assert_eq!(head.len(), 256 * 1024, "{name}");
+            }
+            other => panic!("{name}: {other:?}"),
+        }
+
+        cleanup(&mut redis, &p);
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn a_user_kept_to_some_keys_sees_the_types_of_the_ones_it_may_read() {
+    for (name, place) in servers() {
+        let (mut admin, p) = seeded(&place);
+        let user = format!("{p}user");
+        admin
+            .run(&format!("ACL SETUSER {user} on >secret ~{p}:user:* +@all"))
+            .unwrap();
+
+        let (host, port) = place.rsplit_once(':').unwrap();
+        let encrypter = app::encrypter::Encrypter::throwaway().unwrap();
+        let mut limited = keystore::connect(
+            &Connection {
+                name: "redis".into(),
+                driver: Driver::Redis,
+                host: Some(host.into()),
+                port: Some(port.parse().unwrap()),
+                username: Some(user.clone()),
+                password: Some(encrypter.encrypt_string("secret").unwrap()),
+                ..Connection::sqlite("redis", "")
+            },
+            Some(&encrypter),
+        )
+        .unwrap();
+        let kinds = limited
+            .kinds(&[format!("{p}:greeting"), format!("{p}:user:1")])
+            .unwrap();
+        admin.run(&format!("ACL DELUSER {user}")).unwrap();
+
+        assert_ne!(kinds[0], KeyKind::String, "{name}");
+        assert_eq!(kinds[1], KeyKind::Hash, "{name}");
+        cleanup(&mut admin, &p);
+    }
+}
+
+#[test]
+#[ignore = "needs TQL_TEST_REDIS and/or TQL_TEST_VALKEY as host:port"]
+fn gives_up_on_a_server_that_never_answers() {
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
+    let port = listener.local_addr().unwrap().port();
+    let started = std::time::Instant::now();
+    let reached = keystore::connect(
+        &Connection {
+            name: "redis".into(),
+            driver: Driver::Redis,
+            host: Some("127.0.0.1".into()),
+            port: Some(port),
+            ..Connection::sqlite("redis", "")
+        },
+        None,
+    );
+    assert!(reached.is_err());
+    assert!(started.elapsed() < std::time::Duration::from_secs(30));
+    drop(listener);
 }
