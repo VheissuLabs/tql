@@ -57,7 +57,7 @@ strip = true
 
 [profile.dev]
 opt-level = 1
-debug = "line-tables-only"
+debug = false
 
 [profile.dev.package."*"]
 opt-level = 3
