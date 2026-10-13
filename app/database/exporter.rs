@@ -52,6 +52,9 @@ impl Scalar {
             Scalar::Null => "null".to_string(),
             Scalar::Number(number) => number.clone(),
             Scalar::Text(text) if driver == Driver::Mysql => mysql_quoted(text),
+            Scalar::Text(text) if driver == Driver::Clickhouse => {
+                format!("'{}'", text.replace('\\', "\\\\").replace('\'', "\\'"))
+            }
             Scalar::Text(text) if driver == Driver::Sqlsrv => {
                 format!("N'{}'", text.replace('\'', "''"))
             }
@@ -314,9 +317,10 @@ impl<'a> Exporter<'a> {
         file: &mut impl Write,
     ) -> anyhow::Result<usize> {
         let key = database.key_columns()?.remove(table).unwrap_or_default();
-        let order = match key.is_empty() {
-            true => String::new(),
-            false => format!(
+        let order = match (database.paging_order(table), key.is_empty()) {
+            (Some(order), _) => format!(" order by {order}"),
+            (None, true) => String::new(),
+            (None, false) => format!(
                 " order by {}",
                 key.iter()
                     .map(|column| database.quote(column))

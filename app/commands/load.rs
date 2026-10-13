@@ -190,10 +190,15 @@ fn replay(cmd: &mut Cmd, saved: &Saved, file: &Path, connection: &Connection) ->
         }
     };
 
+    let atomic = connection.driver != Driver::Clickhouse;
     cmd.marked(&format!(
-        "  Replaying {} into <fg=cyan>{}</>, in one transaction",
+        "  Replaying {} into <fg=cyan>{}</>, {}",
         dumps::shorten(file),
-        connection.name
+        connection.name,
+        match atomic {
+            true => "in one transaction",
+            false => "one statement at a time, since ClickHouse has no transactions",
+        }
     ));
     if cmd.flag("dry-run") {
         return Ok(());
@@ -210,20 +215,35 @@ fn replay(cmd: &mut Cmd, saved: &Saved, file: &Path, connection: &Connection) ->
     };
     let mut statements = 0;
 
-    let replayed = database.run(begin).and_then(|_| {
+    let mut replay = || -> anyhow::Result<()> {
+        if atomic {
+            database.run(begin)?;
+        }
         for statement in StatementReader::for_driver(connection.driver).read(file)? {
             database.run(&statement?)?;
             statements += 1;
         }
-        database.run(commit)
-    });
+        if atomic {
+            database.run(commit)?;
+        }
+        Ok(())
+    };
+    let replayed = replay();
 
     if let Err(error) = replayed {
-        let _ = database.run(rollback);
-        cmd.error(format!(
-            "Statement {} failed, so nothing was loaded: {error:#}",
-            statements + 1
-        ));
+        if atomic {
+            let _ = database.run(rollback);
+        }
+        cmd.error(match atomic {
+            true => format!(
+                "Statement {} failed, so nothing was loaded: {error:#}",
+                statements + 1
+            ),
+            false => format!(
+                "Statement {} failed; the {statements} before it were loaded: {error:#}",
+                statements + 1
+            ),
+        });
         return exit(1);
     }
 

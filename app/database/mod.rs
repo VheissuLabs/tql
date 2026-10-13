@@ -190,6 +190,10 @@ pub trait Database {
         None
     }
 
+    fn paging_order(&mut self, _table: &Table) -> Option<String> {
+        None
+    }
+
     fn count_rows(&mut self, table: &Table, filters: Option<&Filters>) -> anyhow::Result<usize> {
         let condition = filters.and_then(|filters| filters.condition(&|name| self.quote(name)));
         let statement = format!(

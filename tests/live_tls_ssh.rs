@@ -476,3 +476,72 @@ fn reaches_a_database_only_the_bastion_can_see() {
         .collect();
     assert!(leftovers.is_empty());
 }
+
+#[test]
+#[ignore = "starts throwaway mysql, postgres and sshd containers in docker"]
+fn clickhouse_speaks_tls_as_far_as_the_mode_asks() {
+    let mut lab = Lab::new("ch-tls");
+    let encrypter = Encrypter::throwaway().unwrap();
+    Authority::new("tql test ca").sign_into(&lab.directory, &["127.0.0.1"]);
+    fs::write(
+        lab.directory.join("tls.xml"),
+        "<clickhouse><https_port>8443</https_port><openSSL><server>\
+         <certificateFile>/certs/server.pem</certificateFile>\
+         <privateKeyFile>/certs/server.key</privateKeyFile>\
+         <verificationMode>none</verificationMode></server></openSSL></clickhouse>",
+    )
+    .unwrap();
+    let certificates = format!("{}:/certs:ro", lab.directory.display());
+    let config = format!(
+        "{}:/etc/clickhouse-server/config.d/tls.xml:ro",
+        lab.path("tls.xml")
+    );
+    let container = lab.run(
+        "clickhouse",
+        &[
+            "-e",
+            "CLICKHOUSE_USER=tql",
+            "-e",
+            "CLICKHOUSE_PASSWORD=secret",
+            "-v",
+            &certificates,
+            "-v",
+            &config,
+            "-p",
+            "127.0.0.1::8443",
+            "clickhouse/clickhouse-server:latest",
+        ],
+    );
+    let port = lab.port(&container, 8443);
+    let reach = |host: &str, mode: &str, ca: bool| Connection {
+        name: "clickhouse".to_string(),
+        driver: Driver::Clickhouse,
+        host: Some(host.to_string()),
+        port: Some(port),
+        username: Some("tql".to_string()),
+        password: Some(encrypter.encrypt_string("secret").unwrap()),
+        ssl_mode: Some(mode.to_string()),
+        ssl_ca: ca.then(|| lab.path("ca.pem")),
+        ..Connection::default()
+    };
+    let refused = |connection: &Connection| match database::connect(connection, Some(&encrypter)) {
+        Ok(_) => "connected".to_string(),
+        Err(error) => format!("{error:#}"),
+    };
+
+    let mut required = eventually(&reach("127.0.0.1", "require", false), Some(&encrypter));
+    assert_eq!(
+        required.run("select 1").unwrap().rows,
+        [[Some("1".to_string())]]
+    );
+    assert!(database::connect(&reach("127.0.0.1", "verify-full", true), Some(&encrypter)).is_ok());
+    assert!(database::connect(&reach("localhost", "verify-ca", true), Some(&encrypter)).is_ok());
+    assert_ne!(
+        refused(&reach("localhost", "verify-full", true)),
+        "connected"
+    );
+    assert_ne!(
+        refused(&reach("127.0.0.1", "verify-full", false)),
+        "connected"
+    );
+}

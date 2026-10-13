@@ -2,7 +2,8 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 use app::database::{
-    self, Column, Database, Filter, Filters, ForeignKey, Index, Joiner, Kind, Page, Sort, Table,
+    self, Column, Database, Exporter, Filter, Filters, ForeignKey, Index, Joiner, Kind, Page, Sort,
+    Table,
 };
 use app::driver::Driver;
 use app::encrypter::Encrypter;
@@ -11,23 +12,27 @@ use app::terminal::Fake;
 use app::tui::Browser;
 
 fn server(database: &str) -> Box<dyn Database> {
-    let place = std::env::var("TQL_TEST_CLICKHOUSE").expect("TQL_TEST_CLICKHOUSE is host:port");
-    let (host, port) = place.rsplit_once(':').expect("host:port");
     let encrypter = Encrypter::throwaway().unwrap();
     database::connect(
-        &Connection {
-            name: "clickhouse".into(),
-            driver: Driver::Clickhouse,
-            host: Some(host.into()),
-            port: Some(port.parse().unwrap()),
-            database: Some(database.into()),
-            username: Some("tql".into()),
-            password: Some(encrypter.encrypt_string("tql").unwrap()),
-            ..Connection::sqlite("clickhouse", "")
-        },
+        &connection(database, "tql", "tql", &encrypter),
         Some(&encrypter),
     )
     .unwrap()
+}
+
+fn connection(database: &str, user: &str, password: &str, encrypter: &Encrypter) -> Connection {
+    let place = std::env::var("TQL_TEST_CLICKHOUSE").expect("TQL_TEST_CLICKHOUSE is host:port");
+    let (host, port) = place.rsplit_once(':').expect("host:port");
+    Connection {
+        name: "clickhouse".into(),
+        driver: Driver::Clickhouse,
+        host: Some(host.into()),
+        port: Some(port.parse().unwrap()),
+        database: Some(database.into()),
+        username: Some(user.into()),
+        password: Some(encrypter.encrypt_string(password).unwrap()),
+        ..Connection::sqlite("clickhouse", "")
+    }
 }
 
 fn scratch() -> (Box<dyn Database>, String) {
@@ -94,8 +99,8 @@ fn shows_every_clickhouse_type_exactly() {
 
     let page = database.rows(&"events".into(), 10, 0, None).unwrap();
     assert_eq!(cell(&page, 0, "id").as_deref(), Some("1"));
-    assert_eq!(cell(&page, 0, "tags").as_deref(), Some(r#"["a","b"]"#));
-    assert_eq!(cell(&page, 0, "counts").as_deref(), Some(r#"{"x":1}"#));
+    assert_eq!(cell(&page, 0, "tags").as_deref(), Some("['a','b']"));
+    assert_eq!(cell(&page, 0, "counts").as_deref(), Some("{'x':1}"));
     assert_eq!(cell(&page, 0, "maybe"), None);
     assert_eq!(cell(&page, 1, "maybe").as_deref(), Some("7"));
     assert_eq!(cell(&page, 0, "kind").as_deref(), Some("web"));
@@ -156,12 +161,12 @@ fn filters_and_sorts_with_values_that_need_escaping() {
 
 #[test]
 #[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
-fn counts_rows_exactly_from_the_table_metadata() {
+fn estimates_rows_from_the_table_metadata_and_counts_filtered_rows_exactly() {
     let (mut database, name) = scratch();
 
     assert_eq!(
         database.estimated_rows(&"events".into()),
-        Some(database::Total::Exact(2))
+        Some(database::Total::About(2))
     );
     let filters = Filters::new(
         vec![Filter::new("name", "is", "O'Brien\\path")],
@@ -190,6 +195,178 @@ fn reading_runs_refuse_a_write() {
         .run_reading("select count() as n from events")
         .unwrap();
     assert_eq!(counted.rows, [[Some("2".to_string())]]);
+
+    drop(&mut database, &name);
+}
+
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn pages_through_a_table_without_skipping_or_repeating_rows() {
+    let (mut database, name) = scratch();
+    database
+        .run("create table parts (id UInt64, v String) engine = MergeTree order by tuple()")
+        .unwrap();
+    for part in 0..8 {
+        database
+            .run(&format!(
+                "insert into parts select number * 8 + {part}, 'x' from numbers(500)"
+            ))
+            .unwrap();
+    }
+    database
+        .run("create table loose (id UInt64) engine = Memory")
+        .unwrap();
+    for part in 0..8 {
+        database
+            .run(&format!(
+                "insert into loose select number * 8 + {part} from numbers(500)"
+            ))
+            .unwrap();
+    }
+
+    let filters = Filters::new(vec![Filter::new("v", "contains", "x")], Joiner::And);
+    for (table, filters) in [("parts", Some(&filters)), ("loose", None)] {
+        let mut seen = std::collections::HashSet::new();
+        for offset in (0..4000).step_by(250) {
+            let page = database
+                .filtered_rows(&table.into(), 250, offset, None, filters)
+                .unwrap();
+            for row in &page.rows {
+                assert!(seen.insert(row[0].clone()), "{table} repeated {:?}", row[0]);
+            }
+        }
+        assert_eq!(seen.len(), 4000, "{table}");
+    }
+
+    drop(&mut database, &name);
+}
+
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn a_failure_partway_through_an_answer_keeps_the_servers_words() {
+    let mut database = server("default");
+    let failed = database
+        .run(
+            "select number, throwIf(number = 900000, 'boom') from numbers(1000000) \
+             settings max_block_size = 1000",
+        )
+        .err()
+        .unwrap()
+        .to_string();
+    assert!(failed.contains("boom"), "{failed}");
+    assert!(!failed.contains("default_format"), "{failed}");
+}
+
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn reads_an_answer_bigger_than_ten_megabytes() {
+    let mut database = server("default");
+    let outcome = database
+        .run("select randomPrintableASCII(200) from numbers(100000)")
+        .unwrap();
+    assert_eq!(outcome.rows.len(), 100000);
+}
+
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn keeps_a_session_between_statements_and_counts_written_rows() {
+    let (mut database, name) = scratch();
+
+    database
+        .run("create temporary table scratch (a Int8)")
+        .unwrap();
+    let written = database
+        .run("insert into scratch select number from numbers(5)")
+        .unwrap();
+    assert_eq!(written.affected, Some(5));
+    let read = database.run("select count() from scratch").unwrap();
+    assert_eq!(read.rows, [[Some("5".to_string())]]);
+
+    drop(&mut database, &name);
+}
+
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn counts_filtered_rows_of_a_table_with_a_question_mark_in_its_name() {
+    let (mut database, name) = scratch();
+    database
+        .run("create table `q?` (name String) engine = Memory")
+        .unwrap();
+    database
+        .run("insert into `q?` values ('a'), ('b')")
+        .unwrap();
+
+    let filters = Filters::new(vec![Filter::new("name", "is", "a")], Joiner::And);
+    assert_eq!(
+        database.count_rows(&"q?".into(), Some(&filters)).unwrap(),
+        1
+    );
+
+    drop(&mut database, &name);
+}
+
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn a_read_only_user_can_connect_and_query() {
+    let mut admin = server("default");
+    let user = format!("tql_ro_{}", std::process::id());
+    if admin
+        .run(&format!(
+            "create user {user} identified by 'ro' settings readonly = 1"
+        ))
+        .is_err()
+    {
+        eprintln!("this server does not let tql create users, so the read-only check is skipped");
+        return;
+    }
+    admin
+        .run(&format!("grant select on system.* to {user}"))
+        .unwrap();
+
+    let encrypter = Encrypter::throwaway().unwrap();
+    let reader = database::connect(
+        &connection("default", &user, "ro", &encrypter),
+        Some(&encrypter),
+    )
+    .and_then(|mut reader| reader.run_reading("select 1 as n"));
+    admin.run(&format!("drop user {user}")).unwrap();
+    assert_eq!(reader.unwrap().rows, [[Some("1".to_string())]]);
+}
+
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn an_export_with_backslashes_and_quotes_loads_back() {
+    let (mut database, name) = scratch();
+    database
+        .run("create table paths (id UInt8, path String) engine = MergeTree order by id")
+        .unwrap();
+    database
+        .run("insert into paths values (1, 'C:\\\\'), (2, 'O''Brien\\\\n')")
+        .unwrap();
+    database
+        .run("create table copied as paths engine = MergeTree order by id")
+        .unwrap();
+
+    let encrypter = Encrypter::throwaway().unwrap();
+    let file = std::env::temp_dir().join(format!("{name}.sql"));
+    Exporter::new(&connection(&name, "tql", "tql", &encrypter), None)
+        .table(database.as_mut(), &"paths".into(), Some(file.clone()), None)
+        .unwrap();
+    let sql = std::fs::read_to_string(&file).unwrap();
+    let _ = std::fs::remove_file(&file);
+    let insert = sql
+        .split_once("insert into")
+        .map(|(_, rest)| format!("insert into {}", rest.trim().trim_end_matches(';')))
+        .unwrap();
+    database
+        .run(&insert.replacen("`paths`", "`copied`", 1))
+        .unwrap();
+
+    let copied = database.run("select path from copied order by id").unwrap();
+    assert_eq!(
+        copied.rows,
+        [[Some("C:\\".to_string())], [Some("O'Brien\\n".to_string())]]
+    );
 
     drop(&mut database, &name);
 }

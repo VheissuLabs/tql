@@ -10,14 +10,16 @@ use super::schema::fill;
 use super::tls::Tls;
 use super::{
     Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Table, Values, keyed,
-    outcome_or_affected, select_page, single_column_keys, split_list,
+    outcome_or_affected, single_column_keys, split_list,
 };
 use super::{Total, first_count};
 use crate::store::Connection;
 use crate::tunnel::Tunnel;
+use rustls::ClientConfig;
 
 const TIMEOUT: Duration = Duration::from_secs(300);
-const FORMAT: &str = "JSONCompactEachRowWithNamesAndTypes";
+const FORMAT: &str = "TabSeparatedWithNamesAndTypes";
+const SESSION_LOCKED: &str = "SESSION_IS_LOCKED";
 pub const READ_ONLY: &str =
     "ClickHouse tables are read-only in tql: its updates are background mutations";
 
@@ -26,13 +28,19 @@ pub struct ClickHouse {
     user: String,
     password: Option<String>,
     database: String,
+    tls: Option<Arc<ClientConfig>>,
+    session: String,
+    locked: bool,
+    orders: HashMap<Table, String>,
     _tunnel: Option<Arc<Tunnel>>,
 }
 
+#[derive(Debug)]
 struct Answer {
     headers: Vec<String>,
     rows: Vec<Vec<Option<String>>>,
     kinds: Vec<Vec<Kind>>,
+    written: usize,
 }
 
 impl ClickHouse {
@@ -41,8 +49,9 @@ impl ClickHouse {
         password: Option<String>,
         tunnel: Option<Arc<Tunnel>>,
     ) -> anyhow::Result<Self> {
+        let tls = Tls::of(connection)?;
         let secure = !matches!(
-            Tls::of(connection)?.mode,
+            tls.mode,
             super::tls::Mode::Unset | super::tls::Mode::Disable
         );
         let host = match &tunnel {
@@ -59,8 +68,8 @@ impl ClickHouse {
             .or(connection.port)
             .unwrap_or(if secure { 8443 } else { 8123 });
         let scheme = if secure { "https" } else { "http" };
-        let database = ClickHouse {
-            base: format!("{scheme}://{host}:{port}/"),
+        let mut database = ClickHouse {
+            base: format!("{scheme}://{}:{port}/", bracketed(&host)),
             user: connection
                 .username
                 .clone()
@@ -72,34 +81,72 @@ impl ClickHouse {
                 .clone()
                 .filter(|database| !database.trim().is_empty())
                 .unwrap_or_else(|| "default".to_string()),
+            tls: match secure {
+                true => Some(Arc::new(tls.client_config()?)),
+                false => None,
+            },
+            session: session(),
+            locked: false,
+            orders: HashMap::new(),
             _tunnel: tunnel,
         };
-        database.ask("select 1", false)?;
+        let readonly = database.ask("select getSetting('readonly')", false)?;
+        database.locked = readonly
+            .rows
+            .first()
+            .and_then(|row| row.first().cloned().flatten())
+            .is_some_and(|level| level != "0");
         Ok(database)
     }
 
-    fn ask(&self, sql: &str, reading: bool) -> anyhow::Result<Answer> {
+    fn ask(&mut self, sql: &str, reading: bool) -> anyhow::Result<Answer> {
+        match self.asked(sql, reading) {
+            Err(error) if error.to_string().contains(SESSION_LOCKED) => {
+                self.session = session();
+                self.asked(sql, reading)
+            }
+            answered => answered,
+        }
+    }
+
+    fn asked(&self, sql: &str, reading: bool) -> anyhow::Result<Answer> {
         let mut url = format!(
-            "{}?database={}&default_format={FORMAT}&output_format_json_quote_64bit_integers=1\
-             &output_format_json_quote_decimals=1&output_format_json_quote_denormals=1",
+            "{}?database={}&default_format={FORMAT}&session_id={}&session_timeout=3600",
             self.base,
-            crate::dsn::encode(&self.database)
+            crate::dsn::encode(&self.database),
+            self.session
         );
-        if reading {
-            url.push_str("&readonly=2");
+        if reading && !self.locked {
+            url.push_str("&readonly=1");
         }
         let mut headers = vec![("X-ClickHouse-User", self.user.clone())];
         if let Some(password) = &self.password {
             headers.push(("X-ClickHouse-Key", password.clone()));
         }
-        let reply = http::post(&url, &headers, sql.to_string(), TIMEOUT)?;
+        let reply = http::send(&url, &headers, sql.to_string(), TIMEOUT, self.tls.clone())?;
         if reply.status >= 400 {
             bail!("{}", said(&reply.body));
         }
-        answer(&reply.body)
+        if let Some(failure) = failure(&reply.body, reply.header("X-ClickHouse-Exception-Tag")) {
+            bail!("{failure}");
+        }
+        if let Some(broken) = &reply.broken {
+            bail!("the answer broke off partway: {broken}");
+        }
+        let written = reply
+            .header("X-ClickHouse-Summary")
+            .and_then(|summary| serde_json::from_str::<Value>(summary).ok())
+            .and_then(|summary| summary["written_rows"].as_str()?.parse().ok())
+            .unwrap_or(0);
+        let mut answer = match reply.header("X-ClickHouse-Format") {
+            Some(format) if format != FORMAT => raw(format, &reply.body),
+            _ => answer(&reply.body)?,
+        };
+        answer.written = written;
+        Ok(answer)
     }
 
-    fn page(&self, sql: &str) -> anyhow::Result<Page> {
+    fn page(&mut self, sql: &str) -> anyhow::Result<Page> {
         let answer = self.ask(sql, false)?;
         Ok(Page {
             statement: sql.to_string(),
@@ -107,6 +154,33 @@ impl ClickHouse {
             rows: answer.rows,
             kinds: answer.kinds,
         })
+    }
+
+    fn outcome(&mut self, statement: &str, reading: bool) -> anyhow::Result<Outcome> {
+        let answer = self.ask(statement, reading)?;
+        Ok(Outcome {
+            kinds: answer.kinds,
+            ..outcome_or_affected(answer.headers, answer.rows, answer.written)
+        })
+    }
+}
+
+fn session() -> String {
+    let mut random = [0u8; 16];
+    let _ = getrandom::fill(&mut random);
+    format!(
+        "tql-{}",
+        random
+            .iter()
+            .map(|byte| format!("{byte:02x}"))
+            .collect::<String>()
+    )
+}
+
+fn bracketed(host: &str) -> String {
+    match host.contains(':') && !host.starts_with('[') {
+        true => format!("[{host}]"),
+        false => host.to_string(),
     }
 }
 
@@ -124,37 +198,89 @@ fn said(body: &str) -> String {
         .to_string()
 }
 
+fn failure(body: &str, tag: Option<&str>) -> Option<String> {
+    let (_, after) = body.split_once("__exception__")?;
+    let message = after
+        .lines()
+        .map(str::trim)
+        .filter(|line| !line.is_empty() && Some(*line) != tag)
+        .find(|line| line.contains("Exception") || line.starts_with("Code:"))
+        .unwrap_or_else(|| after.trim());
+    Some(said(message))
+}
+
+fn raw(format: &str, body: &str) -> Answer {
+    let rows: Vec<Vec<Option<String>>> = body
+        .lines()
+        .map(|line| vec![Some(line.to_string())])
+        .collect();
+    Answer {
+        headers: vec![format.to_string()],
+        kinds: vec![vec![Kind::Text]; rows.len()],
+        rows,
+        written: 0,
+    }
+}
+
 fn answer(body: &str) -> anyhow::Result<Answer> {
-    let mut lines = body.lines().filter(|line| !line.trim().is_empty());
-    let parse = |line: Option<&str>| -> anyhow::Result<Vec<Value>> {
-        match line {
-            None => Ok(Vec::new()),
-            Some(line) => {
-                serde_json::from_str::<Vec<Value>>(line).map_err(|_| anyhow!("{}", said(line)))
-            }
-        }
+    let mut lines = body.lines();
+    let fields = |line: &str| -> Vec<Option<String>> { line.split('\t').map(unescaped).collect() };
+    let names = |line: Option<&str>| -> Vec<String> {
+        line.map(fields)
+            .unwrap_or_default()
+            .into_iter()
+            .map(Option::unwrap_or_default)
+            .collect()
     };
-    let headers: Vec<String> = parse(lines.next())?
-        .into_iter()
-        .map(|name| name.as_str().unwrap_or_default().to_string())
-        .collect();
-    let types: Vec<String> = parse(lines.next())?
-        .into_iter()
-        .map(|kind| kind.as_str().unwrap_or_default().to_string())
-        .collect();
+    let headers = names(lines.next().filter(|line| !line.is_empty()));
+    let types = names(lines.next());
     let row_kinds: Vec<Kind> = types.iter().map(|kind| kind_of(kind)).collect();
     let mut rows = Vec::new();
     let mut kinds = Vec::new();
-    for line in lines {
-        let cells = parse(Some(line))?;
-        rows.push(cells.iter().map(text).collect());
+    let lines: Vec<&str> = lines.collect();
+    let last = lines.iter().rposition(|line| !line.is_empty());
+    for (at, line) in lines.iter().enumerate() {
+        if Some(at) == last && line.starts_with("Code: ") && line.contains("DB::Exception: ") {
+            bail!("{}", said(line));
+        }
+        let cells = fields(line);
+        if cells.len() != headers.len() {
+            bail!("ClickHouse sent a row tql could not read: {line}");
+        }
+        rows.push(cells);
         kinds.push(row_kinds.clone());
     }
     Ok(Answer {
         headers,
         rows,
         kinds,
+        written: 0,
     })
+}
+
+fn unescaped(field: &str) -> Option<String> {
+    if field == "\\N" {
+        return None;
+    }
+    let mut text = String::with_capacity(field.len());
+    let mut characters = field.chars();
+    while let Some(character) = characters.next() {
+        if character != '\\' {
+            text.push(character);
+            continue;
+        }
+        match characters.next() {
+            Some('t') => text.push('\t'),
+            Some('n') => text.push('\n'),
+            Some('r') => text.push('\r'),
+            Some('0') => text.push('\0'),
+            Some('b') => text.push('\u{8}'),
+            Some('f') => text.push('\u{c}'),
+            Some(other) => text.push(other),
+            None => text.push('\\'),
+        }
+    }
+    Some(text)
 }
 
 fn unwrapped(kind: &str) -> &str {
@@ -178,23 +304,23 @@ fn kind_of(kind: &str) -> Kind {
     if kind.starts_with("Float") {
         return Kind::Float;
     }
-    if kind.starts_with("Int") || kind.starts_with("UInt") {
+    if (kind.starts_with("Int") && !kind.starts_with("Interval")) || kind.starts_with("UInt") {
         return Kind::Integer;
     }
     Kind::Text
 }
 
-fn text(cell: &Value) -> Option<String> {
-    Some(match cell {
-        Value::Null => return None,
-        Value::String(text) => text.clone(),
-        Value::Bool(flag) => flag.to_string(),
-        Value::Number(number) => match number.as_f64() {
-            Some(real) if number.is_f64() => super::exporter::real_text(real),
-            _ => number.to_string(),
-        },
-        other => other.to_string(),
-    })
+fn comparable(kind: &str) -> bool {
+    ![
+        "Map(",
+        "JSON",
+        "Object(",
+        "AggregateFunction(",
+        "Dynamic",
+        "Variant(",
+    ]
+    .iter()
+    .any(|uncomparable| kind.contains(uncomparable))
 }
 
 fn quote(identifier: &str) -> String {
@@ -231,31 +357,78 @@ impl Database for ClickHouse {
         let condition = filters
             .and_then(|filters| filters.condition(&quote))
             .map(|condition| condition.render(literal));
-        let sql = select_page(
-            &table.quoted(quote),
-            quote,
-            limit,
-            offset,
-            sort,
-            condition.as_deref(),
+        let mut order: Vec<String> = sort
+            .map(|sort| format!("{} {}", quote(&sort.column), sort.direction.keyword()))
+            .into_iter()
+            .collect();
+        order.extend(self.paging_order(table));
+        let sql = format!(
+            "select * from {}{}{} limit {limit} offset {offset}",
+            table.quoted(quote),
+            condition
+                .map(|condition| format!(" where {condition}"))
+                .unwrap_or_default(),
+            match order.is_empty() {
+                true => String::new(),
+                false => format!(" order by {}", order.join(", ")),
+            }
         );
         self.page(&sql)
     }
 
+    fn paging_order(&mut self, table: &Table) -> Option<String> {
+        if let Some(order) = self.orders.get(table) {
+            return Some(order.clone()).filter(|order| !order.is_empty());
+        }
+        let key = self
+            .ask(
+                &format!(
+                    "select sorting_key from system.tables \
+                     where database = currentDatabase() and name = {}",
+                    literal(&table.name)
+                ),
+                false,
+            )
+            .ok()?
+            .rows
+            .into_iter()
+            .next()
+            .and_then(|row| row.into_iter().next().flatten())
+            .filter(|key| !key.is_empty());
+        let comparable: Vec<String> = self
+            .columns(table)
+            .ok()?
+            .into_iter()
+            .filter(|column| column.generation.is_none() && comparable(&column.full_type))
+            .map(|column| quote(&column.name))
+            .collect();
+        let order = key
+            .into_iter()
+            .chain(comparable)
+            .collect::<Vec<_>>()
+            .join(", ");
+        self.orders.insert(table.clone(), order.clone());
+        Some(order).filter(|order| !order.is_empty())
+    }
+
+    fn count_rows(&mut self, table: &Table, filters: Option<&Filters>) -> anyhow::Result<usize> {
+        let condition = filters
+            .and_then(|filters| filters.condition(&quote))
+            .map(|condition| format!(" where {}", condition.render(literal)))
+            .unwrap_or_default();
+        first_count(self.page(&format!(
+            "select count(*) from {}{condition}",
+            table.quoted(quote)
+        ))?)
+        .ok_or_else(|| anyhow!("the count came back empty"))
+    }
+
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
-        let answer = self.ask(statement, false)?;
-        Ok(Outcome {
-            kinds: answer.kinds,
-            ..outcome_or_affected(answer.headers, answer.rows, 0)
-        })
+        self.outcome(statement, false)
     }
 
     fn run_reading(&mut self, statement: &str) -> anyhow::Result<Outcome> {
-        let answer = self.ask(statement, true)?;
-        Ok(Outcome {
-            kinds: answer.kinds,
-            ..outcome_or_affected(answer.headers, answer.rows, 0)
-        })
+        self.outcome(statement, true)
     }
 
     fn quote(&self, identifier: &str) -> String {
@@ -270,7 +443,7 @@ impl Database for ClickHouse {
                 std::slice::from_ref(&table.name),
             )
             .ok()?;
-        first_count(page).map(Total::Exact)
+        first_count(page).map(Total::About)
     }
 
     fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {
@@ -437,29 +610,42 @@ mod tests {
     #[test]
     fn reads_the_names_types_and_rows_of_an_answer() {
         let read = answer(
-            "[\"id\",\"tags\",\"maybe\",\"price\"]\n[\"UInt64\",\"Array(String)\",\"Nullable(Int32)\",\"Decimal(18, 4)\"]\n[\"1\",[\"a\"],null,\"12.3456\"]\n",
+            "id\ttags\tmaybe\tprice\tnote\nUInt64\tArray(String)\tNullable(Int32)\tDecimal(18, 4)\tString\n1\t['a']\t\\N\t12.3456\tC:\\\\dir\\ttab\\\\N\n",
         )
         .unwrap();
-        assert_eq!(read.headers, ["id", "tags", "maybe", "price"]);
+        assert_eq!(read.headers, ["id", "tags", "maybe", "price", "note"]);
         assert_eq!(
             read.rows,
             [[
                 Some("1".to_string()),
-                Some("[\"a\"]".to_string()),
+                Some("['a']".to_string()),
                 None,
-                Some("12.3456".to_string())
+                Some("12.3456".to_string()),
+                Some("C:\\dir\ttab\\N".to_string()),
             ]]
         );
         assert_eq!(
             read.kinds[0],
-            [Kind::Integer, Kind::Text, Kind::Integer, Kind::Text]
+            [
+                Kind::Integer,
+                Kind::Text,
+                Kind::Integer,
+                Kind::Text,
+                Kind::Text
+            ]
         );
+    }
+
+    #[test]
+    fn intervals_are_not_integers() {
+        assert_eq!(kind_of("IntervalDay"), Kind::Text);
+        assert_eq!(kind_of("Int128"), Kind::Integer);
     }
 
     #[test]
     fn a_failure_partway_through_the_answer_is_an_error_not_short_results() {
         let failed = answer(
-            "[\"n\"]\n[\"UInt8\"]\n[1]\nCode: 241. DB::Exception: Memory limit exceeded. (MEMORY_LIMIT_EXCEEDED) (version 26.9.16.11 (official build))\n",
+            "n\nUInt8\n1\nCode: 241. DB::Exception: Memory limit exceeded. (MEMORY_LIMIT_EXCEEDED) (version 26.9.16.11 (official build))\n",
         )
         .err()
         .unwrap();
@@ -467,6 +653,32 @@ mod tests {
             failed.to_string(),
             "Memory limit exceeded. (MEMORY_LIMIT_EXCEEDED)"
         );
+    }
+
+    #[test]
+    fn reads_the_servers_words_from_a_tagged_exception_mid_answer() {
+        assert_eq!(
+            failure(
+                "n\nUInt64\n1\n\r\n__exception__\r\nabcdef\r\nCode: 395. DB::Exception: Value passed to 'throwIf' function is non-zero: boom. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO) (version 26.9.16.11 (official build))\r\n150 abcdef\r\n__exception__\r\n",
+                Some("abcdef")
+            )
+            .unwrap(),
+            "Value passed to 'throwIf' function is non-zero: boom. (FUNCTION_THROW_IF_VALUE_IS_NON_ZERO)"
+        );
+        assert_eq!(failure("n\nUInt8\n1\n", None), None);
+    }
+
+    #[test]
+    fn an_answer_in_a_format_the_query_asked_for_is_shown_as_lines() {
+        let read = raw("CSV", "1,\"a\"\n2,\"b\"\n");
+        assert_eq!(read.headers, ["CSV"]);
+        assert_eq!(read.rows.len(), 2);
+    }
+
+    #[test]
+    fn brackets_an_ipv6_host() {
+        assert_eq!(bracketed("::1"), "[::1]");
+        assert_eq!(bracketed("db.example"), "db.example");
     }
 
     #[test]
