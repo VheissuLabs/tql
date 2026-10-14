@@ -4,6 +4,45 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## 0.14.1
+
+### Bug Fixes
+
+- SQL Server: a read-only connection and the MCP `run-query` tool refuse
+  `use`, `commit`, `kill`, `dbcc` and other T-SQL carried after a select.
+- SQL Server: queries slower than 30 seconds finish, and a dropped connection
+  reconnects.
+- SQL Server: exports load back, leaving out computed and rowversion columns,
+  keeping identity values and writing huge floats with an exponent.
+- SQL Server: column names complete in the SQL editor; hex typed into a
+  varbinary column is written as bytes; contains, starts with and ends with
+  match datetime and money as the grid shows them; filters keep `N''` on text;
+  the editor keeps `[a;b]` names, splits on `GO` and keeps procedure bodies
+  whole; types show their declared sizes.
+- ClickHouse: tables page in a stable order in the grid and `tql export`.
+- ClickHouse: read-only users connect, answers over 10 MB come through, and
+  an error partway through a query keeps ClickHouse's message.
+- ClickHouse: `ssl_ca`, client certificates and the TLS modes are honoured;
+  temporary tables and `SET` last between statements; written rows are
+  reported; IPv6 hosts connect; `tql load` replays statement by statement.
+- Redis/Valkey: `:w` writes nothing if a key is not the type the changes
+  expect, and drops changes it may have half-written instead of writing them
+  twice.
+- Redis/Valkey: `N` refuses a key that already exists.
+- Redis/Valkey: a silent server times out, and a dropped connection
+  reconnects.
+- Redis/Valkey: `ssl_ca`, client certificates and the TLS modes are honoured.
+- Redis/Valkey: binary key names stay apart; ACL users see real types; a
+  rename with changes pending is refused; very large strings show in part;
+  read-only connections run `INFO` and `CONFIG GET` but not scripts; `T` says
+  when the key does not exist; streams keep repeated field names.
+
+### Changes
+
+- ClickHouse arrays and maps show in ClickHouse's own syntax, not JSON.
+
+---
+
 ## 0.14.0
 
 ### New Features
