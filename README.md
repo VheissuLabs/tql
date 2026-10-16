@@ -44,7 +44,7 @@ as happily as a Postgres server behind an SSH tunnel.
 | **DuckDB** | built in, any `.duckdb` file, schemas and all |
 | **libSQL** and **Turso** | built in, a `libsql://` URL and its auth token ([below](#libsql-and-turso)) |
 | **ClickHouse** | built in, browse and query ([below](#clickhouse)) |
-| **Snowflake** | built in, browse and query with an access token ([below](#snowflake)) |
+| **Snowflake** | built in, browse and query with an access token, a key pair or browser SSO ([below](#snowflake)) |
 | **Redis** and **Valkey** | built in, a key browser of their own ([below](#redis-and-valkey)) |
 
 A hosted database that speaks the MySQL or PostgreSQL protocol connects the same
@@ -115,17 +115,33 @@ with `:w`. The SQL editor runs whatever the connection allows.
 
 ### Snowflake
 
-Snowflake connects over its SQL API with a programmatic access token, saved as
-the connection's password: `snowflake://user:token@myorg-myaccount/DATABASE?warehouse=WH&role=ROLE`,
-or Account, Database, Access token, Warehouse and Role in the connection form.
-The account is the `myorg-myaccount` part of your Snowflake URL. Warehouse and
-role fall back to the user's defaults, and with no schema set tql browses
-`PUBLIC`. Tables, columns and keys come from `SHOW` commands, which do not wake
-the warehouse. Dates, times, timestamps, variants and binary show as Snowflake
-writes them, and declared primary and foreign keys link rows even though
-Snowflake does not enforce them. Tables are read only in tql for that reason:
-with no enforced key, an edited cell cannot be traced to one row. The SQL
-editor runs whatever the role allows.
+Snowflake connects with its account, the `myorg-myaccount` part of your
+Snowflake URL, in one of three ways, chosen with **Sign in with** in the
+connection form or `authenticator` in a connection string:
+
+- **Access token.** A programmatic access token, saved as the connection's
+  password: `snowflake://user:token@myorg-myaccount/DATABASE?warehouse=WH&role=ROLE`.
+- **Key pair.** The user's login name and the path to their RSA private key,
+  the one whose public key is set as the user's `RSA_PUBLIC_KEY`:
+  `snowflake://user@myorg-myaccount/DATABASE?authenticator=snowflake_jwt&private_key_path=~/.snowflake/rsa_key.p8`.
+  An encrypted key's passphrase is saved as the connection's password. tql
+  reads PKCS#8 keys, encrypted or not, and unencrypted PKCS#1 keys.
+- **Browser SSO.** The user's login name and
+  `authenticator=externalbrowser`. tql opens the browser at your identity
+  provider (Okta, Entra ID and the rest) and listens on `127.0.0.1` for it to
+  come back. The session it gets is kept in tql's store, encrypted like a
+  saved password, and renewed without the browser for as long as Snowflake
+  allows, about four hours, so `tql query` and the MCP server reuse it rather
+  than opening a browser each time. A connection opened with `--peek` is not
+  saved, so it signs in each time.
+
+Warehouse and role fall back to the user's defaults, and with no schema set
+tql browses `PUBLIC`. Tables, columns and keys come from `SHOW` commands,
+which do not wake the warehouse. Dates, times, timestamps, variants and binary
+show as Snowflake writes them, and declared primary and foreign keys link rows
+even though Snowflake does not enforce them. Tables are read only in tql for
+that reason: with no enforced key, an edited cell cannot be traced to one row.
+The SQL editor runs whatever the role allows.
 
 A token from a person rather than a service user needs a network policy, or an
 authentication policy with `pat_policy = (network_policy_evaluation =

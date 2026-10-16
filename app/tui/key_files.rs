@@ -6,6 +6,7 @@ use crate::paths;
 
 const CERT_DIRECTORIES: [&str; 5] = [".ssh", ".postgresql", ".mysql", "certs", "Downloads"];
 const CERT_EXTENSIONS: [&str; 5] = ["pem", "crt", "cer", "key", "ca"];
+const SNOWFLAKE_DIRECTORIES: [&str; 2] = [".snowflake", ".ssh"];
 const NOT_KEYS: [&str; 5] = [
     "known_hosts",
     "known_hosts.old",
@@ -44,6 +45,20 @@ pub fn certificates(home: &Path, cwd: &Path) -> Vec<String> {
     tidy(found, home)
 }
 
+pub fn snowflake_keys(home: &Path, cwd: &Path) -> Vec<String> {
+    let found = SNOWFLAKE_DIRECTORIES
+        .iter()
+        .map(|directory| home.join(directory))
+        .chain(std::iter::once(cwd.to_path_buf()))
+        .flat_map(|directory| files_in(&directory))
+        .filter(|path| {
+            first_line(path)
+                .is_some_and(|line| line.contains("PRIVATE KEY") && !line.contains("OPENSSH"))
+        })
+        .collect();
+    tidy(found, home)
+}
+
 fn files_in(directory: &Path) -> Vec<PathBuf> {
     let Ok(entries) = fs::read_dir(directory) else {
         return Vec::new();
@@ -59,12 +74,14 @@ fn files_in(directory: &Path) -> Vec<PathBuf> {
 }
 
 fn looks_private(path: &Path) -> bool {
-    let Ok(file) = File::open(path) else {
-        return false;
-    };
+    first_line(path).is_some_and(|line| line.contains("PRIVATE KEY"))
+}
+
+fn first_line(path: &Path) -> Option<String> {
+    let file = File::open(path).ok()?;
     let mut first = Vec::new();
     let _ = BufReader::new(file.take(63)).read_until(b'\n', &mut first);
-    String::from_utf8_lossy(&first).contains("PRIVATE KEY")
+    Some(String::from_utf8_lossy(&first).into_owned())
 }
 
 fn tidy(found: Vec<PathBuf>, home: &Path) -> Vec<String> {
@@ -141,6 +158,22 @@ mod tests {
                 "~/certs/ca.pem",
                 "~/project/server.crt"
             ]
+        );
+    }
+
+    #[test]
+    fn offers_the_pem_private_keys_snowflake_can_sign_with() {
+        let home = Home::new("snowflake");
+        fs::create_dir_all(home.root.join(".snowflake")).unwrap();
+        home.write(".snowflake/rsa_key.p8", "-----BEGIN PRIVATE KEY-----\n");
+        home.write(".snowflake/rsa_key.pub", "-----BEGIN PUBLIC KEY-----\n");
+        home.write(".snowflake/config.toml", "[connections]");
+        home.write(".ssh/id_ed25519", "-----BEGIN OPENSSH PRIVATE KEY-----\n");
+        home.write("project/sf.pem", "-----BEGIN ENCRYPTED PRIVATE KEY-----\n");
+
+        assert_eq!(
+            snowflake_keys(&home.root, &home.root.join("project")),
+            ["~/.snowflake/rsa_key.p8", "~/project/sf.pem"]
         );
     }
 

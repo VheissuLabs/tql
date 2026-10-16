@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::path::PathBuf;
 
+use crate::database::snowflake::Authenticator;
 use crate::driver::Driver;
 use crate::terminal::prelude::*;
 use ratatui::buffer::Buffer;
@@ -53,7 +54,7 @@ const SSH_FIELDS: [(&str, &str); 5] = [
     ("ssh_key", "Key"),
     ("ssh_password", "Password"),
 ];
-const FILES: [&str; 4] = ["ssh_key", "ssl_ca", "ssl_cert", "ssl_key"];
+const FILES: [&str; 5] = ["ssh_key", "ssl_ca", "ssl_cert", "ssl_key", "private_key"];
 const SECRETS: [&str; 2] = ["password", "ssh_password"];
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -123,6 +124,13 @@ impl ConnectionForm {
             ("ssh_key", text(&connection.ssh_key)),
             ("warehouse", text(&connection.warehouse)),
             ("role", text(&connection.role)),
+            ("private_key", text(&connection.private_key)),
+            (
+                "authenticator",
+                Authenticator::parse(connection.authenticator.as_deref())
+                    .label()
+                    .to_string(),
+            ),
         ] {
             form.values.insert(key, value);
         }
@@ -158,6 +166,7 @@ impl ConnectionForm {
             values: HashMap::from([
                 ("read_only", "no".to_string()),
                 ("over_ssh", "no".to_string()),
+                ("authenticator", Authenticator::Token.label().to_string()),
             ]),
             error: None,
             picker: None,
@@ -191,6 +200,13 @@ impl ConnectionForm {
         Driver::parse(self.value("driver")).unwrap_or_default()
     }
 
+    pub fn authenticator(&self) -> Authenticator {
+        Authenticator::ALL
+            .into_iter()
+            .find(|authenticator| authenticator.label() == self.value("authenticator"))
+            .unwrap_or_default()
+    }
+
     pub fn over_ssh(&self) -> bool {
         self.value("over_ssh") == "yes"
     }
@@ -212,11 +228,18 @@ impl ConnectionForm {
         } else if self.driver() == Driver::Snowflake {
             fields.extend([
                 ("host", "Account"),
+                ("username", "User"),
                 ("database", "Database"),
-                ("password", "Access token"),
-                ("warehouse", "Warehouse"),
-                ("role", "Role"),
+                ("authenticator", "Sign in with"),
             ]);
+            match self.authenticator() {
+                Authenticator::Token => fields.push(("password", "Access token")),
+                Authenticator::KeyPair => {
+                    fields.extend([("private_key", "Private key"), ("password", "Passphrase")])
+                }
+                Authenticator::Browser => {}
+            }
+            fields.extend([("warehouse", "Warehouse"), ("role", "Role")]);
         } else {
             fields.extend([
                 ("host", "Host"),
@@ -259,6 +282,12 @@ impl ConnectionForm {
             "driver" => Some(DRIVERS.to_vec()),
             "ssl_mode" => Some(SSL_MODES.to_vec()),
             "read_only" | "over_ssh" => Some(YES_NO.to_vec()),
+            "authenticator" => Some(
+                Authenticator::ALL
+                    .iter()
+                    .map(|authenticator| authenticator.label())
+                    .collect(),
+            ),
             _ => None,
         }
     }
@@ -283,6 +312,10 @@ impl ConnectionForm {
         }
         let next = stepped(&choices, self.value(key), forward);
         self.set(key, next.to_string());
+        if key == "authenticator" {
+            self.set("password", String::new());
+            self.unreadable.retain(|secret| *secret != "password");
+        }
         if key == "ssl_mode" {
             self.follow_tls_port();
         }
@@ -365,6 +398,20 @@ impl ConnectionForm {
                 "myorg-myaccount".to_string()
             }
             "warehouse" | "role" if value.is_empty() => "the user's default".to_string(),
+            "username" if value.is_empty() && self.driver() == Driver::Snowflake => {
+                match self.authenticator() {
+                    Authenticator::Token => "the token's user".to_string(),
+                    _ => "your Snowflake login name".to_string(),
+                }
+            }
+            "private_key" if value.is_empty() => "~/.snowflake/rsa_key.p8".to_string(),
+            "password"
+                if value.is_empty()
+                    && self.driver() == Driver::Snowflake
+                    && self.authenticator() == Authenticator::KeyPair =>
+            {
+                "none, the key is not encrypted".to_string()
+            }
             "database" if value.is_empty() && self.driver().is_server() => {
                 "ask on connect".to_string()
             }
@@ -381,7 +428,7 @@ impl ConnectionForm {
     pub fn is_placeholder(&self, key: &str) -> bool {
         self.value(key).is_empty()
             && !["over_ssh", "read_only", "tag", "group_name"].contains(&key)
-            && !SECRETS.contains(&key)
+            && (!SECRETS.contains(&key) || !self.unreadable.contains(&key))
             && !self.display(key).is_empty()
     }
 
