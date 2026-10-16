@@ -29,6 +29,8 @@ pub struct Connection {
     pub ssl_ca: Option<String>,
     pub ssl_cert: Option<String>,
     pub ssl_key: Option<String>,
+    pub warehouse: Option<String>,
+    pub role: Option<String>,
     pub last_used_at: Option<String>,
 }
 
@@ -71,12 +73,20 @@ impl Connection {
             }
         };
         format!(
-            "{}://{credentials}{}:{}/{}",
+            "{}://{credentials}{}{}/{}",
             self.driver,
             self.host.clone().unwrap_or_default(),
-            self.port.map(|port| port.to_string()).unwrap_or_default(),
+            self.shown_port(),
             dsn::encode(&database)
         )
+    }
+
+    fn shown_port(&self) -> String {
+        match (self.port, self.driver.default_port()) {
+            (Some(port), _) => format!(":{port}"),
+            (None, None) => String::new(),
+            (None, Some(_)) => ":".to_string(),
+        }
     }
 
     pub fn describe(&self) -> String {
@@ -94,11 +104,11 @@ impl Connection {
 
         let text = |value: &Option<String>| value.clone().unwrap_or_default();
         let place = format!(
-            "{}://{}@{}:{}/{}",
+            "{}://{}@{}{}/{}",
             self.driver,
             text(&self.username),
             text(&self.host),
-            self.port.map(|port| port.to_string()).unwrap_or_default(),
+            self.shown_port(),
             text(&self.database)
         );
         if !self.uses_ssh() {
@@ -200,6 +210,8 @@ impl Store {
                 ssl_ca: text("ssl_ca"),
                 ssl_cert: text("ssl_cert"),
                 ssl_key: text("ssl_key"),
+                warehouse: text("warehouse").filter(|warehouse| !warehouse.trim().is_empty()),
+                role: text("role").filter(|role| !role.trim().is_empty()),
                 last_used_at: text("last_used_at"),
             }))
         })?;

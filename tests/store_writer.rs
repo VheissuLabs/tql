@@ -57,7 +57,7 @@ fn mysql(name: &str, password: &str) -> Vec<(&'static str, Field)> {
     ]
 }
 
-const FRESH_COLUMNS: [&str; 24] = [
+const FRESH_COLUMNS: [&str; 26] = [
     "id",
     "name",
     "driver",
@@ -82,6 +82,8 @@ const FRESH_COLUMNS: [&str; 24] = [
     "colour",
     "tag",
     "group_name",
+    "warehouse",
+    "role",
 ];
 
 fn columns(store: &Path) -> Vec<String> {
@@ -114,7 +116,7 @@ fn a_fresh_store_has_tqls_tables_and_migrations() {
 
     assert_eq!(
         scratch.raw("select cast(count(*) as text) from migrations"),
-        Some("8".into())
+        Some("9".into())
     );
     assert_eq!(columns(&scratch.store()), FRESH_COLUMNS);
     assert!(
@@ -305,7 +307,12 @@ fn a_store_from_before_groups_gains_the_group_column_in_a_new_batch() {
         .unwrap()
         .execute_batch(
             "alter table connections drop column group_name;
-             delete from migrations where migration = '2026_10_07_000000_add_group_to_connections_table';",
+             alter table connections drop column warehouse;
+             alter table connections drop column role;
+             delete from migrations where migration in (
+                 '2026_10_07_000000_add_group_to_connections_table',
+                 '2026_10_16_000000_add_warehouse_and_role_to_connections_table'
+             );",
         )
         .unwrap();
 
@@ -313,11 +320,17 @@ fn a_store_from_before_groups_gains_the_group_column_in_a_new_batch() {
 
     assert_eq!(columns(&scratch.store()), FRESH_COLUMNS);
     assert_eq!(
-        migrations(&scratch.store()).last().unwrap(),
-        &(
-            "2026_10_07_000000_add_group_to_connections_table".to_string(),
-            2
-        )
+        migrations(&scratch.store())[7..],
+        [
+            (
+                "2026_10_07_000000_add_group_to_connections_table".to_string(),
+                2
+            ),
+            (
+                "2026_10_16_000000_add_warehouse_and_role_to_connections_table".to_string(),
+                2
+            )
+        ]
     );
     assert_eq!(
         scratch.raw("select name from connections"),
@@ -348,7 +361,7 @@ fn a_store_from_the_first_release_is_brought_all_the_way_forward() {
 
     assert_eq!(columns(&store), FRESH_COLUMNS);
     let ran = migrations(&store);
-    assert_eq!(ran.len(), 8);
+    assert_eq!(ran.len(), 9);
     assert!(ran[2..].iter().all(|(_, batch)| *batch == 2));
     assert!(
         Store::open(&store)
