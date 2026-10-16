@@ -36,7 +36,11 @@ pub fn rewrite(mut argv: Vec<String>) -> Vec<String> {
     };
     // connect opens a saved connection by name; a path or connection string
     // given to it is still for open, as it was when connect was open's alias.
-    if first == "connect" && argv[2..].iter().any(|argument| is_openable(argument)) {
+    if first == "connect"
+        && argv[2..]
+            .iter()
+            .any(|argument| !argument.starts_with('-') && is_path(argument))
+    {
         argv[1] = "open".to_string();
         return argv;
     }
@@ -49,10 +53,6 @@ pub fn rewrite(mut argv: Vec<String>) -> Vec<String> {
     }
     argv.insert(1, "open".to_string());
     argv
-}
-
-fn is_openable(argument: &str) -> bool {
-    dsn::looks_like_one(argument) || Path::new(argument).is_file()
 }
 
 fn is_path(argument: &str) -> bool {
@@ -121,7 +121,7 @@ mod tests {
         );
         assert_eq!(
             rewrite(argv(&["tql", "connect", "shop.sqlite"])),
-            argv(&["tql", "connect", "shop.sqlite"])
+            argv(&["tql", "open", "shop.sqlite"])
         );
         assert_eq!(
             rewrite(argv(&[
@@ -135,6 +135,14 @@ mod tests {
         assert_eq!(
             rewrite(argv(&["tql", "connect", "Cargo.toml"])),
             argv(&["tql", "open", "Cargo.toml"])
+        );
+        assert_eq!(
+            rewrite(argv(&["tql", "connect", "./missing.sqlite"])),
+            argv(&["tql", "open", "./missing.sqlite"])
+        );
+        assert_eq!(
+            rewrite(argv(&["tql", "connect", "prod", "--db=a/b"])),
+            argv(&["tql", "connect", "prod", "--db=a/b"])
         );
     }
 

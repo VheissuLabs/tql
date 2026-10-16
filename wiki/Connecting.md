@@ -22,7 +22,7 @@ is written until you save. The driver is cycled with `← →`, through all four
 
 ```bash
 tql open <path-or-dsn>        # save it and open it
-tql connect <path-or-dsn>     # the same command
+tql connect <path-or-dsn>     # the same as open
 tql connect <connection>      # a saved connection, by name
 tql connect prod --db=analytics  # another database on prod's server, this once
 tql <path-or-dsn>             # the short form, same thing
