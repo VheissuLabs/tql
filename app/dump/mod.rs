@@ -148,6 +148,7 @@ impl Engine {
             | Driver::Duckdb
             | Driver::Libsql
             | Driver::Clickhouse
+            | Driver::Snowflake
             | Driver::Redis => None,
         }
     }

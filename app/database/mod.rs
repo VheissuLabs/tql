@@ -10,6 +10,7 @@ mod mysql;
 pub mod order_by;
 mod postgres;
 mod schema;
+pub mod snowflake;
 mod sqlite;
 mod sqlsrv;
 mod table;
@@ -474,6 +475,7 @@ pub fn connect(
         )?)),
         Driver::Mysql => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
         Driver::Libsql => Ok(Box::new(libsql::Libsql::open(connection, password)?)),
+        Driver::Snowflake => Ok(Box::new(snowflake::Snowflake::open(connection, password)?)),
         Driver::Redis => bail!("a Redis connection is not a SQL database"),
         Driver::Clickhouse => Ok(Box::new(clickhouse::ClickHouse::open(
             connection, password, tunnel,

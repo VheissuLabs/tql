@@ -140,6 +140,8 @@ pub fn connection_for(
                 ssh_port: target.ssh_port,
                 ssh_user: target.ssh_user,
                 ssh_password,
+                warehouse: target.warehouse,
+                role: target.role,
                 ..Connection::default()
             },
             encrypter: Some(encrypter),
@@ -167,6 +169,11 @@ pub fn connection_for(
                 target.password.clone().map_or(Field::Null, Field::Secret),
             ),
         ]);
+        for (column, value) in [("warehouse", &target.warehouse), ("role", &target.role)] {
+            if let Some(value) = value {
+                fields.push((column, Field::Text(value.clone())));
+            }
+        }
         if let Some(ssl_mode) = &target.ssl_mode {
             fields.push(("ssl_mode", Field::Text(ssl_mode.clone())));
         }

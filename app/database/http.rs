@@ -47,26 +47,85 @@ pub fn send(
     timeout: Duration,
     tls: Option<Arc<ClientConfig>>,
 ) -> anyhow::Result<Reply> {
+    let mut pending = agent(timeout, tls).post(url);
+    for (name, value) in headers {
+        pending = pending.header(*name, value);
+    }
+    replied(
+        pending
+            .send(body)
+            .map_err(|error| anyhow!("could not reach {}: {error}", site(url)))?,
+    )
+}
+
+pub struct Client {
+    agent: ureq::Agent,
+}
+
+impl Client {
+    pub fn new(timeout: Duration) -> Client {
+        Client {
+            agent: agent(timeout, None),
+        }
+    }
+
+    pub fn post(
+        &self,
+        url: &str,
+        headers: &[(&str, String)],
+        body: String,
+    ) -> anyhow::Result<Reply> {
+        let mut pending = self.agent.post(url);
+        for (name, value) in headers {
+            pending = pending.header(*name, value);
+        }
+        whole(
+            url,
+            pending
+                .send(body)
+                .map_err(|error| anyhow!("could not reach {}: {error}", site(url)))?,
+        )
+    }
+
+    pub fn get(&self, url: &str, headers: &[(&str, String)]) -> anyhow::Result<Reply> {
+        let mut pending = self.agent.get(url);
+        for (name, value) in headers {
+            pending = pending.header(*name, value);
+        }
+        whole(
+            url,
+            pending
+                .call()
+                .map_err(|error| anyhow!("could not reach {}: {error}", site(url)))?,
+        )
+    }
+}
+
+fn whole(url: &str, response: ureq::http::Response<ureq::Body>) -> anyhow::Result<Reply> {
+    let reply = replied(response)?;
+    if let Some(broken) = &reply.broken {
+        bail!("could not read the answer from {}: {broken}", site(url));
+    }
+    Ok(reply)
+}
+
+fn agent(timeout: Duration, tls: Option<Arc<ClientConfig>>) -> ureq::Agent {
     let config = ureq::Agent::config_builder()
         .timeout_global(Some(timeout))
         .http_status_as_error(false)
         .user_agent(concat!("tql/", env!("CARGO_PKG_VERSION")))
         .build();
-    let agent = match tls {
+    match tls {
         None => config.new_agent(),
         Some(tls) => ureq::Agent::with_parts(
             config,
             TcpConnector::default().chain(Secure(tls)),
             DefaultResolver::default(),
         ),
-    };
-    let mut pending = agent.post(url);
-    for (name, value) in headers {
-        pending = pending.header(*name, value);
     }
-    let response = pending
-        .send(body)
-        .map_err(|error| anyhow!("could not reach {}: {error}", site(url)))?;
+}
+
+fn replied(response: ureq::http::Response<ureq::Body>) -> anyhow::Result<Reply> {
     let status = response.status().as_u16();
     let headers = response
         .headers()

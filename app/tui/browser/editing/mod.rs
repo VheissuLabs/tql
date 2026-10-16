@@ -147,6 +147,9 @@ impl Browser {
         if self.connection.read_only {
             return Some(READ_ONLY);
         }
+        if self.connection.driver == crate::driver::Driver::Snowflake {
+            return Some(crate::database::snowflake::READ_ONLY);
+        }
         if !self.connection.driver.edits_rows() {
             return Some(crate::database::clickhouse::READ_ONLY);
         }
