@@ -10,7 +10,7 @@ use crate::live::{self, Live};
 use crate::paths;
 use crate::registry::{self, Entry, Needs, Shell};
 use crate::settings;
-use crate::store::Store;
+use crate::store::{Connection, Store};
 use crate::store_writer::StoreWriter;
 use crate::tui::clipboard::SystemClipboard;
 use crate::tui::{Browser, Exit, KeyBrowser, Picker};
@@ -28,7 +28,40 @@ impl Command for Browse {
     }
 
     fn execute(&self, cmd: &mut Cmd) -> Result {
-        browse(cmd, None, None)
+        browse(cmd, None, None, None)
+    }
+}
+
+pub struct Connect;
+
+impl Command for Connect {
+    fn signature(&self) -> &str {
+        "connect {connection : The saved connection, by name} {--db= : Which database on the server to open, for a connection that has several}"
+    }
+
+    fn description(&self) -> &str {
+        "Open a saved connection by name, straight into its tables"
+    }
+
+    fn help(&self) -> &str {
+        r#"Skips the connection list and opens the connection you name, as if you had
+picked it there. The list is still one key away.
+
+<fg=yellow>Examples</>
+
+  <fg=green>tql connect prod</>
+      opens prod on the database it is saved with
+
+  <fg=green>tql connect prod --db=analytics</>
+      opens prod on another database on the same server, this once
+
+A path or a connection string opens it the way <fg=green>tql open</> does."#
+    }
+
+    fn execute(&self, cmd: &mut Cmd) -> Result {
+        let name = cmd.argument("connection").map(String::from);
+        let database = cmd.option("db").map(String::from);
+        browse(cmd, None, name, database)
     }
 }
 
@@ -75,11 +108,23 @@ impl Command for Launch {
             Needs::Connection => cmd.argument("connection").map(String::from),
             Needs::Nothing => None,
         };
-        browse(cmd, Some(self.entry), connection)
+        browse(cmd, Some(self.entry), connection, None)
     }
 }
 
-fn browse(cmd: &mut Cmd, start: Option<&'static Entry>, named: Option<String>) -> Result {
+fn browse(
+    cmd: &mut Cmd,
+    start: Option<&'static Entry>,
+    named: Option<String>,
+    database: Option<String>,
+) -> Result {
+    let mut chosen = None;
+    if let Some(name) = named {
+        let Some(connection) = saved_connection(cmd, &name, database)? else {
+            return exit(1);
+        };
+        chosen = Some(connection);
+    }
     if !cmd.has_terminal() {
         cmd.error("tql needs a terminal. Run it directly rather than piping into it.");
         return exit(1);
@@ -104,25 +149,6 @@ fn browse(cmd: &mut Cmd, start: Option<&'static Entry>, named: Option<String>) -
     };
     let mut notice = loaded.error.clone();
 
-    let mut chosen = None;
-    if let Some(name) = named {
-        let saved = store.connections()?;
-        let Some(connection) = saved
-            .iter()
-            .find(|connection| connection.name.eq_ignore_ascii_case(&name))
-        else {
-            let known: Vec<&str> = saved
-                .iter()
-                .map(|connection| connection.name.as_str())
-                .collect();
-            cmd.error(format!(
-                "There is no tql connection named [{name}]. Known connections: {}",
-                known.join(", ")
-            ));
-            return exit(1);
-        };
-        chosen = Some(connection.clone());
-    }
     let mut pending = start;
 
     let mut session = Session::start()?;
@@ -230,6 +256,42 @@ fn browse(cmd: &mut Cmd, start: Option<&'static Entry>, named: Option<String>) -
             }
         }
     }
+}
+
+fn saved_connection(
+    cmd: &mut Cmd,
+    name: &str,
+    database: Option<String>,
+) -> Result<Option<Connection>> {
+    StoreWriter::prepare(&paths::store())?;
+    let saved = Store::open(&paths::store())?.connections()?;
+    let Some(connection) = saved
+        .iter()
+        .find(|connection| connection.name.eq_ignore_ascii_case(name))
+    else {
+        let known: Vec<&str> = saved
+            .iter()
+            .map(|connection| connection.name.as_str())
+            .collect();
+        cmd.error(format!(
+            "There is no tql connection named [{name}]. Known connections: {}",
+            known.join(", ")
+        ));
+        return Ok(None);
+    };
+    let mut connection = connection.clone();
+    if let Some(database) = database {
+        if !connection.driver.has_databases() {
+            cmd.error(format!(
+                "[{}] is a {} connection, which is one database; --db means nothing to it.",
+                connection.name,
+                connection.driver.label()
+            ));
+            return Ok(None);
+        }
+        connection.database = Some(database);
+    }
+    Ok(Some(connection))
 }
 
 fn launching(description: &str) -> String {

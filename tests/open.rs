@@ -400,24 +400,65 @@ fn peeks_through_a_tunnel_without_saving_it() {
 }
 
 #[test]
-fn connect_is_another_name_for_open() {
+fn connect_still_opens_a_path_or_connection_string() {
     let scratch = Scratch::new("connect");
     let text = scratch.root.join("notes.txt");
     fs::write(&text, "just some text").unwrap();
 
-    let connected = app::application().run_with(["connect", &text.display().to_string()], "");
+    let argv = app::argv::rewrite(vec![
+        "tql".into(),
+        "connect".into(),
+        text.display().to_string(),
+    ]);
+    let connected = app::application().run_with(argv.into_iter().skip(1), "");
     assert_eq!(connected.code, 1);
     assert!(
         format!("{}{}", connected.stdout, connected.stderr)
             .contains("notes.txt is not a SQLite or DuckDB database.")
     );
+}
 
-    let listed = app::application().run_with(["--help"], "");
-    assert!(listed.stdout.contains("connect"), "{}", listed.stdout);
-    assert_eq!(
-        app::argv::rewrite(vec!["tql".into(), "connect".into()]),
-        ["tql", "connect"]
+#[test]
+fn connect_finds_a_saved_connection_by_name_and_takes_a_database_only_from_a_server() {
+    let scratch = Scratch::new("connect-named");
+    let file = scratch.sqlite_file("app.sqlite");
+    scratch.open(&file.display().to_string(), Some("Notes"), None, false);
+    scratch.open(
+        "mysql://root@127.0.0.1:3306/shop",
+        Some("Shop"),
+        None,
+        false,
     );
+    app::paths::use_config_directory(scratch.root.join("tql"));
+    let tql = |arguments: &[&str]| {
+        let ran = app::application().run_with(arguments.iter().copied(), "");
+        (ran.code, format!("{}{}", ran.stdout, ran.stderr))
+    };
+
+    let (code, said) = tql(&["connect", "nope"]);
+    assert_eq!(code, 1);
+    assert!(
+        said.contains("There is no tql connection named [nope]. Known connections:")
+            && said.contains("Notes")
+            && said.contains("Shop"),
+        "{said}"
+    );
+
+    let (code, said) = tql(&["connect", "notes", "--db=other"]);
+    assert_eq!(code, 1);
+    assert!(said.contains("--db means nothing to it"), "{said}");
+
+    for arguments in [
+        &["connect", "shop", "--db=analytics"][..],
+        &["connect", "Notes"],
+    ] {
+        let (code, said) = tql(arguments);
+        assert_eq!(code, 1, "{arguments:?}");
+        assert!(
+            said.contains("tql needs a terminal"),
+            "{arguments:?}: {said}"
+        );
+    }
 }
 
 #[test]

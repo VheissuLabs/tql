@@ -30,6 +30,7 @@ pub fn application() -> console::Application {
         .config_source("app", include_str!("../config/app.toml"))
         .config_source("commands", include_str!("../config/commands.toml"))
         .command(commands::browse::Browse)
+        .command(commands::browse::Connect)
         .command(commands::config::Config)
         .command(commands::connections::Connections)
         .command(commands::describe::Describe)
