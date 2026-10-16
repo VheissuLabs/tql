@@ -102,6 +102,7 @@ pub fn connection_for(
         if let Some(tag) = given {
             writer.update(id, &[("tag", Field::Text(tag))])?;
         }
+        writer.update(id, &carried(&target))?;
         return Ok(Opened {
             connection: Store::open(store)?
                 .connection(id)?
@@ -207,6 +208,19 @@ pub fn connection_for(
             .context("the new connection did not save")?,
         encrypter: Encrypter::from_file(key).ok(),
     })
+}
+
+fn carried(target: &Dsn) -> Vec<(&'static str, Field)> {
+    let mut fields = Vec::new();
+    if let Some(password) = &target.password {
+        fields.push(("password", Field::Secret(password.clone())));
+    }
+    for (column, value) in [("warehouse", &target.warehouse), ("role", &target.role)] {
+        if let Some(value) = value {
+            fields.push((column, Field::Text(value.clone())));
+        }
+    }
+    fields
 }
 
 fn identity(target: &Dsn) -> Vec<(&'static str, Field)> {

@@ -257,6 +257,36 @@ fn reuses_a_saved_connection_rather_than_duplicating_it() {
 }
 
 #[test]
+fn reopening_with_a_new_password_or_warehouse_keeps_the_new_ones() {
+    let scratch = Scratch::new("rotated");
+    scratch.open(
+        "snowflake://me:old-token@myorg-acct/SHOP?warehouse=SMALL_WH",
+        None,
+        None,
+        false,
+    );
+
+    let reopened = scratch.open(
+        "snowflake://me:new-token@myorg-acct/SHOP?warehouse=BIG_WH&role=ANALYST",
+        None,
+        None,
+        false,
+    );
+
+    assert_eq!(scratch.count(), 1);
+    assert_eq!(
+        reopened
+            .encrypter
+            .unwrap()
+            .decrypt_string(reopened.connection.password.as_deref().unwrap())
+            .unwrap(),
+        "new-token"
+    );
+    assert_eq!(reopened.connection.warehouse.as_deref(), Some("BIG_WH"));
+    assert_eq!(reopened.connection.role.as_deref(), Some("ANALYST"));
+}
+
+#[test]
 fn names_it_what_name_says() {
     let scratch = Scratch::new("named");
 
