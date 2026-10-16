@@ -22,6 +22,8 @@ pub struct Dsn {
     pub ssh_port: Option<u16>,
     pub ssh_user: Option<String>,
     pub ssh_password: Option<String>,
+    pub warehouse: Option<String>,
+    pub role: Option<String>,
 }
 
 pub fn looks_like_one(value: &str) -> bool {
@@ -52,6 +54,9 @@ pub fn parse(dsn: &str) -> Option<Dsn> {
 
     if driver.is_file() {
         return Some(file(rest, driver));
+    }
+    if driver == Driver::Snowflake {
+        return snowflake(rest);
     }
 
     let (before_fragment, _) = rest.split_once('#').unwrap_or((rest, ""));
@@ -192,6 +197,30 @@ fn libsql(scheme: &str, rest: &str) -> Dsn {
     }
 }
 
+fn snowflake(rest: &str) -> Option<Dsn> {
+    let (location, query) = rest.split_once('?').unwrap_or((rest, ""));
+    let (authority, path) = location.split_once('/').unwrap_or((location, ""));
+    let (user, token, account, _) = authority_parts(authority)?;
+    if account.is_empty() {
+        return None;
+    }
+    let database = path.split('/').next().unwrap_or_default();
+    let present = |value: Option<String>| value.filter(|value| !value.is_empty());
+    Some(Dsn {
+        name: present(query_value(query, "name"))
+            .unwrap_or_else(|| name_for(Some(account), &decode(database, false))),
+        driver: Driver::Snowflake,
+        host: Some(account.to_string()),
+        database: (!database.is_empty()).then(|| decode(database, false)),
+        username: user.map(|user| decode(user, false)),
+        password: token.map(|token| decode(token, false)),
+        tag: query_value(query, "env").and_then(|env| tag_for(&env)),
+        warehouse: present(query_value(query, "warehouse")),
+        role: present(query_value(query, "role")),
+        ..Dsn::default()
+    })
+}
+
 fn file(rest: &str, driver: Driver) -> Dsn {
     let (path, query) = rest.split_once('?').unwrap_or((rest, ""));
     let path = decode(path, false);
@@ -322,6 +351,24 @@ mod tests {
     }
 
     #[test]
+    fn reads_a_snowflake_url_with_its_token_warehouse_and_role() {
+        let parsed = parse(
+            "snowflake://karl:pat%2Btoken@myorg-myaccount/ANALYTICS/PUBLIC?warehouse=COMPUTE_WH&role=ANALYST&env=prod",
+        )
+        .unwrap();
+        assert_eq!(parsed.driver, Driver::Snowflake);
+        assert_eq!(parsed.host.as_deref(), Some("myorg-myaccount"));
+        assert_eq!(parsed.port, None);
+        assert_eq!(parsed.database.as_deref(), Some("ANALYTICS"));
+        assert_eq!(parsed.username.as_deref(), Some("karl"));
+        assert_eq!(parsed.password.as_deref(), Some("pat+token"));
+        assert_eq!(parsed.warehouse.as_deref(), Some("COMPUTE_WH"));
+        assert_eq!(parsed.role.as_deref(), Some("ANALYST"));
+        assert_eq!(parsed.tag.as_deref(), Some("production"));
+        assert_eq!(parsed.name, "ANALYTICS on myorg-myaccount");
+    }
+
+    #[test]
     fn reads_a_tableplus_url_that_goes_through_ssh() {
         assert_eq!(
             parse(
@@ -341,6 +388,8 @@ mod tests {
                 ssh_port: None,
                 ssh_user: Some("deploy".into()),
                 ssh_password: None,
+                warehouse: None,
+                role: None,
             })
         );
     }

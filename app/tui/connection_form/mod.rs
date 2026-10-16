@@ -21,7 +21,7 @@ mod input;
 mod render;
 mod save;
 
-pub const DRIVERS: [&str; 8] = [
+pub const DRIVERS: [&str; 9] = [
     Driver::Sqlite.name(),
     Driver::Mysql.name(),
     Driver::Pgsql.name(),
@@ -29,6 +29,7 @@ pub const DRIVERS: [&str; 8] = [
     Driver::Duckdb.name(),
     Driver::Libsql.name(),
     Driver::Clickhouse.name(),
+    Driver::Snowflake.name(),
     Driver::Redis.name(),
 ];
 pub const SSL_MODES: [&str; 6] = [
@@ -120,6 +121,8 @@ impl ConnectionForm {
             ("ssh_port", number(connection.ssh_port)),
             ("ssh_user", text(&connection.ssh_user)),
             ("ssh_key", text(&connection.ssh_key)),
+            ("warehouse", text(&connection.warehouse)),
+            ("role", text(&connection.role)),
         ] {
             form.values.insert(key, value);
         }
@@ -206,6 +209,14 @@ impl ConnectionForm {
             fields.push(("database", "Path"));
         } else if self.driver() == Driver::Libsql {
             fields.extend([("host", "URL"), ("password", "Auth token")]);
+        } else if self.driver() == Driver::Snowflake {
+            fields.extend([
+                ("host", "Account"),
+                ("database", "Database"),
+                ("password", "Access token"),
+                ("warehouse", "Warehouse"),
+                ("role", "Role"),
+            ]);
         } else {
             fields.extend([
                 ("host", "Host"),
@@ -304,7 +315,7 @@ impl ConnectionForm {
         if self.driver().is_file() {
             return;
         }
-        if self.driver() == Driver::Libsql {
+        if matches!(self.driver(), Driver::Libsql | Driver::Snowflake) {
             if self.value("host") == "127.0.0.1" {
                 self.set("host", String::new());
             }
@@ -350,6 +361,10 @@ impl ConnectionForm {
             "ssl_mode" if value.is_empty() => "driver default".to_string(),
             "tag" if value.is_empty() => tag::NONE.to_string(),
             "group_name" if value.is_empty() => NO_GROUP.to_string(),
+            "host" if value.is_empty() && self.driver() == Driver::Snowflake => {
+                "myorg-myaccount".to_string()
+            }
+            "warehouse" | "role" if value.is_empty() => "the user's default".to_string(),
             "database" if value.is_empty() && self.driver().is_server() => {
                 "ask on connect".to_string()
             }

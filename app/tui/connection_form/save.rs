@@ -15,6 +15,17 @@ impl ConnectionForm {
         if self.driver() == Driver::Libsql && self.value("host").trim().is_empty() {
             return Ok(Some("A libsql:// or https:// URL is required.".to_string()));
         }
+        if self.driver() == Driver::Snowflake && self.value("host").trim().is_empty() {
+            return Ok(Some(
+                "A Snowflake account, such as myorg-myaccount, is required.".to_string(),
+            ));
+        }
+        if self.driver() == Driver::Snowflake
+            && self.value("password").trim().is_empty()
+            && !self.unreadable.contains(&"password")
+        {
+            return Ok(Some("A programmatic access token is required.".to_string()));
+        }
         if sqlite {
             let resolved =
                 paths::resolve(self.value("database"), &self.places.home, &self.places.cwd);

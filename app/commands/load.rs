@@ -190,13 +190,16 @@ fn replay(cmd: &mut Cmd, saved: &Saved, file: &Path, connection: &Connection) ->
         }
     };
 
-    let atomic = connection.driver != Driver::Clickhouse;
+    let atomic = !matches!(connection.driver, Driver::Clickhouse | Driver::Snowflake);
     cmd.marked(&format!(
         "  Replaying {} into <fg=cyan>{}</>, {}",
         dumps::shorten(file),
         connection.name,
         match atomic {
             true => "in one transaction",
+            false if connection.driver == Driver::Snowflake => {
+                "one statement at a time, since each Snowflake statement runs in a session of its own"
+            }
             false => "one statement at a time, since ClickHouse has no transactions",
         }
     ));

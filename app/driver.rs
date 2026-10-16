@@ -10,11 +10,12 @@ pub enum Driver {
     Duckdb,
     Libsql,
     Clickhouse,
+    Snowflake,
     Redis,
 }
 
 impl Driver {
-    pub const ALL: [Driver; 8] = [
+    pub const ALL: [Driver; 9] = [
         Driver::Sqlite,
         Driver::Mysql,
         Driver::Pgsql,
@@ -22,6 +23,7 @@ impl Driver {
         Driver::Duckdb,
         Driver::Libsql,
         Driver::Clickhouse,
+        Driver::Snowflake,
         Driver::Redis,
     ];
 
@@ -34,6 +36,7 @@ impl Driver {
             "duckdb" => Some(Driver::Duckdb),
             "libsql" | "turso" => Some(Driver::Libsql),
             "clickhouse" => Some(Driver::Clickhouse),
+            "snowflake" => Some(Driver::Snowflake),
             "redis" | "valkey" => Some(Driver::Redis),
             _ => None,
         }
@@ -48,6 +51,7 @@ impl Driver {
             Driver::Duckdb => "duckdb",
             Driver::Libsql => "libsql",
             Driver::Clickhouse => "clickhouse",
+            Driver::Snowflake => "snowflake",
             Driver::Redis => "redis",
         }
     }
@@ -61,13 +65,14 @@ impl Driver {
             Driver::Duckdb => "DuckDB",
             Driver::Libsql => "libSQL",
             Driver::Clickhouse => "ClickHouse",
+            Driver::Snowflake => "Snowflake",
             Driver::Redis => "Redis / Valkey",
         }
     }
 
     pub fn default_port(self) -> Option<u16> {
         match self {
-            Driver::Sqlite | Driver::Duckdb | Driver::Libsql => None,
+            Driver::Sqlite | Driver::Duckdb | Driver::Libsql | Driver::Snowflake => None,
             Driver::Mysql => Some(3306),
             Driver::Pgsql => Some(5432),
             Driver::Sqlsrv => Some(1433),
@@ -85,13 +90,18 @@ impl Driver {
     }
 
     pub fn edits_rows(self) -> bool {
-        self != Driver::Clickhouse
+        !matches!(self, Driver::Clickhouse | Driver::Snowflake)
     }
 
     pub fn has_databases(self) -> bool {
         matches!(
             self,
-            Driver::Mysql | Driver::Pgsql | Driver::Sqlsrv | Driver::Clickhouse | Driver::Redis
+            Driver::Mysql
+                | Driver::Pgsql
+                | Driver::Sqlsrv
+                | Driver::Clickhouse
+                | Driver::Snowflake
+                | Driver::Redis
         )
     }
 }

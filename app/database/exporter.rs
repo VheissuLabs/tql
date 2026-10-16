@@ -52,7 +52,7 @@ impl Scalar {
             Scalar::Null => "null".to_string(),
             Scalar::Number(number) => number.clone(),
             Scalar::Text(text) if driver == Driver::Mysql => mysql_quoted(text),
-            Scalar::Text(text) if driver == Driver::Clickhouse => {
+            Scalar::Text(text) if matches!(driver, Driver::Clickhouse | Driver::Snowflake) => {
                 format!("'{}'", text.replace('\\', "\\\\").replace('\'', "\\'"))
             }
             Scalar::Text(text) if driver == Driver::Sqlsrv => {
