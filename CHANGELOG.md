@@ -4,6 +4,29 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## 0.15.0
+
+### New Features
+
+- Snowflake connections over its SQL API with a programmatic access token:
+  browse and query, schemas, declared keys for links and paging, and every
+  type shown as Snowflake writes it. Tables, columns and keys come from `SHOW`
+  commands, which do not wake the warehouse. Tables are read only in the grid
+  ([#8](https://github.com/VheissuLabs/tql/pull/8)).
+- The connection form asks a Snowflake connection for its Account, Database,
+  Access token, Warehouse and Role; `tql open` and `:open` take
+  `snowflake://user:token@account/DATABASE?warehouse=WH&role=ROLE`.
+
+### Bug Fixes
+
+- Opening a connection string tql has already saved keeps the password it
+  carries, and a Snowflake warehouse and role, rather than the ones saved
+  before ([#10](https://github.com/VheissuLabs/tql/pull/10)).
+- A connection with no port, libSQL or Snowflake, no longer shows a stray
+  colon after its host.
+
+---
+
 ## 0.14.2
 
 ### New Features
