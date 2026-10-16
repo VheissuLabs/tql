@@ -4,6 +4,21 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## 0.14.2
+
+### New Features
+
+- `tql connect <connection>` opens a saved connection by name, skipping the
+  list; `--db=<database>` opens another database on the same server for that
+  session. A path or connection string still goes to `tql open`
+  ([#7](https://github.com/VheissuLabs/tql/pull/7)).
+
+### Bug Fixes
+
+- `tql connect` with a database file that is not there yet says No such file.
+
+---
+
 ## 0.14.1
 
 ### Bug Fixes
