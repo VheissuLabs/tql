@@ -22,10 +22,6 @@ impl Command for Open {
         "Open a database by path or connection string"
     }
 
-    fn aliases(&self) -> &[&'static str] {
-        &["connect"]
-    }
-
     fn execute(&self, cmd: &mut Cmd) -> Result {
         open(cmd)
     }

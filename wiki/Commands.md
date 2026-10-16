@@ -13,7 +13,8 @@ tql list        # shows all of these
 | Command | What it does |
 | --- | --- |
 | `tql` | the interface: pick a connection and browse |
-| `tql open <path-or-dsn>` | open a database by path or connection string, saving it; `tql connect` is the same |
+| `tql connect <connection> [--db=<database>]` | open a saved connection by name, skipping the list; `--db` picks another database on the same server |
+| `tql open <path-or-dsn>` | open a database by path or connection string, saving it; `tql connect` takes these too |
 | `tql export [connection] [table]` | write rows out as re-importable SQL |
 | `tql tableplus` | bring your TablePlus connections over, groups and passwords too |
 | `tql dump <connection> [tables…]` | dump a database, schema and data, with mydumper or pg_dump |

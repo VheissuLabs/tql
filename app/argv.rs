@@ -34,6 +34,12 @@ pub fn rewrite(mut argv: Vec<String>) -> Vec<String> {
     let Some(first) = argv.get(1) else {
         return argv;
     };
+    // connect opens a saved connection by name; a path or connection string
+    // given to it is still for open, as it was when connect was open's alias.
+    if first == "connect" && argv[2..].iter().any(|argument| is_openable(argument)) {
+        argv[1] = "open".to_string();
+        return argv;
+    }
     if first.starts_with('-')
         || COMMANDS.contains(&first.as_str())
         || registry::opening().any(|entry| entry.word() == first)
@@ -43,6 +49,10 @@ pub fn rewrite(mut argv: Vec<String>) -> Vec<String> {
     }
     argv.insert(1, "open".to_string());
     argv
+}
+
+fn is_openable(argument: &str) -> bool {
+    dsn::looks_like_one(argument) || Path::new(argument).is_file()
 }
 
 fn is_path(argument: &str) -> bool {
@@ -101,6 +111,31 @@ mod tests {
         ] {
             assert_eq!(rewrite(argv(&["tql", command])), argv(&["tql", command]));
         }
+    }
+
+    #[test]
+    fn connect_keeps_a_connection_name_and_hands_a_connection_string_or_file_to_open() {
+        assert_eq!(
+            rewrite(argv(&["tql", "connect", "prod", "--db=analytics"])),
+            argv(&["tql", "connect", "prod", "--db=analytics"])
+        );
+        assert_eq!(
+            rewrite(argv(&["tql", "connect", "shop.sqlite"])),
+            argv(&["tql", "connect", "shop.sqlite"])
+        );
+        assert_eq!(
+            rewrite(argv(&[
+                "tql",
+                "connect",
+                "--name=Shop",
+                "mysql://root@127.0.0.1/shop"
+            ])),
+            argv(&["tql", "open", "--name=Shop", "mysql://root@127.0.0.1/shop"])
+        );
+        assert_eq!(
+            rewrite(argv(&["tql", "connect", "Cargo.toml"])),
+            argv(&["tql", "open", "Cargo.toml"])
+        );
     }
 
     #[test]
