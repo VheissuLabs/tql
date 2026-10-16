@@ -44,6 +44,7 @@ as happily as a Postgres server behind an SSH tunnel.
 | **DuckDB** | built in, any `.duckdb` file, schemas and all |
 | **libSQL** and **Turso** | built in, a `libsql://` URL and its auth token ([below](#libsql-and-turso)) |
 | **ClickHouse** | built in, browse and query ([below](#clickhouse)) |
+| **Snowflake** | built in, browse and query with an access token ([below](#snowflake)) |
 | **Redis** and **Valkey** | built in, a key browser of their own ([below](#redis-and-valkey)) |
 
 A hosted database that speaks the MySQL or PostgreSQL protocol connects the same
@@ -111,6 +112,24 @@ ClickHouse connects over its HTTP interface, port 8123, or 8443 with an
 integers and decimals exactly. Tables are read only in tql: ClickHouse changes
 rows with background mutations, which do not fit editing a cell and writing it
 with `:w`. The SQL editor runs whatever the connection allows.
+
+### Snowflake
+
+Snowflake connects over its SQL API with a programmatic access token, saved as
+the connection's password: `snowflake://user:token@myorg-myaccount/DATABASE?warehouse=WH&role=ROLE`,
+or Account, Database, Access token, Warehouse and Role in the connection form.
+The account is the `myorg-myaccount` part of your Snowflake URL. Warehouse and
+role fall back to the user's defaults, and with no schema set tql browses
+`PUBLIC`. Tables, columns and keys come from `SHOW` commands, which do not wake
+the warehouse. Dates, times, timestamps, variants and binary show as Snowflake
+writes them, and declared primary and foreign keys link rows even though
+Snowflake does not enforce them. Tables are read only in tql for that reason:
+with no enforced key, an edited cell cannot be traced to one row. The SQL
+editor runs whatever the role allows.
+
+A token from a person rather than a service user needs a network policy, or an
+authentication policy with `pat_policy = (network_policy_evaluation =
+enforced_not_required)`, before Snowflake accepts it.
 
 ## Installing
 
@@ -284,7 +303,7 @@ than saving a second.
 
 | Argument or flag | What it does |
 | --- | --- |
-| `<path-or-dsn>` | a SQLite or DuckDB file, or a `mysql://`, `pgsql://`, `postgres://`, `sqlsrv://`, `mssql://`, `libsql://`, `clickhouse://`, `redis://` or `valkey://` string (`clickhouses://`, `rediss://` and `valkeys://` for TLS); `mysql+ssh://` and the others with `+ssh` go through an SSH server first |
+| `<path-or-dsn>` | a SQLite or DuckDB file, or a `mysql://`, `pgsql://`, `postgres://`, `sqlsrv://`, `mssql://`, `libsql://`, `clickhouse://`, `snowflake://`, `redis://` or `valkey://` string (`clickhouses://`, `rediss://` and `valkeys://` for TLS); `mysql+ssh://` and the others with `+ssh` go through an SSH server first |
 | `--name=<name>` | what to call it in the connection list; on one already saved, a rename |
 | `--tag=<tag>` | what it *is*: `production`, `staging`, `dev` or `local`, which decides the color it wears; see [Tags and read only](#tags-and-read-only) |
 | `--peek` | open it without saving it |
