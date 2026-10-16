@@ -100,7 +100,7 @@ the one it offers. `palette = "ctrl+p"` in `[keys]` moves the palette itself.
 | `:settings` | change your settings |
 | `:v` `:version` | show which version of tql this is |
 | `:update` | check for a newer tql and install it, while you keep working |
-| `:open <path or connection string>` | open a SQLite or DuckDB file or a `mysql://`, `pgsql://`, `sqlsrv://`, `libsql://`, `clickhouse://`, `redis://` or `valkey://` URL, saved to the connection list as `tql open` does |
+| `:open <path or connection string>` | open a SQLite or DuckDB file or a `mysql://`, `pgsql://`, `sqlsrv://`, `libsql://`, `clickhouse://`, `snowflake://`, `redis://` or `valkey://` URL, saved to the connection list as `tql open` does |
 | `:h` `:help` | the keys and commands |
 
 A command that belongs to the other screen says so: `:sql` on the connection
