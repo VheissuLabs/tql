@@ -255,7 +255,7 @@ impl StoreWriter {
 
 type Migration = fn(&rusqlite::Connection) -> rusqlite::Result<()>;
 
-const MIGRATIONS: [(&str, Migration); 9] = [
+const MIGRATIONS: [(&str, Migration); 10] = [
     ("2026_09_22_051510_create_connections_table", |store| {
         store.execute_batch(
             r#"create table "connections" ("id" integer primary key autoincrement not null, "name" varchar not null, "driver" varchar not null, "host" varchar, "port" integer, "database" varchar, "username" varchar, "password" text, "color" varchar, "read_only" tinyint(1) not null default '0', "last_used_at" datetime, "created_at" datetime, "updated_at" datetime);
@@ -318,6 +318,14 @@ const MIGRATIONS: [(&str, Migration); 9] = [
         |store| {
             add_column(store, "warehouse")?;
             add_column(store, "role")
+        },
+    ),
+    (
+        "2026_10_16_100000_add_snowflake_sign_in_to_connections_table",
+        |store| {
+            add_column(store, "authenticator")?;
+            add_column(store, "private_key")?;
+            add_column(store, "session")
         },
     ),
 ];

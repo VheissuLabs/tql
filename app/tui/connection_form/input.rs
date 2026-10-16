@@ -92,10 +92,10 @@ impl ConnectionForm {
     }
 
     fn files(&self, key: &str) -> Vec<String> {
-        let mut found = if key == "ssh_key" {
-            key_files::ssh_keys(&self.places.home)
-        } else {
-            key_files::certificates(&self.places.home, &self.places.cwd)
+        let mut found = match key {
+            "ssh_key" => key_files::ssh_keys(&self.places.home),
+            "private_key" => key_files::snowflake_keys(&self.places.home, &self.places.cwd),
+            _ => key_files::certificates(&self.places.home, &self.places.cwd),
         };
         found.push(TYPE_IT.to_string());
         found

@@ -475,7 +475,11 @@ pub fn connect(
         )?)),
         Driver::Mysql => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
         Driver::Libsql => Ok(Box::new(libsql::Libsql::open(connection, password)?)),
-        Driver::Snowflake => Ok(Box::new(snowflake::Snowflake::open(connection, password)?)),
+        Driver::Snowflake => Ok(Box::new(snowflake::Snowflake::open(
+            connection,
+            password,
+            decrypted(&connection.session, encrypter).ok().flatten(),
+        )?)),
         Driver::Redis => bail!("a Redis connection is not a SQL database"),
         Driver::Clickhouse => Ok(Box::new(clickhouse::ClickHouse::open(
             connection, password, tunnel,

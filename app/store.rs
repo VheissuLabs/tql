@@ -31,6 +31,9 @@ pub struct Connection {
     pub ssl_key: Option<String>,
     pub warehouse: Option<String>,
     pub role: Option<String>,
+    pub authenticator: Option<String>,
+    pub private_key: Option<String>,
+    pub session: Option<String>,
     pub last_used_at: Option<String>,
 }
 
@@ -72,12 +75,26 @@ impl Connection {
                 format!("{}:{}@", dsn::encode(username), dsn::encode(password))
             }
         };
+        let query: Vec<String> = [
+            ("warehouse", &self.warehouse),
+            ("role", &self.role),
+            ("authenticator", &self.authenticator),
+            ("private_key_path", &self.private_key),
+        ]
+        .into_iter()
+        .filter(|_| self.driver == Driver::Snowflake)
+        .filter_map(|(name, value)| Some(format!("{name}={}", dsn::encode(value.as_deref()?))))
+        .collect();
         format!(
-            "{}://{credentials}{}{}/{}",
+            "{}://{credentials}{}{}/{}{}",
             self.driver,
             self.host.clone().unwrap_or_default(),
             self.shown_port(),
-            dsn::encode(&database)
+            dsn::encode(&database),
+            match query.is_empty() {
+                true => String::new(),
+                false => format!("?{}", query.join("&")),
+            }
         )
     }
 
@@ -212,6 +229,9 @@ impl Store {
                 ssl_key: text("ssl_key"),
                 warehouse: text("warehouse").filter(|warehouse| !warehouse.trim().is_empty()),
                 role: text("role").filter(|role| !role.trim().is_empty()),
+                authenticator: text("authenticator").filter(|value| !value.trim().is_empty()),
+                private_key: text("private_key").filter(|path| !path.trim().is_empty()),
+                session: text("session").filter(|session| !session.is_empty()),
                 last_used_at: text("last_used_at"),
             }))
         })?;

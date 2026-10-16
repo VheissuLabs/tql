@@ -21,10 +21,9 @@ impl ConnectionForm {
             ));
         }
         if self.driver() == Driver::Snowflake
-            && self.value("password").trim().is_empty()
-            && !self.unreadable.contains(&"password")
+            && let Some(missing) = self.missing_for_snowflake()
         {
-            return Ok(Some("A programmatic access token is required.".to_string()));
+            return Ok(Some(missing.to_string()));
         }
         if sqlite {
             let resolved =
@@ -47,6 +46,21 @@ impl ConnectionForm {
         Ok(None)
     }
 
+    fn missing_for_snowflake(&self) -> Option<&'static str> {
+        let blank = |key: &str| self.value(key).trim().is_empty();
+        match self.authenticator() {
+            Authenticator::Token if blank("password") && !self.unreadable.contains(&"password") => {
+                Some("A programmatic access token is required.")
+            }
+            Authenticator::Token => None,
+            _ if blank("username") => Some("The Snowflake user's login name is required."),
+            Authenticator::KeyPair if blank("private_key") => {
+                Some("The path to the user's private key is required.")
+            }
+            _ => None,
+        }
+    }
+
     fn fields_to_save(&self) -> Fields {
         let over_ssh = self.over_ssh();
         let mut fields: Fields = vec![("driver", Field::Text(self.driver().name().to_string()))];
@@ -67,11 +81,18 @@ impl ConnectionForm {
                 "read_only" => Field::Flag(matches!(value, "yes" | "1")),
                 "group_name" if value.trim().is_empty() => Field::Null,
                 "group_name" => Field::Text(value.trim().to_string()),
+                "authenticator" => self
+                    .authenticator()
+                    .stored()
+                    .map_or(Field::Null, |stored| Field::Text(stored.to_string())),
                 secret if SECRETS.contains(&secret) && value.is_empty() => Field::Null,
                 secret if SECRETS.contains(&secret) => Field::Secret(value.to_string()),
                 _ => Field::Text(value.to_string()),
             };
             fields.push((key, field));
+        }
+        if self.driver() == Driver::Snowflake && self.authenticator() != Authenticator::Browser {
+            fields.push(("session", Field::Null));
         }
         if !over_ssh {
             fields.retain(|(key, _)| !key.starts_with("ssh_"));
