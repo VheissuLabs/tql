@@ -134,8 +134,11 @@ enforced_not_required)`, before Snowflake accepts it.
 Leave the access token empty to sign in through the browser instead, with
 Snowflake's own sign-in page or your company's single sign-on behind it:
 `snowflake://myorg-myaccount/DATABASE?role=ROLE`. tql opens the browser
-(`$BROWSER` if set), waits up to three minutes for you to sign in, and keeps
-the sign-in until tql quits, renewing it as it runs out. This uses Snowflake
+(`$BROWSER` if set) and waits up to three minutes for you to sign in. The
+sign-in is saved with the connection, encrypted like its password, and
+renewed as it runs out, so the browser opens again only when Snowflake stops
+renewing it; how long that takes is up to your account's
+`OAUTH_REFRESH_TOKEN_VALIDITY`. This uses Snowflake
 OAuth for local applications, which needs no setup unless your account does
 not have the built-in `SNOWFLAKE$LOCAL_APPLICATION` integration yet
 (`show security integrations like 'SNOWFLAKE$LOCAL\_APPLICATION'`). A role on

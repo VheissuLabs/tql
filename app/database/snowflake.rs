@@ -7,7 +7,7 @@ use serde_json::{Map, Value, json};
 use super::http::{self, Reply};
 use super::lexed::writing_word;
 use super::schema::fill;
-use super::snowflake_oauth::Session;
+use super::snowflake_oauth::{Save, Session};
 use super::{
     Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Table, Total,
     first_count, is_read_only, keyed, outcome_or_affected, quote_double, single_column_keys,
@@ -89,7 +89,12 @@ impl Answer {
 }
 
 impl Snowflake {
-    pub fn open(connection: &Connection, token: Option<String>) -> anyhow::Result<Self> {
+    pub fn open(
+        connection: &Connection,
+        token: Option<String>,
+        sign_in: Option<String>,
+        save: Option<Save>,
+    ) -> anyhow::Result<Self> {
         let account = connection
             .host
             .as_deref()
@@ -107,7 +112,12 @@ impl Snowflake {
         let role = named(&connection.role);
         let credential = match token.filter(|token| !token.trim().is_empty()) {
             Some(token) => Credential::AccessToken(token.trim().to_string()),
-            None => Credential::SignedIn(Session::start(&base, role.as_deref())?),
+            None => Credential::SignedIn(Session::start(
+                &base,
+                role.as_deref(),
+                sign_in.as_deref(),
+                save,
+            )?),
         };
         let mut database = Snowflake {
             client: http::Client::new(TIMEOUT),

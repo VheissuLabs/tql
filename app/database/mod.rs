@@ -11,7 +11,7 @@ pub mod order_by;
 mod postgres;
 mod schema;
 pub mod snowflake;
-mod snowflake_oauth;
+pub mod snowflake_oauth;
 mod sqlite;
 mod sqlsrv;
 mod table;
@@ -29,7 +29,9 @@ pub use table::{Table, split_name};
 
 use crate::driver::Driver;
 use crate::encrypter::Encrypter;
+use crate::paths;
 use crate::store::Connection;
+use crate::store_writer::{Field, StoreWriter};
 use crate::tunnel;
 
 pub use filters::{Condition, Filter, Filters, Joiner, OPERATORS, operator_names, readable_value};
@@ -476,13 +478,28 @@ pub fn connect(
         )?)),
         Driver::Mysql => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
         Driver::Libsql => Ok(Box::new(libsql::Libsql::open(connection, password)?)),
-        Driver::Snowflake => Ok(Box::new(snowflake::Snowflake::open(connection, password)?)),
+        Driver::Snowflake => Ok(Box::new(snowflake::Snowflake::open(
+            connection,
+            password,
+            decrypted(&connection.sign_in, encrypter).ok().flatten(),
+            saves_sign_in(connection.id),
+        )?)),
         Driver::Redis => bail!("a Redis connection is not a SQL database"),
         Driver::Clickhouse => Ok(Box::new(clickhouse::ClickHouse::open(
             connection, password, tunnel,
         )?)),
         Driver::Sqlite | Driver::Duckdb => bail!("a file connection opened as a server"),
     }
+}
+
+fn saves_sign_in(id: i64) -> Option<snowflake_oauth::Save> {
+    (id != 0).then(|| -> snowflake_oauth::Save {
+        Box::new(move |sign_in: &str| {
+            let _ = StoreWriter::open(&paths::store(), &paths::key()).and_then(|writer| {
+                writer.update(id, &[("sign_in", Field::Secret(sign_in.to_string()))])
+            });
+        })
+    })
 }
 
 pub fn decrypted(

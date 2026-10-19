@@ -6,7 +6,8 @@ use std::sync::{Arc, Mutex};
 use app::database::{self, Database, Filter, Filters, Joiner, Kind, Table};
 use app::driver::Driver;
 use app::encrypter::Encrypter;
-use app::store::Connection;
+use app::store::{Connection, Store};
+use app::store_writer::{Field, StoreWriter};
 use serde_json::{Value, json};
 
 #[derive(Debug, Clone)]
@@ -556,6 +557,113 @@ fn a_refused_sign_in_says_why_and_sends_no_statement() {
         "the Snowflake sign-in failed: The user said no"
     );
     assert!(server.statements().is_empty());
+}
+
+fn saved_store() -> (Encrypter, i64) {
+    static SANDBOX: std::sync::Once = std::sync::Once::new();
+    SANDBOX.call_once(|| {
+        let root = std::env::temp_dir().join(format!("tql-snowflake-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        unsafe { std::env::set_var("XDG_CONFIG_HOME", &root) };
+        StoreWriter::prepare(&app::paths::store()).unwrap();
+    });
+    let writer = StoreWriter::open(&app::paths::store(), &app::paths::key()).unwrap();
+    let name = writer.free_name("snowflake").unwrap();
+    let id = writer
+        .create(&[
+            ("name", Field::Text(name)),
+            ("driver", Field::Text("snowflake".into())),
+        ])
+        .unwrap();
+    (Encrypter::ensure(&app::paths::key()).unwrap(), id)
+}
+
+#[test]
+fn a_sign_in_is_saved_with_the_connection_encrypted() {
+    let server = signs_in_with(signed_in, |_| {
+        (
+            200,
+            json!({"access_token": "signed-in", "refresh_token": "keep-me", "expires_in": 600}),
+        )
+    });
+    let (encrypter, id) = saved_store();
+
+    database::connect(
+        &Connection {
+            id,
+            ..browser_connection(&server)
+        },
+        Some(&encrypter),
+    )
+    .unwrap();
+
+    let saved = Store::open(&app::paths::store())
+        .unwrap()
+        .connection(id)
+        .unwrap()
+        .unwrap()
+        .sign_in
+        .unwrap();
+    assert!(!saved.contains("keep-me"));
+    let sign_in: Value = serde_json::from_str(&encrypter.decrypt_string(&saved).unwrap()).unwrap();
+    assert_eq!(sign_in["refresh"], "keep-me");
+    assert_eq!(sign_in["for"], format!("{} ANALYST", server.url));
+}
+
+#[test]
+fn a_saved_sign_in_is_renewed_without_opening_the_browser() {
+    let server = signs_in_with(
+        |_| panic!("the browser opened"),
+        |asked| {
+            assert_eq!(asked["grant_type"], "refresh_token");
+            assert_eq!(asked["refresh_token"], "saved");
+            (200, json!({"access_token": "renewed", "expires_in": 600}))
+        },
+    );
+    let encrypter = Encrypter::throwaway().unwrap();
+    let sign_in = json!({"for": format!("{} ANALYST", server.url), "refresh": "saved"});
+
+    let mut database = database::connect(
+        &Connection {
+            sign_in: Some(encrypter.encrypt_string(&sign_in.to_string()).unwrap()),
+            ..browser_connection(&server)
+        },
+        Some(&encrypter),
+    )
+    .unwrap();
+    database.tables().unwrap();
+
+    let requests = server.requests.lock().unwrap().clone();
+    assert!(
+        !requests
+            .iter()
+            .any(|request| request.path.starts_with("/oauth/authorize"))
+    );
+    assert!(requests.iter().any(|request| {
+        request.headers.get("authorization").map(String::as_str) == Some("Bearer renewed")
+    }));
+}
+
+#[test]
+fn a_sign_in_saved_for_another_role_is_not_used() {
+    let server = signs_in_with(signed_in, |asked| {
+        assert_eq!(asked["grant_type"], "authorization_code");
+        (200, json!({"access_token": "signed-in", "expires_in": 600}))
+    });
+    let encrypter = Encrypter::throwaway().unwrap();
+    let sign_in = json!({"for": format!("{} ACCOUNTADMIN", server.url), "refresh": "other-role"});
+
+    database::connect(
+        &Connection {
+            sign_in: Some(encrypter.encrypt_string(&sign_in.to_string()).unwrap()),
+            ..browser_connection(&server)
+        },
+        Some(&encrypter),
+    )
+    .unwrap();
+
+    let requests = server.requests.lock().unwrap().clone();
+    assert!(requests[0].path.starts_with("/oauth/authorize"));
 }
 
 const LIVE: &str = "needs a Snowflake account seeded by tests/fixtures/snowflake/seed.sh: set TQL_TEST_SNOWFLAKE and TQL_TEST_SNOWFLAKE_TOKEN";

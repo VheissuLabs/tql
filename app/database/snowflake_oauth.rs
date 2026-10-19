@@ -26,10 +26,14 @@ struct Tokens {
     expires: Instant,
 }
 
+pub type Save = Box<dyn Fn(&str) + Send + Sync>;
+
 pub struct Session {
     base: String,
     role: Option<String>,
     tokens: Mutex<Tokens>,
+    saved: Mutex<Option<String>>,
+    save: Option<Save>,
 }
 
 fn signed_in() -> &'static Mutex<HashMap<String, Tokens>> {
@@ -38,21 +42,38 @@ fn signed_in() -> &'static Mutex<HashMap<String, Tokens>> {
 }
 
 impl Session {
-    pub fn start(base: &str, role: Option<&str>) -> anyhow::Result<Session> {
+    pub fn start(
+        base: &str,
+        role: Option<&str>,
+        saved: Option<&str>,
+        save: Option<Save>,
+    ) -> anyhow::Result<Session> {
         let role = role.map(scoped_role);
         let key = cache_key(base, role.as_deref());
+        let saved = saved
+            .and_then(|saved| serde_json::from_str::<Value>(saved).ok())
+            .filter(|saved| saved["for"].as_str() == Some(key.as_str()))
+            .and_then(|saved| saved["refresh"].as_str().map(String::from));
         let remembered = signed_in()
             .lock()
             .ok()
             .and_then(|tokens| tokens.get(&key).cloned());
         let tokens = match remembered {
             Some(tokens) => tokens,
-            None => sign_in(base, role.as_deref())?,
+            None => match saved
+                .as_deref()
+                .and_then(|refresh| refreshed(base, refresh))
+            {
+                Some(tokens) => tokens,
+                None => sign_in(base, role.as_deref())?,
+            },
         };
         let session = Session {
             base: base.to_string(),
             role,
             tokens: Mutex::new(tokens.clone()),
+            saved: Mutex::new(saved),
+            save,
         };
         session.remember(&tokens);
         Ok(session)
@@ -83,28 +104,41 @@ impl Session {
     }
 
     fn renewed(&self, tokens: &Tokens) -> anyhow::Result<Tokens> {
-        let refreshed = tokens.refresh.as_deref().and_then(|refresh| {
-            requested(
-                &self.base,
-                &[("grant_type", "refresh_token"), ("refresh_token", refresh)],
-            )
-            .ok()
-            .map(|mut renewed| {
-                renewed.refresh = renewed.refresh.or_else(|| Some(refresh.to_string()));
-                renewed
-            })
-        });
-        match refreshed {
+        match tokens
+            .refresh
+            .as_deref()
+            .and_then(|refresh| refreshed(&self.base, refresh))
+        {
             Some(tokens) => Ok(tokens),
             None => sign_in(&self.base, self.role.as_deref()),
         }
     }
 
     fn remember(&self, tokens: &Tokens) {
+        let key = cache_key(&self.base, self.role.as_deref());
         if let Ok(mut remembered) = signed_in().lock() {
-            remembered.insert(cache_key(&self.base, self.role.as_deref()), tokens.clone());
+            remembered.insert(key.clone(), tokens.clone());
+        }
+        let (Some(save), Some(refresh), Ok(mut saved)) =
+            (&self.save, &tokens.refresh, self.saved.lock())
+        else {
+            return;
+        };
+        if saved.as_ref() != Some(refresh) {
+            save(&serde_json::json!({ "for": key, "refresh": refresh }).to_string());
+            *saved = Some(refresh.clone());
         }
     }
+}
+
+fn refreshed(base: &str, refresh: &str) -> Option<Tokens> {
+    let mut tokens = requested(
+        base,
+        &[("grant_type", "refresh_token"), ("refresh_token", refresh)],
+    )
+    .ok()?;
+    tokens.refresh = tokens.refresh.or_else(|| Some(refresh.to_string()));
+    Some(tokens)
 }
 
 fn cache_key(base: &str, role: Option<&str>) -> String {
