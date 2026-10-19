@@ -76,7 +76,7 @@ impl Grid<'_> {
             return (
                 0,
                 Vec::new(),
-                vec![Line::styled("no columns", theme::dim())],
+                vec![Line::styled(" no columns", theme::dim())],
             );
         }
 
