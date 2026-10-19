@@ -11,6 +11,7 @@ pub mod order_by;
 mod postgres;
 mod schema;
 pub mod snowflake;
+mod snowflake_oauth;
 mod sqlite;
 mod sqlsrv;
 mod table;

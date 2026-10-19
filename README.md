@@ -131,6 +131,16 @@ A token from a person rather than a service user needs a network policy, or an
 authentication policy with `pat_policy = (network_policy_evaluation =
 enforced_not_required)`, before Snowflake accepts it.
 
+Leave the access token empty to sign in through the browser instead, with
+Snowflake's own sign-in page or your company's single sign-on behind it:
+`snowflake://myorg-myaccount/DATABASE?role=ROLE`. tql opens the browser
+(`$BROWSER` if set), waits up to three minutes for you to sign in, and keeps
+the sign-in until tql quits, renewing it as it runs out. This uses Snowflake
+OAuth for local applications, which needs no setup unless your account does
+not have the built-in `SNOWFLAKE$LOCAL_APPLICATION` integration yet
+(`show security integrations like 'SNOWFLAKE$LOCAL\_APPLICATION'`). A role on
+the connection is the role the sign-in asks for.
+
 ## Installing
 
 One file, no runtime to install. The binary has every database driver

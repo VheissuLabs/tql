@@ -365,6 +365,13 @@ impl ConnectionForm {
                 "myorg-myaccount".to_string()
             }
             "warehouse" | "role" if value.is_empty() => "the user's default".to_string(),
+            "password"
+                if value.is_empty()
+                    && self.driver() == Driver::Snowflake
+                    && !self.unreadable.contains(&"password") =>
+            {
+                "sign in with the browser".to_string()
+            }
             "database" if value.is_empty() && self.driver().is_server() => {
                 "ask on connect".to_string()
             }

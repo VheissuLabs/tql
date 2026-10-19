@@ -15,6 +15,7 @@ struct Request {
     path: String,
     headers: HashMap<String, String>,
     body: Value,
+    raw: String,
 }
 
 type Handler = dyn Fn(&Request) -> (u16, Value) + Send + Sync;
@@ -38,9 +39,13 @@ impl Server {
                 let (status, reply) = handler(&request);
                 recorded.lock().unwrap().push(request);
                 let body = reply.to_string();
+                let location = match reply["location"].as_str() {
+                    Some(location) if status == 302 => format!("location: {location}\r\n"),
+                    _ => String::new(),
+                };
                 let _ = write!(
                     stream,
-                    "HTTP/1.1 {status} OK\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+                    "HTTP/1.1 {status} OK\r\n{location}content-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
                     body.len()
                 );
             }
@@ -85,6 +90,7 @@ fn read(stream: &mut std::net::TcpStream) -> Request {
         method,
         path,
         headers,
+        raw: String::from_utf8_lossy(&body).into_owned(),
         body: serde_json::from_slice(&body).unwrap_or_default(),
     }
 }
@@ -385,22 +391,170 @@ fn refuses_to_change_rows_from_the_grid() {
     assert_eq!(refused.to_string(), database::snowflake::READ_ONLY);
 }
 
+fn query(text: &str) -> HashMap<String, String> {
+    let query = text.split_once('?').map_or(text, |(_, query)| query);
+    query
+        .split('&')
+        .filter_map(|pair| pair.split_once('='))
+        .map(|(key, value)| (key.to_string(), decoded(value)))
+        .collect()
+}
+
+fn decoded(text: &str) -> String {
+    let bytes = text.as_bytes();
+    let mut out = Vec::new();
+    let mut at = 0;
+    while at < bytes.len() {
+        match bytes[at] {
+            b'%' => {
+                out.push(u8::from_str_radix(&text[at + 1..at + 3], 16).unwrap());
+                at += 3;
+            }
+            b'+' => {
+                out.push(b' ');
+                at += 1;
+            }
+            byte => {
+                out.push(byte);
+                at += 1;
+            }
+        }
+    }
+    String::from_utf8(out).unwrap()
+}
+
+fn signs_in_with(
+    authorized: impl Fn(&HashMap<String, String>) -> String + Send + Sync + 'static,
+    tokens: impl Fn(&HashMap<String, String>) -> (u16, Value) + Send + Sync + 'static,
+) -> Server {
+    unsafe { std::env::set_var("BROWSER", "curl -sL") };
+    Server::start(move |request| {
+        if request.path.starts_with("/oauth/authorize") {
+            let asked = query(&request.path);
+            let location = format!("{}?{}", asked["redirect_uri"], authorized(&asked));
+            return (302, json!({ "location": location }));
+        }
+        if request.path == "/oauth/token-request" {
+            return tokens(&query(&request.raw));
+        }
+        if request.headers["authorization"] == "Bearer expired" {
+            return (
+                401,
+                json!({"code": "390318", "message": "OAuth access token expired."}),
+            );
+        }
+        warehouse(request)
+    })
+}
+
+fn browser_connection(server: &Server) -> Connection {
+    Connection {
+        name: "snowflake".into(),
+        driver: Driver::Snowflake,
+        host: Some(server.url.clone()),
+        role: Some("analyst".into()),
+        ..Connection::default()
+    }
+}
+
+fn signed_in(asked: &HashMap<String, String>) -> String {
+    format!("code=the-code&state={}", asked["state"])
+}
+
 #[test]
-fn without_a_token_it_says_what_is_missing_before_reaching_snowflake() {
-    let server = Server::start(warehouse);
+fn without_a_token_it_signs_in_through_the_browser_and_queries_with_that_sign_in() {
+    let server = signs_in_with(signed_in, |_| {
+        (
+            200,
+            json!({"access_token": "signed-in", "refresh_token": "again", "expires_in": 600, "token_type": "Bearer"}),
+        )
+    });
 
-    let failed = database::connect(
-        &Connection {
-            driver: Driver::Snowflake,
-            host: Some(server.url.clone()),
-            ..Connection::default()
+    let mut database = database::connect(&browser_connection(&server), None).unwrap();
+    database.tables().unwrap();
+
+    let requests = server.requests.lock().unwrap().clone();
+    let authorize = query(&requests[0].path);
+    assert_eq!(authorize["client_id"], "LOCAL_APPLICATION");
+    assert_eq!(authorize["response_type"], "code");
+    assert_eq!(authorize["code_challenge_method"], "S256");
+    assert_eq!(
+        authorize["scope"],
+        "refresh_token session:role-encoded:ANALYST"
+    );
+    assert!(authorize["redirect_uri"].starts_with("http://127.0.0.1:"));
+
+    let exchange = query(&requests[1].raw);
+    assert_eq!(exchange["grant_type"], "authorization_code");
+    assert_eq!(exchange["code"], "the-code");
+    assert_eq!(exchange["redirect_uri"], authorize["redirect_uri"]);
+    use base64::Engine;
+    use sha2::Digest;
+    let challenge = base64::engine::general_purpose::URL_SAFE_NO_PAD
+        .encode(sha2::Sha256::digest(exchange["code_verifier"].as_bytes()));
+    assert_eq!(challenge, authorize["code_challenge"]);
+
+    let statement = requests
+        .iter()
+        .find(|request| request.body["statement"].is_string())
+        .unwrap();
+    assert_eq!(statement.headers["authorization"], "Bearer signed-in");
+    assert_eq!(
+        statement.headers["x-snowflake-authorization-token-type"],
+        "OAUTH"
+    );
+}
+
+#[test]
+fn an_expired_sign_in_is_renewed_with_its_refresh_token_and_the_statement_sent_again() {
+    let server = signs_in_with(signed_in, |asked| match asked["grant_type"].as_str() {
+        "authorization_code" => (
+            200,
+            json!({"access_token": "expired", "refresh_token": "again", "expires_in": 600}),
+        ),
+        _ => {
+            assert_eq!(asked["refresh_token"], "again");
+            (200, json!({"access_token": "renewed", "expires_in": 600}))
+        }
+    });
+
+    let mut database = database::connect(&browser_connection(&server), None).unwrap();
+    database.tables().unwrap();
+
+    let requests = server.requests.lock().unwrap().clone();
+    assert_eq!(
+        requests
+            .iter()
+            .filter(|request| request.path.starts_with("/oauth/authorize"))
+            .count(),
+        1
+    );
+    assert!(requests.iter().any(
+        |request| request.headers.get("authorization").map(String::as_str)
+            == Some("Bearer renewed")
+    ));
+}
+
+#[test]
+fn a_refused_sign_in_says_why_and_sends_no_statement() {
+    let server = signs_in_with(
+        |asked| {
+            format!(
+                "error=access_denied&error_description=The+user+said+no&state={}",
+                asked["state"]
+            )
         },
-        None,
-    )
-    .err()
-    .unwrap();
+        |_| panic!("no code to exchange"),
+    );
 
-    assert!(failed.to_string().contains("programmatic access token"));
+    let failed = database::connect(&browser_connection(&server), None)
+        .err()
+        .unwrap();
+
+    assert_eq!(
+        failed.to_string(),
+        "the Snowflake sign-in failed: The user said no"
+    );
     assert!(server.statements().is_empty());
 }
 

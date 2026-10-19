@@ -252,7 +252,7 @@ pub fn encode(text: &str) -> String {
         .collect()
 }
 
-fn decode(text: &str, plus_is_space: bool) -> String {
+pub fn decode(text: &str, plus_is_space: bool) -> String {
     let bytes = text.as_bytes();
     let mut decoded = Vec::with_capacity(bytes.len());
     let mut position = 0;

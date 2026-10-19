@@ -60,6 +60,10 @@ impl Connection {
                 .is_some_and(|host| !host.trim().is_empty())
     }
 
+    pub fn signs_in_with_browser(&self) -> bool {
+        self.driver == Driver::Snowflake && self.password.as_deref().is_none_or(str::is_empty)
+    }
+
     pub fn connection_string(&self, password: Option<&str>) -> String {
         let database = self.database.clone().unwrap_or_default();
         if self.driver.is_file() {

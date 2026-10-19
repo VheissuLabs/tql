@@ -7,6 +7,7 @@ use serde_json::{Map, Value, json};
 use super::http::{self, Reply};
 use super::lexed::writing_word;
 use super::schema::fill;
+use super::snowflake_oauth::Session;
 use super::{
     Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Table, Total,
     first_count, is_read_only, keyed, outcome_or_affected, quote_double, single_column_keys,
@@ -22,7 +23,7 @@ pub const READ_ONLY: &str = "Snowflake tables are read-only in tql: it cannot te
 pub struct Snowflake {
     client: http::Client,
     base: String,
-    token: String,
+    credential: Credential,
     database: Option<String>,
     warehouse: Option<String>,
     role: Option<String>,
@@ -31,6 +32,11 @@ pub struct Snowflake {
     keys: Option<HashMap<Table, Vec<String>>>,
     early_keys: Option<HashMap<Table, Vec<String>>>,
     early_links: Option<HashMap<Table, Vec<ForeignKey>>>,
+}
+
+enum Credential {
+    AccessToken(String),
+    SignedIn(Session),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -84,11 +90,6 @@ impl Answer {
 
 impl Snowflake {
     pub fn open(connection: &Connection, token: Option<String>) -> anyhow::Result<Self> {
-        let Some(token) = token.filter(|token| !token.trim().is_empty()) else {
-            bail!(
-                "Snowflake needs a programmatic access token, saved as the connection's password"
-            );
-        };
         let account = connection
             .host
             .as_deref()
@@ -102,13 +103,19 @@ impl Snowflake {
                 .filter(|value| !value.is_empty())
                 .map(String::from)
         };
+        let base = base_url(account);
+        let role = named(&connection.role);
+        let credential = match token.filter(|token| !token.trim().is_empty()) {
+            Some(token) => Credential::AccessToken(token.trim().to_string()),
+            None => Credential::SignedIn(Session::start(&base, role.as_deref())?),
+        };
         let mut database = Snowflake {
             client: http::Client::new(TIMEOUT),
-            base: base_url(account),
-            token: token.trim().to_string(),
+            base,
+            credential,
             database: named(&connection.database),
             warehouse: named(&connection.warehouse),
-            role: named(&connection.role),
+            role,
             schema: None,
             orders: HashMap::new(),
             keys: None,
@@ -154,12 +161,37 @@ impl Snowflake {
         Ok(())
     }
 
-    fn headers(&self) -> Vec<(&'static str, String)> {
-        vec![
-            ("Authorization", format!("Bearer {}", self.token)),
-            ("Content-Type", "application/json".to_string()),
+    fn token(&self) -> anyhow::Result<String> {
+        match &self.credential {
+            Credential::AccessToken(token) => Ok(token.clone()),
+            Credential::SignedIn(session) => session.access_token(),
+        }
+    }
+
+    fn headers(&self, token: &str, body: bool) -> Vec<(&'static str, String)> {
+        let mut headers = vec![
+            ("Authorization", format!("Bearer {token}")),
             ("Accept", "application/json".to_string()),
-        ]
+        ];
+        if body {
+            headers.push(("Content-Type", "application/json".to_string()));
+        }
+        if matches!(self.credential, Credential::SignedIn(_)) {
+            headers.push(("X-Snowflake-Authorization-Token-Type", "OAUTH".to_string()));
+        }
+        headers
+    }
+
+    fn sent(&self, send: impl Fn(&str) -> anyhow::Result<Reply>) -> anyhow::Result<Reply> {
+        let token = self.token()?;
+        let reply = send(&token)?;
+        match &self.credential {
+            Credential::SignedIn(session) if reply.status == 401 => {
+                session.renew(&token)?;
+                send(&self.token()?)
+            }
+            _ => Ok(reply),
+        }
     }
 
     fn request(&self, sql: &str) -> String {
@@ -180,11 +212,12 @@ impl Snowflake {
     }
 
     fn ask(&self, sql: &str) -> anyhow::Result<Answer> {
-        let reply = self.client.post(
-            &format!("{}/api/v2/statements", self.base),
-            &self.headers(),
-            self.request(sql),
-        )?;
+        let url = format!("{}/api/v2/statements", self.base);
+        let body = self.request(sql);
+        let reply = self.sent(|token| {
+            self.client
+                .post(&url, &self.headers(token, true), body.clone())
+        })?;
         let body = self.settled(reply)?;
         let fields = fields(&body);
         let mut rows = rows(&body["data"], &fields);
@@ -236,12 +269,7 @@ impl Snowflake {
     }
 
     fn fetched(&self, url: &str) -> anyhow::Result<Reply> {
-        let headers: Vec<(&str, String)> = self
-            .headers()
-            .into_iter()
-            .filter(|(name, _)| *name != "Content-Type")
-            .collect();
-        self.client.get(url, &headers)
+        self.sent(|token| self.client.get(url, &self.headers(token, false)))
     }
 
     fn parsed(&self, reply: Reply) -> anyhow::Result<Value> {

@@ -176,7 +176,7 @@ fn browse(
                 let Some(connection) = session.run(&mut picker)? else {
                     return Ok(());
                 };
-                picker.status = Some(connecting_to(&connection.name));
+                picker.status = Some(connecting_to(&connection));
                 session.show(&mut picker)?;
                 connection
             }
@@ -206,7 +206,7 @@ fn browse(
                         .into_iter()
                         .find(|connection| connection.id == id);
                     if let Some(next) = &chosen {
-                        keys.tell(connecting_to(&next.name));
+                        keys.tell(connecting_to(next));
                         session.show(&mut keys)?;
                     }
                 }
@@ -250,7 +250,7 @@ fn browse(
                     .into_iter()
                     .find(|connection| connection.id == id);
                 if let Some(next) = &chosen {
-                    browser.tell(connecting_to(&next.name));
+                    browser.tell(connecting_to(next));
                     session.show(&mut browser)?;
                 }
             }
@@ -298,6 +298,9 @@ fn launching(description: &str) -> String {
     format!("{}, in tql", crate::tui::text::sentence(description))
 }
 
-fn connecting_to(name: &str) -> String {
-    format!("connecting to {name}…")
+fn connecting_to(connection: &Connection) -> String {
+    match connection.signs_in_with_browser() {
+        true => format!("signing in to {} in your browser…", connection.name),
+        false => format!("connecting to {}…", connection.name),
+    }
 }
