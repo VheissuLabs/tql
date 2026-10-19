@@ -123,9 +123,13 @@ role fall back to the user's defaults, and with no schema set tql browses
 `PUBLIC`. Tables, columns and keys come from `SHOW` commands, which do not wake
 the warehouse. Dates, times, timestamps, variants and binary show as Snowflake
 writes them, and declared primary and foreign keys link rows even though
-Snowflake does not enforce them. Tables are read only in tql for that reason:
-with no enforced key, an edited cell cannot be traced to one row. The SQL
-editor runs whatever the role allows.
+Snowflake does not enforce them. Because it does not, tql edits a row inside
+a transaction that commits only if exactly that one row changed: a key that
+matches two rows changes neither, and tql says so. A table with no primary
+key is edited too, matching the row on its values; floats, variants and
+binary are left out of the match, since they do not compare exactly, and if
+what is left fits more than one row the edit is rolled back the same way.
+Writes wake the warehouse; browsing does not.
 
 A token from a person rather than a service user needs a network policy, or an
 authentication policy with `pat_policy = (network_policy_evaluation =

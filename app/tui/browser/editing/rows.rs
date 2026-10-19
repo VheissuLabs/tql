@@ -7,7 +7,7 @@ impl Browser {
             self.say("query results have no row to delete, open the table itself");
             return;
         }
-        if self.key_column().is_none() {
+        if !self.identifies_rows() {
             self.say("no primary key on this table, so a row cannot be deleted safely");
             return;
         }
@@ -172,7 +172,7 @@ impl Browser {
     }
 
     pub(in crate::tui::browser) fn shown_rows(&self) -> Cow<'_, [Vec<String>]> {
-        if self.edits.updates.is_empty() || self.key_column().is_none() {
+        if self.edits.updates.is_empty() || !self.identifies_rows() {
             return Cow::Borrowed(&self.rows);
         }
         let mut rows = self.rows.clone();

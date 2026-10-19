@@ -9,7 +9,7 @@ use super::lexed::writing_word;
 use super::schema::fill;
 use super::snowflake_oauth::{Save, Session};
 use super::{
-    Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Table, Total,
+    Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Table, Total, Values,
     first_count, is_read_only, keyed, outcome_or_affected, quote_double, single_column_keys,
 };
 use crate::store::Connection;
@@ -18,7 +18,17 @@ const TIMEOUT: Duration = Duration::from_secs(300);
 const DOMAIN: &str = ".snowflakecomputing.com";
 const FIRST_WAIT: Duration = Duration::from_millis(250);
 const LONGEST_WAIT: Duration = Duration::from_secs(2);
-pub const READ_ONLY: &str = "Snowflake tables are read-only in tql: it cannot tell which row an edit is for, since Snowflake does not enforce primary keys";
+const UNMATCHED: [&str; 9] = [
+    "float",
+    "variant",
+    "object",
+    "array",
+    "map",
+    "binary",
+    "geography",
+    "geometry",
+    "vector",
+];
 
 pub struct Snowflake {
     client: http::Client,
@@ -29,6 +39,7 @@ pub struct Snowflake {
     role: Option<String>,
     schema: Option<String>,
     orders: HashMap<Table, Vec<String>>,
+    types: HashMap<Table, HashMap<String, String>>,
     keys: Option<HashMap<Table, Vec<String>>>,
     early_keys: Option<HashMap<Table, Vec<String>>>,
     early_links: Option<HashMap<Table, Vec<ForeignKey>>>,
@@ -128,6 +139,7 @@ impl Snowflake {
             role,
             schema: None,
             orders: HashMap::new(),
+            types: HashMap::new(),
             keys: None,
             early_keys: None,
             early_links: None,
@@ -432,6 +444,86 @@ impl Snowflake {
             .unwrap_or_default();
         self.orders.insert(table.clone(), columns.clone());
         columns
+    }
+
+    fn column_types(&mut self, table: &Table) -> anyhow::Result<HashMap<String, String>> {
+        if let Some(types) = self.types.get(table) {
+            return Ok(types.clone());
+        }
+        let types: HashMap<String, String> = self
+            .columns(table)?
+            .into_iter()
+            .map(|column| (column.name, column.type_name))
+            .collect();
+        self.types.insert(table.clone(), types.clone());
+        Ok(types)
+    }
+
+    fn guarded(&self, statement: &str, most: usize) -> anyhow::Result<u64> {
+        let changed = self
+            .ask(&format!(
+                "begin\n  begin transaction;\n  {statement};\n  let changed integer := sqlrowcount;\n  if (changed > {most}) then\n    rollback;\n  else\n    commit;\n  end if;\n  return changed;\nend;"
+            ))?
+            .first()
+            .and_then(|changed| changed.parse::<u64>().ok())
+            .ok_or_else(|| anyhow!("Snowflake did not say how many rows the change reached"))?;
+        if changed > most as u64 {
+            bail!(
+                "{changed} rows matched where {most} {} meant to, so tql rolled the change back. Snowflake does not enforce keys, so rows can repeat; change them from the SQL editor.",
+                if most == 1 { "was" } else { "were" }
+            );
+        }
+        Ok(changed)
+    }
+
+    fn row_matched(&mut self, table: &Table, row: &Values) -> anyhow::Result<String> {
+        let types = self.column_types(table)?;
+        let matched: Vec<String> = row
+            .iter()
+            .filter_map(|(column, value)| {
+                let kind = types.get(column).map(String::as_str).unwrap_or_default();
+                match value {
+                    None => Some(format!("{} is null", quote_double(column))),
+                    Some(_) if UNMATCHED.contains(&kind) => None,
+                    Some(value) => Some(format!("{} = {}", quote_double(column), literal(value))),
+                }
+            })
+            .collect();
+        if matched.is_empty() {
+            bail!(
+                "tql cannot tell this row apart: none of its columns hold a value it can match exactly"
+            );
+        }
+        Ok(matched.join(" and "))
+    }
+
+    fn written_value(&mut self, table: &Table, column: &str, value: Option<&str>) -> String {
+        let kind = self
+            .column_types(table)
+            .ok()
+            .and_then(|types| types.get(column).cloned())
+            .unwrap_or_default();
+        match value {
+            None => "null".to_string(),
+            Some(value) if matches!(kind.as_str(), "variant" | "object" | "array" | "map") => {
+                format!("parse_json({})", literal(value))
+            }
+            Some(value) => literal(value),
+        }
+    }
+
+    fn assigned(&mut self, table: &Table, changes: &Values) -> String {
+        changes
+            .iter()
+            .map(|(column, value)| {
+                format!(
+                    "{} = {}",
+                    quote_double(column),
+                    self.written_value(table, column, value.as_deref())
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
     }
 
     fn table_keys(&self, statement: &str) -> anyhow::Result<Vec<(String, Vec<String>)>> {
@@ -908,26 +1000,80 @@ impl Database for Snowflake {
 
     fn update(
         &mut self,
-        _table: &Table,
-        _column: &str,
-        _key: &str,
-        _key_value: &str,
-        _value: Option<&str>,
+        table: &Table,
+        column: &str,
+        key: &str,
+        key_value: &str,
+        value: Option<&str>,
     ) -> anyhow::Result<u64> {
-        bail!(READ_ONLY)
+        let assigned = self.assigned(table, &vec![(column.to_string(), value.map(String::from))]);
+        self.guarded(
+            &format!(
+                "update {} set {assigned} where {} = {}",
+                table.quoted(quote_double),
+                quote_double(key),
+                literal(key_value)
+            ),
+            1,
+        )
     }
 
-    fn insert(&mut self, _table: &Table, _values: &super::Values) -> anyhow::Result<()> {
-        bail!(READ_ONLY)
+    fn insert(&mut self, table: &Table, values: &Values) -> anyhow::Result<()> {
+        if values.is_empty() {
+            bail!("give the row at least one value; Snowflake has no row of only defaults");
+        }
+        let columns: Vec<String> = values
+            .iter()
+            .map(|(column, _)| quote_double(column))
+            .collect();
+        let written: Vec<String> = values
+            .iter()
+            .map(|(column, value)| self.written_value(table, column, value.as_deref()))
+            .collect();
+        self.ask(&format!(
+            "insert into {} ({}) select {}",
+            table.quoted(quote_double),
+            columns.join(", "),
+            written.join(", ")
+        ))?;
+        Ok(())
     }
 
-    fn delete(
-        &mut self,
-        _table: &Table,
-        _key: &str,
-        _key_values: &[String],
-    ) -> anyhow::Result<u64> {
-        bail!(READ_ONLY)
+    fn delete(&mut self, table: &Table, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
+        let listed: Vec<String> = key_values.iter().map(|value| literal(value)).collect();
+        self.guarded(
+            &format!(
+                "delete from {} where {} in ({})",
+                table.quoted(quote_double),
+                quote_double(key),
+                listed.join(", ")
+            ),
+            key_values.len(),
+        )
+    }
+
+    fn matches_rows(&self) -> bool {
+        true
+    }
+
+    fn update_row(&mut self, table: &Table, row: &Values, changes: &Values) -> anyhow::Result<u64> {
+        let matched = self.row_matched(table, row)?;
+        let assigned = self.assigned(table, changes);
+        self.guarded(
+            &format!(
+                "update {} set {assigned} where {matched}",
+                table.quoted(quote_double)
+            ),
+            1,
+        )
+    }
+
+    fn delete_row(&mut self, table: &Table, row: &Values) -> anyhow::Result<u64> {
+        let matched = self.row_matched(table, row)?;
+        self.guarded(
+            &format!("delete from {} where {matched}", table.quoted(quote_double)),
+            1,
+        )
     }
 }
 

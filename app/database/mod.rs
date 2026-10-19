@@ -304,6 +304,23 @@ pub trait Database {
     ) -> anyhow::Result<u64> {
         bail!("this database cannot delete rows")
     }
+
+    fn matches_rows(&self) -> bool {
+        false
+    }
+
+    fn update_row(
+        &mut self,
+        _table: &Table,
+        _row: &Values,
+        _changes: &Values,
+    ) -> anyhow::Result<u64> {
+        bail!("this database cannot change a row without a primary key")
+    }
+
+    fn delete_row(&mut self, _table: &Table, _row: &Values) -> anyhow::Result<u64> {
+        bail!("this database cannot delete a row without a primary key")
+    }
 }
 
 fn listed(count: usize, placeholder: &impl Fn(usize) -> String) -> String {

@@ -314,9 +314,10 @@ impl RecordForm {
 
     pub fn title(&self) -> String {
         match (&self.key, &self.key_value) {
-            (Some(key), Some(key_value)) if !self.adds() => {
+            (Some(key), Some(key_value)) => {
                 format!("EDIT ROW  ·  {}  ·  {key} {key_value}", self.table)
             }
+            (None, Some(_)) => format!("EDIT ROW  ·  {}", self.table),
             _ => format!("NEW ROW  ·  {}", self.table),
         }
     }

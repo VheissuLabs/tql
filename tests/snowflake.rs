@@ -379,17 +379,179 @@ fn a_read_only_connection_never_sends_a_write() {
     assert_eq!(server.statements().len(), sent);
 }
 
+fn editable(reached: &'static str) -> impl Fn(&Request) -> (u16, Value) + Send + Sync {
+    move |request| {
+        let statement = request.body["statement"].as_str().unwrap_or_default();
+        if statement.starts_with("show columns in table") {
+            return (
+                200,
+                answered(
+                    &[("column_name", "text", 0), ("data_type", "text", 0)],
+                    json!([
+                        ["ID", r#"{"type":"FIXED","precision":38,"scale":0}"#],
+                        ["NAME", r#"{"type":"TEXT","length":100}"#],
+                        ["SCORE", r#"{"type":"REAL"}"#],
+                        ["TAGS", r#"{"type":"VARIANT"}"#],
+                        ["NOTE", r#"{"type":"TEXT","length":100}"#],
+                    ]),
+                ),
+            );
+        }
+        if statement.starts_with("begin") {
+            return (
+                200,
+                answered(&[("anonymous block", "fixed", 0)], json!([[reached]])),
+            );
+        }
+        if statement.starts_with("insert") {
+            return (
+                200,
+                answered(&[("number of rows inserted", "fixed", 0)], json!([["1"]])),
+            );
+        }
+        warehouse(request)
+    }
+}
+
+fn change(server: &Server) -> String {
+    let statement = server.statements().last().unwrap().clone();
+    statement
+        .lines()
+        .find(|line| {
+            line.trim_start().starts_with("update") || line.trim_start().starts_with("delete")
+        })
+        .unwrap()
+        .trim()
+        .trim_end_matches(';')
+        .to_string()
+}
+
 #[test]
-fn refuses_to_change_rows_from_the_grid() {
-    let server = Server::start(warehouse);
+fn changes_a_row_by_its_key_inside_a_transaction_that_rolls_back_unless_one_row_changed() {
+    let server = Server::start(editable("1"));
+    let mut database = connect(&server, Some("ANALYTICS"));
+
+    let reached = database
+        .update(
+            &Table::bare("ORDERS"),
+            "TAGS",
+            "ID",
+            "1",
+            Some(r#"{"rush":true}"#),
+        )
+        .unwrap();
+
+    assert_eq!(reached, 1);
+    assert_eq!(
+        change(&server),
+        r#"update "ORDERS" set "TAGS" = parse_json('{"rush":true}') where "ID" = '1'"#
+    );
+    let script = server.statements().last().unwrap().clone();
+    assert!(script.starts_with("begin\n  begin transaction;"));
+    assert!(script.contains("if (changed > 1) then\n    rollback;"));
+}
+
+#[test]
+fn a_key_that_matches_two_rows_changes_neither_and_says_so() {
+    let server = Server::start(editable("2"));
     let mut database = connect(&server, Some("ANALYTICS"));
 
     let refused = database
-        .update(&Table::bare("ORDERS"), "TOTAL", "ID", "1", Some("0"))
+        .update(&Table::bare("ORDERS"), "NAME", "ID", "1", Some("it's"))
         .err()
         .unwrap();
 
-    assert_eq!(refused.to_string(), database::snowflake::READ_ONLY);
+    assert!(
+        refused
+            .to_string()
+            .starts_with("2 rows matched where 1 was meant to, so tql rolled the change back")
+    );
+    assert_eq!(
+        change(&server),
+        r#"update "ORDERS" set "NAME" = 'it\'s' where "ID" = '1'"#
+    );
+}
+
+#[test]
+fn a_row_with_no_key_is_matched_on_the_values_snowflake_compares_exactly() {
+    let server = Server::start(editable("1"));
+    let mut database = connect(&server, Some("ANALYTICS"));
+    let row = vec![
+        ("ID".to_string(), Some("7".to_string())),
+        ("NAME".to_string(), Some("ada".to_string())),
+        ("SCORE".to_string(), Some("0.1".to_string())),
+        ("TAGS".to_string(), Some("[1,2]".to_string())),
+        ("NOTE".to_string(), None),
+    ];
+
+    database
+        .update_row(
+            &Table::bare("EVENTS"),
+            &row,
+            &vec![
+                ("NAME".to_string(), Some("grace".to_string())),
+                ("NOTE".to_string(), None),
+            ],
+        )
+        .unwrap();
+    assert_eq!(
+        change(&server),
+        r#"update "EVENTS" set "NAME" = 'grace', "NOTE" = null where "ID" = '7' and "NAME" = 'ada' and "NOTE" is null"#
+    );
+
+    database.delete_row(&Table::bare("EVENTS"), &row).unwrap();
+    assert_eq!(
+        change(&server),
+        r#"delete from "EVENTS" where "ID" = '7' and "NAME" = 'ada' and "NOTE" is null"#
+    );
+    assert!(database.matches_rows());
+}
+
+#[test]
+fn deletes_by_key_roll_back_when_more_rows_match_than_were_marked() {
+    let server = Server::start(editable("3"));
+    let mut database = connect(&server, Some("ANALYTICS"));
+
+    let refused = database
+        .delete(
+            &Table::bare("ORDERS"),
+            "ID",
+            &["1".to_string(), "2".to_string()],
+        )
+        .err()
+        .unwrap();
+
+    assert!(
+        refused
+            .to_string()
+            .starts_with("3 rows matched where 2 were meant to")
+    );
+    assert_eq!(
+        change(&server),
+        r#"delete from "ORDERS" where "ID" in ('1', '2')"#
+    );
+}
+
+#[test]
+fn adds_a_row_with_json_columns_parsed() {
+    let server = Server::start(editable("1"));
+    let mut database = connect(&server, Some("ANALYTICS"));
+
+    database
+        .insert(
+            &Table::bare("EVENTS"),
+            &vec![
+                ("ID".to_string(), Some("8".to_string())),
+                ("TAGS".to_string(), Some(r#"{"a":1}"#.to_string())),
+                ("NOTE".to_string(), None),
+            ],
+        )
+        .unwrap();
+
+    assert_eq!(
+        server.statements().last().unwrap(),
+        r#"insert into "EVENTS" ("ID", "TAGS", "NOTE") select '8', parse_json('{"a":1}'), null"#
+    );
 }
 
 fn query(text: &str) -> HashMap<String, String> {
@@ -894,4 +1056,215 @@ fn live_says_what_snowflake_said_and_reads_back_a_write() {
     let deleted = database.run("delete from STAGING.SCRATCH").unwrap();
     assert_eq!(deleted.affected, Some(2));
     database.run("drop table STAGING.SCRATCH").unwrap();
+}
+
+#[test]
+#[ignore = "needs a Snowflake account seeded by tests/fixtures/snowflake/seed.sh: set TQL_TEST_SNOWFLAKE and TQL_TEST_SNOWFLAKE_TOKEN"]
+fn live_edits_rows_matched_by_the_values_the_grid_shows() {
+    let mut database = live();
+    let table = Table::in_schema("STAGING", "EDITS");
+    database
+        .run(
+            "create or replace table STAGING.EDITS (ID number, NAME text, D date, T time, NTZ timestamp_ntz, LTZ timestamp_ltz, TZ timestamp_tz, B boolean, F float, V variant)",
+        )
+        .unwrap();
+    let added = |id: &str, name: &str| -> Vec<(String, Option<String>)> {
+        [
+            ("ID", Some(id)),
+            ("NAME", Some(name)),
+            ("D", Some("2024-02-29")),
+            ("T", Some("13:45:30.123")),
+            ("NTZ", Some("2024-02-29 13:45:30.123")),
+            ("LTZ", Some("2024-02-29 13:45:30.123 +00:00")),
+            ("TZ", Some("2024-02-29 13:45:30.123 +05:30")),
+            ("B", Some("true")),
+            ("F", Some("0.1")),
+            ("V", Some(r#"{"tags":["a","b"]}"#)),
+        ]
+        .into_iter()
+        .map(|(column, value)| (column.to_string(), value.map(String::from)))
+        .collect()
+    };
+    database
+        .insert(&table, &added("1", "it's \\ here"))
+        .unwrap();
+    database.insert(&table, &added("2", "twin")).unwrap();
+    database.insert(&table, &added("2", "twin")).unwrap();
+
+    let shown = |database: &mut Box<dyn Database>| {
+        let page = database.filtered_rows(&table, 100, 0, None, None).unwrap();
+        let mut rows: Vec<Vec<(String, Option<String>)>> = page
+            .rows
+            .iter()
+            .map(|row| {
+                page.headers
+                    .iter()
+                    .cloned()
+                    .zip(row.iter().cloned())
+                    .collect()
+            })
+            .collect();
+        rows.sort_by(|left, right| left[0].1.cmp(&right[0].1));
+        rows
+    };
+    let rows = shown(&mut database);
+    assert_eq!(rows.len(), 3);
+    assert_eq!(rows[0][9].1.as_deref(), Some(r#"{"tags":["a","b"]}"#));
+
+    let reached = database
+        .update_row(
+            &table,
+            &rows[0],
+            &vec![
+                ("NAME".to_string(), Some("changed".to_string())),
+                ("V".to_string(), Some(r#"{"n":1}"#.to_string())),
+            ],
+        )
+        .unwrap();
+    assert_eq!(reached, 1);
+
+    let twins = database
+        .update_row(
+            &table,
+            &rows[1],
+            &vec![("NAME".to_string(), Some("one".to_string()))],
+        )
+        .err()
+        .unwrap();
+    assert!(
+        twins
+            .to_string()
+            .starts_with("2 rows matched where 1 was meant to"),
+        "{twins}"
+    );
+
+    let rows = shown(&mut database);
+    assert_eq!(rows[0][1].1.as_deref(), Some("changed"));
+    assert_eq!(rows[0][9].1.as_deref(), Some(r#"{"n":1}"#));
+    assert_eq!(rows[1][1].1.as_deref(), Some("twin"));
+    assert_eq!(rows[2][1].1.as_deref(), Some("twin"));
+
+    assert_eq!(database.delete_row(&table, &rows[0]).unwrap(), 1);
+    assert_eq!(
+        database
+            .update(&table, "NAME", "NAME", "twin", Some("x"))
+            .err()
+            .map(|e| e.to_string().starts_with("2 rows matched")),
+        Some(true)
+    );
+    assert_eq!(
+        database
+            .delete(&table, "NAME", &["twin".to_string()])
+            .err()
+            .map(|e| e.to_string().starts_with("2 rows matched where 1 was")),
+        Some(true)
+    );
+    assert_eq!(shown(&mut database).len(), 2);
+    database.run("drop table STAGING.EDITS").unwrap();
+}
+
+#[derive(Clone, Default)]
+struct Keyless {
+    written: Arc<Mutex<Vec<String>>>,
+}
+
+impl Database for Keyless {
+    fn tables(&mut self) -> anyhow::Result<Vec<Table>> {
+        Ok(vec![Table::bare("EVENTS")])
+    }
+
+    fn filtered_rows(
+        &mut self,
+        _: &Table,
+        _: usize,
+        _: usize,
+        _: Option<&app::database::Sort>,
+        _: Option<&Filters>,
+    ) -> anyhow::Result<app::database::Page> {
+        Ok(app::database::Page {
+            headers: vec!["ID".to_string(), "NAME".to_string()],
+            rows: vec![
+                vec![Some("1".to_string()), Some("Ada".to_string())],
+                vec![Some("2".to_string()), None],
+            ],
+            ..app::database::Page::default()
+        })
+    }
+
+    fn primary_keys(&mut self) -> anyhow::Result<HashMap<Table, String>> {
+        Ok(HashMap::new())
+    }
+
+    fn select(&mut self, _: &str, _: &[String]) -> anyhow::Result<app::database::Page> {
+        Ok(app::database::Page::default())
+    }
+
+    fn columns(&mut self, _: &Table) -> anyhow::Result<Vec<app::database::Column>> {
+        Ok(Vec::new())
+    }
+
+    fn indexes(&mut self, _: &Table) -> anyhow::Result<Vec<app::database::Index>> {
+        Ok(Vec::new())
+    }
+
+    fn foreign_keys(&mut self) -> anyhow::Result<HashMap<Table, Vec<app::database::ForeignKey>>> {
+        Ok(HashMap::new())
+    }
+
+    fn matches_rows(&self) -> bool {
+        true
+    }
+
+    fn update_row(
+        &mut self,
+        _: &Table,
+        row: &app::database::Values,
+        changes: &app::database::Values,
+    ) -> anyhow::Result<u64> {
+        self.written
+            .lock()
+            .unwrap()
+            .push(format!("update {row:?} {changes:?}"));
+        Ok(1)
+    }
+
+    fn delete_row(&mut self, _: &Table, row: &app::database::Values) -> anyhow::Result<u64> {
+        self.written.lock().unwrap().push(format!("delete {row:?}"));
+        Ok(1)
+    }
+}
+
+#[test]
+fn the_grid_edits_and_deletes_a_snowflake_row_with_no_key_by_its_values() {
+    app::settings::install(app::settings::Settings::default());
+    let database = Keyless::default();
+    let written = database.written.clone();
+    let connection = Connection {
+        name: "snowflake".into(),
+        driver: Driver::Snowflake,
+        database: Some("ANALYTICS".into()),
+        ..Connection::default()
+    };
+    let mut fake = app::terminal::Fake::sized(
+        app::tui::Browser::new(connection, Box::new(database)).unwrap(),
+        100,
+        24,
+    );
+    fake.settle();
+    fake.app.focus = app::tui::Focus::Grid;
+
+    fake.press("le");
+    assert_eq!(fake.app.edits.read_only_reason(), None);
+    fake.press(" Lovelace\x04");
+    fake.press("jd");
+    fake.press(":w\n");
+
+    assert_eq!(fake.app.status(), "wrote 1 row updated · 1 deleted");
+    assert_eq!(
+        *written.lock().unwrap(),
+        [
+            r#"update [("ID", Some("1")), ("NAME", Some("Ada"))] [("NAME", Some("Ada Lovelace"))]"#,
+            r#"delete [("ID", Some("2")), ("NAME", None)]"#,
+        ]
+    );
 }

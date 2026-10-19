@@ -90,7 +90,7 @@ impl Driver {
     }
 
     pub fn edits_rows(self) -> bool {
-        !matches!(self, Driver::Clickhouse | Driver::Snowflake)
+        !matches!(self, Driver::Clickhouse)
     }
 
     pub fn has_databases(self) -> bool {
