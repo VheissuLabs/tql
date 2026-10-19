@@ -4,6 +4,38 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## 0.16.0
+
+### New Features
+
+- Snowflake connections sign in through the browser when no access token is
+  saved, with Snowflake's sign-in page or the company's single sign-on behind
+  it. tql opens the browser (`$BROWSER` if set) and uses Snowflake OAuth for
+  local applications, so there is nothing to set up on accounts that have the
+  built-in `SNOWFLAKE$LOCAL_APPLICATION` integration.
+- The sign-in is saved with the connection, encrypted like its password, and
+  renewed as it runs out, so the next launch, `dump`, `export` and the MCP
+  tools use it without the browser. A sign-in saved for another account or
+  role is not used.
+- Snowflake tables are edited in the grid. Each change runs in a transaction
+  that commits only if exactly the rows edited changed, since Snowflake does
+  not enforce primary keys; a key that matches two rows changes neither, and
+  tql says so.
+- ClickHouse tables are edited in the grid. tql counts the rows a change
+  would reach and changes nothing if that is more than the rows edited, then
+  waits for the mutation, so `:w` is done when it says so. Maps, arrays and
+  tuples write back as they are shown.
+- A Snowflake or ClickHouse table with no primary key is edited too, with the
+  row matched on its values. Floats, variants, maps, arrays and other values
+  that do not compare exactly are left out of the match, and a match that
+  fits more than one row changes nothing.
+
+### Bug Fixes
+
+- "no columns" sits one cell in from the border, like the SQL editor's text.
+
+---
+
 ## 0.15.0
 
 ### New Features
