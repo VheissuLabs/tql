@@ -415,7 +415,7 @@ impl Database for Columnar {
 }
 
 #[test]
-fn editing_a_clickhouse_table_says_why_it_cannot() {
+fn a_clickhouse_table_opens_for_editing() {
     let connection = Connection {
         driver: Driver::Clickhouse,
         database: Some("default".into()),
@@ -428,19 +428,134 @@ fn editing_a_clickhouse_table_says_why_it_cannot() {
     );
     fake.settle();
     fake.app.focus = app::tui::Focus::Grid;
-    let message = "ClickHouse tables are read-only in tql: its updates are background mutations";
 
-    fake.press("e");
-    assert!(fake.screen().contains("read-only"), "{}", fake.screen());
-    assert_eq!(fake.app.edits.read_only_reason(), Some(message));
-    fake.press("\x1b");
+    fake.press("le");
+    assert_eq!(fake.app.edits.editing().as_deref(), Some("Ada"));
+    assert_eq!(fake.app.edits.read_only_reason(), None);
+}
 
-    for key in ["E", "d", "N"] {
-        fake.press(key);
-        let screen = fake.screen();
-        assert!(screen.contains(message), "after {key}: {screen}");
-        fake.press("\x1b");
-    }
-    assert!(fake.app.edits.deletes.is_empty());
-    assert!(fake.app.edits.inserts.is_empty());
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn edits_adds_and_deletes_rows_by_key_and_waits_for_each_change() {
+    let (mut database, name) = scratch();
+    let events = Table::bare("events");
+
+    assert_eq!(
+        database
+            .update(&events, "name", "id", "2", Some("Grace"))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        database
+            .update(&events, "tags", "id", "1", Some("['z']"))
+            .unwrap(),
+        1
+    );
+    assert_eq!(
+        database.update(&events, "maybe", "id", "2", None).unwrap(),
+        1
+    );
+    assert_eq!(
+        database
+            .update(&events, "name", "id", "9", Some("nobody"))
+            .unwrap(),
+        0
+    );
+    let key = database
+        .update(&events, "id", "id", "1", Some("5"))
+        .err()
+        .unwrap();
+    assert!(key.to_string().contains("key column"), "{key}");
+    database
+        .insert(
+            &events,
+            &vec![
+                ("id".to_string(), Some("3".to_string())),
+                ("name".to_string(), Some("it's \\ new".to_string())),
+                ("counts".to_string(), Some("{'y':2}".to_string())),
+                ("maybe".to_string(), None),
+            ],
+        )
+        .unwrap();
+
+    let page = database.rows(&events, 10, 0, None).unwrap();
+    assert_eq!(cell(&page, 0, "tags").as_deref(), Some("['z']"));
+    assert_eq!(cell(&page, 1, "name").as_deref(), Some("Grace"));
+    assert_eq!(cell(&page, 1, "maybe"), None);
+    assert_eq!(cell(&page, 2, "name").as_deref(), Some("it's \\ new"));
+    assert_eq!(cell(&page, 2, "counts").as_deref(), Some("{'y':2}"));
+
+    assert_eq!(
+        database
+            .delete(&events, "id", &["1".to_string(), "3".to_string()])
+            .unwrap(),
+        2
+    );
+    assert_eq!(database.rows(&events, 10, 0, None).unwrap().rows.len(), 1);
+
+    drop(&mut database, &name);
+}
+
+#[test]
+#[ignore = "needs a ClickHouse server: set TQL_TEST_CLICKHOUSE=host:port (user tql, password tql)"]
+fn a_table_with_no_key_is_edited_by_the_values_the_grid_shows_and_repeated_rows_are_left_alone() {
+    let (mut database, name) = scratch();
+    database
+        .run(
+            "create table loose (n Int32, label Nullable(String), f Float64, at DateTime) \
+             engine = MergeTree order by tuple()",
+        )
+        .unwrap();
+    database
+        .run(
+            "insert into loose values (1, 'a', 0.1, '2026-10-19 08:30:00'), (2, 'twin', 0.5, '2026-10-19 08:30:00'), \
+             (2, 'twin', 0.5, '2026-10-19 08:30:00'), (3, null, 1.5, '2026-10-19 08:30:00')",
+        )
+        .unwrap();
+    let loose = Table::bare("loose");
+    let shown = |database: &mut Box<dyn Database>| -> Vec<Vec<(String, Option<String>)>> {
+        let page = database.rows(&loose, 10, 0, None).unwrap();
+        let mut rows: Vec<Vec<(String, Option<String>)>> = page
+            .rows
+            .iter()
+            .map(|row| {
+                page.headers
+                    .iter()
+                    .cloned()
+                    .zip(row.iter().cloned())
+                    .collect()
+            })
+            .collect();
+        rows.sort_by(|left, right| left[0].1.cmp(&right[0].1));
+        rows
+    };
+    let rows = shown(&mut database);
+
+    let changes = vec![("label".to_string(), Some("changed".to_string()))];
+    assert_eq!(database.update_row(&loose, &rows[0], &changes).unwrap(), 1);
+    assert_eq!(database.update_row(&loose, &rows[3], &changes).unwrap(), 1);
+    let twins = database
+        .update_row(&loose, &rows[1], &changes)
+        .err()
+        .unwrap();
+    assert!(
+        twins
+            .to_string()
+            .starts_with("2 rows match where 1 was meant to"),
+        "{twins}"
+    );
+
+    let rows = shown(&mut database);
+    let labels: Vec<Option<&str>> = rows.iter().map(|row| row[1].1.as_deref()).collect();
+    assert_eq!(
+        labels,
+        [Some("changed"), Some("twin"), Some("twin"), Some("changed")]
+    );
+
+    assert_eq!(database.delete_row(&loose, &rows[0]).unwrap(), 1);
+    assert!(database.delete_row(&loose, &rows[1]).is_err());
+    assert_eq!(shown(&mut database).len(), 3);
+
+    drop(&mut database, &name);
 }

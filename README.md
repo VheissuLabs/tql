@@ -109,9 +109,14 @@ such as `BLPOP` or `SUBSCRIBE`.
 ClickHouse connects over its HTTP interface, port 8123, or 8443 with an
 `ssl_mode` set (`clickhouses://` in a connection string). Databases switch with
 `b`, and every type shows as itself: arrays, maps and tuples as JSON, and big
-integers and decimals exactly. Tables are read only in tql: ClickHouse changes
-rows with background mutations, which do not fit editing a cell and writing it
-with `:w`. The SQL editor runs whatever the connection allows.
+integers and decimals exactly. Tables are edited like any other, with one
+difference: ClickHouse keys need not be unique, so before each change tql
+counts the rows it would reach and changes nothing if that is more than the
+rows you edited. The change then runs as a mutation that tql waits for, so
+`:w` is done when it says so. A table with no key is matched on its values,
+leaving out floats, maps, arrays and other values that do not compare
+exactly. Key columns cannot be changed; ClickHouse does not allow it. The SQL
+editor runs whatever the connection allows.
 
 ### Snowflake
 

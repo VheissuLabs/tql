@@ -89,10 +89,6 @@ impl Driver {
         matches!(self, Driver::Sqlite | Driver::Duckdb)
     }
 
-    pub fn edits_rows(self) -> bool {
-        !matches!(self, Driver::Clickhouse)
-    }
-
     pub fn has_databases(self) -> bool {
         matches!(
             self,

@@ -20,8 +20,26 @@ use rustls::ClientConfig;
 const TIMEOUT: Duration = Duration::from_secs(300);
 const FORMAT: &str = "TabSeparatedWithNamesAndTypes";
 const SESSION_LOCKED: &str = "SESSION_IS_LOCKED";
-pub const READ_ONLY: &str =
-    "ClickHouse tables are read-only in tql: its updates are background mutations";
+const UNMATCHED: [&str; 18] = [
+    "float32",
+    "float64",
+    "bfloat16",
+    "json",
+    "object",
+    "map",
+    "array",
+    "tuple",
+    "nested",
+    "variant",
+    "dynamic",
+    "aggregatefunction",
+    "simpleaggregatefunction",
+    "point",
+    "ring",
+    "linestring",
+    "polygon",
+    "multipolygon",
+];
 
 pub struct ClickHouse {
     base: String,
@@ -32,6 +50,7 @@ pub struct ClickHouse {
     session: String,
     locked: bool,
     orders: HashMap<Table, String>,
+    types: HashMap<Table, HashMap<String, String>>,
     _tunnel: Option<Arc<Tunnel>>,
 }
 
@@ -88,6 +107,7 @@ impl ClickHouse {
             session: session(),
             locked: false,
             orders: HashMap::new(),
+            types: HashMap::new(),
             _tunnel: tunnel,
         };
         let readonly = database.ask("select getSetting('readonly')", false)?;
@@ -580,26 +600,171 @@ impl Database for ClickHouse {
 
     fn update(
         &mut self,
-        _table: &Table,
-        _column: &str,
-        _key: &str,
-        _key_value: &str,
-        _value: Option<&str>,
+        table: &Table,
+        column: &str,
+        key: &str,
+        key_value: &str,
+        value: Option<&str>,
     ) -> anyhow::Result<u64> {
-        bail!(READ_ONLY)
+        let condition = format!(
+            "{} = {}",
+            quote(key),
+            self.typed(table, key, Some(key_value))
+        );
+        let assigned = self.assigned(table, &vec![(column.to_string(), value.map(String::from))]);
+        self.mutated(table, &format!("update {assigned}"), &condition, 1)
     }
 
-    fn insert(&mut self, _table: &Table, _values: &Values) -> anyhow::Result<()> {
-        bail!(READ_ONLY)
+    fn insert(&mut self, table: &Table, values: &Values) -> anyhow::Result<()> {
+        let columns: Vec<String> = values.iter().map(|(column, _)| quote(column)).collect();
+        let typed: Vec<String> = values
+            .iter()
+            .map(|(column, value)| self.typed(table, column, value.as_deref()))
+            .collect();
+        let statement = match values.is_empty() {
+            true => format!("insert into {} values ()", table.quoted(quote)),
+            false => format!(
+                "insert into {} ({}) select {}",
+                table.quoted(quote),
+                columns.join(", "),
+                typed.join(", ")
+            ),
+        };
+        self.ask(&statement, false)?;
+        Ok(())
     }
 
-    fn delete(
+    fn delete(&mut self, table: &Table, key: &str, key_values: &[String]) -> anyhow::Result<u64> {
+        let listed: Vec<String> = key_values
+            .iter()
+            .map(|value| self.typed(table, key, Some(value)))
+            .collect();
+        let condition = format!("{} in ({})", quote(key), listed.join(", "));
+        self.mutated(table, "delete", &condition, key_values.len())
+    }
+
+    fn matches_rows(&self) -> bool {
+        true
+    }
+
+    fn update_row(&mut self, table: &Table, row: &Values, changes: &Values) -> anyhow::Result<u64> {
+        let condition = self.row_matched(table, row)?;
+        let assigned = self.assigned(table, changes);
+        self.mutated(table, &format!("update {assigned}"), &condition, 1)
+    }
+
+    fn delete_row(&mut self, table: &Table, row: &Values) -> anyhow::Result<u64> {
+        let condition = self.row_matched(table, row)?;
+        self.mutated(table, "delete", &condition, 1)
+    }
+}
+
+impl ClickHouse {
+    fn column_types(&mut self, table: &Table) -> HashMap<String, String> {
+        if let Some(types) = self.types.get(table) {
+            return types.clone();
+        }
+        let types: HashMap<String, String> = self
+            .columns(table)
+            .unwrap_or_default()
+            .into_iter()
+            .map(|column| (column.name, column.full_type))
+            .collect();
+        self.types.insert(table.clone(), types.clone());
+        types
+    }
+
+    fn typed(&mut self, table: &Table, column: &str, value: Option<&str>) -> String {
+        let Some(value) = value else {
+            return "NULL".to_string();
+        };
+        let Some(kind) = self.column_types(table).get(column).cloned() else {
+            return literal(value);
+        };
+        let tab_separated = value
+            .replace('\\', "\\\\")
+            .replace('\t', "\\t")
+            .replace('\n', "\\n");
+        format!(
+            "(select v from format(TabSeparated, {}, {}))",
+            literal(&format!("v {kind}")),
+            literal(&tab_separated)
+        )
+    }
+
+    fn assigned(&mut self, table: &Table, changes: &Values) -> String {
+        changes
+            .iter()
+            .map(|(column, value)| {
+                format!(
+                    "{} = {}",
+                    quote(column),
+                    self.typed(table, column, value.as_deref())
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(", ")
+    }
+
+    fn row_matched(&mut self, table: &Table, row: &Values) -> anyhow::Result<String> {
+        let types = self.column_types(table);
+        let matched: Vec<String> = row
+            .iter()
+            .filter_map(|(column, value)| {
+                let kind = types.get(column).map(String::as_str).unwrap_or_default();
+                let base = unwrapped(unwrapped(kind))
+                    .split('(')
+                    .next()
+                    .unwrap_or_default()
+                    .to_lowercase();
+                match value {
+                    None => Some(format!("isNull({})", quote(column))),
+                    Some(_) if UNMATCHED.contains(&base.as_str()) => None,
+                    Some(value) => Some(format!(
+                        "{} = {}",
+                        quote(column),
+                        self.typed(table, column, Some(value))
+                    )),
+                }
+            })
+            .collect();
+        if matched.is_empty() {
+            bail!(
+                "tql cannot tell this row apart: none of its columns hold a value it can match exactly"
+            );
+        }
+        Ok(matched.join(" and "))
+    }
+
+    fn mutated(
         &mut self,
-        _table: &Table,
-        _key: &str,
-        _key_values: &[String],
+        table: &Table,
+        change: &str,
+        condition: &str,
+        most: usize,
     ) -> anyhow::Result<u64> {
-        bail!(READ_ONLY)
+        let reached = first_count(self.page(&format!(
+            "select count() from {} where {condition}",
+            table.quoted(quote)
+        ))?)
+        .ok_or_else(|| anyhow!("the count came back empty"))?;
+        if reached > most {
+            bail!(
+                "{reached} rows match where {most} {} meant to, so tql changed nothing. ClickHouse keys need not be unique, so rows can repeat; change them from the SQL editor.",
+                if most == 1 { "was" } else { "were" }
+            );
+        }
+        if reached == 0 {
+            return Ok(0);
+        }
+        self.ask(
+            &format!(
+                "alter table {} {change} where {condition} settings mutations_sync = 2",
+                table.quoted(quote)
+            ),
+            false,
+        )?;
+        Ok(reached as u64)
     }
 }
 
