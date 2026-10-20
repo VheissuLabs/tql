@@ -14,11 +14,11 @@ path = "main.rs"
 [dependencies]
 aes = "0.8"
 anyhow = "1.0.104"
-base64 = "0.22"
+base64 = "0.23"
 cbc = "0.1"
 clap = { version = "4.6.7", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions", "color", "string"] }
 clap_complete = "4"
-getrandom = "0.3"
+getrandom = "0.4"
 hmac = "0.12"
 jiff = "0.2.37"
 libc = "0.2"
@@ -30,7 +30,7 @@ rusqlite = { version = "0.40.2", features = ["backup", "bundled"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde_json = { version = "1.0.151", features = ["preserve_order"] }
 sha2 = "0.10"
-signal-hook = "0.3"
+signal-hook = "0.4"
 futures-util = { version = "0.3", default-features = false }
 tiberius = { version = "0.13", default-features = false, features = ["tds73", "rustls"] }
 tokio = { version = "1", features = ["rt", "net", "time"] }
