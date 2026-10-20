@@ -1,5 +1,3 @@
-# The SQL editor
-
 Press `s` (or `:sql`) for the SQL editor, which opens above the results.
 `ctrl+r` runs what you have typed, `esc` returns to browsing. Results replace the
 grid and are read-only, since they have no primary key to write back through.
@@ -133,10 +131,19 @@ the statement names (or of the open table, before it names one), the tables, and
 the keywords. After `from`, `join`, `into` or `update` it offers only tables, and
 after `u.` only the columns of whatever `u` stands for.
 
-`tab` takes the highlighted one, `↑` `↓` or `ctrl+p` `ctrl+n` move, and `esc`
-closes the list. In vim, a second `esc` leaves insert mode. `↵` still adds a
-line. With no list open, `tab` indents as before. `sql_complete = false` turns it
-off.
+Where a database has schemas, it offers them too, and the tables in each:
+after `sales.` only the tables in `sales`, and the columns of `sales.orders`, or
+of its alias, as for any other table. A table outside your default schema is
+offered as `schema.table`.
+
+`tab` or `↵` takes the highlighted one, `↑` `↓` or `ctrl+p` `ctrl+n` move, and
+`esc` closes the list. In vim, a second `esc` leaves insert mode. With no list
+open, `↵` adds a line and `tab` indents as before. `sql_complete = false` turns
+it off.
+
+Keywords are written in the case you type them, `sel` giving `select` and `SEL`
+giving `SELECT`. `sql_keyword_case = "upper"` or `"lower"` writes them that way
+whatever you type.
 
 ## Query history
 

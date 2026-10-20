@@ -1,5 +1,3 @@
-# Keys
-
 Every key tql answers to, by where you are. `?` shows an abridged version of this
 inside the application.
 
@@ -16,7 +14,8 @@ does where it does not. **They can be changed**, see [Rebinding](#rebinding).
 | `↑ ↓` / `j k` | move the cursor; a count before it moves that far, so `5j` is five rows and `3l` three columns |
 | `← →` / `h l` | move between columns; `→` from the table list moves to the grid |
 | `n` / `p` | next or previous page, 100 rows |
-| `↵` | open the table, or edit the cell |
+| `↵` | open the table, or edit the cell; on a schema header, fold or unfold it |
+| `h` / `l` on a schema header | fold or unfold the schema; `h` on a table folds the schema it is in |
 | `i` | inspect the row: its fields and its related records |
 | `I` | view just this value in a modal, read only |
 | `e` | edit the value |
@@ -99,8 +98,9 @@ is on [Commands](Commands#in-the-interface).
 | `:settings` | change your settings |
 | `:v` `:version` | show which version of tql this is |
 | `:update` | check for a newer tql and install it, while you keep working |
-| `:open <path or connection string>` | open a SQLite file or a `mysql://`, `pgsql://` or `sqlsrv://` URL, saved to the connection list as `tql open` does |
+| `:open <path or connection string>` | open a SQLite or DuckDB file or a `mysql://`, `pgsql://`, `sqlsrv://`, `libsql://`, `clickhouse://`, `snowflake://`, `redis://` or `valkey://` URL, saved to the connection list as `tql open` does |
 | `:h` `:help` | the keys and commands |
+| `:sign-out` | on the connection list, forget the Snowflake browser sign-in saved with the highlighted connection |
 
 A command that belongs to the other screen says so: `:sql` on the connection list
 says it works once a connection is open.
@@ -247,6 +247,32 @@ in [the config](Configuration#ui) turns that off). `ctrl+d` on a database puts
 `:drop database` and its name on the command line, so nothing is dropped until `↵`
 there.
 
+## The key browser
+
+A Redis or Valkey connection opens the key browser. See
+[Redis and Valkey](Redis-and-Valkey).
+
+| Key | Action |
+| --- | --- |
+| `j k` / `↑ ↓` | move |
+| `↵` / `l` | open a key, or unfold a namespace |
+| `h` | fold the namespace |
+| `tab` | between the keys and the value |
+| `/` | find keys by pattern: `user:*`, or words, which become `*words*` |
+| `b` | switch database |
+| `r` | scan again |
+| `N` | on the keys, a new key; on a value, a new field, item or member |
+| `e` | edit the value, field, item, member or score |
+| `d` | mark a key, or a value's field, item or member, for removal |
+| `T` | set the key's TTL, or on a hash field, that field's (Redis 7.4, Valkey 9); empty keeps it forever |
+| `:log` | the server's recent slow commands |
+| `R` | rename the key |
+| `n` / `p` | next or previous page of a value |
+| `:w` | write every pending change in one transaction |
+| `u` | drop the pending changes |
+| `s` | the command pane; `ctrl+r` runs the line, `esc` closes it |
+| `ctrl+k` | the command palette, keys included |
+
 ## The connection list
 
 | Key | Action |
@@ -261,6 +287,7 @@ there.
 | `Y` | yank the connection string, password and all |
 | `d` / `u` | mark for deletion, or clear the marks |
 | `:w` | write the marked deletions |
+| `:sign-out` | forget the Snowflake browser sign-in saved with this connection |
 | `ctrl+k` | the command palette: these commands and every connection, by name |
 | `q` / `esc` | quit |
 

@@ -1,5 +1,3 @@
-# Configuration
-
 Every setting, what it does, and what it is if you never touch it.
 
 `tql settings`, or `:settings` and `ctrl+k` inside tql, opens every setting on one
@@ -52,7 +50,8 @@ notices and tells you which ones.
 | `sql_always` | `false` | keep it on screen instead of only after `s` |
 | `sql_height` | `0` | rows it takes; 0 picks a third of the frame |
 | `sql_editor` | `"simple"` | how it takes keys: `"simple"` types and `↵` adds a line, `"vim"` is vim, from normal mode; `ctrl+r` runs the statement in simple, `:r` in vim |
-| `sql_complete` | `true` | offer tables, columns and keywords as you type in the SQL editor; `tab` takes one, `esc` closes the list |
+| `sql_complete` | `true` | offer tables, columns and keywords as you type in the SQL editor; `tab` or `↵` takes one, `esc` closes the list |
+| `sql_keyword_case` | `"match"` | the case completion writes keywords in: `"match"` follows how you type, or always `"upper"` or `"lower"` |
 | `row_style` | `"marker"` | how the current row is shown: `"marker"`, `"dim-others"`, `"bold"`, `"inverse"`, `"underline"` |
 | `top_margin` | `0` | blank rows above the frame |
 | `bottom_margin` | `0` | blank rows below the frame |

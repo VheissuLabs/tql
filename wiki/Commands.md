@@ -1,5 +1,3 @@
-# Commands
-
 Running `tql` with nothing after it opens the connection list, which is how you
 will use it nearly all the time. The rest are for the things a full-screen
 interface is the wrong shape for.
@@ -66,8 +64,9 @@ version you have.
 | `:settings` | change your settings |
 | `:v` `:version` | show which version of tql this is |
 | `:update` | check for a newer tql and install it, while you keep working |
-| `:open <path or connection string>` | open a SQLite file or a `mysql://`, `pgsql://` or `sqlsrv://` URL, saved to the connection list as `tql open` does |
+| `:open <path or connection string>` | open a SQLite or DuckDB file or a `mysql://`, `pgsql://`, `sqlsrv://`, `libsql://`, `clickhouse://`, `snowflake://`, `redis://` or `valkey://` URL, saved to the connection list as `tql open` does |
 | `:h` `:help` | the keys and commands |
+| `:sign-out` | on the connection list, forget the Snowflake browser sign-in saved with the highlighted connection |
 
 A command that belongs to the other screen says so: `:sql` on the connection list
 says it works once a connection is open. Every command here that needs the screen

@@ -1,5 +1,3 @@
-# Developing tql
-
 tql is a Rust program. The interface is drawn with [ratatui](https://ratatui.rs)
 over crossterm; the CLI commands and the MCP server are thin layers over the same
 database code the interface uses. The only unusual parts are the drawing rules,
@@ -43,7 +41,9 @@ The dev profile is optimised, so a debug build feels like the real thing.
 | `app/tui/browser/` | the browser itself: state, keys and what each one does, split by concern |
 | `app/tui/chrome.rs` | islands, modals, the theme, the hotkey bar |
 | `app/terminal/` | the event loop, keys, the mouse, margins, and `Fake` for tests |
-| `app/database/` | one file per driver behind the `Database` trait, filters, sorting, the exporter, TLS |
+| `app/database/` | one file per SQL driver behind the `Database` trait (MySQL, Postgres, SQLite, SQL Server, DuckDB, libSQL, ClickHouse), `Table` and schemas, filters, sorting, the exporter, TLS |
+| `app/keystore/` | Redis and Valkey behind the `KeyStore` trait |
+| `app/tui/keys/` | the key browser: the namespace tree, the value views, editing, the command pane |
 | `app/dump/` | the engines behind `dump`, `load` and `sync` |
 | `app/ai/` | asking for SQL: providers and their wire formats |
 | `app/mcp/` | the MCP server and its tools |
@@ -164,6 +164,12 @@ for them with `--ignored`:
 | `tests/kinds.rs` | a local MySQL and Postgres |
 | `tests/live_tls_ssh.rs` | Docker, for throwaway MySQL, Postgres and sshd containers |
 | `tests/sqlsrv.rs` | a SQL Server at `TQL_TEST_SQLSRV=host:port`, with `TQL_TEST_SQLSRV_PASSWORD` for `sa` |
+| `tests/clickhouse.rs` | a ClickHouse at `TQL_TEST_CLICKHOUSE=host:port`, user `tql`, password `tql` |
+| `tests/libsql.rs` | a libSQL server (`sqld`) at `TQL_TEST_LIBSQL=http://host:port` |
+| `tests/redis.rs`, `tests/redis_tls.rs`, `tests/keys_browser.rs` | Redis or Valkey at `TQL_TEST_REDIS`, `TQL_TEST_VALKEY` and `TQL_TEST_VALKEY9`, each `host:port`; Valkey 9 covers field TTLs and the command log |
+
+CI runs all of these against service containers: ClickHouse, libSQL, Redis 7,
+Valkey 8 and Valkey 9.
 
 **Parity** renders the same scenarios in tql 0.11.0 and in this tql and compares
 every frame, text and colour. Where they differ on purpose, `tests/parity.rs` says

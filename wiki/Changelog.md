@@ -1,5 +1,3 @@
-# Changelog
-
 What changed in each release. The full file lives in the repository and is always
 up to date:
 

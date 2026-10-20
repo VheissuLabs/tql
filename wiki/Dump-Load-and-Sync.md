@@ -1,5 +1,3 @@
-# Dump, load and sync
-
 `tql export` writes rows as SQL you can read. For a whole database, schema and
 all, and fast enough for tables in the tens of gigabytes, there are three
 commands: `tql dump` writes a database to a folder, `tql load` reads one back, and
