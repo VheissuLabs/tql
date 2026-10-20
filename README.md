@@ -145,7 +145,8 @@ with** in the connection form or `authenticator` in a connection string:
 
 Either browser sign-in is saved with the connection, so the next launch,
 `tql dump`, `tql export` and the MCP server reuse it rather than opening a
-browser each time.
+browser each time. `:sign-out` on the connection list forgets the one saved
+with the highlighted connection.
 
 Warehouse and role fall back to the user's defaults, and with no schema set
 tql browses `PUBLIC`. Tables, columns and keys come from `SHOW` commands,

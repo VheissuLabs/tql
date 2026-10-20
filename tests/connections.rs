@@ -1511,3 +1511,38 @@ fn the_form_asks_each_new_driver_for_what_it_needs() {
     assert_eq!(form.value("ssl_mode"), "require");
     assert_eq!(form.value("port"), "8443");
 }
+
+#[test]
+fn sign_out_forgets_the_browser_sign_in_saved_with_a_snowflake_connection() {
+    let scratch = Scratch::new("sign-out");
+    scratch.add(&[
+        ("name", Field::Text("analytics".into())),
+        ("driver", Field::Text("snowflake".into())),
+        ("host", Field::Text("myorg-myaccount".into())),
+        (
+            "sign_in",
+            Field::Secret(r#"{"for":"x","refresh":"kept"}"#.into()),
+        ),
+    ]);
+    scratch.add(&[
+        ("name", Field::Text("blog".into())),
+        ("driver", Field::Text("mysql".into())),
+    ]);
+    let mut fake = scratch.picker();
+
+    fake.press(":sign-out\n");
+    assert!(
+        fake.screen().contains("signed out of analytics"),
+        "{}",
+        fake.screen()
+    );
+    assert_eq!(scratch.named("analytics").unwrap().sign_in, None);
+
+    fake.press(":sign-out\n");
+    assert!(
+        fake.screen()
+            .contains("analytics has no browser sign-in saved")
+    );
+    fake.press("j:sign-out\n");
+    assert!(fake.screen().contains("blog has no browser sign-in saved"));
+}
