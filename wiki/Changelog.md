@@ -8,6 +8,7 @@ Fuller announcements for the recent releases live under `release-notes/`:
 
 | Release | |
 | --- | --- |
+| [0.17.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.17.0.md) | Snowflake key pair and SSO sign-in, sign-out, and connections that come back after sleep |
 | [0.16.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.16.0.md) | Snowflake single sign-on, and editing Snowflake and ClickHouse tables in the grid |
 | [0.15.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.15.0.md) | Snowflake, over its SQL API with a programmatic access token |
 | [0.14.2](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.14.2.md) | `tql connect`: open a saved connection by name, straight from the shell |
@@ -22,6 +23,17 @@ Fuller announcements for the recent releases live under `release-notes/`:
 | [0.11.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.11.0.md) | `tql dump`, `tql load` and `tql sync`, and the TablePlus import |
 | [0.9.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.9.0.md) | SQL Server on macOS, and the agent commands |
 | [0.6.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.6.0.md) | The releases before 0.9 |
+
+## 0.17.0
+
+- Snowflake signs in with a key pair, or through SSO in the browser straight
+  to your identity provider, as well as with an access token or the browser
+  sign-in. Thanks to [@jimbojsb](https://github.com/jimbojsb)
+  ([#13](https://github.com/VheissuLabs/tql/pull/13)).
+- `:sign-out` on the connection list forgets a Snowflake connection's saved
+  browser sign-in.
+- A connection dropped while the laptop slept comes back on its own, its SSH
+  tunnel too ([#14](https://github.com/VheissuLabs/tql/issues/14)).
 
 ## 0.16.0
 

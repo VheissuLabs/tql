@@ -4,7 +4,7 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
-## Unreleased
+## 0.17.0
 
 ### New Features
 
@@ -12,17 +12,40 @@ announcement under `release-notes/` for GitHub.
   the path to their RSA private key, PKCS#8 (encrypted or not) or PKCS#1, with
   an encrypted key's passphrase saved as the password. tql signs a fresh JWT
   before the last one runs out. `authenticator=snowflake_jwt&private_key_path=…`
-  in a connection string.
-- Snowflake connections sign in through the browser with SSO
-  (`authenticator=externalbrowser`): tql opens your identity provider and
-  takes the session it hands back. The session is kept in the store,
-  encrypted, and renewed without the browser while Snowflake allows, so
-  `tql query`, the MCP server and the next launch reuse it. Large answers that
-  Snowflake keeps in cloud storage are gathered in parallel.
-- The connection form asks a Snowflake connection how to sign in, and offers
-  the PEM private keys in `~/.snowflake`, `~/.ssh` and the current directory.
+  in a connection string. Thanks to
+  [@jimbojsb](https://github.com/jimbojsb)
+  ([#13](https://github.com/VheissuLabs/tql/pull/13)).
+- Snowflake connections sign in through SSO in the browser
+  (`authenticator=externalbrowser`): tql opens your identity provider
+  directly and takes the session it hands back, so accounts without the
+  built-in OAuth integration the browser sign-in needs can sign in too. The
+  session is saved with the connection and renewed without the browser while
+  Snowflake allows. Large answers that Snowflake keeps in cloud storage are
+  gathered in parallel. Thanks to [@jimbojsb](https://github.com/jimbojsb)
+  ([#13](https://github.com/VheissuLabs/tql/pull/13)).
+- The connection form asks a Snowflake connection how to sign in: access
+  token, key pair, browser sign-in or SSO through the browser, and offers the
+  PEM private keys in `~/.snowflake`, `~/.ssh` and the current directory. A
+  connection saved by 0.16.0 with no access token keeps signing in through
+  the browser.
+- `:sign-out` on the connection list forgets the browser sign-in saved with
+  the highlighted Snowflake connection, so it signs in afresh next time.
+
+### Bug Fixes
+
+- A connection the server dropped while the laptop slept comes back on its
+  own. MySQL and Postgres check a connection that has sat idle for half a
+  minute and connect again before the next statement, so it just runs;
+  nothing is sent twice. A connection through SSH starts its tunnel again
+  first, and SQL Server and ClickHouse use the new tunnel too
+  ([#14](https://github.com/VheissuLabs/tql/issues/14)).
 - A copied Snowflake connection string keeps its warehouse, role, sign-in and
-  private key path.
+  private key path ([#13](https://github.com/VheissuLabs/tql/pull/13)).
+
+### Enhancements
+
+- Every dependency is on its latest release, the RustCrypto crates behind
+  saved passwords included; passwords saved before read back as they did.
 
 ---
 
