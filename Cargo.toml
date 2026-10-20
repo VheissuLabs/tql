@@ -12,14 +12,14 @@ name = "tql"
 path = "main.rs"
 
 [dependencies]
-aes = "0.8"
+aes = "0.9"
 anyhow = "1.0.104"
 base64 = "0.23"
-cbc = "0.1"
+cbc = "0.2"
 clap = { version = "4.6.7", default-features = false, features = ["std", "help", "usage", "error-context", "suggestions", "color", "string"] }
 clap_complete = "4"
 getrandom = "0.4"
-hmac = "0.12"
+hmac = "0.13"
 jiff = "0.2.37"
 libc = "0.2"
 mysql = { version = "28.0.3", default-features = false, features = ["minimal", "rustls-tls-ring"] }
@@ -29,7 +29,7 @@ regex = "1.13.1"
 rusqlite = { version = "0.40.2", features = ["backup", "bundled"] }
 rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12", "logging"] }
 serde_json = { version = "1.0.151", features = ["preserve_order"] }
-sha2 = "0.10"
+sha2 = "0.11"
 signal-hook = "0.4"
 futures-util = { version = "0.3", default-features = false }
 tiberius = { version = "0.13", default-features = false, features = ["tds73", "rustls"] }

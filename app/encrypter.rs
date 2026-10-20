@@ -6,8 +6,8 @@ use anyhow::{Context, anyhow, bail};
 use base64::Engine;
 use base64::engine::general_purpose::STANDARD;
 use cbc::cipher::block_padding::Pkcs7;
-use cbc::cipher::{BlockDecryptMut, BlockEncryptMut, KeyIvInit};
-use hmac::{Hmac, Mac};
+use cbc::cipher::{BlockModeDecrypt, BlockModeEncrypt, KeyIvInit};
+use hmac::{Hmac, KeyInit, Mac};
 use sha2::Sha256;
 
 pub struct Encrypter {
@@ -57,7 +57,7 @@ impl Encrypter {
         buffer.resize(length + 16 - length % 16, 0);
         let ciphertext = cbc::Encryptor::<Aes256>::new_from_slices(&self.key, &iv)
             .map_err(|_| anyhow!("the tql key is the wrong length"))?
-            .encrypt_padded_mut::<Pkcs7>(&mut buffer, length)
+            .encrypt_padded::<Pkcs7>(&mut buffer, length)
             .map_err(|_| anyhow!("the value could not be encrypted"))?
             .to_vec();
 
@@ -98,7 +98,7 @@ impl Encrypter {
         let mut ciphertext = STANDARD.decode(value)?;
         let plaintext = cbc::Decryptor::<Aes256>::new_from_slices(&self.key, &iv)
             .map_err(|_| anyhow!("the IV is the wrong length"))?
-            .decrypt_padded_mut::<Pkcs7>(&mut ciphertext)
+            .decrypt_padded::<Pkcs7>(&mut ciphertext)
             .map_err(|_| anyhow!("the payload could not be decrypted"))?;
 
         Ok(String::from_utf8(plaintext.to_vec())?)
