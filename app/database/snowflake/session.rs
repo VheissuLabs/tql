@@ -94,7 +94,7 @@ impl Keeper {
             .ok()?
             .connection(self.id)
             .ok()??
-            .session?;
+            .sign_in?;
         let saved = Encrypter::from_file(&self.key)
             .ok()?
             .decrypt_string(&payload)
@@ -104,7 +104,7 @@ impl Keeper {
 
     fn save(&self, tokens: &Tokens, owner: &str) {
         let _ = StoreWriter::open(&self.store, &self.key).and_then(|writer| {
-            writer.update(self.id, &[("session", Field::Secret(tokens.saved(owner)))])
+            writer.update(self.id, &[("sign_in", Field::Secret(tokens.saved(owner)))])
         });
     }
 }

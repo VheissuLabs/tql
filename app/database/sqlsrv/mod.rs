@@ -25,7 +25,7 @@ use super::{
     shown_delete, shown_insert, shown_update, single_column_keys, split_list, update_statement,
 };
 use crate::store::Connection;
-use crate::tunnel::Tunnel;
+use crate::tunnel::{Route, Tunnel};
 
 const MASTER: &str = "master";
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
@@ -38,6 +38,7 @@ pub struct SqlServer {
     connection: Connection,
     password: Option<String>,
     default: Option<String>,
+    route: Route,
     _tunnel: Option<Arc<Tunnel>>,
 }
 

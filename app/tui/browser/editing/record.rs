@@ -45,7 +45,12 @@ impl Browser {
             {
                 row.put(&column, value);
             }
-            RecordForm::editing(&table.to_string(), &columns, &row, &key)
+            let mut form = RecordForm::editing(&table.to_string(), &columns, &row, &key);
+            if key.is_empty() {
+                form.key = None;
+                form.key_value = Some(key_value);
+            }
+            form
         };
 
         let header = self.headers.get(self.column_index);

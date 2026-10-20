@@ -127,9 +127,12 @@ impl ConnectionForm {
             ("private_key", text(&connection.private_key)),
             (
                 "authenticator",
-                Authenticator::parse(connection.authenticator.as_deref())
-                    .label()
-                    .to_string(),
+                Authenticator::chosen(
+                    connection.authenticator.as_deref(),
+                    connection.password.as_deref(),
+                )
+                .label()
+                .to_string(),
             ),
         ] {
             form.values.insert(key, value);
@@ -237,7 +240,7 @@ impl ConnectionForm {
                 Authenticator::KeyPair => {
                     fields.extend([("private_key", "Private key"), ("password", "Passphrase")])
                 }
-                Authenticator::Browser => {}
+                Authenticator::OAuth | Authenticator::Browser => {}
             }
             fields.extend([("warehouse", "Warehouse"), ("role", "Role")]);
         } else {
@@ -401,6 +404,7 @@ impl ConnectionForm {
             "username" if value.is_empty() && self.driver() == Driver::Snowflake => {
                 match self.authenticator() {
                     Authenticator::Token => "the token's user".to_string(),
+                    Authenticator::OAuth => "whoever signs in".to_string(),
                     _ => "your Snowflake login name".to_string(),
                 }
             }

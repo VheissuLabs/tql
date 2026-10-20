@@ -10,7 +10,9 @@ impl Browser {
             return;
         };
         let key = self.key_column();
-        if key.is_none() && (!self.edits.updates.is_empty() || !self.edits.deletes.is_empty()) {
+        if !self.identifies_rows()
+            && (!self.edits.updates.is_empty() || !self.edits.deletes.is_empty())
+        {
             return;
         }
         let (adds, edits, deletes) = (
@@ -71,6 +73,10 @@ impl Browser {
                 )
             })?;
             self.edits.inserts.remove(0);
+        }
+
+        if key.is_empty() {
+            return self.write_matched(table);
         }
 
         while let Some((key_value, columns)) = self.edits.updates.first().cloned() {
@@ -134,6 +140,80 @@ impl Browser {
             self.edits.deletes.clear();
         }
         Ok(())
+    }
+
+    fn write_matched(&mut self, table: &Table) -> Result<(), Failure> {
+        let failed = |title, error, note| Failure { title, error, note };
+        let gone = || {
+            anyhow::anyhow!(
+                "No row matches it any more, or tql could not match its values, so nothing was written."
+            )
+        };
+        while let Some((identity, columns)) = self.edits.updates.first().cloned() {
+            let row: Values = serde_json::from_str(&identity).unwrap_or_default();
+            let statement = format!(
+                "update {} set {} where {}",
+                self.quoted_table(table),
+                self.placeholders(&columns, ", "),
+                self.placeholders(&row, " and ")
+            );
+            let started = Instant::now();
+            let written = self
+                .database
+                .update_row(table, &row, &columns)
+                .and_then(|reached| match reached {
+                    0 => Err(gone()),
+                    _ => Ok(()),
+                });
+            self.remember_write(&statement, started, &written, 1);
+            written.map_err(|error| {
+                failed(
+                    "COULD NOT WRITE",
+                    error,
+                    "The change is still here. Fix it and :w again, or u to drop it.",
+                )
+            })?;
+            self.edits.updates.remove(0);
+        }
+
+        while let Some(identity) = self.edits.deletes.first().cloned() {
+            let row: Values = serde_json::from_str(&identity).unwrap_or_default();
+            let statement = format!(
+                "delete from {} where {}",
+                self.quoted_table(table),
+                self.placeholders(&row, " and ")
+            );
+            let started = Instant::now();
+            let written = self
+                .database
+                .delete_row(table, &row)
+                .and_then(|reached| match reached {
+                    0 => Err(gone()),
+                    _ => Ok(()),
+                });
+            self.remember_write(&statement, started, &written, 1);
+            written.map_err(|error| {
+                failed(
+                    "COULD NOT DELETE",
+                    error,
+                    "The rows are still marked. u clears them.",
+                )
+            })?;
+            self.edits.deletes.remove(0);
+        }
+        Ok(())
+    }
+
+    fn quoted_table(&self, table: &Table) -> String {
+        table.quoted(|identifier| self.database.quote(identifier))
+    }
+
+    fn placeholders(&self, values: &Values, joiner: &str) -> String {
+        values
+            .iter()
+            .map(|(column, _)| format!("{} = ?", self.database.quote(column)))
+            .collect::<Vec<_>>()
+            .join(joiner)
     }
 
     pub(super) fn remember_write(

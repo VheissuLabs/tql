@@ -31,9 +31,9 @@ pub struct Connection {
     pub ssl_key: Option<String>,
     pub warehouse: Option<String>,
     pub role: Option<String>,
+    pub sign_in: Option<String>,
     pub authenticator: Option<String>,
     pub private_key: Option<String>,
-    pub session: Option<String>,
     pub last_used_at: Option<String>,
 }
 
@@ -61,6 +61,16 @@ impl Connection {
                 .ssh_host
                 .as_deref()
                 .is_some_and(|host| !host.trim().is_empty())
+    }
+
+    pub fn signs_in_with_browser(&self) -> bool {
+        self.driver == Driver::Snowflake
+            && self.sign_in.is_none()
+            && crate::database::snowflake::Authenticator::chosen(
+                self.authenticator.as_deref(),
+                self.password.as_deref(),
+            )
+            .signs_in_with_browser()
     }
 
     pub fn connection_string(&self, password: Option<&str>) -> String {
@@ -229,9 +239,9 @@ impl Store {
                 ssl_key: text("ssl_key"),
                 warehouse: text("warehouse").filter(|warehouse| !warehouse.trim().is_empty()),
                 role: text("role").filter(|role| !role.trim().is_empty()),
+                sign_in: text("sign_in").filter(|sign_in| !sign_in.is_empty()),
                 authenticator: text("authenticator").filter(|value| !value.trim().is_empty()),
                 private_key: text("private_key").filter(|path| !path.trim().is_empty()),
-                session: text("session").filter(|session| !session.is_empty()),
                 last_used_at: text("last_used_at"),
             }))
         })?;

@@ -11,6 +11,7 @@ pub mod order_by;
 mod postgres;
 mod schema;
 pub mod snowflake;
+pub mod snowflake_oauth;
 mod sqlite;
 mod sqlsrv;
 mod table;
@@ -28,7 +29,9 @@ pub use table::{Table, split_name};
 
 use crate::driver::Driver;
 use crate::encrypter::Encrypter;
+use crate::paths;
 use crate::store::Connection;
+use crate::store_writer::{Field, StoreWriter};
 use crate::tunnel;
 
 pub use filters::{Condition, Filter, Filters, Joiner, OPERATORS, operator_names, readable_value};
@@ -301,6 +304,23 @@ pub trait Database {
     ) -> anyhow::Result<u64> {
         bail!("this database cannot delete rows")
     }
+
+    fn matches_rows(&self) -> bool {
+        false
+    }
+
+    fn update_row(
+        &mut self,
+        _table: &Table,
+        _row: &Values,
+        _changes: &Values,
+    ) -> anyhow::Result<u64> {
+        bail!("this database cannot change a row without a primary key")
+    }
+
+    fn delete_row(&mut self, _table: &Table, _row: &Values) -> anyhow::Result<u64> {
+        bail!("this database cannot delete a row without a primary key")
+    }
 }
 
 fn listed(count: usize, placeholder: &impl Fn(usize) -> String) -> String {
@@ -458,34 +478,42 @@ pub fn connect(
         _ => {}
     }
 
-    let tunnel = match connection.uses_ssh() {
-        true => Some(tunnel::for_connection(
-            connection,
-            decrypted(&connection.ssh_password, encrypter)?,
-        )?),
-        false => None,
+    let route = match connection.uses_ssh() {
+        true => tunnel::Route::of(connection, decrypted(&connection.ssh_password, encrypter)?),
+        false => tunnel::Route::default(),
     };
 
     match connection.driver {
         Driver::Pgsql => Ok(Box::new(postgres::Postgres::open(
-            connection, password, tunnel,
+            connection, password, route,
         )?)),
         Driver::Sqlsrv => Ok(Box::new(sqlsrv::SqlServer::through(
-            connection, password, tunnel,
+            connection, password, route,
         )?)),
-        Driver::Mysql => Ok(Box::new(mysql::MySql::open(connection, password, tunnel)?)),
+        Driver::Mysql => Ok(Box::new(mysql::MySql::open(connection, password, route)?)),
         Driver::Libsql => Ok(Box::new(libsql::Libsql::open(connection, password)?)),
         Driver::Snowflake => Ok(Box::new(snowflake::Snowflake::open(
             connection,
             password,
-            decrypted(&connection.session, encrypter).ok().flatten(),
+            decrypted(&connection.sign_in, encrypter).ok().flatten(),
+            saves_sign_in(connection.id),
         )?)),
         Driver::Redis => bail!("a Redis connection is not a SQL database"),
         Driver::Clickhouse => Ok(Box::new(clickhouse::ClickHouse::open(
-            connection, password, tunnel,
+            connection, password, route,
         )?)),
         Driver::Sqlite | Driver::Duckdb => bail!("a file connection opened as a server"),
     }
+}
+
+fn saves_sign_in(id: i64) -> Option<snowflake_oauth::Save> {
+    (id != 0).then(|| -> snowflake_oauth::Save {
+        Box::new(move |sign_in: &str| {
+            let _ = StoreWriter::open(&paths::store(), &paths::key()).and_then(|writer| {
+                writer.update(id, &[("sign_in", Field::Secret(sign_in.to_string()))])
+            });
+        })
+    })
 }
 
 pub fn decrypted(

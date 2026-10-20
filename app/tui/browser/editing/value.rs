@@ -176,7 +176,7 @@ impl Browser {
             return;
         }
 
-        if self.key_column().is_none() {
+        if !self.identifies_rows() {
             self.say("nothing to save");
             return;
         }

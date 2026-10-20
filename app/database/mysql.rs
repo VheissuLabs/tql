@@ -1,6 +1,7 @@
 use super::{Table, Total, first_count};
 use std::collections::HashMap;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::Context;
 use mysql::consts::CapabilityFlags;
@@ -17,67 +18,113 @@ use super::{
     update_statement,
 };
 use crate::store::Connection;
-use crate::tunnel::Tunnel;
+use crate::tunnel::{Route, Tunnel};
+
+const IDLE: Duration = Duration::from_secs(30);
+const PING_WAIT: Duration = Duration::from_secs(5);
 
 pub struct MySql {
-    connection: Conn,
+    connection: Option<Conn>,
+    settings: Connection,
+    password: Option<String>,
+    route: Route,
+    used: Instant,
     _tunnel: Option<Arc<Tunnel>>,
+}
+
+fn dial(
+    connection: &Connection,
+    password: Option<String>,
+    tunnel: Option<&Arc<Tunnel>>,
+) -> anyhow::Result<Conn> {
+    let settings = Tls::of(connection)?;
+    let options = OptsBuilder::new()
+        .prefer_socket(false)
+        .additional_capabilities(CapabilityFlags::CLIENT_FOUND_ROWS)
+        .ip_or_hostname(Some(match tunnel {
+            Some(_) => "127.0.0.1".to_string(),
+            None => connection
+                .host
+                .clone()
+                .unwrap_or_else(|| "127.0.0.1".to_string()),
+        }))
+        .tcp_port(
+            tunnel
+                .map(|tunnel| tunnel.port)
+                .or(connection.port)
+                .unwrap_or(3306),
+        )
+        .user(connection.username.clone())
+        .pass(password)
+        .db_name(
+            connection
+                .database
+                .clone()
+                .filter(|database| !database.trim().is_empty()),
+        );
+
+    let connected = match Conn::new(options.clone().ssl_opts(settings.mysql_options())) {
+        Err(mysql::Error::DriverError(DriverError::TlsNotSupported))
+            if settings.mode == Mode::Prefer =>
+        {
+            Conn::new(options)
+        }
+        other => other,
+    };
+    connected.with_context(|| format!("cannot connect to {}", connection.describe()))
 }
 
 impl MySql {
     pub fn open(
         connection: &Connection,
         password: Option<String>,
-        tunnel: Option<Arc<Tunnel>>,
+        route: Route,
     ) -> anyhow::Result<Self> {
-        let settings = Tls::of(connection)?;
-        let options = OptsBuilder::new()
-            .prefer_socket(false)
-            .additional_capabilities(CapabilityFlags::CLIENT_FOUND_ROWS)
-            .ip_or_hostname(Some(match &tunnel {
-                Some(_) => "127.0.0.1".to_string(),
-                None => connection
-                    .host
-                    .clone()
-                    .unwrap_or_else(|| "127.0.0.1".to_string()),
-            }))
-            .tcp_port(
-                tunnel
-                    .as_ref()
-                    .map(|tunnel| tunnel.port)
-                    .or(connection.port)
-                    .unwrap_or(3306),
-            )
-            .user(connection.username.clone())
-            .pass(password)
-            .db_name(
-                connection
-                    .database
-                    .clone()
-                    .filter(|database| !database.trim().is_empty()),
-            );
-
-        let connected = match Conn::new(options.clone().ssl_opts(settings.mysql_options())) {
-            Err(mysql::Error::DriverError(DriverError::TlsNotSupported))
-                if settings.mode == Mode::Prefer =>
-            {
-                Conn::new(options)
-            }
-            other => other,
-        };
+        let tunnel = route.tunnel()?;
         Ok(MySql {
-            connection: connected
-                .with_context(|| format!("cannot connect to {}", connection.describe()))?,
+            connection: Some(dial(connection, password.clone(), tunnel.as_ref())?),
+            settings: connection.clone(),
+            password,
+            route,
+            used: Instant::now(),
             _tunnel: tunnel,
         })
     }
 
+    fn live(&mut self) -> anyhow::Result<&mut Conn> {
+        if self.used.elapsed() >= IDLE || self.connection.is_none() {
+            let answered = self.connection.take().and_then(|mut connection| {
+                let (sender, receiver) = std::sync::mpsc::channel();
+                std::thread::spawn(move || {
+                    let alive = connection.ping().is_ok();
+                    let _ = sender.send(alive.then_some(connection));
+                });
+                receiver.recv_timeout(PING_WAIT).ok().flatten()
+            });
+            if answered.is_none() {
+                let tunnel = self.route.tunnel()?;
+                self.connection = Some(dial(
+                    &self.settings,
+                    self.password.clone(),
+                    tunnel.as_ref(),
+                )?);
+                self._tunnel = tunnel;
+            } else {
+                self.connection = answered;
+            }
+        }
+        self.used = Instant::now();
+        self.connection
+            .as_mut()
+            .ok_or_else(|| anyhow::anyhow!("the MySQL connection is gone"))
+    }
+
     fn query(&mut self, sql: &str) -> anyhow::Result<Page> {
-        page_of(self.connection.query_iter(sql).map_err(said)?)
+        page_of(self.live()?.query_iter(sql).map_err(said)?)
     }
 
     fn bound_query(&mut self, sql: &str, bindings: Vec<String>) -> anyhow::Result<Page> {
-        page_of(self.connection.exec_iter(sql, bindings).map_err(said)?)
+        page_of(self.live()?.exec_iter(sql, bindings).map_err(said)?)
     }
 
     fn bit_columns(&mut self, table: &Table) -> anyhow::Result<Vec<String>> {
@@ -352,7 +399,7 @@ impl Database for MySql {
     }
 
     fn use_database(&mut self, name: &str) -> anyhow::Result<()> {
-        self.connection
+        self.live()?
             .query_drop(format!("use {}", quote_backtick(name)))
             .map_err(said)?;
         Ok(())
@@ -381,7 +428,7 @@ impl Database for MySql {
     ) -> anyhow::Result<u64> {
         let sql = update_statement(quote_backtick, question, table, column, key);
         let bits = self.bit_columns(table)?;
-        self.connection
+        self.live()?
             .exec_drop(
                 &sql,
                 vec![
@@ -395,7 +442,7 @@ impl Database for MySql {
                     &shown_update(quote_backtick, table, column, key, value, key_value),
                 )
             })?;
-        Ok(self.connection.affected_rows())
+        Ok(self.live()?.affected_rows())
     }
 
     fn insert(&mut self, table: &Table, values: &Values) -> anyhow::Result<()> {
@@ -406,9 +453,9 @@ impl Database for MySql {
             .map(|(column, value)| bound_for(&bits, column, value.as_deref()))
             .collect();
         let outcome = if bindings.is_empty() {
-            self.connection.query_drop(&sql)
+            self.live()?.query_drop(&sql)
         } else {
-            self.connection.exec_drop(&sql, bindings)
+            self.live()?.exec_drop(&sql, bindings)
         };
         outcome.map_err(|error| {
             refused(
@@ -424,17 +471,17 @@ impl Database for MySql {
             .iter()
             .map(|key_value| bound(Some(key_value)))
             .collect();
-        self.connection.exec_drop(&sql, bindings).map_err(|error| {
+        self.live()?.exec_drop(&sql, bindings).map_err(|error| {
             refused(
                 said(error),
                 &shown_delete(quote_backtick, table, key, key_values),
             )
         })?;
-        Ok(self.connection.affected_rows())
+        Ok(self.live()?.affected_rows())
     }
 
     fn run(&mut self, statement: &str) -> anyhow::Result<Outcome> {
-        let result = self.connection.query_iter(statement).map_err(said)?;
+        let result = self.live()?.query_iter(statement).map_err(said)?;
         let affected = result.affected_rows() as usize;
         let page = page_of(result)?;
         Ok(Outcome {
@@ -444,11 +491,11 @@ impl Database for MySql {
     }
 
     fn run_reading(&mut self, statement: &str) -> anyhow::Result<Outcome> {
-        self.connection
+        self.live()?
             .query_drop("start transaction read only")
             .map_err(said)?;
         let ran = self.run(statement);
-        let _ = self.connection.query_drop("rollback");
+        let _ = self.live()?.query_drop("rollback");
         ran
     }
 
@@ -457,7 +504,7 @@ impl Database for MySql {
     }
 
     fn scalars(&mut self, statement: &str) -> anyhow::Result<Scalars> {
-        let mut result = self.connection.query_iter(statement).map_err(said)?;
+        let mut result = self.live()?.query_iter(statement).map_err(said)?;
         let mut scalars = Scalars::default();
         let Some(set) = result.iter() else {
             return Ok(scalars);

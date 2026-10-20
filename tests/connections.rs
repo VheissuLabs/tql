@@ -1435,19 +1435,21 @@ fn a_snowflake_connection_asks_for_what_its_sign_in_needs_and_saves_it() {
     );
     assert_eq!(saved.password, None);
 
+    let saved_with = |scratch: &Scratch| scratch.connections().pop().unwrap().authenticator;
     form.cycle(true);
     assert!(!labels(&form).contains(&"Private key"));
     assert!(!labels(&form).contains(&"Passphrase"));
+    assert!(!labels(&form).contains(&"Access token"));
     assert_eq!(form.save(&writer).unwrap(), None);
     assert_eq!(
-        scratch
-            .connections()
-            .pop()
-            .unwrap()
-            .authenticator
-            .as_deref(),
-        Some("externalbrowser")
+        saved_with(&scratch).as_deref(),
+        Some("oauth_authorization_code")
     );
+
+    form.cycle(true);
+    assert!(!labels(&form).contains(&"Access token"));
+    assert_eq!(form.save(&writer).unwrap(), None);
+    assert_eq!(saved_with(&scratch).as_deref(), Some("externalbrowser"));
 }
 
 #[test]

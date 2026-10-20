@@ -133,8 +133,24 @@ impl Browser {
         self.keys.get(&self.current_table()?).cloned()
     }
 
+    pub(super) fn identifies_rows(&self) -> bool {
+        self.key_column().is_some() || self.database.matches_rows()
+    }
+
     fn key_value(&self, row: usize) -> Option<String> {
-        let key = self.key_column()?;
+        let Some(key) = self.key_column() else {
+            let row: Values = self
+                .headers
+                .iter()
+                .cloned()
+                .zip(self.raw.get(row)?.iter().cloned())
+                .collect();
+            return self
+                .database
+                .matches_rows()
+                .then(|| serde_json::to_string(&row).ok())
+                .flatten();
+        };
         let position = self.headers.iter().position(|header| *header == key)?;
         self.raw.get(row)?.get(position)?.clone()
     }
@@ -147,12 +163,6 @@ impl Browser {
         if self.connection.read_only {
             return Some(READ_ONLY);
         }
-        if self.connection.driver == crate::driver::Driver::Snowflake {
-            return Some(crate::database::snowflake::READ_ONLY);
-        }
-        if !self.connection.driver.edits_rows() {
-            return Some(crate::database::clickhouse::READ_ONLY);
-        }
         None
     }
 
@@ -163,7 +173,7 @@ impl Browser {
         if self.query.results {
             return Some("query results have no row to write back to".to_string());
         }
-        if self.on_added_row() || self.key_column().is_some() {
+        if self.on_added_row() || self.identifies_rows() {
             return None;
         }
         Some(format!(

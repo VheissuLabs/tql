@@ -109,15 +109,20 @@ such as `BLPOP` or `SUBSCRIBE`.
 ClickHouse connects over its HTTP interface, port 8123, or 8443 with an
 `ssl_mode` set (`clickhouses://` in a connection string). Databases switch with
 `b`, and every type shows as itself: arrays, maps and tuples as JSON, and big
-integers and decimals exactly. Tables are read only in tql: ClickHouse changes
-rows with background mutations, which do not fit editing a cell and writing it
-with `:w`. The SQL editor runs whatever the connection allows.
+integers and decimals exactly. Tables are edited like any other, with one
+difference: ClickHouse keys need not be unique, so before each change tql
+counts the rows it would reach and changes nothing if that is more than the
+rows you edited. The change then runs as a mutation that tql waits for, so
+`:w` is done when it says so. A table with no key is matched on its values,
+leaving out floats, maps, arrays and other values that do not compare
+exactly. Key columns cannot be changed; ClickHouse does not allow it. The SQL
+editor runs whatever the connection allows.
 
 ### Snowflake
 
-Snowflake connects with its account, the `myorg-myaccount` part of your
-Snowflake URL, in one of three ways, chosen with **Sign in with** in the
-connection form or `authenticator` in a connection string:
+Snowflake connects over its SQL API with its account, the `myorg-myaccount`
+part of your Snowflake URL, signing in one of four ways, chosen with **Sign in
+with** in the connection form or `authenticator` in a connection string:
 
 - **Access token.** A programmatic access token, saved as the connection's
   password: `snowflake://user:token@myorg-myaccount/DATABASE?warehouse=WH&role=ROLE`.
@@ -126,26 +131,46 @@ connection form or `authenticator` in a connection string:
   `snowflake://user@myorg-myaccount/DATABASE?authenticator=snowflake_jwt&private_key_path=~/.snowflake/rsa_key.p8`.
   An encrypted key's passphrase is saved as the connection's password. tql
   reads PKCS#8 keys, encrypted or not, and unencrypted PKCS#1 keys.
-- **Browser SSO.** The user's login name and
-  `authenticator=externalbrowser`. tql opens the browser at your identity
-  provider (Okta, Entra ID and the rest) and listens on `127.0.0.1` for it to
-  come back. The session it gets is kept in tql's store, encrypted like a
+- **Browser sign-in.** Snowflake's own sign-in page, with your company's single
+  sign-on behind it: `snowflake://myorg-myaccount/DATABASE?role=ROLE`, or
+  `authenticator=oauth_authorization_code`. It is also what a connection with
+  no access token uses. See below.
+- **SSO through the browser.** The user's login name and
+  `authenticator=externalbrowser`. tql opens your identity provider (Okta,
+  Entra ID and the rest) directly and listens on `127.0.0.1` for it to come
+  back. This works on accounts without the built-in OAuth integration the
+  browser sign-in needs. The session is kept in tql's store, encrypted like a
   saved password, and renewed without the browser for as long as Snowflake
-  allows, about four hours, so `tql query` and the MCP server reuse it rather
-  than opening a browser each time. A connection opened with `--peek` is not
-  saved, so it signs in each time.
+  allows, about four hours.
+
+Either browser sign-in is saved with the connection, so the next launch,
+`tql dump`, `tql export` and the MCP server reuse it rather than opening a
+browser each time.
 
 Warehouse and role fall back to the user's defaults, and with no schema set
 tql browses `PUBLIC`. Tables, columns and keys come from `SHOW` commands,
 which do not wake the warehouse. Dates, times, timestamps, variants and binary
 show as Snowflake writes them, and declared primary and foreign keys link rows
-even though Snowflake does not enforce them. Tables are read only in tql for
-that reason: with no enforced key, an edited cell cannot be traced to one row.
-The SQL editor runs whatever the role allows.
+even though Snowflake does not enforce them. Because it does not, tql edits a
+row inside a transaction that commits only if exactly that one row changed: a
+key that matches two rows changes neither, and tql says so. A table with no
+primary key is edited too, matching the row on its values; floats, variants
+and binary are left out of the match, since they do not compare exactly, and
+if what is left fits more than one row the edit is rolled back the same way.
+Writes wake the warehouse; browsing does not.
 
 A token from a person rather than a service user needs a network policy, or an
 authentication policy with `pat_policy = (network_policy_evaluation =
 enforced_not_required)`, before Snowflake accepts it.
+
+The browser sign-in opens the browser (`$BROWSER` if set) and waits up to
+three minutes for you to sign in. It is renewed as it runs out, so the browser
+opens again only when Snowflake stops renewing it; how long that takes is up
+to your account's `OAUTH_REFRESH_TOKEN_VALIDITY`. This uses Snowflake
+OAuth for local applications, which needs no setup unless your account does
+not have the built-in `SNOWFLAKE$LOCAL_APPLICATION` integration yet
+(`show security integrations like 'SNOWFLAKE$LOCAL\_APPLICATION'`). A role on
+the connection is the role the sign-in asks for.
 
 ## Installing
 

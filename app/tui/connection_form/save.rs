@@ -52,7 +52,7 @@ impl ConnectionForm {
             Authenticator::Token if blank("password") && !self.unreadable.contains(&"password") => {
                 Some("A programmatic access token is required.")
             }
-            Authenticator::Token => None,
+            Authenticator::Token | Authenticator::OAuth => None,
             _ if blank("username") => Some("The Snowflake user's login name is required."),
             Authenticator::KeyPair if blank("private_key") => {
                 Some("The path to the user's private key is required.")
@@ -91,8 +91,8 @@ impl ConnectionForm {
             };
             fields.push((key, field));
         }
-        if self.driver() == Driver::Snowflake && self.authenticator() != Authenticator::Browser {
-            fields.push(("session", Field::Null));
+        if self.driver() == Driver::Snowflake && !self.authenticator().signs_in_with_browser() {
+            fields.push(("sign_in", Field::Null));
         }
         if !over_ssh {
             fields.retain(|(key, _)| !key.starts_with("ssh_"));
