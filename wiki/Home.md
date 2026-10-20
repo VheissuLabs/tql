@@ -1,8 +1,9 @@
 ![tql browsing a database: filtering a column, sorting, inspecting a row and its related records, and writing a join in the SQL editor](https://raw.githubusercontent.com/VheissuLabs/tql/main/docs/demo.gif)
 
 tql (pronounced *TEE-kwuhl*, like sequel) is a database client for the terminal,
-for MySQL, MariaDB, PostgreSQL, SQL Server and SQLite, and the hosted databases
-that speak their protocol. It is written in Rust and ships as one file.
+for MySQL, MariaDB, PostgreSQL, SQL Server, SQLite, DuckDB, libSQL and Turso,
+ClickHouse, Snowflake, Redis and Valkey, and the hosted databases that speak
+their protocol. It is written in Rust and ships as one file.
 
 ## Why
 
@@ -59,6 +60,11 @@ tql 'mysql://user:pw@db.example.com:3306/shop'
 | **PostgreSQL** | built in |
 | **SQLite** | built in, any `.sqlite`, `.sqlite3` or `.db` file |
 | **SQL Server** | built in, nothing else to install |
+| **DuckDB** | built in, any `.duckdb` file, schemas and all |
+| **libSQL** and **Turso** | built in, a `libsql://` URL and its auth token ([Connecting](Connecting#libsql-and-turso)) |
+| **ClickHouse** | built in, browse, query and edit ([Connecting](Connecting#clickhouse)) |
+| **Snowflake** | built in, with an access token, a key pair or a browser sign-in ([Connecting](Connecting#snowflake)) |
+| **Redis** and **Valkey** | built in, a key browser of their own ([Redis and Valkey](Redis-and-Valkey)) |
 
 A hosted database that speaks the MySQL or PostgreSQL protocol connects the same
 way, with a connection string or the connection form, over TLS and, if it needs
@@ -77,6 +83,7 @@ one, an SSH tunnel:
 | [Connecting](Connecting) | connection strings, the connection form, tags, groups, SSH and TLS |
 | [Browsing data](Browsing-Data) | the grid, sorting, filtering, following links, structure |
 | [Editing data](Editing-Data) | cells, row forms, adding, pending changes, deleting |
+| [Redis and Valkey](Redis-and-Valkey) | the key browser: namespaces, every type, TTLs, the command pane |
 | [The row inspector](Row-Inspector) | a row's fields and its related records |
 | [The SQL editor](SQL-Editor) | simple and vim styles, history, completion |
 | [Asking for SQL](Asking-for-SQL) | ask in english, and which model answers |

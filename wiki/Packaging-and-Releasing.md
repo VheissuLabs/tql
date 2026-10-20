@@ -1,5 +1,3 @@
-# Packaging and releasing
-
 tql is one Rust binary that needs nothing else on the machine. The Linux binaries
 are static musl builds, so the same file runs on any distribution, and the macOS
 binary links only what every Mac has. Each is built natively on its own GitHub

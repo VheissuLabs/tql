@@ -1,5 +1,3 @@
-# The row inspector
-
 `i` floats two boxes over the grid: the record itself, and the records related to
 it. Folding a box collapses it to its title bar, so the shape of the modal tells
 you what is open, and the table stays visible behind.

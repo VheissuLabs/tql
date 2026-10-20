@@ -1,5 +1,3 @@
-# Asking for SQL
-
 Press `a` and ask in plain english. The answer lands **in the editor**, with the
 explanation as `--` comments above it, and nothing runs until you press `ctrl+r`.
 

@@ -1,5 +1,3 @@
-# Troubleshooting
-
 A few things that go wrong, and where the answer is.
 
 ## My clicks land a row out

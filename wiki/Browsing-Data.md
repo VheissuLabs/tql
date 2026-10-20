@@ -1,5 +1,3 @@
-# Browsing data
-
 Open a connection and you land in the browser: a table list on the left, a grid
 of rows on the right, and a status line under both. `\` hides the table list so
 the grid gets the whole width, and `tab` moves between the panes. Each pane's
@@ -14,7 +12,7 @@ Moving around is vim's where vim has an opinion:
 | `↑ ↓` / `j k` | move the cursor; `5j` moves five rows, `3l` three columns |
 | `← →` / `h l` | move between columns; `→` from the table list moves to the grid |
 | `n` / `p` | next or previous page, 100 rows |
-| `↵` | open the table, or edit the cell |
+| `↵` | open the table, or edit the cell; on a schema header, fold or unfold it |
 | `r` | reload the table |
 | `y` / `Y` | yank this value, or the whole row as an object |
 
@@ -37,6 +35,13 @@ The status line under the hotkeys says what just happened. It **lights up when i
 changes** and settles back to dim on your next key press, in the color of what it
 is about: red while rows are marked for deletion, yellow while edits are pending,
 otherwise the focus color.
+
+Beside the connection's name, the status line says where the cursor is among
+all the table's rows: `8,501 of 50,000`. A filtered table, or one small enough
+to count quickly, is counted exactly. A big Postgres, MySQL or SQL Server table
+shows the database's own estimate instead, `~4.9M`, rather than wait on a full
+count; ClickHouse knows its exact count. The count is taken once per table and
+filter, and again on `r` or after a write.
 
 The full key list is on [Keys](Keys).
 
@@ -191,3 +196,11 @@ recognised too.
 The left pane lists the connection's tables. `/` filters it as you type, and `↵`
 opens the highlighted table in the grid. Its width follows `sidebar_width` in
 [`[ui]`](Configuration#ui), or drag its edge.
+
+On Postgres, SQL Server and DuckDB, the table list shows every schema, not only
+your default one. Each schema is a header you fold with `↵`, `h` and `l`; yours
+comes first and open, the rest folded, and tql remembers what you fold per
+connection and database. A table outside your default schema is called
+`schema.table` everywhere: in the grid, the palette, links, exports,
+`tql tables`, `tql describe`, `tql export` and the MCP tools, and completion
+offers it that way. `/` searches every schema at once.

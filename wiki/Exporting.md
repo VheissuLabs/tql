@@ -1,5 +1,3 @@
-# Exporting
-
 `tql export` writes rows as re-importable SQL — `insert` statements you can read.
 For a whole database, schema and all, and fast enough for tables in the tens of
 gigabytes, use [Dump, load and sync](Dump-Load-and-Sync) instead.

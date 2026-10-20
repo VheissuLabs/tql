@@ -1,5 +1,3 @@
-# Connecting
-
 Running `tql` with nothing after it opens the connection list, which is how you
 will use it nearly all the time. From there, `n` adds a connection and `↵` opens
 one.
@@ -16,7 +14,7 @@ one.
 Adding and editing happen in a modal over the list, never by dropping out to a
 prompt sequence. `↑↓` picks a field, `↵` edits it with a real cursor (arrows,
 home, end, backspace, delete, paste), `ctrl+s` saves and `esc` cancels. Nothing
-is written until you save. The driver is cycled with `← →`, through all four.
+is written until you save. The driver is cycled with `← →`, through all nine.
 
 ## Opening by path or connection string
 
@@ -28,7 +26,7 @@ tql connect prod --db=analytics  # another database on prod's server, this once
 tql <path-or-dsn>             # the short form, same thing
 ```
 
-`open` takes a SQLite path or a connection string, remembers it, and drops you
+`open` takes a SQLite or DuckDB file or a connection string, remembers it, and drops you
 straight into it. Opening one you already have reuses that connection rather
 than saving a second.
 
@@ -41,7 +39,7 @@ tql connect 'mysql+ssh://forge@203.0.113.7/forge:secret@127.0.0.1?name=app&env=p
 
 | Argument or flag | What it does |
 | --- | --- |
-| `<path-or-dsn>` | a SQLite file, or a `mysql://`, `pgsql://`, `postgres://`, `sqlsrv://` or `mssql://` string; `mysql+ssh://` and the others with `+ssh` go through an SSH server first |
+| `<path-or-dsn>` | a SQLite or DuckDB file, or a `mysql://`, `pgsql://`, `postgres://`, `sqlsrv://`, `mssql://`, `libsql://`, `clickhouse://`, `snowflake://`, `redis://` or `valkey://` string (`clickhouses://`, `rediss://` and `valkeys://` for TLS); `mysql+ssh://` and the others with `+ssh` go through an SSH server first |
 | `--name=<name>` | what to call it in the connection list; on one already saved, a rename |
 | `--tag=<tag>` | what it *is*: `production`, `staging`, `dev` or `local`, which decides the color it wears; see [Tags and read only](#tags-and-read-only) |
 | `--peek` | open it without saving it |
@@ -80,9 +78,12 @@ encryption key), both `0600`.
 
 ### Schemes and defaults
 
-`mysql`, `mariadb`, `pgsql`, `postgres`, `postgresql`, `sqlsrv`, `mssql` and
-`sqlite` schemes are understood. The default port is filled in per driver
-(MySQL and MariaDB 3306, Postgres 5432, SQL Server 1433), credentials are
+`mysql`, `mariadb`, `pgsql`, `postgres`, `postgresql`, `sqlsrv`, `mssql`,
+`sqlite`, `libsql`, `clickhouse`, `clickhouses`, `snowflake`, `redis`, `rediss`,
+`valkey` and `valkeys` schemes are understood, and an `https://` URL with an
+`authToken=` is libSQL. The default port is filled in per driver (MySQL and
+MariaDB 3306, Postgres 5432, SQL Server 1433, ClickHouse 8123 or 8443 over TLS,
+Redis and Valkey 6379), credentials are
 percent-decoded, and `?name=` sets the label shown in the title bar.
 
 ## Tags and read only
@@ -117,9 +118,64 @@ folded the next time.
 Press `e` on a group's header to rename it, for every connection in it. A name
 another group already has merges the two.
 
+## libSQL and Turso
+
+A libSQL connection is a URL and an auth token: `tql open
+"libsql://shop-you.turso.io?authToken=…"`, or the connection form's **URL** and
+**Auth token**. tql speaks Turso's HTTP API, so a self-hosted `sqld` works too
+(`http://127.0.0.1:8080`). Everything SQLite does works here, editing included.
+
+## ClickHouse
+
+ClickHouse connects over its HTTP interface, port 8123, or 8443 with an
+`ssl_mode` set (`clickhouses://` in a connection string). Databases switch with
+`b`, and every type shows as itself: arrays, maps and tuples as JSON, and big
+integers and decimals exactly. Tables are edited like any other (see
+[Editing data](Editing-Data)), with one difference: ClickHouse keys need not be
+unique, so before each change tql counts the rows it would reach and changes
+nothing if that is more than the rows you edited. The change then runs as a
+mutation that tql waits for, so `:w` is done when it says so. Key columns cannot
+be changed; ClickHouse does not allow it.
+
+## Snowflake
+
+Snowflake connects over its SQL API with its account, the `myorg-myaccount`
+part of your Snowflake URL, signing in one of four ways, chosen with **Sign in
+with** in the connection form or `authenticator` in a connection string:
+
+| Sign in with | What it needs |
+| --- | --- |
+| Access token | a programmatic access token, saved as the password: `snowflake://user:token@myorg-myaccount/DATABASE?warehouse=WH&role=ROLE` |
+| Key pair | the login name and the path to the RSA private key whose public key is the user's `RSA_PUBLIC_KEY`; an encrypted key's passphrase is the password: `?authenticator=snowflake_jwt&private_key_path=~/.snowflake/rsa_key.p8` |
+| Browser sign-in | nothing: Snowflake's sign-in page opens, with your company's single sign-on behind it. A connection with no access token uses it: `snowflake://myorg-myaccount/DATABASE?role=ROLE` |
+| SSO through the browser | the login name: your identity provider (Okta, Entra ID and the rest) opens directly, `?authenticator=externalbrowser`. It works on accounts without the built-in OAuth integration the browser sign-in needs |
+
+Either browser sign-in is saved with the connection, encrypted like a password,
+and renewed as it runs out, so the next launch, `tql dump`, `tql export` and the
+MCP tools use it without opening the browser. `:sign-out` on the connection
+list forgets the one saved with the highlighted connection. The browser sign-in
+uses Snowflake OAuth for local applications; if Snowflake shows an error instead
+of its sign-in page, the account does not have the `SNOWFLAKE$LOCAL_APPLICATION`
+integration yet, and SSO through the browser or an access token works instead.
+An access token from a person rather than a service user needs a network
+policy before Snowflake accepts it.
+
+Warehouse and role fall back to the user's defaults. Tables, columns and keys
+come from `SHOW` commands, which do not wake the warehouse; writes do. Snowflake
+does not enforce primary keys, so tql edits a row inside a transaction that
+commits only if exactly that row changed: a key that matches two rows changes
+neither, and tql says so.
+
+## Redis and Valkey
+
+A Redis or Valkey connection opens a key browser in place of the table list:
+`tql open redis://:password@host:6379/0`, `rediss://` for TLS, or the
+connection form. See [Redis and Valkey](Redis-and-Valkey).
+
 ## Several databases on one server
 
-MySQL, Postgres and SQL Server connections are a server, not a single database.
+MySQL, Postgres, SQL Server, ClickHouse and Snowflake connections are a
+server, not a single database, and a Redis or Valkey server has its numbered databases.
 Press **`b`** to list the databases on that server and switch to one; the tables
 pane titles itself with the database you are in.
 
@@ -137,7 +193,16 @@ connection, so the connection still opens on its own database next time. It also
 drops the current filter, sort and any pending edits, since none of them mean
 anything in another database.
 
-A SQLite connection is one file, so `b` says as much and does nothing.
+A SQLite or DuckDB connection is one file, so `b` says as much and does nothing.
+
+## After the laptop sleeps
+
+A connection the server dropped while you were away, after a sleep or a change
+of network, comes back on its own. MySQL and Postgres check a connection that
+has sat idle for half a minute before using it and connect again if it has
+gone, so your next statement just runs; nothing is sent twice. A connection
+through SSH starts its tunnel again first. SQL Server reconnects after the
+first statement that finds the connection broken.
 
 ## Databases behind SSH
 
@@ -196,7 +261,7 @@ tql reads the connections TablePlus for Mac has saved and adds each one, with it
 group, its environment as a tag, and its SSH tunnel and TLS settings. Passwords
 come from the Keychain: macOS asks you to allow each one, and Deny leaves that
 one out. Connections tql already has are left alone, so running it again is safe;
-ones tql cannot open, such as Redis, are listed and skipped.
+ones tql cannot open, such as MongoDB, are listed and skipped.
 
 | Flag | What it does |
 | --- | --- |

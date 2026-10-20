@@ -1,12 +1,17 @@
-# Editing data
-
 Select a cell and press `e` or `↵`. `↵` saves, `esc` cancels. An empty value
 writes `NULL`. `E` edits the whole row in a form, see
 [Editing a row in a form](#editing-a-row-in-a-form).
 
-Editing requires a single-column primary key, which tql uses to target the row.
-Tables without one are read-only, as are connections flagged `read_only`
-(see [Tags and read only](Connecting#tags-and-read-only)).
+Editing uses a single-column primary key to target the row. Tables without one
+are read-only, except on Snowflake and ClickHouse, where tql matches the row on
+its values instead: floats, JSON, maps, arrays and other values that do not
+compare exactly are left out of the match, and a match that fits more than one
+row changes nothing. Neither database insists keys are unique, so a key that
+turns out to match two rows changes neither, and tql says how many matched (see
+[ClickHouse](Connecting#clickhouse) and [Snowflake](Connecting#snowflake)).
+Connections flagged `read_only` are never written to (see
+[Tags and read only](Connecting#tags-and-read-only)). Redis and Valkey are
+edited in [the key browser](Redis-and-Valkey).
 
 ## Pending changes
 

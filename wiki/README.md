@@ -10,6 +10,7 @@ point back to the docs where the detail lives.
 | `Home.md` | the landing page the wiki opens on |
 | `Installation.md`, `Connecting.md` | getting in |
 | `Browsing-Data.md`, `Editing-Data.md`, `Row-Inspector.md` | using the browser |
+| `Redis-and-Valkey.md` | the key browser |
 | `SQL-Editor.md`, `Asking-for-SQL.md` | writing SQL |
 | `Exporting.md`, `Dump-Load-and-Sync.md` | moving data |
 | `Commands.md`, `Keys.md`, `Configuration.md` | reference |
@@ -26,9 +27,10 @@ site. Once it exists, publish an update from a checkout of this folder:
 ```bash
 git clone https://github.com/VheissuLabs/tql.wiki.git
 cd tql.wiki
-cp -R <this folder>/. .
+rsync -a --exclude README.md <this folder>/ .
 git add -A && git commit -m 'wiki: update pages' && git push origin master
 ```
 
-Publishing copies `README.md` too if it lives in this folder, which is how it
-becomes a wiki page; leave it out if you would rather it not be one.
+Leave this `README.md` out when publishing: it describes the folder and is not a
+wiki page. The pages have no `#` heading of their own, since the wiki shows each
+page's name as its title.

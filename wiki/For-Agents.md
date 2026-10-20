@@ -1,5 +1,3 @@
-# For agents
-
 An agent can reach your databases two ways, and both use the same engine, the same
 connections and the same rules as you.
 
@@ -14,6 +12,9 @@ tql describe prod orders                 # columns, types, primary key
 tql query prod "select count(*) from orders where placed_at > now() - interval 1 day"
 echo "select 1" | tql query prod -       # or pipe the statement in
 ```
+
+On Postgres and SQL Server a table outside your default schema is named
+`schema.table`, in `tql tables` and wherever you pass one.
 
 They never prompt or draw a screen. In a terminal they print a table; piped or
 captured, which is how an agent runs them, they print JSON. `--table` and `--json`

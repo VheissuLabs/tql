@@ -6,6 +6,7 @@
 - [Connecting](Connecting)
 - [Browsing data](Browsing-Data)
 - [Editing data](Editing-Data)
+- [Redis and Valkey](Redis-and-Valkey)
 
 **Working with SQL**
 

@@ -1,6 +1,4 @@
-# Installation
-
-One file, no runtime to install. The binary has all four database drivers built
+One file, no runtime to install. The binary has every database driver built
 in, and on Linux it is statically linked, so it runs on any distribution. On
 first run it creates `~/.config/tql/` and migrates its own store, so there is
 nothing to set up.
