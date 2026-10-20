@@ -2,6 +2,7 @@ use std::sync::LazyLock;
 
 use regex::Regex;
 
+use crate::database::snowflake::Authenticator;
 use crate::driver::Driver;
 
 static SCHEME: LazyLock<Regex> =
@@ -24,6 +25,8 @@ pub struct Dsn {
     pub ssh_password: Option<String>,
     pub warehouse: Option<String>,
     pub role: Option<String>,
+    pub authenticator: Option<String>,
+    pub private_key: Option<String>,
 }
 
 pub fn looks_like_one(value: &str) -> bool {
@@ -217,6 +220,16 @@ fn snowflake(rest: &str) -> Option<Dsn> {
         tag: query_value(query, "env").and_then(|env| tag_for(&env)),
         warehouse: present(query_value(query, "warehouse")),
         role: present(query_value(query, "role")),
+        authenticator: present(query_value(query, "authenticator")).map(|authenticator| {
+            Authenticator::parse(Some(&authenticator))
+                .stored()
+                .unwrap_or("programmatic_access_token")
+                .to_string()
+        }),
+        private_key: present(
+            query_value(query, "private_key_path")
+                .or_else(|| query_value(query, "private_key_file")),
+        ),
         ..Dsn::default()
     })
 }
@@ -369,6 +382,36 @@ mod tests {
     }
 
     #[test]
+    fn reads_how_a_snowflake_url_signs_in() {
+        let keyed = parse(
+            "snowflake://karl@myorg-myaccount/ANALYTICS?authenticator=SNOWFLAKE_JWT&private_key_path=~/.snowflake/rsa_key.p8",
+        )
+        .unwrap();
+        assert_eq!(keyed.authenticator.as_deref(), Some("snowflake_jwt"));
+        assert_eq!(
+            keyed.private_key.as_deref(),
+            Some("~/.snowflake/rsa_key.p8")
+        );
+        assert_eq!(keyed.password, None);
+
+        let browser =
+            parse("snowflake://karl%40acme.com@myorg-myaccount?authenticator=externalbrowser")
+                .unwrap();
+        assert_eq!(browser.authenticator.as_deref(), Some("externalbrowser"));
+        assert_eq!(browser.username.as_deref(), Some("karl@acme.com"));
+
+        let token = parse("snowflake://karl:pat@myorg-myaccount").unwrap();
+        assert_eq!(token.authenticator, None);
+        let switched =
+            parse("snowflake://karl:pat@myorg-myaccount?authenticator=programmatic_access_token")
+                .unwrap();
+        assert_eq!(
+            switched.authenticator.as_deref(),
+            Some("programmatic_access_token")
+        );
+    }
+
+    #[test]
     fn reads_a_tableplus_url_that_goes_through_ssh() {
         assert_eq!(
             parse(
@@ -390,6 +433,8 @@ mod tests {
                 ssh_password: None,
                 warehouse: None,
                 role: None,
+                authenticator: None,
+                private_key: None,
             })
         );
     }

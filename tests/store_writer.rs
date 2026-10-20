@@ -57,7 +57,7 @@ fn mysql(name: &str, password: &str) -> Vec<(&'static str, Field)> {
     ]
 }
 
-const FRESH_COLUMNS: [&str; 27] = [
+const FRESH_COLUMNS: [&str; 29] = [
     "id",
     "name",
     "driver",
@@ -85,6 +85,8 @@ const FRESH_COLUMNS: [&str; 27] = [
     "warehouse",
     "role",
     "sign_in",
+    "authenticator",
+    "private_key",
 ];
 
 fn columns(store: &Path) -> Vec<String> {
@@ -117,7 +119,7 @@ fn a_fresh_store_has_tqls_tables_and_migrations() {
 
     assert_eq!(
         scratch.raw("select cast(count(*) as text) from migrations"),
-        Some("10".into())
+        Some("11".into())
     );
     assert_eq!(columns(&scratch.store()), FRESH_COLUMNS);
     assert!(
@@ -311,10 +313,13 @@ fn a_store_from_before_groups_gains_the_group_column_in_a_new_batch() {
              alter table connections drop column warehouse;
              alter table connections drop column role;
              alter table connections drop column sign_in;
+             alter table connections drop column authenticator;
+             alter table connections drop column private_key;
              delete from migrations where migration in (
                  '2026_10_07_000000_add_group_to_connections_table',
                  '2026_10_16_000000_add_warehouse_and_role_to_connections_table',
-                 '2026_10_19_000000_add_sign_in_to_connections_table'
+                 '2026_10_19_000000_add_sign_in_to_connections_table',
+                 '2026_10_20_000000_add_authenticator_and_private_key_to_connections_table'
              );",
         )
         .unwrap();
@@ -335,6 +340,11 @@ fn a_store_from_before_groups_gains_the_group_column_in_a_new_batch() {
             ),
             (
                 "2026_10_19_000000_add_sign_in_to_connections_table".to_string(),
+                2
+            ),
+            (
+                "2026_10_20_000000_add_authenticator_and_private_key_to_connections_table"
+                    .to_string(),
                 2
             )
         ]
@@ -368,7 +378,7 @@ fn a_store_from_the_first_release_is_brought_all_the_way_forward() {
 
     assert_eq!(columns(&store), FRESH_COLUMNS);
     let ran = migrations(&store);
-    assert_eq!(ran.len(), 10);
+    assert_eq!(ran.len(), 11);
     assert!(ran[2..].iter().all(|(_, batch)| *batch == 2));
     assert!(
         Store::open(&store)

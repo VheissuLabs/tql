@@ -41,6 +41,12 @@ fn signed_in() -> &'static Mutex<HashMap<String, Tokens>> {
     SIGNED_IN.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+pub fn forget_all() {
+    if let Ok(mut remembered) = signed_in().lock() {
+        remembered.clear();
+    }
+}
+
 impl Session {
     pub fn start(
         base: &str,

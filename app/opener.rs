@@ -143,6 +143,8 @@ pub fn connection_for(
                 ssh_password,
                 warehouse: target.warehouse,
                 role: target.role,
+                authenticator: target.authenticator,
+                private_key: target.private_key,
                 ..Connection::default()
             },
             encrypter: Some(encrypter),
@@ -170,7 +172,12 @@ pub fn connection_for(
                 target.password.clone().map_or(Field::Null, Field::Secret),
             ),
         ]);
-        for (column, value) in [("warehouse", &target.warehouse), ("role", &target.role)] {
+        for (column, value) in [
+            ("warehouse", &target.warehouse),
+            ("role", &target.role),
+            ("authenticator", &target.authenticator),
+            ("private_key", &target.private_key),
+        ] {
             if let Some(value) = value {
                 fields.push((column, Field::Text(value.clone())));
             }
@@ -215,7 +222,12 @@ fn carried(target: &Dsn) -> Vec<(&'static str, Field)> {
     if let Some(password) = &target.password {
         fields.push(("password", Field::Secret(password.clone())));
     }
-    for (column, value) in [("warehouse", &target.warehouse), ("role", &target.role)] {
+    for (column, value) in [
+        ("warehouse", &target.warehouse),
+        ("role", &target.role),
+        ("authenticator", &target.authenticator),
+        ("private_key", &target.private_key),
+    ] {
         if let Some(value) = value {
             fields.push((column, Field::Text(value.clone())));
         }

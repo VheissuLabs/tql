@@ -119,6 +119,7 @@ impl Browser {
             Name::CreateDatabase => self.create_database(argument),
             Name::DropDatabase => self.drop_database(argument),
             Name::New => self.say(registry::unavailable(Screen::Browser, "new")),
+            Name::SignOut => self.say(registry::unavailable(Screen::Browser, "sign-out")),
             Name::Version => self.say(registry::version()),
             Name::Update => self.start_updating(),
             Name::Help => return self.run(Action::Help),

@@ -4,6 +4,28 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## Unreleased
+
+### New Features
+
+- Snowflake connections sign in with a key pair: the user's login name and
+  the path to their RSA private key, PKCS#8 (encrypted or not) or PKCS#1, with
+  an encrypted key's passphrase saved as the password. tql signs a fresh JWT
+  before the last one runs out. `authenticator=snowflake_jwt&private_key_path=…`
+  in a connection string.
+- Snowflake connections sign in through the browser with SSO
+  (`authenticator=externalbrowser`): tql opens your identity provider and
+  takes the session it hands back. The session is kept in the store,
+  encrypted, and renewed without the browser while Snowflake allows, so
+  `tql query`, the MCP server and the next launch reuse it. Large answers that
+  Snowflake keeps in cloud storage are gathered in parallel.
+- The connection form asks a Snowflake connection how to sign in, and offers
+  the PEM private keys in `~/.snowflake`, `~/.ssh` and the current directory.
+- A copied Snowflake connection string keeps its warehouse, role, sign-in and
+  private key path.
+
+---
+
 ## 0.16.0
 
 ### New Features

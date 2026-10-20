@@ -43,6 +43,8 @@ webpki-roots = "1"
 plist = "1.10.1"
 duckdb = { version = "1.10506.0", features = ["bundled"] }
 redis = { version = "1.7.1", default-features = false, features = ["streams", "tls-rustls", "tls-rustls-insecure", "tls-rustls-webpki-roots"] }
+ring = "0.17"
+pkcs8 = { version = "0.10", features = ["pem", "encryption", "3des"] }
 
 [lints.rust]
 warnings = "deny"
@@ -64,4 +66,6 @@ opt-level = 3
 debug = false
 
 [dev-dependencies]
+rand_core = { version = "0.6", features = ["getrandom"] }
 rcgen = { version = "0.14", default-features = false, features = ["ring", "pem"] }
+rsa = "0.9"

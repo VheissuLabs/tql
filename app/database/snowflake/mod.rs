@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::sync::Mutex;
 use std::time::{Duration, Instant};
 
 use anyhow::{anyhow, bail};
@@ -7,17 +8,30 @@ use serde_json::{Map, Value, json};
 use super::http::{self, Reply};
 use super::lexed::writing_word;
 use super::schema::fill;
-use super::snowflake_oauth::{Save, Session};
+use super::snowflake_oauth::{Save, Session as OAuth};
 use super::{
     Column, Database, Filters, ForeignKey, Index, Kind, Outcome, Page, Sort, Table, Total, Values,
     first_count, is_read_only, keyed, outcome_or_affected, quote_double, single_column_keys,
 };
+use crate::paths;
 use crate::store::Connection;
+
+mod browser;
+mod keypair;
+mod session;
+
+pub use browser::{Opener, open_with};
+use session::{Keeper, Place, Sent, Session};
 
 const TIMEOUT: Duration = Duration::from_secs(300);
 const DOMAIN: &str = ".snowflakecomputing.com";
 const FIRST_WAIT: Duration = Duration::from_millis(250);
 const LONGEST_WAIT: Duration = Duration::from_secs(2);
+const FRESH_FOR: Duration = Duration::from_secs(300);
+const TOKEN_HINT: &str = "Check the access token saved on this connection.";
+const KEY_HINT: &str =
+    "Check that the user's RSA_PUBLIC_KEY in Snowflake matches the private key on this connection.";
+const SIGN_IN_HINT: &str = "Sign in again: sign out of this connection and open it.";
 const UNMATCHED: [&str; 9] = [
     "float",
     "variant",
@@ -30,10 +44,86 @@ const UNMATCHED: [&str; 9] = [
     "vector",
 ];
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Authenticator {
+    #[default]
+    Token,
+    KeyPair,
+    OAuth,
+    Browser,
+}
+
+impl Authenticator {
+    pub const ALL: [Authenticator; 4] = [
+        Authenticator::Token,
+        Authenticator::KeyPair,
+        Authenticator::OAuth,
+        Authenticator::Browser,
+    ];
+
+    pub fn parse(value: Option<&str>) -> Authenticator {
+        match value
+            .unwrap_or_default()
+            .trim()
+            .to_lowercase()
+            .replace([' ', '-'], "_")
+            .as_str()
+        {
+            "snowflake_jwt" | "jwt" | "keypair" | "key_pair" => Authenticator::KeyPair,
+            "oauth_authorization_code" | "oauth" | "browser_sign_in" => Authenticator::OAuth,
+            "externalbrowser" | "external_browser" | "sso" | "browser_sso" | "saml" => {
+                Authenticator::Browser
+            }
+            _ => Authenticator::Token,
+        }
+    }
+
+    pub fn chosen(value: Option<&str>, secret: Option<&str>) -> Authenticator {
+        match Authenticator::parse(value) {
+            Authenticator::Token if secret.is_none_or(|secret| secret.trim().is_empty()) => {
+                Authenticator::OAuth
+            }
+            chosen => chosen,
+        }
+    }
+
+    pub fn stored(self) -> Option<&'static str> {
+        match self {
+            Authenticator::Token => None,
+            Authenticator::KeyPair => Some("snowflake_jwt"),
+            Authenticator::OAuth => Some("oauth_authorization_code"),
+            Authenticator::Browser => Some("externalbrowser"),
+        }
+    }
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Authenticator::Token => "access token",
+            Authenticator::KeyPair => "key pair",
+            Authenticator::OAuth => "browser sign-in",
+            Authenticator::Browser => "SSO through the browser",
+        }
+    }
+
+    pub fn signs_in_with_browser(self) -> bool {
+        matches!(self, Authenticator::OAuth | Authenticator::Browser)
+    }
+}
+
+enum Auth {
+    Token(String),
+    KeyPair {
+        signer: keypair::Signer,
+        minted: Mutex<Option<(String, Instant)>>,
+    },
+    OAuth(OAuth),
+    Browser(Session),
+}
+
 pub struct Snowflake {
     client: http::Client,
     base: String,
-    credential: Credential,
+    auth: Auth,
     database: Option<String>,
     warehouse: Option<String>,
     role: Option<String>,
@@ -43,11 +133,6 @@ pub struct Snowflake {
     keys: Option<HashMap<Table, Vec<String>>>,
     early_keys: Option<HashMap<Table, Vec<String>>>,
     early_links: Option<HashMap<Table, Vec<ForeignKey>>>,
-}
-
-enum Credential {
-    AccessToken(String),
-    SignedIn(Session),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -102,7 +187,7 @@ impl Answer {
 impl Snowflake {
     pub fn open(
         connection: &Connection,
-        token: Option<String>,
+        secret: Option<String>,
         sign_in: Option<String>,
         save: Option<Save>,
     ) -> anyhow::Result<Self> {
@@ -121,19 +206,67 @@ impl Snowflake {
         };
         let base = base_url(account);
         let role = named(&connection.role);
-        let credential = match token.filter(|token| !token.trim().is_empty()) {
-            Some(token) => Credential::AccessToken(token.trim().to_string()),
-            None => Credential::SignedIn(Session::start(
+        let authenticator =
+            Authenticator::chosen(connection.authenticator.as_deref(), secret.as_deref());
+        let user = || {
+            named(&connection.username).ok_or_else(|| {
+                anyhow!(
+                    "Snowflake {} needs the user's login name",
+                    authenticator.label()
+                )
+            })
+        };
+        let auth = match authenticator {
+            Authenticator::Token => match secret.filter(|token| !token.trim().is_empty()) {
+                Some(token) => Auth::Token(token.trim().to_string()),
+                None => bail!(
+                    "Snowflake needs a programmatic access token, saved as the connection's password"
+                ),
+            },
+            Authenticator::KeyPair => {
+                let user = user()?;
+                let path = named(&connection.private_key).ok_or_else(|| {
+                    anyhow!("Snowflake key pair sign-in needs the path to the user's private key")
+                })?;
+                Auth::KeyPair {
+                    signer: keypair::Signer::load(
+                        &path,
+                        secret.as_deref(),
+                        &account_name(account),
+                        &user,
+                    )?,
+                    minted: Mutex::new(None),
+                }
+            }
+            Authenticator::OAuth => Auth::OAuth(OAuth::start(
                 &base,
                 role.as_deref(),
                 sign_in.as_deref(),
                 save,
             )?),
+            Authenticator::Browser => Auth::Browser(Session::open(
+                base.clone(),
+                account_name(account),
+                user()?,
+                &Place {
+                    role: role.clone(),
+                    warehouse: named(&connection.warehouse),
+                    database: named(&connection.database),
+                    schema: None,
+                },
+                (connection.id > 0).then(|| Keeper {
+                    store: paths::store(),
+                    key: paths::key(),
+                    id: connection.id,
+                }),
+                sign_in,
+                TIMEOUT,
+            )?),
         };
         let mut database = Snowflake {
             client: http::Client::new(TIMEOUT),
             base,
-            credential,
+            auth,
             database: named(&connection.database),
             warehouse: named(&connection.warehouse),
             role,
@@ -183,14 +316,36 @@ impl Snowflake {
         Ok(())
     }
 
-    fn token(&self) -> anyhow::Result<String> {
-        match &self.credential {
-            Credential::AccessToken(token) => Ok(token.clone()),
-            Credential::SignedIn(session) => session.access_token(),
-        }
+    fn bearer(&self) -> anyhow::Result<(String, Option<&'static str>)> {
+        Ok(match &self.auth {
+            Auth::Token(token) => (token.clone(), None),
+            Auth::KeyPair { signer, minted } => {
+                let mut minted = minted
+                    .lock()
+                    .unwrap_or_else(|poisoned| poisoned.into_inner());
+                let token = match minted.as_ref() {
+                    Some((token, at)) if at.elapsed() < keypair::LIFETIME - FRESH_FOR => {
+                        token.clone()
+                    }
+                    _ => {
+                        let token = signer
+                            .token(jiff::Timestamp::now().as_second().max(0).unsigned_abs())?;
+                        *minted = Some((token.clone(), Instant::now()));
+                        token
+                    }
+                };
+                (token, Some("KEYPAIR_JWT"))
+            }
+            Auth::OAuth(session) => (session.access_token()?, Some("OAUTH")),
+            Auth::Browser(_) => bail!("a browser SSO session does not use the SQL API"),
+        })
     }
 
-    fn headers(&self, token: &str, body: bool) -> Vec<(&'static str, String)> {
+    fn headers(
+        &self,
+        (token, kind): &(String, Option<&'static str>),
+        body: bool,
+    ) -> Vec<(&'static str, String)> {
         let mut headers = vec![
             ("Authorization", format!("Bearer {token}")),
             ("Accept", "application/json".to_string()),
@@ -198,21 +353,32 @@ impl Snowflake {
         if body {
             headers.push(("Content-Type", "application/json".to_string()));
         }
-        if matches!(self.credential, Credential::SignedIn(_)) {
-            headers.push(("X-Snowflake-Authorization-Token-Type", "OAUTH".to_string()));
+        if let Some(kind) = kind {
+            headers.push(("X-Snowflake-Authorization-Token-Type", kind.to_string()));
         }
         headers
     }
 
-    fn sent(&self, send: impl Fn(&str) -> anyhow::Result<Reply>) -> anyhow::Result<Reply> {
-        let token = self.token()?;
-        let reply = send(&token)?;
-        match &self.credential {
-            Credential::SignedIn(session) if reply.status == 401 => {
-                session.renew(&token)?;
-                send(&self.token()?)
+    fn sent(
+        &self,
+        send: impl Fn(&(String, Option<&'static str>)) -> anyhow::Result<Reply>,
+    ) -> anyhow::Result<Reply> {
+        let bearer = self.bearer()?;
+        let reply = send(&bearer)?;
+        match &self.auth {
+            Auth::OAuth(session) if reply.status == 401 => {
+                session.renew(&bearer.0)?;
+                send(&self.bearer()?)
             }
             _ => Ok(reply),
+        }
+    }
+
+    fn hint(&self) -> &'static str {
+        match self.auth {
+            Auth::KeyPair { .. } => KEY_HINT,
+            Auth::OAuth(_) | Auth::Browser(_) => SIGN_IN_HINT,
+            Auth::Token(_) => TOKEN_HINT,
         }
     }
 
@@ -234,14 +400,25 @@ impl Snowflake {
     }
 
     fn ask(&self, sql: &str) -> anyhow::Result<Answer> {
+        if let Auth::Browser(session) = &self.auth {
+            return Ok(answer_of(session.ask(
+                sql,
+                &Place {
+                    role: self.role.clone(),
+                    warehouse: self.warehouse.clone(),
+                    database: self.database.clone(),
+                    schema: self.schema.clone(),
+                },
+            )?));
+        }
         let url = format!("{}/api/v2/statements", self.base);
         let body = self.request(sql);
-        let reply = self.sent(|token| {
+        let reply = self.sent(|bearer| {
             self.client
-                .post(&url, &self.headers(token, true), body.clone())
+                .post(&url, &self.headers(bearer, true), body.clone())
         })?;
         let body = self.settled(reply)?;
-        let fields = fields(&body);
+        let fields = fields(&body["resultSetMetaData"]["rowType"]);
         let mut rows = rows(&body["data"], &fields);
         let partitions = body["resultSetMetaData"]["partitionInfo"]
             .as_array()
@@ -276,7 +453,7 @@ impl Snowflake {
             }
             let status = serde_json::from_str::<Value>(&reply.body).unwrap_or_default();
             let Some(place) = status["statementStatusUrl"].as_str() else {
-                bail!("{}", said(&reply));
+                bail!("{}", said(&reply, self.hint()));
             };
             if started.elapsed() > TIMEOUT {
                 bail!(
@@ -291,12 +468,12 @@ impl Snowflake {
     }
 
     fn fetched(&self, url: &str) -> anyhow::Result<Reply> {
-        self.sent(|token| self.client.get(url, &self.headers(token, false)))
+        self.sent(|bearer| self.client.get(url, &self.headers(bearer, false)))
     }
 
     fn parsed(&self, reply: Reply) -> anyhow::Result<Value> {
         if reply.status >= 400 {
-            bail!("{}", said(&reply));
+            bail!("{}", said(&reply, self.hint()));
         }
         serde_json::from_str(&reply.body).map_err(|_| {
             anyhow!(
@@ -562,7 +739,32 @@ fn base_url(account: &str) -> String {
     }
 }
 
-fn said(reply: &Reply) -> String {
+fn account_name(account: &str) -> String {
+    let host = account
+        .split_once("://")
+        .map_or(account, |(_, host)| host)
+        .trim_end_matches('/');
+    let host = host
+        .split_once(".snowflakecomputing.")
+        .map_or(host, |(name, _)| name);
+    host.split('.').next().unwrap_or(host).to_uppercase()
+}
+
+fn answer_of(sent: Sent) -> Answer {
+    let fields = fields(&sent.data["rowtype"]);
+    let mut rows = rows(&sent.data["rowset"], &fields);
+    for chunk in &sent.chunks {
+        rows.extend(self::rows(chunk, &fields));
+    }
+    Answer {
+        headers: fields.iter().map(|field| field.name.clone()).collect(),
+        kinds: vec![fields.iter().map(kind_of).collect(); rows.len()],
+        written: sent.written(),
+        rows,
+    }
+}
+
+fn said(reply: &Reply, hint: &str) -> String {
     let message = serde_json::from_str::<Value>(&reply.body)
         .ok()
         .and_then(|body| body["message"].as_str().map(String::from))
@@ -573,7 +775,7 @@ fn said(reply: &Reply) -> String {
         .map(String::from)
         .unwrap_or(message);
     if reply.status == 401 {
-        return format!("{message} Check the access token saved on this connection.");
+        return format!("{message} {hint}");
     }
     match message.contains("No active warehouse") || message.contains("specify the warehouse") {
         true => format!("{message} Set a warehouse on the connection."),
@@ -581,8 +783,8 @@ fn said(reply: &Reply) -> String {
     }
 }
 
-fn fields(body: &Value) -> Vec<Field> {
-    body["resultSetMetaData"]["rowType"]
+fn fields(row_type: &Value) -> Vec<Field> {
+    row_type
         .as_array()
         .map(|columns| {
             columns
@@ -1174,7 +1376,7 @@ mod tests {
                 "data":[["1","18262"],["2",null]]}"#,
         )
         .unwrap();
-        let fields = fields(&body);
+        let fields = fields(&body["resultSetMetaData"]["rowType"]);
         assert_eq!(
             rows(&body["data"], &fields),
             [
@@ -1208,28 +1410,37 @@ mod tests {
     #[test]
     fn keeps_snowflakes_words_from_a_failure_on_one_line() {
         assert_eq!(
-            said(&reply(
-                422,
-                r#"{"code":"002003","message":"SQL compilation error:\nObject 'NOPE' does not exist or not authorized."}"#
-            )),
+            said(
+                &reply(
+                    422,
+                    r#"{"code":"002003","message":"SQL compilation error:\nObject 'NOPE' does not exist or not authorized."}"#
+                ),
+                TOKEN_HINT
+            ),
             "SQL compilation error: Object 'NOPE' does not exist or not authorized."
         );
         assert_eq!(
-            said(&reply(
-                401,
-                r#"{"code":"390303","message":"Invalid OAuth access token. null"}"#
-            )),
+            said(
+                &reply(
+                    401,
+                    r#"{"code":"390303","message":"Invalid OAuth access token. null"}"#
+                ),
+                TOKEN_HINT
+            ),
             "Invalid OAuth access token. Check the access token saved on this connection."
         );
         assert_eq!(
-            said(&reply(502, "Bad Gateway")),
+            said(&reply(502, "Bad Gateway"), TOKEN_HINT),
             "Snowflake answered 502: Bad Gateway"
         );
         assert!(
-            said(&reply(
-                422,
-                r#"{"message":"No active warehouse selected in the current session."}"#
-            ))
+            said(
+                &reply(
+                    422,
+                    r#"{"message":"No active warehouse selected in the current session."}"#
+                ),
+                TOKEN_HINT
+            )
             .ends_with("Set a warehouse on the connection.")
         );
     }

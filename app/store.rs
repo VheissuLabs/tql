@@ -32,6 +32,8 @@ pub struct Connection {
     pub warehouse: Option<String>,
     pub role: Option<String>,
     pub sign_in: Option<String>,
+    pub authenticator: Option<String>,
+    pub private_key: Option<String>,
     pub last_used_at: Option<String>,
 }
 
@@ -63,8 +65,12 @@ impl Connection {
 
     pub fn signs_in_with_browser(&self) -> bool {
         self.driver == Driver::Snowflake
-            && self.password.as_deref().is_none_or(str::is_empty)
             && self.sign_in.is_none()
+            && crate::database::snowflake::Authenticator::chosen(
+                self.authenticator.as_deref(),
+                self.password.as_deref(),
+            )
+            .signs_in_with_browser()
     }
 
     pub fn connection_string(&self, password: Option<&str>) -> String {
@@ -79,12 +85,26 @@ impl Connection {
                 format!("{}:{}@", dsn::encode(username), dsn::encode(password))
             }
         };
+        let query: Vec<String> = [
+            ("warehouse", &self.warehouse),
+            ("role", &self.role),
+            ("authenticator", &self.authenticator),
+            ("private_key_path", &self.private_key),
+        ]
+        .into_iter()
+        .filter(|_| self.driver == Driver::Snowflake)
+        .filter_map(|(name, value)| Some(format!("{name}={}", dsn::encode(value.as_deref()?))))
+        .collect();
         format!(
-            "{}://{credentials}{}{}/{}",
+            "{}://{credentials}{}{}/{}{}",
             self.driver,
             self.host.clone().unwrap_or_default(),
             self.shown_port(),
-            dsn::encode(&database)
+            dsn::encode(&database),
+            match query.is_empty() {
+                true => String::new(),
+                false => format!("?{}", query.join("&")),
+            }
         )
     }
 
@@ -220,6 +240,8 @@ impl Store {
                 warehouse: text("warehouse").filter(|warehouse| !warehouse.trim().is_empty()),
                 role: text("role").filter(|role| !role.trim().is_empty()),
                 sign_in: text("sign_in").filter(|sign_in| !sign_in.is_empty()),
+                authenticator: text("authenticator").filter(|value| !value.trim().is_empty()),
+                private_key: text("private_key").filter(|path| !path.trim().is_empty()),
                 last_used_at: text("last_used_at"),
             }))
         })?;

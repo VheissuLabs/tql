@@ -20,6 +20,7 @@ pub enum Name {
     Help,
     Open,
     ExportDatabase,
+    SignOut,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -144,6 +145,12 @@ pub const ENTRIES: &[Entry] = &[
         shell: Shell::Opens,
         ..entry(Name::New, &["new"], "add a connection", CONNECTIONS)
     },
+    entry(
+        Name::SignOut,
+        &["sign-out", "signout"],
+        "forget the browser sign-in saved with the highlighted connection",
+        CONNECTIONS,
+    ),
     Entry {
         shell: Shell::Own,
         palette: false,

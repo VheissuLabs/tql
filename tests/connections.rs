@@ -1367,6 +1367,92 @@ fn lets_the_status_line_fade_back_to_the_connection_count() {
 }
 
 #[test]
+fn a_snowflake_connection_asks_for_what_its_sign_in_needs_and_saves_it() {
+    let scratch = Scratch::new("snowflake-sign-in");
+    let mut form = app::tui::ConnectionForm::creating(Places {
+        home: scratch.root.clone(),
+        cwd: scratch.root.clone(),
+    });
+    while form.driver() != Driver::Snowflake {
+        form.cycle_driver(true);
+    }
+    let labels = |form: &app::tui::ConnectionForm| {
+        form.fields()
+            .iter()
+            .map(|(_, label)| *label)
+            .collect::<Vec<_>>()
+    };
+    assert_eq!(
+        labels(&form),
+        [
+            "Driver",
+            "Name",
+            "Account",
+            "User",
+            "Database",
+            "Sign in with",
+            "Access token",
+            "Warehouse",
+            "Role",
+            "Group",
+            "Tag",
+            "Read only"
+        ]
+    );
+    let at = form
+        .keys()
+        .iter()
+        .position(|key| *key == "authenticator")
+        .unwrap();
+    form.move_by(at as isize);
+    form.values.insert("name", "sf".into());
+    form.values.insert("host", "myorg-myaccount".into());
+    form.values.insert("password", "pat-secret".into());
+
+    form.cycle(true);
+    assert!(labels(&form).contains(&"Private key"));
+    assert!(labels(&form).contains(&"Passphrase"));
+    assert!(!labels(&form).contains(&"Access token"));
+    assert_eq!(form.value("password"), "");
+    let writer = scratch.writer();
+    assert_eq!(
+        form.save(&writer).unwrap().as_deref(),
+        Some("The Snowflake user's login name is required.")
+    );
+    form.values.insert("username", "karl".into());
+    assert_eq!(
+        form.save(&writer).unwrap().as_deref(),
+        Some("The path to the user's private key is required.")
+    );
+    form.values
+        .insert("private_key", "~/.snowflake/rsa_key.p8".into());
+    assert_eq!(form.save(&writer).unwrap(), None);
+    let saved = scratch.connections().pop().unwrap();
+    assert_eq!(saved.authenticator.as_deref(), Some("snowflake_jwt"));
+    assert_eq!(
+        saved.private_key.as_deref(),
+        Some("~/.snowflake/rsa_key.p8")
+    );
+    assert_eq!(saved.password, None);
+
+    let saved_with = |scratch: &Scratch| scratch.connections().pop().unwrap().authenticator;
+    form.cycle(true);
+    assert!(!labels(&form).contains(&"Private key"));
+    assert!(!labels(&form).contains(&"Passphrase"));
+    assert!(!labels(&form).contains(&"Access token"));
+    assert_eq!(form.save(&writer).unwrap(), None);
+    assert_eq!(
+        saved_with(&scratch).as_deref(),
+        Some("oauth_authorization_code")
+    );
+
+    form.cycle(true);
+    assert!(!labels(&form).contains(&"Access token"));
+    assert_eq!(form.save(&writer).unwrap(), None);
+    assert_eq!(saved_with(&scratch).as_deref(), Some("externalbrowser"));
+}
+
+#[test]
 fn the_form_asks_each_new_driver_for_what_it_needs() {
     let mut form = app::tui::ConnectionForm::creating(Places {
         home: std::env::temp_dir(),
@@ -1424,4 +1510,39 @@ fn the_form_asks_each_new_driver_for_what_it_needs() {
     form.cycle(true);
     assert_eq!(form.value("ssl_mode"), "require");
     assert_eq!(form.value("port"), "8443");
+}
+
+#[test]
+fn sign_out_forgets_the_browser_sign_in_saved_with_a_snowflake_connection() {
+    let scratch = Scratch::new("sign-out");
+    scratch.add(&[
+        ("name", Field::Text("analytics".into())),
+        ("driver", Field::Text("snowflake".into())),
+        ("host", Field::Text("myorg-myaccount".into())),
+        (
+            "sign_in",
+            Field::Secret(r#"{"for":"x","refresh":"kept"}"#.into()),
+        ),
+    ]);
+    scratch.add(&[
+        ("name", Field::Text("blog".into())),
+        ("driver", Field::Text("mysql".into())),
+    ]);
+    let mut fake = scratch.picker();
+
+    fake.press(":sign-out\n");
+    assert!(
+        fake.screen().contains("signed out of analytics"),
+        "{}",
+        fake.screen()
+    );
+    assert_eq!(scratch.named("analytics").unwrap().sign_in, None);
+
+    fake.press(":sign-out\n");
+    assert!(
+        fake.screen()
+            .contains("analytics has no browser sign-in saved")
+    );
+    fake.press("j:sign-out\n");
+    assert!(fake.screen().contains("blog has no browser sign-in saved"));
 }

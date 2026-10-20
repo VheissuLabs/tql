@@ -49,6 +49,35 @@ impl Picker {
         self.say("marks cleared");
     }
 
+    pub(super) fn sign_out(&mut self) {
+        let Some(connection) = self.current().cloned() else {
+            self.say("highlight a connection to sign out of");
+            return;
+        };
+        if connection.sign_in.is_none() {
+            self.say(format!("{} has no browser sign-in saved", connection.name));
+            return;
+        }
+        let forgotten = self
+            .writer()
+            .and_then(|writer| {
+                writer.update(
+                    connection.id,
+                    &[("sign_in", crate::store_writer::Field::Null)],
+                )
+            })
+            .and_then(|_| self.reload());
+        if let Err(error) = forgotten {
+            self.say(format!("{error:#}"));
+            return;
+        }
+        crate::database::snowflake_oauth::forget_all();
+        self.say(format!(
+            "signed out of {}; it signs in through the browser when it next opens",
+            connection.name
+        ));
+    }
+
     pub(super) fn write_pending(&mut self) {
         if self.pending_deletes.is_empty() {
             self.say("nothing to write");
