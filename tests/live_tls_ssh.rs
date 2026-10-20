@@ -601,3 +601,95 @@ fn redis_speaks_tls_as_far_as_the_mode_asks() {
     assert!(app::keystore::connect(&reach("127.0.0.1", "verify-full", false), None).is_err());
     assert!(app::keystore::connect(&reach("127.0.0.1", "disable", false), None).is_err());
 }
+
+#[test]
+#[ignore = "starts throwaway mysql, postgres and sshd containers in docker"]
+fn comes_back_after_a_sleep_drops_the_connection_and_its_tunnel() {
+    let mut lab = Lab::new("asleep");
+    let _client = SshClient::isolated(&lab);
+    let encrypter = Encrypter::throwaway().unwrap();
+    lab.network();
+    let postgres_host = format!("{}-postgres", lab.prefix);
+    postgres_server(&mut lab, &[&postgres_host], &[]);
+    let mysql_container = lab.run(
+        "mysql",
+        &[
+            "-p",
+            "127.0.0.1::3306",
+            "-e",
+            "MYSQL_ALLOW_EMPTY_PASSWORD=yes",
+            "mysql:8.0",
+        ],
+    );
+    let mysql_port = lab.port(&mysql_container, 3306);
+
+    let generated = Command::new("ssh-keygen")
+        .args(["-q", "-t", "ed25519", "-N", "", "-C", "tql-test", "-f"])
+        .arg(lab.path("id_test"))
+        .status()
+        .unwrap();
+    assert!(generated.success());
+    let authorized = lab.directory.join("authorized_keys");
+    fs::copy(lab.directory.join("id_test.pub"), &authorized).unwrap();
+    fs::set_permissions(&authorized, fs::Permissions::from_mode(0o644)).unwrap();
+    let mounted = format!("{}:/keys:ro", authorized.display());
+    let bastion = lab.run(
+        "sshd",
+        &[
+            "-p",
+            "127.0.0.1::22",
+            "-v",
+            &mounted,
+            "alpine:latest",
+            "sh",
+            "-c",
+            "apk add --no-cache openssh >/dev/null && ssh-keygen -A >/dev/null && adduser -D tunnel && echo tunnel:hunter2 | chpasswd && mkdir -p /home/tunnel/.ssh && cp /keys /home/tunnel/.ssh/authorized_keys && chown -R tunnel /home/tunnel/.ssh && chmod 600 /home/tunnel/.ssh/authorized_keys && exec /usr/sbin/sshd -D -e -o AllowTcpForwarding=yes",
+        ],
+    );
+    let ssh_port = lab.port(&bastion, 22);
+    let bastioned = |connection: Connection| Connection {
+        ssh_host: Some("127.0.0.1".to_string()),
+        ssh_port: Some(ssh_port),
+        ssh_user: Some("tunnel".to_string()),
+        ssh_key: Some(lab.path("id_test")),
+        ..connection
+    };
+
+    let mut direct = eventually(&mysql(mysql_port, "disable"), None);
+    let mut tunnelled_mysql = eventually(
+        &bastioned(Connection {
+            host: Some(mysql_container.clone()),
+            port: Some(3306),
+            ..mysql(0, "disable")
+        }),
+        None,
+    );
+    let mut tunnelled_postgres = eventually(
+        &bastioned(with_password(
+            postgres(&postgres_host, 5432, "require"),
+            &encrypter,
+        )),
+        Some(&encrypter),
+    );
+    let one = |database: &mut Box<dyn Database>| {
+        database
+            .select("select 1", &[])
+            .map(|page| page.rows[0][0].clone())
+    };
+    assert_eq!(one(&mut direct).unwrap().as_deref(), Some("1"));
+    assert_eq!(one(&mut tunnelled_mysql).unwrap().as_deref(), Some("1"));
+    assert_eq!(one(&mut tunnelled_postgres).unwrap().as_deref(), Some("1"));
+
+    let id = direct.select("select connection_id()", &[]).unwrap().rows[0][0]
+        .clone()
+        .unwrap();
+    let mut killer = database::connect(&mysql(mysql_port, "disable"), None).unwrap();
+    killer.run(&format!("kill {id}")).unwrap();
+    tunnel::close_all();
+    thread::sleep(Duration::from_secs(31));
+
+    assert_eq!(one(&mut direct).unwrap().as_deref(), Some("1"));
+    assert_eq!(one(&mut tunnelled_mysql).unwrap().as_deref(), Some("1"));
+    assert_eq!(one(&mut tunnelled_postgres).unwrap().as_deref(), Some("1"));
+    tunnel::close_all();
+}

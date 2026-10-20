@@ -73,9 +73,9 @@ impl SqlServer {
     pub fn through(
         connection: &Connection,
         password: Option<String>,
-        tunnel: Option<Arc<Tunnel>>,
+        route: Route,
     ) -> anyhow::Result<Self> {
-        let Some(tunnel) = tunnel else {
+        let Some(tunnel) = route.tunnel()? else {
             return Self::open(connection, password);
         };
         let routed = Connection {
@@ -84,6 +84,7 @@ impl SqlServer {
             ..connection.clone()
         };
         Ok(SqlServer {
+            route,
             _tunnel: Some(tunnel),
             ..Self::open(&routed, password)?
         })
@@ -109,11 +110,16 @@ impl SqlServer {
             connection: connection.clone(),
             password,
             default: None,
+            route: Route::default(),
             _tunnel: None,
         })
     }
 
-    pub(super) fn reconnect(&self, database: &str) -> anyhow::Result<Wire> {
+    pub(super) fn reconnect(&mut self, database: &str) -> anyhow::Result<Wire> {
+        if let Some(tunnel) = self.route.tunnel()? {
+            self.connection.port = Some(tunnel.port);
+            self._tunnel = Some(tunnel);
+        }
         dial(
             &self.runtime,
             configured(&self.connection, self.password.as_deref(), Some(database)),

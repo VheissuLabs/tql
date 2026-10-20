@@ -3,6 +3,7 @@ use std::collections::HashMap;
 
 use std::net::Ipv4Addr;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, bail};
 use postgres::types::Type;
@@ -20,15 +21,22 @@ use super::{
     update_statement,
 };
 use crate::store::Connection;
-use crate::tunnel::Tunnel;
+use crate::tunnel::{Route, Tunnel};
 
 pub struct Postgres {
     client: Client,
     config: postgres::Config,
+    settings: Connection,
+    password: Option<String>,
     tls: MakeRustlsConnect,
     default: Option<String>,
+    route: Route,
+    used: Instant,
     _tunnel: Option<Arc<Tunnel>>,
 }
+
+const IDLE: Duration = Duration::from_secs(30);
+const PING_WAIT: Duration = Duration::from_secs(5);
 
 const USER_SCHEMAS: &str = "n.nspname not in ('pg_catalog', 'information_schema') \
      and n.nspname not like 'pg\\_toast%' and n.nspname not like 'pg\\_temp\\_%'";
@@ -40,35 +48,11 @@ impl Postgres {
     pub fn open(
         connection: &Connection,
         password: Option<String>,
-        tunnel: Option<Arc<Tunnel>>,
+        route: Route,
     ) -> anyhow::Result<Self> {
+        let tunnel = route.tunnel()?;
         let settings = Tls::of(connection)?;
-        let mut config = postgres::Config::new();
-        config
-            .host(connection.host.as_deref().unwrap_or("127.0.0.1"))
-            .port(
-                tunnel
-                    .as_ref()
-                    .map(|tunnel| tunnel.port)
-                    .or(connection.port)
-                    .unwrap_or(5432),
-            )
-            .ssl_mode(settings.postgres_mode())
-            .user(&user_or_yours(connection.username.as_deref()))
-            .dbname(
-                connection
-                    .database
-                    .as_deref()
-                    .filter(|database| !database.trim().is_empty())
-                    .unwrap_or("postgres"),
-            );
-        if let Some(password) = password {
-            config.password(password);
-        }
-        if tunnel.is_some() {
-            config.hostaddr(Ipv4Addr::LOCALHOST.into());
-        }
-
+        let config = configured(connection, password.as_deref(), tunnel.as_ref(), &settings);
         let tls = MakeRustlsConnect::new(settings.client_config()?);
         let client = config
             .connect(tls.clone())
@@ -76,10 +60,37 @@ impl Postgres {
         Ok(Postgres {
             client,
             config,
+            settings: connection.clone(),
+            password,
             tls,
             default: None,
+            route,
+            used: Instant::now(),
             _tunnel: tunnel,
         })
+    }
+
+    fn live(&mut self) -> anyhow::Result<&mut Client> {
+        if self.used.elapsed() >= IDLE && self.client.is_valid(PING_WAIT).is_err() {
+            let tunnel = self.route.tunnel()?;
+            let settings = Connection {
+                database: self.config.get_dbname().map(String::from),
+                ..self.settings.clone()
+            };
+            let config = configured(
+                &settings,
+                self.password.as_deref(),
+                tunnel.as_ref(),
+                &Tls::of(&self.settings)?,
+            );
+            self.client = config
+                .connect(self.tls.clone())
+                .context("cannot connect again")?;
+            self.config = config;
+            self._tunnel = tunnel;
+        }
+        self.used = Instant::now();
+        Ok(&mut self.client)
     }
 
     fn simple(&mut self, statement: &str) -> anyhow::Result<(Vec<String>, Rows, usize)> {
@@ -87,7 +98,7 @@ impl Postgres {
         let mut rows = Vec::new();
         let mut affected = 0;
         let mut results = 0;
-        for message in self.client.simple_query(statement).map_err(own_words)? {
+        for message in self.live()?.simple_query(statement).map_err(own_words)? {
             match message {
                 SimpleQueryMessage::RowDescription(columns) => {
                     results += 1;
@@ -154,7 +165,7 @@ impl Postgres {
 
 impl Postgres {
     fn kinds(&mut self, statement: &str, width: usize) -> Option<Vec<Kind>> {
-        let prepared = self.client.prepare(statement).ok()?;
+        let prepared = self.live().ok()?.prepare(statement).ok()?;
         let kinds: Vec<Kind> = prepared
             .columns()
             .iter()
@@ -220,10 +231,43 @@ impl Postgres {
     }
 
     fn write(&mut self, sql: String, shown: String) -> anyhow::Result<u64> {
-        self.client
+        self.live()?
             .execute(&sql, &[])
             .map_err(|error| refused(error, &shown))
     }
+}
+
+fn configured(
+    connection: &Connection,
+    password: Option<&str>,
+    tunnel: Option<&Arc<Tunnel>>,
+    settings: &Tls,
+) -> postgres::Config {
+    let mut config = postgres::Config::new();
+    config
+        .host(connection.host.as_deref().unwrap_or("127.0.0.1"))
+        .port(
+            tunnel
+                .map(|tunnel| tunnel.port)
+                .or(connection.port)
+                .unwrap_or(5432),
+        )
+        .ssl_mode(settings.postgres_mode())
+        .user(&user_or_yours(connection.username.as_deref()))
+        .dbname(
+            connection
+                .database
+                .as_deref()
+                .filter(|database| !database.trim().is_empty())
+                .unwrap_or("postgres"),
+        );
+    if let Some(password) = password {
+        config.password(password);
+    }
+    if tunnel.is_some() {
+        config.hostaddr(Ipv4Addr::LOCALHOST.into());
+    }
+    config
 }
 
 fn escaped_literal(value: &str) -> String {

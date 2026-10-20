@@ -14,7 +14,7 @@ use super::{
 };
 use super::{Total, first_count};
 use crate::store::Connection;
-use crate::tunnel::Tunnel;
+use crate::tunnel::{Route, Tunnel};
 use rustls::ClientConfig;
 
 const TIMEOUT: Duration = Duration::from_secs(300);
@@ -51,7 +51,8 @@ pub struct ClickHouse {
     locked: bool,
     orders: HashMap<Table, String>,
     types: HashMap<Table, HashMap<String, String>>,
-    _tunnel: Option<Arc<Tunnel>>,
+    route: Route,
+    tunnel: Option<Arc<Tunnel>>,
 }
 
 #[derive(Debug)]
@@ -66,8 +67,9 @@ impl ClickHouse {
     pub fn open(
         connection: &Connection,
         password: Option<String>,
-        tunnel: Option<Arc<Tunnel>>,
+        route: Route,
     ) -> anyhow::Result<Self> {
+        let tunnel = route.tunnel()?;
         let tls = Tls::of(connection)?;
         let secure = !matches!(
             tls.mode,
@@ -108,7 +110,8 @@ impl ClickHouse {
             locked: false,
             orders: HashMap::new(),
             types: HashMap::new(),
-            _tunnel: tunnel,
+            route,
+            tunnel,
         };
         let readonly = database.ask("select getSetting('readonly')", false)?;
         database.locked = readonly
@@ -120,6 +123,14 @@ impl ClickHouse {
     }
 
     fn ask(&mut self, sql: &str, reading: bool) -> anyhow::Result<Answer> {
+        if let Some(gone) = self.tunnel.as_ref().filter(|tunnel| !tunnel.running()) {
+            let dead = format!(":{}/", gone.port);
+            let tunnel = self.route.tunnel()?;
+            if let Some(alive) = &tunnel {
+                self.base = self.base.replace(&dead, &format!(":{}/", alive.port));
+            }
+            self.tunnel = tunnel;
+        }
         match self.asked(sql, reading) {
             Err(error) if error.to_string().contains(SESSION_LOCKED) => {
                 self.session = session();

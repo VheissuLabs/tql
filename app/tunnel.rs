@@ -52,6 +52,28 @@ pub fn for_connection(
     Ok(tunnel)
 }
 
+#[derive(Clone, Default)]
+pub struct Route {
+    connection: Option<Connection>,
+    password: Option<String>,
+}
+
+impl Route {
+    pub fn of(connection: &Connection, password: Option<String>) -> Route {
+        Route {
+            connection: connection.uses_ssh().then(|| connection.clone()),
+            password,
+        }
+    }
+
+    pub fn tunnel(&self) -> anyhow::Result<Option<Arc<Tunnel>>> {
+        self.connection
+            .as_ref()
+            .map(|connection| for_connection(connection, self.password.clone()))
+            .transpose()
+    }
+}
+
 fn open() -> std::sync::MutexGuard<'static, HashMap<String, Arc<Tunnel>>> {
     OPEN.lock().unwrap_or_else(|poisoned| poisoned.into_inner())
 }
