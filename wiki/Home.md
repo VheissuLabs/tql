@@ -36,10 +36,10 @@ as happily as a Postgres server behind an SSH tunnel.
 
 ```bash
 brew install vheissulabs/tap/tql            # macOS and Linux, Homebrew
-curl -fsSL https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh | sh   # a script
+curl -fsSL https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh | sh   # a script; a pacman package on Arch
 ```
 
-There are `.deb`, `.rpm` and `PKGBUILD` packages, and standalone binaries, on
+There are `.deb`, `.rpm`, Arch and `PKGBUILD` packages, and standalone binaries, on
 [the latest release](https://github.com/VheissuLabs/tql/releases/latest). See
 [Installation](Installation) for all of them, including how to check a download.
 

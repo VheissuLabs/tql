@@ -46,7 +46,7 @@ A newer `.rpm` upgrades it; `sudo dnf remove tql` removes it.
 There is no apt or dnf repository yet, so `apt upgrade` and `dnf upgrade` do not
 see new releases. `tql --version` says which one you have.
 
-## Arch
+## Arch, with pacman
 
 tql is not on the AUR yet, but the install script installs it as a pacman
 package:
@@ -61,12 +61,13 @@ usual. pacman owns `/usr/bin/tql` from then on, and `sudo pacman -R tql` removes
 it. There is no repository behind it, so `pacman -Syu` does not see new
 releases: tql tells you when one is out, and running the script again upgrades
 it. If an earlier run of the script left a loose `tql` in `/usr/local/bin` or
-`~/.local/bin`, it is removed so it does not hide the package. Releases up to
-0.17.0 have no package, so for those the script installs the binary instead.
+`~/.local/bin`, it is removed so it does not hide the package. A version
+pinned with `TQL_VERSION` from before 0.17.1 has no package, so the script
+installs the binary for it instead.
 
-The package is also a release asset, `tql-<version>-1-x86_64.pkg.tar.zst` (or
-`aarch64`), for `sudo pacman -U` by hand, and releases after 0.7.0 carry a
-`PKGBUILD` for `makepkg -si`.
+From 0.17.1 the package is also a release asset,
+`tql-<version>-1-x86_64.pkg.tar.zst` (or `aarch64`), for `sudo pacman -U` by
+hand, and releases after 0.7.0 carry a `PKGBUILD` for `makepkg -si`.
 
 ## The binary, by hand
 
