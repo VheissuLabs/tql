@@ -8,6 +8,7 @@ Fuller announcements for the recent releases live under `release-notes/`:
 
 | Release | |
 | --- | --- |
+| [0.17.1](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.17.1.md) | One line installs tql on Arch, as a package pacman owns |
 | [0.17.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.17.0.md) | Snowflake key pair and SSO sign-in, sign-out, and connections that come back after sleep |
 | [0.16.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.16.0.md) | Snowflake single sign-on, and editing Snowflake and ClickHouse tables in the grid |
 | [0.15.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.15.0.md) | Snowflake, over its SQL API with a programmatic access token |
@@ -23,6 +24,12 @@ Fuller announcements for the recent releases live under `release-notes/`:
 | [0.11.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.11.0.md) | `tql dump`, `tql load` and `tql sync`, and the TablePlus import |
 | [0.9.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.9.0.md) | SQL Server on macOS, and the agent commands |
 | [0.6.0](https://github.com/VheissuLabs/tql/blob/main/release-notes/v0.6.0.md) | The releases before 0.9 |
+
+## 0.17.1
+
+- On Arch, the install script installs tql as a pacman package, so one line
+  installs it and `sudo pacman -R tql` removes it. Run it again to upgrade.
+- Each release carries an Arch package for x86_64 and aarch64.
 
 ## 0.17.0
 

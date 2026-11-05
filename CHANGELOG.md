@@ -4,6 +4,25 @@ What changed in each release, newest first, grouped into New Features,
 Enhancements and Bug Fixes. Newer tagged releases also have a fuller
 announcement under `release-notes/` for GitHub.
 
+## 0.17.1
+
+### New Features
+
+- On Arch, the install script installs tql as a pacman package: it downloads
+  the release's package, checks it against `SHA256SUMS` and installs it with
+  `sudo pacman -U`, which asks first as usual. pacman owns `/usr/bin/tql` from
+  then on, and `sudo pacman -R tql` removes it. A loose `tql` an earlier run
+  of the script left in `/usr/local/bin` or `~/.local/bin` is removed so it
+  does not hide the package. Run the script again to upgrade; `TQL_BIN_DIR`
+  still installs the plain binary.
+- Each release carries an Arch package for x86_64 and aarch64,
+  `tql-<version>-1-<arch>.pkg.tar.zst`, beside the `.deb` and `.rpm`.
+
+### Enhancements
+
+- The update notice on an Arch package install says to run the install script
+  again.
+
 ## 0.17.0
 
 ### New Features
