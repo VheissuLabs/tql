@@ -61,7 +61,7 @@ impl Installation {
     pub fn upgrade(&self, releases: &Releases) -> String {
         match self.how {
             How::Homebrew => "brew upgrade tql".to_string(),
-            How::Package => "install the new .deb, .rpm or PKGBUILD".to_string(),
+            How::Package => package_upgrade(Path::new("/usr/bin/pacman").exists()).to_string(),
             How::ByItself => "tql update".to_string(),
             How::Built => format!("get it from {}", releases.page()),
         }
@@ -69,6 +69,16 @@ impl Installation {
 
     pub fn relaunch(&self) -> PathBuf {
         self.path.clone()
+    }
+}
+
+// On Arch the install script installs the release's pacman package, and
+// running it again is how that package upgrades.
+fn package_upgrade(pacman: bool) -> &'static str {
+    if pacman {
+        "run the install script again"
+    } else {
+        "install the new .deb or .rpm"
     }
 }
 
@@ -115,6 +125,12 @@ mod tests {
             let upgrade = Installation::new(how, "/x/tql").upgrade(&releases);
             assert!(upgrade.contains(says), "{upgrade}");
         }
+    }
+
+    #[test]
+    fn tells_arch_to_run_the_install_script_for_a_new_package() {
+        assert_eq!(package_upgrade(true), "run the install script again");
+        assert_eq!(package_upgrade(false), "install the new .deb or .rpm");
     }
 
     #[test]

@@ -11,8 +11,9 @@ Everything below is driven by pushing a `v*` tag, which `bin/release` does.
 try a change to the pipeline.
 
 After it publishes, `.github/workflows/install.yml` installs the new release the
-way people will (the one-line installer on Linux x86_64, Linux ARM and macOS,
-and the AUR package built with `makepkg` in an Arch container) and fails if any
+way people will (the one-line installer on Linux x86_64, Linux ARM and macOS
+and, through pacman, in an Arch container, and the AUR package built with
+`makepkg`) and fails if any
 of them does not run and report the new version. It runs on its own too, whenever
 `install.sh` or `packaging/` changes and once a week, so a broken installer is
 caught before someone runs into it.
@@ -23,7 +24,7 @@ caught before someone runs into it.
 | --- | --- |
 | `tql-linux-x86_64`, `tql-linux-aarch64` | standalone, needs nothing |
 | `tql-macos-aarch64` | the same, for Apple Silicon Macs |
-| `.deb`, `.rpm` | the matching binary, one per architecture, no dependencies |
+| `.deb`, `.rpm`, `.pkg.tar.zst` | the matching binary, one per architecture, no dependencies; `install.sh` installs the Arch one with pacman |
 | Homebrew | `packaging/homebrew/tql.rb`, pushed to the tap on release |
 | AUR | `packaging/aur/PKGBUILD`, pushed to `tql-bin` on release |
 

@@ -164,7 +164,7 @@ nothing. What happens next depends on how you installed it:
   already running, an MCP server included, keeps its own file and carries on. The
   last three versions are kept. A download that does not match its checksum is
   never installed.
-- **Homebrew, or a `.deb`, `.rpm` or `PKGBUILD`:** tql never replaces a file a
+- **Homebrew, or a `.deb`, `.rpm`, Arch package or `PKGBUILD`:** tql never replaces a file a
   package manager owns. The connection list says what to run instead, such as
   *tql 0.8.0 is out · brew upgrade tql*.
 

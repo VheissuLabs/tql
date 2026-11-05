@@ -102,7 +102,7 @@ jobs:
         id: version
         run: echo "version=$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[0].version')" >> "$GITHUB_OUTPUT"
 
-      - name: Build the deb and the rpm, one per architecture
+      - name: Build the deb, the rpm and the Arch package, one per architecture
         run: |
           curl -fsSL "https://github.com/goreleaser/nfpm/releases/download/v2.47.0/nfpm_2.47.0_Linux_x86_64.tar.gz" \
             | tar -xz -C /usr/local/bin nfpm
@@ -120,6 +120,8 @@ jobs:
               --config packaging/nfpm.yaml --packager deb --target dist/
             VERSION=${{ steps.version.outputs.version }} ARCH=$arch nfpm package \
               --config packaging/nfpm.yaml --packager rpm --target dist/
+            VERSION=${{ steps.version.outputs.version }} ARCH=$arch nfpm package \
+              --config packaging/nfpm.yaml --packager archlinux --target dist/
           done
 
           rm dist/tql
@@ -128,6 +130,19 @@ jobs:
         run: |
           dpkg-deb --contents dist/*amd64.deb | grep -q 'usr/bin/tql'
           ! dpkg-deb --info dist/*amd64.deb | grep -q 'Depends'
+
+      # install.sh downloads the Arch package by this name, so a change to it
+      # would break the installer on Arch.
+      - name: Check the Arch package installs with pacman and runs
+        run: |
+          pkg="tql-${{ steps.version.outputs.version }}-1-x86_64.pkg.tar.zst"
+          test -f "dist/$pkg"
+          test -f "dist/tql-${{ steps.version.outputs.version }}-1-aarch64.pkg.tar.zst"
+          docker run --rm -v "$PWD/dist:/dist" archlinux:base sh -c "
+            pacman -U --noconfirm /dist/$pkg >/dev/null
+            pacman -Qi tql | grep -q 'tql-bin'
+            tql --version | grep -qx 'Tql v${{ steps.version.outputs.version }}'
+          "
 
       - uses: actions/upload-artifact@v4
         with:

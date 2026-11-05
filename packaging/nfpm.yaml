@@ -1,6 +1,9 @@
-# Builds the .deb and the .rpm attached to each release.
+# Builds the .deb, the .rpm and the Arch package attached to each release.
 #
 #   VERSION=0.3.0 ARCH=amd64 nfpm package --config packaging/nfpm.yaml --packager deb
+#
+# install.sh installs the Arch one with pacman, so its file name,
+# tql-<version>-1-<arch>.pkg.tar.zst, is part of the installer.
 #
 # dist/tql is the standalone binary for that architecture, so the package is
 # one file and nothing else.
@@ -26,3 +29,9 @@ contents:
       mode: 0755
 
 # No dependencies at all: the binary is self-contained.
+
+# tql-bin is the AUR package and the release PKGBUILD, which install the same file.
+overrides:
+  archlinux:
+    conflicts:
+      - tql-bin

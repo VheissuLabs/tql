@@ -31,6 +31,36 @@ jobs:
           TQL_BIN_DIR="$RUNNER_TEMP/bin" sh install.sh
           "$RUNNER_TEMP/bin/tql" --version | tee /dev/stderr | grep -qF "${tag#v}"
 
+  arch:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install on Arch with the one-line installer, through pacman
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          pkg="tql-${tag#v}-1-x86_64.pkg.tar.zst"
+
+          # Releases up to 0.17.0 have no Arch package, and the installer falls
+          # back to the binary for them.
+          if gh release view "$tag" --repo "$GITHUB_REPOSITORY" --json assets --jq '.assets[].name' | grep -qx "$pkg"; then
+            owner=tql
+          else
+            owner=none
+          fi
+
+          docker run --rm -v "$PWD:/src" -e VERSION="${tag#v}" -e OWNER="$owner" archlinux:base sh -c '
+            set -e
+            sh /src/install.sh </dev/null
+            tql --version | grep -qF "$VERSION"
+            if [ "$OWNER" = tql ]; then
+              pacman -Qo "$(command -v tql)" | grep -q " tql $VERSION-1"
+            fi
+          '
+
   pkgbuild:
     runs-on: ubuntu-latest
 

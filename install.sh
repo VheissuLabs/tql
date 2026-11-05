@@ -33,6 +33,62 @@ ASSET="tql-$OS-$ARCH"
 
 [ "$ASSET" != "tql-macos-x86_64" ] || die "tql needs an Apple Silicon Mac; there is no build for Intel Macs."
 
+SUDO=""
+[ "$(id -u)" = 0 ] || SUDO="sudo"
+
+# On Arch, install the release's pacman package rather than a loose binary, so
+# pacman upgrades and removes it like everything else. Returns 1 when the
+# release has no package (0.17.0 and earlier), and the binary goes in instead.
+install_with_pacman() {
+    if [ "$VERSION" = "latest" ]; then
+        TAG="$(curl -fsSLI -o /dev/null -w '%{url_effective}' "https://github.com/$REPO/releases/latest")" \
+            || die "Could not find the latest tql release."
+        TAG="${TAG##*/}"
+    else
+        TAG="$VERSION"
+    fi
+
+    PKG="tql-${TAG#v}-1-$ARCH.pkg.tar.zst"
+    BASE="https://github.com/$REPO/releases/download/$TAG"
+    WORK="$(mktemp -d)"
+    trap 'rm -rf "$WORK"' EXIT
+
+    say "Downloading the tql $TAG package for pacman…"
+    curl -fsSL "$BASE/$PKG" -o "$WORK/$PKG" 2>/dev/null || {
+        say "$TAG has no pacman package, installing the binary instead."
+        return 1
+    }
+
+    curl -fsSL "$BASE/SHA256SUMS" -o "$WORK/SHA256SUMS" || die "Could not download $BASE/SHA256SUMS"
+    (cd "$WORK" && grep "  $PKG\$" SHA256SUMS | sha256sum --check --status) \
+        || die "$PKG does not match the release's SHA256SUMS, so it was not installed."
+
+    # An earlier run of this script put a loose binary first on PATH, where it
+    # would hide the package's /usr/bin/tql.
+    for OLD in /usr/local/bin/tql "$HOME/.local/bin/tql"; do
+        if [ -f "$OLD" ] && "$OLD" --version 2>/dev/null | grep -q '^Tql v'; then
+            say "Removing $OLD, which the package replaces."
+            rm -f "$OLD" 2>/dev/null || $SUDO rm -f "$OLD"
+        fi
+    done
+
+    # Piped into sh, pacman's questions would read the rest of this script, so
+    # it asks on the terminal, or goes ahead without asking if there is none.
+    if (: </dev/tty) 2>/dev/null; then
+        $SUDO pacman -U "$WORK/$PKG" </dev/tty
+    else
+        $SUDO pacman -U --noconfirm "$WORK/$PKG" </dev/null
+    fi
+
+    say ""
+    say "Installed $(tql --version 2>/dev/null || echo tql) with pacman. Run it with: tql"
+    say "pacman -Syu will not see new releases; run this script again, or sudo pacman -R tql to remove it."
+}
+
+if [ "$OS" = "linux" ] && [ -z "${TQL_BIN_DIR:-}" ] && command -v pacman >/dev/null 2>&1; then
+    install_with_pacman && exit 0
+fi
+
 # Somewhere on PATH that does not need a password, if there is one.
 if [ -n "${TQL_BIN_DIR:-}" ]; then
     DIR="$TQL_BIN_DIR"

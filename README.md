@@ -225,17 +225,25 @@ not see new releases. `tql --version` says which one you have.
 
 ### Arch
 
-tql is not on the AUR yet. Releases after 0.7.0 carry a `PKGBUILD` filled in
-for that release, so `makepkg` builds a proper pacman package from it. Read it
-first, it is twenty lines:
+tql is not on the AUR yet, but the install script installs it as a pacman
+package:
 
 ```bash
-mkdir tql && cd tql
-gh release download --repo VheissuLabs/tql --pattern PKGBUILD
-makepkg -si
+curl -fsSL https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh | sh
 ```
 
-Until then, use Homebrew, the binary by hand below, or the install script.
+On Arch it downloads the release's package, checks it against the release's
+`SHA256SUMS` and hands it to `sudo pacman -U`, which asks before it installs, as
+usual. pacman owns `/usr/bin/tql` from then on, and `sudo pacman -R tql` removes
+it. There is no repository behind it, so `pacman -Syu` does not see new
+releases: tql tells you when one is out, and running the script again upgrades
+it. If an earlier run of the script left a loose `tql` in `/usr/local/bin` or
+`~/.local/bin`, it is removed so it does not hide the package. Releases up to
+0.17.0 have no package, so for those the script installs the binary instead.
+
+The package is also a release asset, `tql-<version>-1-x86_64.pkg.tar.zst` (or
+`aarch64`), for `sudo pacman -U` by hand, and releases after 0.7.0 carry a
+`PKGBUILD` for `makepkg -si`.
 
 ### The binary, by hand
 
@@ -269,7 +277,8 @@ curl -fsSL https://raw.githubusercontent.com/VheissuLabs/tql/main/install.sh | s
 It picks the build for your platform, puts it somewhere on your PATH
 (`/usr/local/bin` if it can write there, `~/.local/bin` if not) and tells you
 where it went. `TQL_BIN_DIR` chooses the directory, `TQL_VERSION=v0.4.1` pins a
-version.
+version. On Arch it installs the pacman package instead, unless `TQL_BIN_DIR`
+asks for the binary in a directory of your choosing.
 
 Piping a script from the internet into a shell runs whatever it says, so if you
 would rather read it first, and you should, download it, read it, then run it:
@@ -493,7 +502,7 @@ says nothing. What happens next depends on how you installed it:
   already running, an MCP server included, keeps its own file and carries on.
   The last three versions are kept. A download that does not match its checksum
   is never installed.
-- **Homebrew, or a `.deb`, `.rpm` or `PKGBUILD`:** tql never replaces a file a
+- **Homebrew, or a `.deb`, `.rpm`, Arch package or `PKGBUILD`:** tql never replaces a file a
   package manager owns. The connection list says what to run instead, such as
   *tql 0.8.0 is out · brew upgrade tql*.
 
