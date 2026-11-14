@@ -54,7 +54,6 @@ The dev profile is optimised, so a debug build feels like the real thing.
 | `app/store.rs`, `app/store_writer.rs` | tql's own store: connections and query history |
 | `app/tunnel.rs` | SSH tunnels |
 | `app/updates/` | the daily check and the self-updater |
-| `parity/` | the comparison with tql 0.11.0, and why it differs where it does |
 
 ## How a frame is drawn
 
@@ -162,15 +161,9 @@ ask for them with `--ignored`:
 
 | | needs |
 | --- | --- |
-| `tests/parity.rs` | PHP, and a checkout of tql 0.11.0 with `composer install` at `TQL_PATH` (default `~/Code/tql`); `TQL_PARITY_MYSQL=1` and `TQL_PARITY_PGSQL=1` add MySQL and Postgres |
 | `tests/kinds.rs` | a local MySQL and Postgres |
 | `tests/live_tls_ssh.rs` | Docker, for throwaway MySQL, Postgres and sshd containers |
 | `tests/sqlsrv.rs` | a SQL Server at `TQL_TEST_SQLSRV=host:port`, with `TQL_TEST_SQLSRV_PASSWORD` for `sa` |
-
-**Parity** renders the same scenarios in tql 0.11.0 and in this tql and compares
-every frame, text and colour. Where they differ on purpose, `tests/parity.rs`
-says why and [parity/deliberate.md](../parity/deliberate.md) lists what no frame
-shows.
 
 ## Building and releasing
 

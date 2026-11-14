@@ -31,8 +31,8 @@ jobs:
       - name: Lint
         run: cargo clippy --locked --all-targets -- -D warnings
 
-      # The live database, SSH and PHP parity tests are ignored here; they need
-      # servers and a tql checkout that a runner does not have.
+      # The live database and SSH tests are ignored here; they need
+      # servers that a runner does not have.
       - name: Run the suite
         run: cargo test --locked
 
