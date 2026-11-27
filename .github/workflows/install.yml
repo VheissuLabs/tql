@@ -3,9 +3,9 @@ name: install
 on:
   push:
     branches: [main]
-    paths: ['install.sh', 'packaging/**', '.github/workflows/install.yml']
+    paths: ['install.sh', 'packaging/**', 'flake.nix', '.github/workflows/install.yml']
   pull_request:
-    paths: ['install.sh', 'packaging/**', '.github/workflows/install.yml']
+    paths: ['install.sh', 'packaging/**', 'flake.nix', '.github/workflows/install.yml']
   schedule:
     - cron: '0 6 * * 1'
   workflow_dispatch:
@@ -60,6 +60,19 @@ jobs:
               pacman -Qo "$(command -v tql)" | grep -q " tql $VERSION-1"
             fi
           '
+
+  nix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install with the flake and run it
+        run: |
+          version=$(sed -n 's/^ *version = "\(.*\)";$/\1/p' flake.nix | head -1)
+
+          nix --extra-experimental-features "nix-command flakes" profile add "path:$PWD"
+          tql --version | tee /dev/stderr | grep -qx "Tql v$version"
 
   pkgbuild:
     runs-on: ubuntu-latest
