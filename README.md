@@ -246,6 +246,57 @@ From 0.17.1 the package is also a release asset,
 `tql-<version>-1-x86_64.pkg.tar.zst` (or `aarch64`), for `sudo pacman -U` by
 hand, and releases after 0.7.0 carry a `PKGBUILD` for `makepkg -si`.
 
+### NixOS, with Nix flakes
+
+This repository is a flake, so Nix installs tql as a package, an application or
+a module in a configuration, with nothing to build:
+
+```bash
+nix profile add github:VheissuLabs/tql   # into your profile
+nix run github:VheissuLabs/tql           # without installing it
+```
+
+The flake carries the release binary, the same one the packages above carry,
+so there is nothing beside it to install. It names the version it installs and
+the checksum of that release, so a new release means a new flake.
+
+In a NixOS configuration, add the flake as an input and take the package from
+it:
+
+```nix
+{
+  inputs.tql.url = "github:VheissuLabs/tql";
+  inputs.tql.inputs.nixpkgs.follows = "nixpkgs";
+
+  outputs = { nixpkgs, tql, ... }: {
+    nixosConfigurations.myhost = nixpkgs.lib.nixosSystem {
+      modules = [
+        tql.nixosModules.default
+        {
+          nixpkgs.hostPlatform = "x86_64-linux";
+          environment.systemPackages = [ tql.packages.x86_64-linux.default ];
+        }
+      ];
+    };
+  };
+}
+```
+
+Then rebuild, and tql is on the PATH:
+
+```bash
+sudo nixos-rebuild switch
+```
+
+The module does the same with one option, `tql.enable = true;`, and builds the
+package with your own nixpkgs. The flake also has an overlay, which puts
+`tql` in a nixpkgs as `pkgs.tql`, and a package built from the sources in this
+repository rather than fetched from a release:
+
+```bash
+nix build github:VheissuLabs/tql#tql-source
+```
+
 ### The binary, by hand
 
 The releases carry `tql-linux-x86_64`, `tql-linux-aarch64`, and

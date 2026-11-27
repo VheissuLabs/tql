@@ -27,6 +27,7 @@ caught before someone runs into it.
 | `.deb`, `.rpm`, `.pkg.tar.zst` | the matching binary, one per architecture, no dependencies; `install.sh` installs the Arch one with pacman |
 | Homebrew | `packaging/homebrew/tql.rb`, pushed to the tap on release |
 | AUR | `packaging/aur/PKGBUILD`, pushed to `tql-bin` on release |
+| Nix | `flake.nix`, in this repository; it installs the release binary, or builds from source |
 
 `VERSION` and the `SHA_*` placeholders in the formula and the PKGBUILD are
 filled in by the workflow from the tag and the published checksums.
@@ -113,6 +114,32 @@ Hosting an actual apt or dnf *repository*, so `apt install tql` works without
 downloading a file first, needs somewhere to serve it from and a signing key.
 That is the next step, not a missing one: the packages themselves are already
 built and correct.
+
+## Nix
+
+The flake in this repository installs tql on NixOS:
+
+```bash
+nix profile add github:VheissuLabs/tql
+```
+
+It fetches the release binary, the same one the packages above carry, so
+there is nothing to build and nothing to install beside it. `flake.nix` names
+the version it installs and the checksum of each asset, so a release bumps
+them:
+
+```bash
+VERSION=0.17.1
+for asset in tql-linux-x86_64 tql-linux-aarch64 tql-macos-aarch64; do
+    printf '%s: sha256-%s\n' "$asset" \
+        "$(openssl dgst -sha256 -binary "release/$asset" | base64)"
+done
+```
+
+The checksum is the base64 of the raw digest, which is what `hash` in
+`flake.nix` wants. The flake also builds tql from the sources in this
+repository, as `tql-source`, for the platforms upstream releases no binary
+for, and carries a NixOS module and an overlay.
 
 ## Adding a distribution
 
